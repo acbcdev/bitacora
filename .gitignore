@@ -1,0 +1,20 @@
+# deps
+node_modules
+
+# build
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+
+# env — NUNCA commitear (anon key va acá; service_role jamás)
+.env
+.env.*
+!.env.example
+
+# editor / os
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea
