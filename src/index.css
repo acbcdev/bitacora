@@ -128,3 +128,19 @@
     @apply font-sans;
     }
 }
+
+/* Estilos del editor/lector Tiptap. Sin plugin typography — solo lo que StarterKit produce. */
+.tiptap-host .ProseMirror {
+  @apply outline-none leading-relaxed;
+}
+.tiptap-host .ProseMirror h1 { @apply text-3xl font-bold mt-6 mb-3; }
+.tiptap-host .ProseMirror h2 { @apply text-2xl font-bold mt-5 mb-2; }
+.tiptap-host .ProseMirror h3 { @apply text-xl font-semibold mt-4 mb-2; }
+.tiptap-host .ProseMirror p { @apply my-3; }
+.tiptap-host .ProseMirror ul { @apply list-disc pl-6 my-3; }
+.tiptap-host .ProseMirror ol { @apply list-decimal pl-6 my-3; }
+.tiptap-host .ProseMirror blockquote { @apply border-l-2 border-border pl-4 italic text-muted-foreground; }
+.tiptap-host .ProseMirror code { @apply rounded bg-muted px-1 py-0.5 text-sm; }
+.tiptap-host .ProseMirror pre { @apply rounded bg-muted p-3 my-3 overflow-x-auto; }
+.tiptap-host .ProseMirror pre code { @apply bg-transparent p-0; }
+.tiptap-host .ProseMirror hr { @apply my-6 border-border; }
