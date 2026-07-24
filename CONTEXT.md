@@ -30,6 +30,8 @@ Nivel medio (ver `docs/adr/0005-frontend-stack.md`):
 
 - **Routing:** React Router · **Data/estado servidor:** TanStack Query · **Styling:** Tailwind +
   Radix vía **shadcn/ui** · **PWA:** `vite-plugin-pwa` · **Testing:** Vitest · **pm:** pnpm.
+- **Acceso a datos:** `supabase-js` + tipos generados (`supabase gen types`). **Sin ORM**
+  (ADR 0006) — un ORM no tiene dónde correr sin backend y bypassa RLS.
 - **Sin design system formal.** Las guías visuales viven en `docs/ui-principles.md`
   (keyboard-first, nota grande, chrome mínimo).
 

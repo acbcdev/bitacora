@@ -37,6 +37,6 @@ asumen tablas existentes y solo escriben queries + UI.
 
 ## Issues
 
-- `01` proyecto Supabase + magic link + `.env` / `.gitignore`
+- `01` init del proyecto (bootstrap + deps + shadcn) + Supabase + magic link + `.env`
 - `02` migración schema (3 tablas + FK)
 - `03` RLS policies
