@@ -10,12 +10,9 @@ export function useCourses() {
   return useQuery({
     queryKey: ["courses"],
     queryFn: async (): Promise<Course[]> => {
-      const { data, error } = await supabase
-        .from("courses")
-        .select("*")
-        .is("deleted_at", null)
+      const { data, error } = await supabase.from("courses").select("*").is("deleted_at", null)
       if (error) throw error
-      return data.sort(
+      return data.toSorted(
         (a, b) =>
           STATUS_ORDER[a.status] - STATUS_ORDER[b.status] ||
           b.created_at.localeCompare(a.created_at),
