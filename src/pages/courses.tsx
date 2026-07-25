@@ -75,7 +75,8 @@ export function Courses({ embed }: { embed?: boolean }) {
   const rows = courses
     .filter(
       (c) =>
-        (status === "todos" || c.status === status) && c.name.toLowerCase().includes(q.toLowerCase()),
+        (status === "todos" || c.status === status) &&
+        c.name.toLowerCase().includes(q.toLowerCase()),
     )
     .toSorted((a, b) => {
       if (sort === "nombre") return a.name.localeCompare(b.name)
@@ -94,9 +95,7 @@ export function Courses({ embed }: { embed?: boolean }) {
       <div className="mb-6 flex items-baseline gap-3">
         <h1
           className={
-            embed
-              ? "text-xl font-semibold tracking-tight"
-              : "text-2xl font-semibold tracking-tight"
+            embed ? "text-xl font-semibold tracking-tight" : "text-2xl font-semibold tracking-tight"
           }
         >
           Cursos
@@ -181,7 +180,10 @@ export function Courses({ embed }: { embed?: boolean }) {
                     <Badge variant={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
                   </td>
                   <td className="w-[180px] px-3 py-3">
-                    <Progress read={progress?.get(c.id)?.read ?? 0} total={progress?.get(c.id)?.total ?? 0} />
+                    <Progress
+                      read={progress?.get(c.id)?.read ?? 0}
+                      total={progress?.get(c.id)?.total ?? 0}
+                    />
                   </td>
                   <td className="mono px-3 py-3 text-right">{progress?.get(c.id)?.total ?? 0}</td>
                   <td className="mono-dim px-3 py-3 text-right">{fmt(c.started_at)}</td>

@@ -68,7 +68,11 @@ export function Course() {
           />
         ) : (
           <div className="mx-auto max-w-read px-8 pt-9">
-            <button className="icon-btn mb-6" onClick={() => navigate("/courses")} aria-label="Volver">
+            <button
+              className="icon-btn mb-6"
+              onClick={() => navigate("/courses")}
+              aria-label="Volver"
+            >
               <ArrowLeft size={15} />
             </button>
             <p className="text-sm text-muted-foreground">

@@ -5,7 +5,13 @@ const at = (day: string, h = "10:00:00") => `2026-07-${day}T${h}`
 
 test("racha cuenta días consecutivos y no se rompe si hoy todavía no leyó", () => {
   // 22 y 23 sí, hoy (24) no → racha 2, hoy 0.
-  const s = deriveReadStats([{ note_id: "n1", read_at: at("22") }, { note_id: "n2", read_at: at("23") }], now)
+  const s = deriveReadStats(
+    [
+      { note_id: "n1", read_at: at("22") },
+      { note_id: "n2", read_at: at("23") },
+    ],
+    now,
+  )
   expect(s.streak).toBe(2)
   expect(s.today).toBe(0)
 })

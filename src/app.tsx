@@ -116,7 +116,13 @@ function Shell() {
   function actions(): Action[] {
     const courseName = new Map(courses.map((c) => [c.id, c.name]))
     return [
-      { group: "Navegar", label: "Ir a Hoy", kbd: "G H", icon: <Flame />, run: () => navigate("/") },
+      {
+        group: "Navegar",
+        label: "Ir a Hoy",
+        kbd: "G H",
+        icon: <Flame />,
+        run: () => navigate("/"),
+      },
       {
         group: "Navegar",
         label: "Ir a Cursos",

@@ -28,15 +28,29 @@ export function Sidebar({
   if (collapsed) {
     return (
       <aside className="flex w-14 shrink-0 flex-col items-center gap-1 border-r py-3">
-        <button className="icon-btn" onClick={onToggle} title="Expandir" aria-label="Expandir sidebar">
+        <button
+          className="icon-btn"
+          onClick={onToggle}
+          title="Expandir"
+          aria-label="Expandir sidebar"
+        >
           <PanelLeft />
         </button>
         <div className="h-2" />
-        <NavLink to="/" end className="icon-btn aria-[current=page]:bg-muted aria-[current=page]:text-foreground" title="Hoy">
+        <NavLink
+          to="/"
+          end
+          className="icon-btn aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+          title="Hoy"
+        >
           <Flame />
           <span className="sr-only">Hoy</span>
         </NavLink>
-        <NavLink to="/courses" className="icon-btn aria-[current=page]:bg-muted aria-[current=page]:text-foreground" title="Cursos">
+        <NavLink
+          to="/courses"
+          className="icon-btn aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+          title="Cursos"
+        >
           <BookOpen />
           <span className="sr-only">Cursos</span>
         </NavLink>
@@ -59,7 +73,12 @@ export function Sidebar({
     <aside className="flex w-[216px] shrink-0 flex-col border-r">
       <div className="flex items-center justify-between pt-4.5 pr-2.5 pb-3.5 pl-4">
         <span className="text-base font-semibold tracking-tight">Bitácora</span>
-        <button className="icon-btn" onClick={onToggle} title="Colapsar" aria-label="Colapsar sidebar">
+        <button
+          className="icon-btn"
+          onClick={onToggle}
+          title="Colapsar"
+          aria-label="Colapsar sidebar"
+        >
           <PanelLeft />
         </button>
       </div>
@@ -80,7 +99,12 @@ export function Sidebar({
           <p className="eyebrow px-4 pt-5 pb-2">Cursos activos</p>
           <div className="flex flex-col gap-0.5 overflow-y-auto px-2">
             {active.map((c) => (
-              <NavLink key={c.id} to={`/course/${c.id}`} className="nav-item text-xs" title={c.name}>
+              <NavLink
+                key={c.id}
+                to={`/course/${c.id}`}
+                className="nav-item text-xs"
+                title={c.name}
+              >
                 <span className="truncate">{c.name}</span>
               </NavLink>
             ))}
