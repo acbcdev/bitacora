@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { Review } from "@/pages/Review"
+import { MemoryRouter } from "react-router-dom"
+import { Review } from "@/pages/review"
 
 // Spy hoisted para poder referenciarlo dentro del factory de vi.mock.
 const { insertReadLog } = vi.hoisted(() => ({
@@ -8,41 +9,55 @@ const { insertReadLog } = vi.hoisted(() => ({
 }))
 
 // Mock del cliente Supabase: cola de 2 notas + un curso. Sin red.
-vi.mock("@/lib/supabase", () => ({
-  supabase: {
-    rpc: (name: string) =>
-      name === "review_queue"
-        ? Promise.resolve({
-            data: [
-              { id: "n1", title: "Nota uno", content: { type: "doc" }, course_id: "c1" },
-              { id: "n2", title: "Nota dos", content: { type: "doc" }, course_id: "c1" },
-            ],
-            error: null,
-          })
-        : Promise.resolve({ data: [], error: null }),
-    from: (table: string) =>
-      table === "read_log"
-        ? { insert: insertReadLog }
-        : {
-            select: () => ({
-              is: () =>
-                Promise.resolve({
-                  data: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
-                  error: null,
-                }),
-            }),
-          },
-  },
-}))
+vi.mock("@/lib/supabase", () => {
+  const rows: Record<string, unknown[]> = {
+    courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
+    notes: [],
+    read_log: [],
+  }
+  // Cadena thenable: select/is/eq/order devuelven la misma cadena y se resuelven al await —
+  // igual que el PostgrestBuilder real de supabase-js, que también es un thenable.
+  const query = (table: string) => {
+    const chain = {
+      select: () => chain,
+      is: () => chain,
+      eq: () => chain,
+      order: () => chain,
+      insert: insertReadLog,
+      // oxlint-disable-next-line unicorn/no-thenable -- es justamente lo que imita al builder real
+      then: (fn: (r: unknown) => unknown) =>
+        Promise.resolve({ data: rows[table] ?? [], error: null }).then(fn),
+    }
+    return chain
+  }
+  return {
+    supabase: {
+      rpc: (name: string) =>
+        Promise.resolve({
+          data:
+            name === "review_queue"
+              ? [
+                  { id: "n1", title: "Nota uno", content: { type: "doc" }, course_id: "c1" },
+                  { id: "n2", title: "Nota dos", content: { type: "doc" }, course_id: "c1" },
+                ]
+              : [],
+          error: null,
+        }),
+      from: query,
+    },
+  }
+})
 
 // Tiptap no corre limpio en jsdom y no es lo que testeamos acá.
-vi.mock("@/components/Editor", () => ({ Editor: () => <div data-testid="editor" /> }))
+vi.mock("@/components/editor", () => ({ Editor: () => <div data-testid="editor" /> }))
 
 function renderReview() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={qc}>
-      <Review />
+      <MemoryRouter>
+        <Review />
+      </MemoryRouter>
     </QueryClientProvider>,
   )
 }
