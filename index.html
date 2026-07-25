@@ -1,9 +1,14 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pulpo</title>
+    <title>Bitácora</title>
+    <script>
+      // Tema antes del primer paint (sin flash). Dark es el default del diseño.
+      if (localStorage.getItem("bita-theme") === "light")
+        document.documentElement.classList.remove("dark")
+    </script>
   </head>
   <body>
     <div id="root"></div>
