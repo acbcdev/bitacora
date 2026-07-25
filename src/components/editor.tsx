@@ -19,7 +19,7 @@ export function Editor({
     extensions: [StarterKit],
     content: content as Content,
     editable,
-    onUpdate: ({ editor }) => onChange?.(editor.getJSON() as TiptapDoc),
+    onUpdate: ({ editor: updated }) => onChange?.(updated.getJSON() as TiptapDoc),
   })
 
   // Modo lectura (Repaso): si cambia la nota mostrada, refrescar el contenido.

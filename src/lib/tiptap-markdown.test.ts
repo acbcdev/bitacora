@@ -19,16 +19,28 @@ test("preserva estructura del documento Tiptap", () => {
       {
         type: "bulletList",
         content: [
-          { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "uno" }] }] },
-          { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "dos" }] }] },
+          {
+            type: "listItem",
+            content: [{ type: "paragraph", content: [{ type: "text", text: "uno" }] }],
+          },
+          {
+            type: "listItem",
+            content: [{ type: "paragraph", content: [{ type: "text", text: "dos" }] }],
+          },
         ],
       },
-      { type: "codeBlock", attrs: { language: "ts" }, content: [{ type: "text", text: "const x = 1" }] },
+      {
+        type: "codeBlock",
+        attrs: { language: "ts" },
+        content: [{ type: "text", text: "const x = 1" }],
+      },
     ],
   }
 
   expect(docToMarkdown(doc)).toBe(
-    ["## Título", "hola **mundo** y `code`", "- uno\n- dos", "```ts\nconst x = 1\n```"].join("\n\n"),
+    ["## Título", "hola **mundo** y `code`", "- uno\n- dos", "```ts\nconst x = 1\n```"].join(
+      "\n\n",
+    ),
   )
 })
 

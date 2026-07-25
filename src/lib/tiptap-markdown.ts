@@ -73,7 +73,7 @@ export function docToMarkdown(doc: TiptapDoc): string {
 
 // Descarga cliente-side pura (notes/03). Sin pantalla ni tabla nueva.
 export function downloadMarkdown(title: string, doc: TiptapDoc) {
-  const name = (title.trim() || "nota").replace(/[^\w\-]+/g, "-")
+  const name = (title.trim() || "nota").replace(/[^\w-]+/g, "-")
   const blob = new Blob([docToMarkdown(doc)], { type: "text/markdown" })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
