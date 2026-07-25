@@ -1,4 +1,7 @@
 import { useState } from "react"
+import { Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
 
 export function Login() {
@@ -9,28 +12,58 @@ export function Login() {
   async function send(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    const { error } = await supabase.auth.signInWithOtp({ email })
-    if (error) setError(error.message)
+    const res = await supabase.auth.signInWithOtp({ email })
+    if (res.error) setError(res.error.message)
     else setSent(true)
   }
 
-  if (sent) return <p className="p-8">Revisá tu mail: te mandamos el magic link.</p>
-
   return (
-    <form onSubmit={send} className="mx-auto flex max-w-sm flex-col gap-3 p-8">
-      <h1 className="text-lg font-semibold">pulpo</h1>
-      <input
-        type="email"
-        required
-        placeholder="tu@email.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="rounded border px-3 py-2"
-      />
-      <button type="submit" className="rounded bg-neutral-900 px-3 py-2 text-white">
-        Enviar magic link
-      </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-    </form>
+    <div className="grid min-h-screen place-items-center px-6">
+      <div className="fade-in flex w-[380px] max-w-full flex-col gap-8">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tighter">Bitácora</h1>
+          <p className="mt-2.5 text-base text-muted-foreground">
+            Tu registro de estudio. Repasá, trackeá, avanzá.
+          </p>
+        </div>
+
+        <div className="panel flex flex-col gap-5 p-8">
+          {sent ? (
+            <>
+              <p className="flex items-center gap-2 text-sm font-medium text-brand-fg">
+                <Check />
+                Link enviado
+              </p>
+              <p className="text-sm text-fg-secondary">
+                Revisá {email || "tu mail"} y abrí el magic link.
+              </p>
+            </>
+          ) : (
+            <form onSubmit={send} className="flex flex-col gap-5">
+              <label className="flex flex-col gap-1.5">
+                <span className="eyebrow">Email</span>
+                <Input
+                  type="email"
+                  required
+                  placeholder="tu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-10"
+                />
+              </label>
+              <Button type="submit" size="lg">
+                Enviar magic link
+              </Button>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </form>
+          )}
+        </div>
+
+        <div className="flex justify-between">
+          <span className="mono-dim">Sin contraseña — magic link</span>
+          <span className="mono-dim">v0.3</span>
+        </div>
+      </div>
+    </div>
   )
 }
