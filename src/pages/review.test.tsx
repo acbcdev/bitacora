@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter } from "react-router-dom"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { Review } from "@/pages/review"
 
 // Spy hoisted para poder referenciarlo dentro del factory de vi.mock.
@@ -56,7 +57,11 @@ function renderReview() {
   render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
-        <Review />
+        {/* Hoy embebe Cursos, y ahí hay tooltips: sin provider radix tira. En la app real lo pone
+            App una sola vez. */}
+        <TooltipProvider>
+          <Review />
+        </TooltipProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   )
