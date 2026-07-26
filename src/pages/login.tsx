@@ -1,6 +1,8 @@
 import { useState } from "react"
 import { Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
 
@@ -27,7 +29,7 @@ export function Login() {
           </p>
         </div>
 
-        <div className="panel flex flex-col gap-5 p-8">
+        <Card className="gap-5 p-8">
           {sent ? (
             <>
               <p className="flex items-center gap-2 text-sm font-medium text-brand-fg">
@@ -39,25 +41,31 @@ export function Login() {
               </p>
             </>
           ) : (
-            <form onSubmit={send} className="flex flex-col gap-5">
-              <label className="flex flex-col gap-1.5">
-                <span className="eyebrow">Email</span>
-                <Input
-                  type="email"
-                  required
-                  placeholder="tu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-10"
-                />
-              </label>
-              <Button type="submit" size="lg">
-                Enviar magic link
-              </Button>
-              {error && <p className="text-sm text-destructive">{error}</p>}
+            <form onSubmit={send}>
+              <FieldGroup>
+                <Field data-invalid={!!error}>
+                  <FieldLabel htmlFor="email" className="eyebrow">
+                    Email
+                  </FieldLabel>
+                  <Input
+                    id="email"
+                    type="email"
+                    required
+                    aria-invalid={!!error}
+                    placeholder="tu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-10"
+                  />
+                  <FieldError>{error}</FieldError>
+                </Field>
+                <Button type="submit" size="lg">
+                  Enviar magic link
+                </Button>
+              </FieldGroup>
             </form>
           )}
-        </div>
+        </Card>
 
         <div className="flex justify-between">
           <span className="mono-dim">Sin contraseña — magic link</span>
