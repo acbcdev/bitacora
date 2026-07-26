@@ -5,16 +5,41 @@ import {
   ChevronRight,
   Filter,
   LayoutGrid,
+  MoreHorizontal,
   Pencil,
   Plus,
   Rows3,
   Search,
   Trash2,
 } from "lucide-react"
+import { ConfirmDelete } from "@/components/confirm-delete"
+import { TableSkeleton } from "@/components/skeletons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Modal } from "@/components/ui/modal"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { NativeSelect } from "@/components/ui/native-select"
+import { Progress } from "@/components/ui/progress"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   useCourses,
   useCourseProgress,
@@ -33,6 +58,12 @@ const STATUS: Record<CourseStatus, [string, "brand" | "warning" | "outline"]> = 
 }
 
 type Sort = "recientes" | "nombre" | "progreso" | "inicio"
+
+// Curso al 100%: la barra pierde el acento de marca (regla visual del DS).
+const INDICATOR_DONE = "[&>[data-slot=progress-indicator]]:bg-muted-foreground"
+
+// Las dos vacías son la columna del chevron y la de acciones.
+const HEADERS = ["", "Curso", "Estado", "Progreso", "Notas", "Inicio", "Últ. repaso", ""]
 
 function fmt(d: string | null | undefined) {
   return d ? d.slice(0, 10) : "—"
@@ -106,15 +137,16 @@ export function Courses({ embed }: { embed?: boolean }) {
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <div className="flex h-8 w-[220px] items-center gap-2 rounded-lg border border-input bg-card px-2.5">
-          <Search size={14} className="text-muted-foreground" />
-          <input
+        <InputGroup className="w-[220px] bg-card">
+          <InputGroupAddon>
+            <Search className="size-3.5" />
+          </InputGroupAddon>
+          <InputGroupInput
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar curso…"
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
-        </div>
+        </InputGroup>
 
         <Pill icon={<Filter size={13} />} value={status} onChange={setStatus}>
           <option value="todos">Estado: todos</option>
@@ -129,116 +161,127 @@ export function Courses({ embed }: { embed?: boolean }) {
           <option value="inicio">Inicio</option>
         </Pill>
 
-        <div className="ml-auto flex overflow-hidden rounded-lg border border-input">
-          {(["tabla", "tarjetas"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              aria-label={v}
-              aria-pressed={view === v}
-              className="icon-btn rounded-none border-0 aria-pressed:bg-muted aria-pressed:text-foreground"
-            >
-              {v === "tabla" ? <Rows3 /> : <LayoutGrid />}
-            </button>
-          ))}
-        </div>
+        {/* `v &&` porque radix manda "" al deseleccionar: siempre queda una vista elegida. */}
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          spacing={0}
+          value={view}
+          onValueChange={(v) => v && setView(v as typeof view)}
+          className="ml-auto"
+        >
+          <ToggleGroupItem value="tabla" aria-label="tabla">
+            <Rows3 />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="tarjetas" aria-label="tarjetas">
+            <LayoutGrid />
+          </ToggleGroupItem>
+        </ToggleGroup>
         <Button size="sm" onClick={() => setEditing("new")}>
           <Plus />
           Nuevo curso
         </Button>
       </div>
 
-      {isLoading ? null : view === "tabla" ? (
-        <div className="panel overflow-hidden">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-input">
-                {["", "Curso", "Estado", "Progreso", "Notas", "Inicio", "Últ. repaso", ""].map(
-                  (h, i) => (
-                    <th
-                      key={i}
-                      className={`eyebrow px-3 py-3 ${i >= 4 ? "text-right" : "text-left"}`}
-                    >
-                      {h}
-                    </th>
-                  ),
-                )}
-              </tr>
-            </thead>
-            <tbody>
+      {isLoading ? (
+        <TableSkeleton />
+      ) : view === "tabla" ? (
+        <Card className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                {HEADERS.map((h, i) => (
+                  <TableHead key={i} className={`eyebrow px-3 py-3 ${i >= 4 ? "text-right" : ""}`}>
+                    {h}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((c) => (
-                <tr
+                <TableRow
                   key={c.id}
-                  className="group row-link border-b"
+                  className="cursor-pointer"
                   onClick={() => navigate(`/course/${c.id}`)}
                 >
-                  <td className="w-7 px-3 py-3 text-muted-foreground">
+                  <TableCell className="w-7 px-3 py-3 text-muted-foreground">
                     <ChevronRight size={14} />
-                  </td>
-                  <td className="px-3 py-3 text-sm font-medium">{c.name}</td>
-                  <td className="px-3 py-3">
+                  </TableCell>
+                  <TableCell className="px-3 py-3 font-medium">{c.name}</TableCell>
+                  <TableCell className="px-3 py-3">
                     <Badge variant={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
-                  </td>
-                  <td className="w-[180px] px-3 py-3">
-                    <Progress
+                  </TableCell>
+                  <TableCell className="w-[180px] px-3 py-3">
+                    <CourseProgress
                       read={progress?.get(c.id)?.read ?? 0}
                       total={progress?.get(c.id)?.total ?? 0}
                     />
-                  </td>
-                  <td className="mono px-3 py-3 text-right">{progress?.get(c.id)?.total ?? 0}</td>
-                  <td className="mono-dim px-3 py-3 text-right">{fmt(c.started_at)}</td>
-                  <td className="mono-dim px-3 py-3 text-right">{dayOf(lastRead.get(c.id))}</td>
-                  <td className="px-3 py-3 text-right whitespace-nowrap">
+                  </TableCell>
+                  <TableCell className="mono px-3 py-3 text-right">
+                    {progress?.get(c.id)?.total ?? 0}
+                  </TableCell>
+                  <TableCell className="mono-dim px-3 py-3 text-right">
+                    {fmt(c.started_at)}
+                  </TableCell>
+                  <TableCell className="mono-dim px-3 py-3 text-right">
+                    {dayOf(lastRead.get(c.id))}
+                  </TableCell>
+                  <TableCell className="px-3 py-3 text-right">
                     <RowActions
                       course={c}
                       onEdit={() => setEditing(c)}
                       onDelete={() => del.mutate(c.id)}
                     />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
               {rows.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-3 py-7 text-center text-sm text-muted-foreground">
-                    {courses.length === 0
-                      ? "Sin cursos. Creá el primero."
-                      : "Sin cursos que coincidan. Ajustá los filtros."}
-                  </td>
-                </tr>
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={HEADERS.length}>
+                    <Empty className="px-3 py-7">
+                      <EmptyHeader>
+                        <EmptyTitle>
+                          {courses.length === 0 ? "Sin cursos." : "Sin cursos que coincidan."}
+                        </EmptyTitle>
+                        <EmptyDescription>
+                          {courses.length === 0 ? "Creá el primero." : "Ajustá los filtros."}
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
           {rows.map((c) => (
-            <div
+            <Card
               key={c.id}
               onClick={() => navigate(`/course/${c.id}`)}
-              className="group panel cursor-pointer p-5 transition-colors hover:bg-muted"
+              className="group cursor-pointer gap-0 p-5 transition-colors hover:bg-muted"
             >
               <div className="mb-3.5 flex items-start justify-between gap-2">
                 <span className="text-sm font-medium text-pretty">{c.name}</span>
                 <Badge variant={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
               </div>
               <div className="mb-2.5">
-                <Progress
+                <CourseProgress
                   read={progress?.get(c.id)?.read ?? 0}
                   total={progress?.get(c.id)?.total ?? 0}
                 />
               </div>
               <div className="flex items-center justify-between">
                 <span className="mono-dim">{fmt(c.started_at)}</span>
-                <span className="mono-dim group-hover:hidden">
-                  últ. {dayOf(lastRead.get(c.id))}
-                </span>
+                <span className="mono-dim">últ. {dayOf(lastRead.get(c.id))}</span>
                 <RowActions
                   course={c}
                   onEdit={() => setEditing(c)}
                   onDelete={() => del.mutate(c.id)}
                 />
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
@@ -249,16 +292,15 @@ export function Courses({ embed }: { embed?: boolean }) {
 }
 
 // Progreso derivado (ADR 0003): notas leídas / total. Al 100% pierde el acento.
-function Progress({ read, total }: { read: number; total: number }) {
+function CourseProgress({ read, total }: { read: number; total: number }) {
   const pct = total ? Math.round((read / total) * 100) : 0
   return (
     <div className="flex items-center gap-2.5">
-      <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-        <div
-          className={pct === 100 ? "h-full bg-muted-foreground" : "h-full bg-brand"}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      <Progress
+        value={pct}
+        aria-label={`Progreso: ${read} de ${total} notas leídas`}
+        className={pct === 100 ? `flex-1 ${INDICATOR_DONE}` : "flex-1"}
+      />
       <span className="mono">
         {read}/{total}
       </span>
@@ -266,7 +308,7 @@ function Progress({ read, total }: { read: number; total: number }) {
   )
 }
 
-// Editar / borrar aparecen al hover — la fila entera navega al curso.
+// Editar / borrar en un menú — la fila entera navega al curso.
 function RowActions({
   course,
   onEdit,
@@ -276,22 +318,40 @@ function RowActions({
   onEdit: () => void
   onDelete: () => void
 }) {
+  const [confirming, setConfirming] = useState(false)
+
   return (
-    <span
-      className="inline-flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button className="icon-btn" onClick={onEdit} aria-label={`Editar ${course.name}`}>
-        <Pencil size={14} />
-      </button>
-      <button
-        className="icon-btn hover:text-destructive"
-        aria-label={`Borrar ${course.name}`}
-        onClick={() => confirm(`¿Borrar "${course.name}"?`) && onDelete()}
-      >
-        <Trash2 size={14} />
-      </button>
-    </span>
+    // El menú se portalea pero React igual propaga el click por el árbol, así que el
+    // stopPropagation va en los dos lados: si no, elegir una acción navega al curso.
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+            <Button variant="ghost" size="icon-sm" aria-label={`Acciones de ${course.name}`}>
+              <MoreHorizontal className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Acciones</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuItem onSelect={onEdit}>
+          <Pencil />
+          Editar
+        </DropdownMenuItem>
+        <DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
+          <Trash2 />
+          Borrar
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+
+      <ConfirmDelete
+        open={confirming}
+        onOpenChange={setConfirming}
+        what={course.name}
+        onConfirm={onDelete}
+      />
+    </DropdownMenu>
   )
 }
 
@@ -307,16 +367,20 @@ function Pill<T extends string>({
   children: React.ReactNode
 }) {
   return (
-    <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-input bg-card px-2">
-      <span className="text-muted-foreground">{icon}</span>
-      <select
+    // El icono va absoluto sobre el select y este le deja lugar con `pl-8`: `NativeSelect` no
+    // acepta hijos aparte de las opciones.
+    <div className="relative">
+      <span className="pointer-events-none absolute top-1/2 left-2.5 z-10 -translate-y-1/2 text-muted-foreground">
+        {icon}
+      </span>
+      <NativeSelect
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="cursor-pointer bg-transparent text-xs text-fg-secondary outline-none"
+        className="[&>select]:pl-8"
       >
         {children}
-      </select>
-    </label>
+      </NativeSelect>
+    </div>
   )
 }
 
@@ -340,66 +404,83 @@ function CourseForm({ course, onClose }: { course: Course | null; onClose: () =>
     else create.mutate(input, done)
   }
 
-  const field = "flex flex-col gap-1.5"
-
   return (
-    <Modal onClose={onClose} className="w-[420px] max-w-[92vw]">
-      <form onSubmit={submit}>
-        <div className="border-b px-8 py-6">
-          <h2 className="text-lg font-semibold">{course ? "Editar curso" : "Nuevo curso"}</h2>
-        </div>
-        <div className="flex flex-col gap-5 px-8 py-6">
-          <label className={field}>
-            <span className="eyebrow">Nombre</span>
-            <Input
-              autoFocus
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Compiladores desde cero"
-              className="h-10"
-            />
-          </label>
-          <label className={field}>
-            <span className="eyebrow">Estado</span>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as CourseStatus)}
-              className="h-10 rounded-lg border border-input bg-card px-2.5 text-base outline-none"
-            >
-              <option value="active">activo</option>
-              <option value="paused">pausado</option>
-              <option value="done">hecho</option>
-            </select>
-          </label>
-          <div className="flex gap-4">
-            <label className={field}>
-              <span className="eyebrow">Inicio</span>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className="w-[420px] max-w-[92vw] gap-0 p-0 sm:max-w-[420px]"
+      >
+        <form onSubmit={submit}>
+          <DialogHeader className="border-b px-8 py-6">
+            <DialogTitle className="text-lg font-semibold">
+              {course ? "Editar curso" : "Nuevo curso"}
+            </DialogTitle>
+          </DialogHeader>
+          <FieldGroup className="px-8 py-6">
+            <Field>
+              <FieldLabel htmlFor="course-name" className="eyebrow">
+                Nombre
+              </FieldLabel>
               <Input
-                type="date"
-                value={startedAt}
-                onChange={(e) => setStartedAt(e.target.value)}
+                id="course-name"
+                autoFocus
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ej: Compiladores desde cero"
                 className="h-10"
               />
-            </label>
-            <label className={field}>
-              <span className="eyebrow">Fin</span>
-              <Input
-                type="date"
-                value={finishedAt}
-                onChange={(e) => setFinishedAt(e.target.value)}
-                className="h-10"
-              />
-            </label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="course-status" className="eyebrow">
+                Estado
+              </FieldLabel>
+              <NativeSelect
+                id="course-status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as CourseStatus)}
+                className="w-full [&>select]:h-10 [&>select]:text-base"
+              >
+                <option value="active">activo</option>
+                <option value="paused">pausado</option>
+                <option value="done">hecho</option>
+              </NativeSelect>
+            </Field>
+            <FieldGroup className="flex-row">
+              <Field>
+                <FieldLabel htmlFor="course-started" className="eyebrow">
+                  Inicio
+                </FieldLabel>
+                <Input
+                  id="course-started"
+                  type="date"
+                  value={startedAt}
+                  onChange={(e) => setStartedAt(e.target.value)}
+                  className="h-10"
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="course-finished" className="eyebrow">
+                  Fin
+                </FieldLabel>
+                <Input
+                  id="course-finished"
+                  type="date"
+                  value={finishedAt}
+                  onChange={(e) => setFinishedAt(e.target.value)}
+                  className="h-10"
+                />
+              </Field>
+            </FieldGroup>
+          </FieldGroup>
+          <div className="flex justify-end gap-2 border-t px-8 py-4">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit">{course ? "Guardar" : "Crear curso"}</Button>
           </div>
-        </div>
-        <div className="flex justify-end gap-2 border-t px-8 py-4">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit">{course ? "Guardar" : "Crear curso"}</Button>
-        </div>
-      </form>
-    </Modal>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
