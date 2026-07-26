@@ -207,22 +207,6 @@
   .mono-dim {
     @apply font-mono text-xs text-muted-foreground;
   }
-  .panel {
-    @apply rounded-xl border bg-card;
-  }
-  .nav-item {
-    @apply flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-muted;
-  }
-  .nav-item[data-active="true"],
-  .nav-item[aria-current="page"] {
-    @apply bg-muted font-medium text-foreground;
-  }
-  .icon-btn {
-    @apply inline-grid size-[30px] shrink-0 cursor-pointer place-items-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground;
-  }
-  .row-link {
-    @apply cursor-pointer transition-colors hover:bg-muted;
-  }
   .fade-in {
     animation: b-fade 160ms cubic-bezier(0.4, 0, 0.2, 1);
   }
