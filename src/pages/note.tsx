@@ -1,9 +1,12 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Maximize2, Trash2 } from "lucide-react"
+import { ConfirmDelete } from "@/components/confirm-delete"
 import { Editor } from "@/components/editor"
+import { NoteSkeleton } from "@/components/skeletons"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useCourses } from "@/lib/courses"
 import { useDeleteNote, useNoteDraft } from "@/lib/notes"
 import { dayOf, useReadStats } from "@/lib/stats"
@@ -18,6 +21,7 @@ export function Note({ focus, setFocus }: { focus: boolean; setFocus: (v: boolea
   const { data: courses = [] } = useCourses()
   const { data: stats } = useReadStats()
   const del = useDeleteNote()
+  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -34,7 +38,7 @@ export function Note({ focus, setFocus }: { focus: boolean; setFocus: (v: boolea
     return () => window.removeEventListener("keydown", onKey)
   }, [focus, setFocus])
 
-  if (isLoading) return null
+  if (isLoading) return <NoteSkeleton />
   if (!note) return <p className="p-8 text-muted-foreground">Nota no encontrada.</p>
 
   const course = courses.find((c) => c.id === note.course_id)
@@ -51,13 +55,19 @@ export function Note({ focus, setFocus }: { focus: boolean; setFocus: (v: boolea
         </div>
       ) : (
         <div className="mb-8 flex items-center gap-2.5">
-          <button
-            className="icon-btn"
-            onClick={() => navigate(note.course_id ? `/course/${note.course_id}` : "/courses")}
-            aria-label="Volver"
-          >
-            <ArrowLeft size={15} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => navigate(note.course_id ? `/course/${note.course_id}` : "/courses")}
+                aria-label="Volver"
+              >
+                <ArrowLeft className="size-[15px]" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Volver</TooltipContent>
+          </Tooltip>
           <span className="eyebrow truncate">{course?.name ?? "Sin curso"}</span>
           <span className="mono-dim hidden whitespace-nowrap sm:inline">
             · {count} {count === 1 ? "repaso" : "repasos"} · últ. {dayOf(reads?.last)}
@@ -71,17 +81,26 @@ export function Note({ focus, setFocus }: { focus: boolean; setFocus: (v: boolea
             <Button variant="outline" size="sm" onClick={exportMd}>
               Export .md
             </Button>
-            <button
-              className="icon-btn hover:text-destructive"
-              aria-label="Borrar nota"
-              onClick={() =>
-                id &&
-                confirm("¿Borrar nota?") &&
-                del.mutate(id, { onSuccess: () => navigate("/courses") })
-              }
-            >
-              <Trash2 size={14} />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="hover:text-destructive"
+                  aria-label="Borrar nota"
+                  onClick={() => setConfirming(true)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Borrar nota</TooltipContent>
+            </Tooltip>
+            <ConfirmDelete
+              open={confirming}
+              onOpenChange={setConfirming}
+              what={title || "(sin título)"}
+              onConfirm={() => id && del.mutate(id, { onSuccess: () => navigate("/courses") })}
+            />
           </div>
         </div>
       )}

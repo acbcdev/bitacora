@@ -1,14 +1,25 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Maximize2, Plus, Trash2 } from "lucide-react"
+import { ConfirmDelete } from "@/components/confirm-delete"
 import { Editor } from "@/components/editor"
+import { NoteSkeleton } from "@/components/skeletons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Item } from "@/components/ui/item"
 import { Kbd } from "@/components/ui/kbd"
+import { Progress } from "@/components/ui/progress"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useCourses } from "@/lib/courses"
 import { useCreateNote, useDeleteNote, useNoteDraft, useNotes } from "@/lib/notes"
 import { dayOf, useReadStats } from "@/lib/stats"
 import type { CourseStatus } from "@/types/database"
+
+// `Item` solo trae hover para `<a>`; acá el nodo es un `<button>`, así que hover y selección van
+// explícitos. `data-active` lo sigue poniendo el call site, igual que con `.nav-item`.
+const NOTE_ITEM =
+  "cursor-pointer items-start text-left text-fg-secondary hover:bg-muted data-[active=true]:bg-muted data-[active=true]:font-medium data-[active=true]:text-foreground"
 
 const STATUS: Record<CourseStatus, [string, "brand" | "warning" | "outline"]> = {
   active: ["activo", "brand"],
@@ -57,7 +68,9 @@ export function Course() {
   return (
     <div className="fade-in flex h-full">
       <div className="min-w-0 flex-1 overflow-y-auto">
-        {isLoading ? null : selected ? (
+        {isLoading ? (
+          <NoteSkeleton />
+        ) : selected ? (
           <NotePane
             key={selected.id}
             noteId={selected.id}
@@ -68,16 +81,26 @@ export function Course() {
           />
         ) : (
           <div className="mx-auto max-w-read px-8 pt-9">
-            <button
-              className="icon-btn mb-6"
-              onClick={() => navigate("/courses")}
-              aria-label="Volver"
-            >
-              <ArrowLeft size={15} />
-            </button>
-            <p className="text-sm text-muted-foreground">
-              Este curso todavía no tiene notas. Creá la primera.
-            </p>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="mb-6"
+                  onClick={() => navigate("/courses")}
+                  aria-label="Volver"
+                >
+                  <ArrowLeft className="size-[15px]" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Volver</TooltipContent>
+            </Tooltip>
+            <Empty className="px-0">
+              <EmptyHeader>
+                <EmptyTitle>Este curso todavía no tiene notas.</EmptyTitle>
+                <EmptyDescription>Creá la primera.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </div>
         )}
       </div>
@@ -93,9 +116,7 @@ export function Course() {
             <span className="eyebrow">Progreso</span>
             <span className="mono">{pct}%</span>
           </div>
-          <div className="h-[3px] overflow-hidden rounded-full bg-muted">
-            <div className="h-full bg-brand" style={{ width: `${pct}%` }} />
-          </div>
+          <Progress value={pct} className="h-[3px]" aria-label={`Progreso del curso: ${pct}%`} />
         </div>
 
         <p className="eyebrow px-5 pt-4 pb-2">Notas</p>
@@ -103,18 +124,23 @@ export function Course() {
           {notes.map((n) => {
             const count = stats?.byNote.get(n.id)?.count ?? 0
             return (
-              <button
+              <Item
                 key={n.id}
-                onClick={() => setSel(n.id)}
+                asChild
+                size="xs"
                 data-active={n.id === selected?.id}
-                className="nav-item items-start"
+                className={NOTE_ITEM}
               >
-                <span
-                  className={`mt-[7px] size-[5px] shrink-0 rounded-full ${count > 0 ? "bg-brand" : "bg-input"}`}
-                />
-                <span className="flex-1">{n.title || "(sin título)"}</span>
-                <span className="mono-dim mt-0.5">{count}</span>
-              </button>
+                <button onClick={() => setSel(n.id)}>
+                  <span
+                    className={`mt-[7px] size-[5px] shrink-0 rounded-full ${count > 0 ? "bg-brand" : "bg-input"}`}
+                  />
+                  {/* Sin `ItemTitle`: viene con `line-clamp-1` y los títulos largos tienen que
+                      envolver, no cortarse. */}
+                  <span className="flex-1">{n.title || "(sin título)"}</span>
+                  <span className="mono-dim mt-0.5">{count}</span>
+                </button>
+              </Item>
             )
           })}
         </div>
@@ -149,6 +175,7 @@ function NotePane({
   onDelete: () => void
 }) {
   const { note, title, savedAt, onTitleChange, onDocChange, save, exportMd } = useNoteDraft(noteId)
+  const [confirming, setConfirming] = useState(false)
   if (!note) return null
 
   const count = reads?.count ?? 0
@@ -156,9 +183,14 @@ function NotePane({
   return (
     <div className="note-in mx-auto max-w-read px-8 pt-9 pb-16">
       <div className="mb-6 flex items-center gap-2.5">
-        <button className="icon-btn" onClick={onBack} aria-label="Volver">
-          <ArrowLeft size={15} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Volver">
+              <ArrowLeft className="size-[15px]" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Volver</TooltipContent>
+        </Tooltip>
         <span className="mono-dim hidden whitespace-nowrap sm:inline">
           últ. repaso {dayOf(reads?.last)} · {count} {count === 1 ? "repaso" : "repasos"}
         </span>
@@ -171,13 +203,26 @@ function NotePane({
           <Button variant="outline" size="sm" onClick={exportMd}>
             Export .md
           </Button>
-          <button
-            className="icon-btn hover:text-destructive"
-            aria-label="Borrar nota"
-            onClick={() => confirm("¿Borrar nota?") && onDelete()}
-          >
-            <Trash2 size={14} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="hover:text-destructive"
+                aria-label="Borrar nota"
+                onClick={() => setConfirming(true)}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Borrar nota</TooltipContent>
+          </Tooltip>
+          <ConfirmDelete
+            open={confirming}
+            onOpenChange={setConfirming}
+            what={title || "(sin título)"}
+            onConfirm={onDelete}
+          />
         </div>
       </div>
 

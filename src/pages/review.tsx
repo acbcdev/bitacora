@@ -2,8 +2,18 @@ import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Flame, Pencil } from "lucide-react"
 import { Editor } from "@/components/editor"
+import { NoteSkeleton } from "@/components/skeletons"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { Kbd } from "@/components/ui/kbd"
+import { Progress } from "@/components/ui/progress"
 import { useCourses } from "@/lib/courses"
 import { useReviewQueue, useMarkRead } from "@/lib/review"
 import { DAILY_GOAL, todayKey, useReadStats } from "@/lib/stats"
@@ -50,7 +60,14 @@ export function Review() {
     return () => window.removeEventListener("keydown", onKey)
   }, [next, queue.length])
 
-  if (isLoading) return null
+  if (isLoading)
+    return (
+      <div className="fade-in mx-auto max-w-shell px-8 pt-9 pb-16">
+        <Card className="py-6">
+          <NoteSkeleton />
+        </Card>
+      </div>
+    )
   const done = queue.length === 0 || index >= queue.length
 
   return (
@@ -70,30 +87,36 @@ export function Review() {
         </div>
       </div>
 
-      <div className="mb-8 h-0.5 overflow-hidden rounded-full bg-muted">
-        <div className="h-full bg-brand transition-[width]" style={{ width: `${donePct}%` }} />
-      </div>
+      <Progress
+        value={donePct}
+        className="mb-8 h-0.5"
+        aria-label={`Meta diaria de lectura: ${readToday} de ${DAILY_GOAL} notas`}
+      />
 
-      <section className="panel mb-8 py-6">
+      <Card className="mb-8 py-6">
         {done ? (
           // Cola vacía o batch terminado → estado claro, no error (review/02).
-          <div className="px-8 py-16 text-center">
-            <p className="mb-1.5 text-lg font-medium">
-              {queue.length === 0 ? "Nada para repasar hoy." : "Batch terminado."}
-            </p>
-            <p className="mb-5 text-sm text-muted-foreground">
-              {readToday} {readToday === 1 ? "nota leída" : "notas leídas"} hoy.
-            </p>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIndex(0)
-                refetch()
-              }}
-            >
-              Cargar más
-            </Button>
-          </div>
+          <Empty className="px-8 py-16">
+            <EmptyHeader>
+              <EmptyTitle className="text-lg">
+                {queue.length === 0 ? "Nada para repasar hoy." : "Batch terminado."}
+              </EmptyTitle>
+              <EmptyDescription>
+                {readToday} {readToday === 1 ? "nota leída" : "notas leídas"} hoy.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIndex(0)
+                  refetch()
+                }}
+              >
+                Cargar más
+              </Button>
+            </EmptyContent>
+          </Empty>
         ) : (
           <div className="mx-auto max-w-read px-8">
             <div className="mb-6 flex items-center justify-between">
@@ -134,7 +157,7 @@ export function Review() {
             </div>
           </div>
         )}
-      </section>
+      </Card>
 
       <Courses embed />
     </div>
