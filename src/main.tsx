@@ -1,12 +1,19 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { BrowserRouter } from "react-router-dom"
 import { LucideProvider } from "lucide-react"
+import { toast } from "sonner"
 import { App } from "@/app"
 import "@/index.css"
 
-const queryClient = new QueryClient()
+// Toda mutation que falla avisa, con el mensaje real de Supabase. Va acá y no hook por hook:
+// son seis mutations y ninguna necesita un mensaje propio.
+const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onError: (e) => toast.error(e.message),
+  }),
+})
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

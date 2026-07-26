@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
 import type { Course, CourseProgress, CourseStatus } from "@/types/database"
 
@@ -73,6 +74,9 @@ export function useDeleteCourse() {
         .eq("id", id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["courses"] }),
+    onSuccess: () => {
+      toast.success("Curso borrado")
+      qc.invalidateQueries({ queryKey: ["courses"] })
+    },
   })
 }

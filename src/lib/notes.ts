@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
 import { downloadMarkdown } from "@/lib/tiptap-markdown"
 import type { Note, TiptapDoc } from "@/types/database"
@@ -176,6 +177,9 @@ export function useDeleteNote() {
         .eq("id", id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["notes"] }),
+    onSuccess: () => {
+      toast.success("Nota borrada")
+      qc.invalidateQueries({ queryKey: ["notes"] })
+    },
   })
 }
