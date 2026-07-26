@@ -16,6 +16,9 @@ import {
 import { CommandPalette, type Action } from "@/components/command-palette"
 import { Cheatsheet } from "@/components/cheatsheet"
 import { Sidebar } from "@/components/sidebar"
+import { SidebarProvider } from "@/components/ui/sidebar"
+import { Toaster } from "@/components/ui/sonner"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { useCourses } from "@/lib/courses"
 import { useAllNoteRefs } from "@/lib/notes"
 import { useReadStats } from "@/lib/stats"
@@ -184,29 +187,42 @@ function Shell() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {!focus && (
-        <Sidebar
-          courses={courses}
-          streak={stats?.streak ?? 0}
-          collapsed={collapsed}
-          onToggle={toggleSidebar}
-          dark={dark}
-          onToggleTheme={() => setDark((d) => !d)}
-          onLogout={() => supabase.auth.signOut()}
-        />
-      )}
-      <main className="min-w-0 flex-1 overflow-y-auto">
-        <Routes>
-          <Route path="/" element={<Review />} />
-          <Route path="/courses" element={<Courses />} />
-          <Route path="/course/:id" element={<Course />} />
-          <Route path="/note/:id" element={<Note focus={focus} setFocus={setFocus} />} />
-        </Routes>
-      </main>
+    // Un solo TooltipProvider para toda la app: los tooltips del sidebar y los de los botones de
+    // icono de las pantallas cuelgan de acá.
+    <TooltipProvider>
+      <SidebarProvider
+        open={!collapsed}
+        onOpenChange={(open) => {
+          localStorage.setItem("bita-sb", open ? "0" : "1")
+          setCollapsed(!open)
+        }}
+        className="h-screen min-h-0 overflow-hidden"
+        style={
+          { "--sidebar-width": "216px", "--sidebar-width-icon": "56px" } as React.CSSProperties
+        }
+      >
+        {!focus && (
+          <Sidebar
+            courses={courses}
+            streak={stats?.streak ?? 0}
+            dark={dark}
+            onToggleTheme={() => setDark((d) => !d)}
+            onLogout={() => supabase.auth.signOut()}
+          />
+        )}
+        <main className="min-w-0 flex-1 overflow-y-auto">
+          <Routes>
+            <Route path="/" element={<Review />} />
+            <Route path="/courses" element={<Courses />} />
+            <Route path="/course/:id" element={<Course />} />
+            <Route path="/note/:id" element={<Note focus={focus} setFocus={setFocus} />} />
+          </Routes>
+        </main>
 
-      {palette && <CommandPalette onClose={() => setPalette(false)} actions={actions()} />}
-      {cheat && <Cheatsheet onClose={() => setCheat(false)} />}
-    </div>
+        {palette && <CommandPalette onClose={() => setPalette(false)} actions={actions()} />}
+        {cheat && <Cheatsheet onClose={() => setCheat(false)} />}
+        <Toaster theme={dark ? "dark" : "light"} />
+      </SidebarProvider>
+    </TooltipProvider>
   )
 }
