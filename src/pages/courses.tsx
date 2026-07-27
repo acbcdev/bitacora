@@ -395,13 +395,23 @@ function CourseForm({ course, onClose }: { course: Course | null; onClose: () =>
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
+    const done = { onSuccess: onClose }
+    // Crear: solo nombre. El inicio es ahora y el estado lo pone el default de la DB ('active');
+    // el fin lo setea el botón Finalizar del curso.
+    if (!course) return create.mutate({ name, started_at: new Date().toISOString() }, done)
     // Pasar a "done" sin fecha → setear finished_at hoy.
     const finished =
       status === "done" && !finishedAt ? new Date().toISOString().slice(0, 10) : finishedAt
-    const input = { name, status, started_at: startedAt || null, finished_at: finished || null }
-    const done = { onSuccess: onClose }
-    if (course) update.mutate({ id: course.id, ...input }, done)
-    else create.mutate(input, done)
+    update.mutate(
+      {
+        id: course.id,
+        name,
+        status,
+        started_at: startedAt || null,
+        finished_at: finished || null,
+      },
+      done,
+    )
   }
 
   return (
@@ -431,47 +441,52 @@ function CourseForm({ course, onClose }: { course: Course | null; onClose: () =>
                 className="h-10"
               />
             </Field>
-            <Field>
-              <FieldLabel htmlFor="course-status" className="eyebrow">
-                Estado
-              </FieldLabel>
-              <NativeSelect
-                id="course-status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as CourseStatus)}
-                className="w-full [&>select]:h-10 [&>select]:text-base"
-              >
-                <option value="active">activo</option>
-                <option value="paused">pausado</option>
-                <option value="done">hecho</option>
-              </NativeSelect>
-            </Field>
-            <FieldGroup className="flex-row">
-              <Field>
-                <FieldLabel htmlFor="course-started" className="eyebrow">
-                  Inicio
-                </FieldLabel>
-                <Input
-                  id="course-started"
-                  type="date"
-                  value={startedAt}
-                  onChange={(e) => setStartedAt(e.target.value)}
-                  className="h-10"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="course-finished" className="eyebrow">
-                  Fin
-                </FieldLabel>
-                <Input
-                  id="course-finished"
-                  type="date"
-                  value={finishedAt}
-                  onChange={(e) => setFinishedAt(e.target.value)}
-                  className="h-10"
-                />
-              </Field>
-            </FieldGroup>
+            {/* Estado y fechas solo al editar: crear un curso es escribir el nombre y listo. */}
+            {course && (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="course-status" className="eyebrow">
+                    Estado
+                  </FieldLabel>
+                  <NativeSelect
+                    id="course-status"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as CourseStatus)}
+                    className="w-full [&>select]:h-10 [&>select]:text-base"
+                  >
+                    <option value="active">activo</option>
+                    <option value="paused">pausado</option>
+                    <option value="done">hecho</option>
+                  </NativeSelect>
+                </Field>
+                <FieldGroup className="flex-row">
+                  <Field>
+                    <FieldLabel htmlFor="course-started" className="eyebrow">
+                      Inicio
+                    </FieldLabel>
+                    <Input
+                      id="course-started"
+                      type="date"
+                      value={startedAt}
+                      onChange={(e) => setStartedAt(e.target.value)}
+                      className="h-10"
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="course-finished" className="eyebrow">
+                      Fin
+                    </FieldLabel>
+                    <Input
+                      id="course-finished"
+                      type="date"
+                      value={finishedAt}
+                      onChange={(e) => setFinishedAt(e.target.value)}
+                      className="h-10"
+                    />
+                  </Field>
+                </FieldGroup>
+              </>
+            )}
           </FieldGroup>
           <div className="flex justify-end gap-2 border-t px-8 py-4">
             <Button type="button" variant="ghost" onClick={onClose}>

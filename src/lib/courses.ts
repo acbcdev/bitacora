@@ -34,17 +34,19 @@ export function useCourseProgress() {
   })
 }
 
+// Parcial: crear solo manda nombre + inicio (status lo pone el default de la DB), y
+// "Finalizar" solo manda status + fin.
 type CourseInput = {
-  name: string
-  status: CourseStatus
-  started_at: string | null
-  finished_at: string | null
+  name?: string
+  status?: CourseStatus
+  started_at?: string | null
+  finished_at?: string | null
 }
 
 export function useCreateCourse() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: CourseInput) => {
+    mutationFn: async (input: CourseInput & { name: string }) => {
       const { error } = await supabase.from("courses").insert(input) // user_id: DB default auth.uid()
       if (error) throw error
     },
