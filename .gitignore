@@ -13,6 +13,11 @@ dist-ssr
 .env.*
 !.env.example
 
+# agent tooling — local, reinstalable desde skills-lock.json
+.agents/
+.antigravitycli/
+.claude/
+
 # editor / os
 .DS_Store
 *.log
