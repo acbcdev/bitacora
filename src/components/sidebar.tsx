@@ -1,5 +1,6 @@
 import { BookOpen, Flame, LogOut, Moon, Sun } from "lucide-react"
 import { NavLink } from "react-router-dom"
+import { CourseIcon } from "@/components/course-icon"
 import {
   SidebarContent,
   SidebarFooter,
@@ -82,6 +83,7 @@ export function Sidebar({
                   <SidebarMenuItem key={c.id}>
                     <SidebarMenuButton asChild size="sm" tooltip={c.name} className={ACTIVE}>
                       <NavLink to={`/course/${c.id}`}>
+                        <CourseIcon icon={c.icon} />
                         <span>{c.name}</span>
                       </NavLink>
                     </SidebarMenuButton>

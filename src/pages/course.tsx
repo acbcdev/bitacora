@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Check, Maximize2, Plus, Trash2 } from "lucide-react"
 import { ConfirmDelete } from "@/components/confirm-delete"
+import { CourseIcon } from "@/components/course-icon"
 import { Editor } from "@/components/editor"
 import { NoteSkeleton } from "@/components/skeletons"
 import { Badge } from "@/components/ui/badge"
@@ -108,7 +109,10 @@ export function Course() {
 
       <aside className="flex w-[272px] shrink-0 flex-col overflow-y-auto border-l">
         <div className="px-5 pt-6 pb-5">
-          <h1 className="text-xl font-semibold tracking-tight text-pretty">{course.name}</h1>
+          <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-pretty">
+            <CourseIcon icon={course.icon} className="size-5 text-muted-foreground" />
+            {course.name}
+          </h1>
           <div className="mt-2 mb-3.5 flex items-center gap-2">
             <Badge variant={STATUS[course.status][1]}>{STATUS[course.status][0]}</Badge>
             <span className="mono-dim">{notes.length} notas</span>

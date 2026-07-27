@@ -1,18 +1,23 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   ArrowUpDown,
   ChevronRight,
   Filter,
   LayoutGrid,
+  Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
   Rows3,
   Search,
   Trash2,
+  Upload,
+  X,
 } from "lucide-react"
+import { toast } from "sonner"
 import { ConfirmDelete } from "@/components/confirm-delete"
+import { CourseIcon, PRESET_ICONS } from "@/components/course-icon"
 import { TableSkeleton } from "@/components/skeletons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -41,6 +46,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
+  uploadCourseIcon,
   useCourses,
   useCourseProgress,
   useCreateCourse,
@@ -207,7 +213,12 @@ export function Courses({ embed }: { embed?: boolean }) {
                   <TableCell className="w-7 px-3 py-3 text-muted-foreground">
                     <ChevronRight size={14} />
                   </TableCell>
-                  <TableCell className="px-3 py-3 font-medium">{c.name}</TableCell>
+                  <TableCell className="px-3 py-3 font-medium">
+                    <span className="flex items-center gap-2">
+                      <CourseIcon icon={c.icon} className="text-muted-foreground" />
+                      {c.name}
+                    </span>
+                  </TableCell>
                   <TableCell className="px-3 py-3">
                     <Badge variant={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
                   </TableCell>
@@ -263,7 +274,10 @@ export function Courses({ embed }: { embed?: boolean }) {
               className="group cursor-pointer gap-0 p-5 transition-colors hover:bg-muted"
             >
               <div className="mb-3.5 flex items-start justify-between gap-2">
-                <span className="text-sm font-medium text-pretty">{c.name}</span>
+                <span className="flex items-center gap-2 text-sm font-medium text-pretty">
+                  <CourseIcon icon={c.icon} className="text-muted-foreground" />
+                  {c.name}
+                </span>
                 <Badge variant={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
               </div>
               <div className="mb-2.5">
@@ -384,11 +398,98 @@ function Pill<T extends string>({
   )
 }
 
+// Presets de lucide + una imagen propia. El mismo botón de subir hace de preview y de estado
+// seleccionado cuando el icono es una imagen.
+function IconPicker({
+  icon,
+  onChange,
+}: {
+  icon: string | null
+  onChange: (v: string | null) => void
+}) {
+  const file = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const uploaded = icon?.startsWith("http")
+
+  async function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    e.target.value = "" // sin esto, reelegir el mismo archivo no dispara change
+    if (!f) return
+    setUploading(true)
+    try {
+      // ponytail: sube al elegir, así que cancelar el diálogo deja el archivo huérfano.
+      // Limpiarlos en batch si algún día molesta.
+      onChange(await uploadCourseIcon(f))
+    } catch {
+      toast.error("No se pudo subir la imagen")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {Object.keys(PRESET_ICONS).map((n) => (
+        <Button
+          key={n}
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={n}
+          aria-pressed={icon === `lucide:${n}`}
+          className={icon === `lucide:${n}` ? "bg-muted text-foreground" : ""}
+          onClick={() => onChange(`lucide:${n}`)}
+        >
+          <CourseIcon icon={`lucide:${n}`} />
+        </Button>
+      ))}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Subir imagen"
+        aria-pressed={uploaded}
+        disabled={uploading}
+        className={uploaded ? "bg-muted" : ""}
+        onClick={() => file.current?.click()}
+      >
+        {uploading ? (
+          <Loader2 className="animate-spin" />
+        ) : uploaded ? (
+          <CourseIcon icon={icon} />
+        ) : (
+          <Upload />
+        )}
+      </Button>
+      {icon && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Quitar icono"
+          onClick={() => onChange(null)}
+        >
+          <X />
+        </Button>
+      )}
+      {/* El tipo y el peso los valida el bucket (migración 0004); `accept` solo filtra el picker. */}
+      <input
+        ref={file}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={pick}
+      />
+    </div>
+  )
+}
+
 function CourseForm({ course, onClose }: { course: Course | null; onClose: () => void }) {
   const create = useCreateCourse()
   const update = useUpdateCourse()
 
   const [name, setName] = useState(course?.name ?? "")
+  const [icon, setIcon] = useState(course?.icon ?? null)
   const [status, setStatus] = useState<CourseStatus>(course?.status ?? "active")
   const [startedAt, setStartedAt] = useState(course?.started_at?.slice(0, 10) ?? "")
   const [finishedAt, setFinishedAt] = useState(course?.finished_at?.slice(0, 10) ?? "")
@@ -396,9 +497,9 @@ function CourseForm({ course, onClose }: { course: Course | null; onClose: () =>
   function submit(e: React.FormEvent) {
     e.preventDefault()
     const done = { onSuccess: onClose }
-    // Crear: solo nombre. El inicio es ahora y el estado lo pone el default de la DB ('active');
+    // Crear: nombre + icono. El inicio es ahora y el estado lo pone el default de la DB ('active');
     // el fin lo setea el botón Finalizar del curso.
-    if (!course) return create.mutate({ name, started_at: new Date().toISOString() }, done)
+    if (!course) return create.mutate({ name, icon, started_at: new Date().toISOString() }, done)
     // Pasar a "done" sin fecha → setear finished_at hoy.
     const finished =
       status === "done" && !finishedAt ? new Date().toISOString().slice(0, 10) : finishedAt
@@ -406,6 +507,7 @@ function CourseForm({ course, onClose }: { course: Course | null; onClose: () =>
       {
         id: course.id,
         name,
+        icon,
         status,
         started_at: startedAt || null,
         finished_at: finished || null,
@@ -440,6 +542,10 @@ function CourseForm({ course, onClose }: { course: Course | null; onClose: () =>
                 placeholder="Ej: Compiladores desde cero"
                 className="h-10"
               />
+            </Field>
+            <Field>
+              <FieldLabel className="eyebrow">Icono</FieldLabel>
+              <IconPicker icon={icon} onChange={setIcon} />
             </Field>
             {/* Estado y fechas solo al editar: crear un curso es escribir el nombre y listo. */}
             {course && (
