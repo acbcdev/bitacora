@@ -2,7 +2,8 @@
 -- solo ven las filas del usuario logueado. PostgREST no expresa bien estos ORDER BY / agregados,
 -- por eso viven como RPC en vez de armarlas en el cliente.
 
--- Cola de repaso: notas de cursos active, no borradas, más viejas primero (nunca-leídas primero).
+-- Cola de repaso: notas no borradas, más viejas primero (nunca-leídas primero).
+-- El status del curso no filtra: active, paused y finished entran igual.
 create or replace function review_queue()
 returns setof notes
 language sql stable
@@ -10,8 +11,7 @@ as $$
   select n.*
   from notes n
   join courses c on c.id = n.course_id
-  where c.status = 'active'
-    and n.deleted_at is null
+  where n.deleted_at is null
     and c.deleted_at is null
   order by (select max(read_at) from read_log where note_id = n.id) asc nulls first
   limit 3;
