@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { ArrowLeft, Maximize2, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Check, Maximize2, Plus, Trash2 } from "lucide-react"
 import { ConfirmDelete } from "@/components/confirm-delete"
 import { Editor } from "@/components/editor"
 import { NoteSkeleton } from "@/components/skeletons"
@@ -11,7 +11,7 @@ import { Item } from "@/components/ui/item"
 import { Kbd } from "@/components/ui/kbd"
 import { Progress } from "@/components/ui/progress"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useCourses } from "@/lib/courses"
+import { useCourses, useUpdateCourse } from "@/lib/courses"
 import { useCreateNote, useDeleteNote, useNoteDraft, useNotes } from "@/lib/notes"
 import { dayOf, useReadStats } from "@/lib/stats"
 import type { CourseStatus } from "@/types/database"
@@ -37,6 +37,7 @@ export function Course() {
   const { data: stats } = useReadStats()
   const createNote = useCreateNote()
   const delNote = useDeleteNote()
+  const updateCourse = useUpdateCourse()
 
   const course = courses.find((c) => c.id === id)
   const [sel, setSel] = useState<string | null>(null)
@@ -145,7 +146,7 @@ export function Course() {
           })}
         </div>
 
-        <div className="mt-auto p-5">
+        <div className="mt-auto flex flex-col gap-2 p-5">
           <Button
             variant="outline"
             size="sm"
@@ -155,6 +156,24 @@ export function Course() {
             <Plus />
             Nueva nota
           </Button>
+          {/* Acá se cierra el curso: el fin es cuando apretás el botón, no un date picker. */}
+          {course.status !== "done" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              onClick={() =>
+                updateCourse.mutate({
+                  id: course.id,
+                  status: "done",
+                  finished_at: new Date().toISOString(),
+                })
+              }
+            >
+              <Check />
+              Finalizado
+            </Button>
+          )}
         </div>
       </aside>
     </div>
