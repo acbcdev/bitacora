@@ -41,6 +41,19 @@ type CourseInput = {
   status?: CourseStatus
   started_at?: string | null
   finished_at?: string | null
+  icon?: string | null
+}
+
+// Sube el icono y devuelve su URL pública. La carpeta tiene que ser el user_id: es lo que
+// exige la policy de storage (migración 0004). El tipo y el tamaño los valida el bucket.
+export async function uploadCourseIcon(file: File) {
+  const { data, error: authError } = await supabase.auth.getUser()
+  if (authError || !data.user) throw authError ?? new Error("Sin sesión")
+  // Sin extensión: el content-type lo guarda storage, y así no hay que sanear `file.name`.
+  const path = `${data.user.id}/${crypto.randomUUID()}`
+  const { error } = await supabase.storage.from("course-icons").upload(path, file)
+  if (error) throw error
+  return supabase.storage.from("course-icons").getPublicUrl(path).data.publicUrl
 }
 
 export function useCreateCourse() {
