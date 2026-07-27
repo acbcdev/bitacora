@@ -24,6 +24,7 @@ export type Database = {
           status: CourseStatus
           started_at: string | null
           finished_at: string | null
+          icon: string | null // 'lucide:Book' o URL de imagen subida
           imported: boolean
         } & Timestamps
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           status?: CourseStatus
           started_at?: string | null
           finished_at?: string | null
+          icon?: string | null
           imported?: boolean
           deleted_at?: string | null
           created_at?: string

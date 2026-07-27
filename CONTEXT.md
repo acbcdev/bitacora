@@ -59,8 +59,9 @@ Notas de licencia/tier:
 ## Schema (frozen)
 
 ```sql
-courses(id, user_id, name, status, started_at, finished_at, deleted_at, created_at)
+courses(id, user_id, name, status, started_at, finished_at, icon, deleted_at, created_at)
   -- status: 'active' | 'paused' | 'done'
+  -- icon: 'lucide:<Nombre>' (preset) o URL pública del bucket 'course-icons'. Nullable.
 notes(id, user_id, course_id, title, content, position, deleted_at, created_at)
   -- content: documento Tiptap. course_id uuid references courses(id) on delete set null
 read_log(id, user_id, note_id, read_at)
