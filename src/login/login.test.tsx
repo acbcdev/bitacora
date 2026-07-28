@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react"
-import { Login } from "@/pages/login"
+import { Login } from "@/login/login"
 
 test("renders magic link form", () => {
   render(<Login />)

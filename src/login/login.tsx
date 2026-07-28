@@ -1,10 +1,10 @@
 import { useState } from "react"
 import { Check } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { supabase } from "@/lib/supabase"
+import { Button } from "@/core/ui/button"
+import { Card } from "@/core/ui/card"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/core/ui/field"
+import { Input } from "@/core/ui/input"
+import { supabase } from "@/core/lib/supabase"
 
 export function Login() {
   const [email, setEmail] = useState("")
