@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react"
-import { CourseIcon } from "@/components/course-icon"
+import { CourseIcon } from "@/courses/course-icon"
 
 test("dibuja preset, imagen subida, y nada si el valor no sirve", () => {
   const { container, rerender } = render(<CourseIcon icon="lucide:Book" />)

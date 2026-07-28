@@ -1,65 +1,41 @@
-import { useMemo, useRef, useState } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   ArrowUpDown,
   ChevronRight,
   Filter,
-  Image as ImageIcon,
   LayoutGrid,
-  Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
   Rows3,
   Search,
-  Smile,
   Trash2,
 } from "lucide-react"
-import { toast } from "sonner"
-import { ConfirmDelete } from "@/components/confirm-delete"
-import { CourseIcon, PRESET_ICONS } from "@/components/course-icon"
-import { TableSkeleton } from "@/components/skeletons"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
-import { Kbd } from "@/components/ui/kbd"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ConfirmDelete } from "@/core/components/confirm-delete"
+import { CourseIcon } from "@/courses/course-icon"
+import { CourseForm } from "@/courses/course-form"
+import { TableSkeleton } from "@/core/components/skeletons"
+import { Badge } from "@/core/ui/badge"
+import { Button } from "@/core/ui/button"
+import { Card } from "@/core/ui/card"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/core/ui/input-group"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { NativeSelect } from "@/components/ui/native-select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import {
-  uploadCourseIcon,
-  useCourses,
-  useCourseProgress,
-  useCreateCourse,
-  useUpdateCourse,
-  useDeleteCourse,
-} from "@/lib/courses"
-import { useAllNoteRefs } from "@/lib/notes"
-import { dayOf, useReadStats } from "@/lib/stats"
-import { cn } from "@/lib/utils"
-import type { Course, CourseStatus } from "@/types/database"
+} from "@/core/ui/dropdown-menu"
+import { NativeSelect } from "@/core/ui/native-select"
+import { Progress } from "@/core/ui/progress"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/core/ui/table"
+import { ToggleGroup, ToggleGroupItem } from "@/core/ui/toggle-group"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
+import { useCourses, useCourseProgress, useDeleteCourse } from "@/courses/courses.api"
+import { useAllNoteRefs } from "@/notes/notes.api"
+import { dayOf, useReadStats } from "@/core/lib/stats"
+import type { Course, CourseStatus } from "@/core/types/database"
 
 const STATUS: Record<CourseStatus, [string, "brand" | "warning" | "outline"]> = {
   active: ["activo", "brand"],
@@ -399,271 +375,5 @@ function Pill<T extends string>({
         {children}
       </NativeSelect>
     </div>
-  )
-}
-
-// Popover a lo Notion: el trigger es el icono actual y adentro van las dos fuentes (presets /
-// imagen propia) en pestañas, más Eliminar. Elegir cierra — es un paso del form, no una pantalla.
-export function IconPicker({
-  icon,
-  onChange,
-}: {
-  icon: string | null
-  onChange: (v: string | null) => void
-}) {
-  const file = useRef<HTMLInputElement>(null)
-  const [open, setOpen] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [dragging, setDragging] = useState(false)
-
-  function set(v: string | null) {
-    onChange(v)
-    setOpen(false)
-  }
-
-  // Las tres entradas (picker, pegar, soltar) terminan acá.
-  async function upload(f: File | undefined) {
-    if (!f) return
-    // El bucket también valida el tipo, pero cortar acá da un error entendible en vez de un 400.
-    if (!f.type.startsWith("image/")) return toast.error("Eso no es una imagen")
-    setUploading(true)
-    try {
-      // ponytail: sube al elegir, así que cancelar el diálogo deja el archivo huérfano.
-      // Limpiarlos en batch si algún día molesta.
-      set(await uploadCourseIcon(f))
-    } catch {
-      toast.error("No se pudo subir la imagen")
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  function pick(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    e.target.value = "" // sin esto, reelegir el mismo archivo no dispara change
-    upload(f)
-  }
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Icono del curso"
-          className="size-10 text-muted-foreground"
-        >
-          {icon ? <CourseIcon icon={icon} className="size-[18px]" /> : <Smile />}
-        </Button>
-      </PopoverTrigger>
-
-      {/* Pegar cuelga del popover entero, no del tab: radix enfoca el content al abrir, así que
-          ⌘V funciona desde cualquier pestaña sin tener que ir hasta el dropzone. */}
-      <PopoverContent className="w-64 gap-0 p-0" onPaste={(e) => upload(e.clipboardData.files[0])}>
-        <Tabs defaultValue="iconos" className="gap-0">
-          {/* El borde del header hace de riel del subrayado de la pestaña activa. */}
-          <div className="flex items-center border-b px-1.5">
-            <TabsList variant="line">
-              <TabsTrigger value="iconos">Íconos</TabsTrigger>
-              <TabsTrigger value="subir">Subir</TabsTrigger>
-            </TabsList>
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              disabled={!icon}
-              className="ml-auto text-muted-foreground"
-              onClick={() => set(null)}
-            >
-              Eliminar
-            </Button>
-          </div>
-
-          {/* 15 presets: 5 columnas dan 3 filas justas, sin fila huérfana. */}
-          <TabsContent value="iconos" className="grid grid-cols-5 justify-items-center gap-1 p-2">
-            {Object.keys(PRESET_ICONS).map((n) => (
-              <Button
-                key={n}
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={n}
-                aria-pressed={icon === `lucide:${n}`}
-                className={icon === `lucide:${n}` ? "bg-muted text-foreground" : ""}
-                onClick={() => set(`lucide:${n}`)}
-              >
-                <CourseIcon icon={`lucide:${n}`} />
-              </Button>
-            ))}
-          </TabsContent>
-
-          <TabsContent value="subir" className="p-2.5">
-            {/* `preventDefault` en dragOver es lo único que hace la zona soltable: sin eso el
-                browser abre la imagen en la pestaña. */}
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={uploading}
-              className={cn(
-                "h-16 w-full gap-2 border border-dashed transition-colors",
-                dragging
-                  ? "border-ring bg-muted text-foreground"
-                  : "border-border bg-muted/40 text-muted-foreground",
-              )}
-              onClick={() => file.current?.click()}
-              onDragOver={(e) => {
-                e.preventDefault()
-                setDragging(true)
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault()
-                setDragging(false)
-                upload(e.dataTransfer.files[0])
-              }}
-            >
-              {uploading ? <Loader2 className="animate-spin" /> : <ImageIcon />}
-              {uploading ? "Subiendo…" : dragging ? "Soltá acá" : "Subir una imagen"}
-            </Button>
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              o soltala acá · <Kbd>⌘V</Kbd> para pegarla
-            </p>
-          </TabsContent>
-        </Tabs>
-      </PopoverContent>
-
-      {/* Fuera del popover a propósito: si estuviera adentro, cerrarlo desmontaría el input y
-          mataría el `change` del archivo elegido. El tipo y el peso los valida el bucket
-          (migración 0004); `accept` solo filtra el picker del SO. */}
-      <input
-        ref={file}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        className="hidden"
-        onChange={pick}
-      />
-    </Popover>
-  )
-}
-
-function CourseForm({ course, onClose }: { course: Course | null; onClose: () => void }) {
-  const create = useCreateCourse()
-  const update = useUpdateCourse()
-
-  const [name, setName] = useState(course?.name ?? "")
-  const [icon, setIcon] = useState(course?.icon ?? null)
-  const [status, setStatus] = useState<CourseStatus>(course?.status ?? "active")
-  const [startedAt, setStartedAt] = useState(course?.started_at?.slice(0, 10) ?? "")
-  const [finishedAt, setFinishedAt] = useState(course?.finished_at?.slice(0, 10) ?? "")
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault()
-    const done = { onSuccess: onClose }
-    // Crear: nombre + icono. El inicio es ahora y el estado lo pone el default de la DB ('active');
-    // el fin lo setea el botón Finalizar del curso.
-    if (!course) return create.mutate({ name, icon, started_at: new Date().toISOString() }, done)
-    // Pasar a "done" sin fecha → setear finished_at hoy.
-    const finished =
-      status === "done" && !finishedAt ? new Date().toISOString().slice(0, 10) : finishedAt
-    update.mutate(
-      {
-        id: course.id,
-        name,
-        icon,
-        status,
-        started_at: startedAt || null,
-        finished_at: finished || null,
-      },
-      done,
-    )
-  }
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        showCloseButton={false}
-        className="w-[420px] max-w-[92vw] gap-0 p-0 sm:max-w-[420px]"
-      >
-        <form onSubmit={submit}>
-          <DialogHeader className="border-b px-8 py-6">
-            <DialogTitle className="text-lg font-semibold">
-              {course ? "Editar curso" : "Nuevo curso"}
-            </DialogTitle>
-          </DialogHeader>
-          <FieldGroup className="px-8 py-6">
-            <Field>
-              <FieldLabel htmlFor="course-name" className="eyebrow">
-                Nombre
-              </FieldLabel>
-              <div className="flex items-center gap-2">
-                <IconPicker icon={icon} onChange={setIcon} />
-                <Input
-                  id="course-name"
-                  autoFocus
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ej: Compiladores desde cero"
-                  className="h-10"
-                />
-              </div>
-            </Field>
-            {/* Estado y fechas solo al editar: crear un curso es escribir el nombre y listo. */}
-            {course && (
-              <>
-                <Field>
-                  <FieldLabel htmlFor="course-status" className="eyebrow">
-                    Estado
-                  </FieldLabel>
-                  <NativeSelect
-                    id="course-status"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as CourseStatus)}
-                    className="w-full [&>select]:h-10 [&>select]:text-base"
-                  >
-                    <option value="active">activo</option>
-                    <option value="paused">pausado</option>
-                    <option value="done">hecho</option>
-                  </NativeSelect>
-                </Field>
-                <FieldGroup className="flex-row">
-                  <Field>
-                    <FieldLabel htmlFor="course-started" className="eyebrow">
-                      Inicio
-                    </FieldLabel>
-                    <Input
-                      id="course-started"
-                      type="date"
-                      value={startedAt}
-                      onChange={(e) => setStartedAt(e.target.value)}
-                      className="h-10"
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="course-finished" className="eyebrow">
-                      Fin
-                    </FieldLabel>
-                    <Input
-                      id="course-finished"
-                      type="date"
-                      value={finishedAt}
-                      onChange={(e) => setFinishedAt(e.target.value)}
-                      className="h-10"
-                    />
-                  </Field>
-                </FieldGroup>
-              </>
-            )}
-          </FieldGroup>
-          <div className="flex justify-end gap-2 border-t px-8 py-4">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit">{course ? "Guardar" : "Crear curso"}</Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }

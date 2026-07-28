@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { supabase } from "@/lib/supabase"
-import type { Course, CourseProgress, CourseStatus } from "@/types/database"
+import { supabase } from "@/core/lib/supabase"
+import type { Course, CourseProgress, CourseStatus } from "@/core/types/database"
 
 const STATUS_ORDER: Record<CourseStatus, number> = { active: 0, paused: 1, done: 2 }
 

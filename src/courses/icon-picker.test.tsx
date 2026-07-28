@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { IconPicker } from "@/pages/courses"
+import { IconPicker } from "@/courses/icon-picker"
 
 const { upload } = vi.hoisted(() => ({ upload: vi.fn(() => Promise.resolve({ error: null })) }))
 
 // Solo el storage: `uploadCourseIcon` pide el user y sube al bucket. Sin red.
-vi.mock("@/lib/supabase", () => ({
+vi.mock("@/core/lib/supabase", () => ({
   supabase: {
     auth: { getUser: () => Promise.resolve({ data: { user: { id: "u1" } }, error: null }) },
     storage: {

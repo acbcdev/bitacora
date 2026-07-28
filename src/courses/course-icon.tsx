@@ -15,7 +15,7 @@ import {
   Shield,
   Terminal,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/core/lib/utils"
 
 // El mapa acota qué presets existen: lo que no está acá no se puede elegir ni dibujar.
 export const PRESET_ICONS = {
