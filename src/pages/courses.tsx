@@ -4,6 +4,7 @@ import {
   ArrowUpDown,
   ChevronRight,
   Filter,
+  Image as ImageIcon,
   LayoutGrid,
   Loader2,
   MoreHorizontal,
@@ -11,9 +12,8 @@ import {
   Plus,
   Rows3,
   Search,
+  Smile,
   Trash2,
-  Upload,
-  X,
 } from "lucide-react"
 import { toast } from "sonner"
 import { ConfirmDelete } from "@/components/confirm-delete"
@@ -26,6 +26,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import { Kbd } from "@/components/ui/kbd"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   DropdownMenu,
@@ -34,7 +35,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { NativeSelect } from "@/components/ui/native-select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Table,
   TableBody,
@@ -55,6 +58,7 @@ import {
 } from "@/lib/courses"
 import { useAllNoteRefs } from "@/lib/notes"
 import { dayOf, useReadStats } from "@/lib/stats"
+import { cn } from "@/lib/utils"
 import type { Course, CourseStatus } from "@/types/database"
 
 const STATUS: Record<CourseStatus, [string, "brand" | "warning" | "outline"]> = {
@@ -398,9 +402,9 @@ function Pill<T extends string>({
   )
 }
 
-// Presets de lucide + una imagen propia. El mismo botón de subir hace de preview y de estado
-// seleccionado cuando el icono es una imagen.
-function IconPicker({
+// Popover a lo Notion: el trigger es el icono actual y adentro van las dos fuentes (presets /
+// imagen propia) en pestañas, más Eliminar. Elegir cierra — es un paso del form, no una pantalla.
+export function IconPicker({
   icon,
   onChange,
 }: {
@@ -408,18 +412,25 @@ function IconPicker({
   onChange: (v: string | null) => void
 }) {
   const file = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const uploaded = icon?.startsWith("http")
+  const [dragging, setDragging] = useState(false)
 
-  async function pick(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    e.target.value = "" // sin esto, reelegir el mismo archivo no dispara change
+  function set(v: string | null) {
+    onChange(v)
+    setOpen(false)
+  }
+
+  // Las tres entradas (picker, pegar, soltar) terminan acá.
+  async function upload(f: File | undefined) {
     if (!f) return
+    // El bucket también valida el tipo, pero cortar acá da un error entendible en vez de un 400.
+    if (!f.type.startsWith("image/")) return toast.error("Eso no es una imagen")
     setUploading(true)
     try {
       // ponytail: sube al elegir, así que cancelar el diálogo deja el archivo huérfano.
       // Limpiarlos en batch si algún día molesta.
-      onChange(await uploadCourseIcon(f))
+      set(await uploadCourseIcon(f))
     } catch {
       toast.error("No se pudo subir la imagen")
     } finally {
@@ -427,52 +438,104 @@ function IconPicker({
     }
   }
 
+  function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    e.target.value = "" // sin esto, reelegir el mismo archivo no dispara change
+    upload(f)
+  }
+
   return (
-    <div className="flex flex-wrap gap-1">
-      {Object.keys(PRESET_ICONS).map((n) => (
-        <Button
-          key={n}
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={n}
-          aria-pressed={icon === `lucide:${n}`}
-          className={icon === `lucide:${n}` ? "bg-muted text-foreground" : ""}
-          onClick={() => onChange(`lucide:${n}`)}
-        >
-          <CourseIcon icon={`lucide:${n}`} />
-        </Button>
-      ))}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Subir imagen"
-        aria-pressed={uploaded}
-        disabled={uploading}
-        className={uploaded ? "bg-muted" : ""}
-        onClick={() => file.current?.click()}
-      >
-        {uploading ? (
-          <Loader2 className="animate-spin" />
-        ) : uploaded ? (
-          <CourseIcon icon={icon} />
-        ) : (
-          <Upload />
-        )}
-      </Button>
-      {icon && (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Quitar icono"
-          onClick={() => onChange(null)}
+          variant="outline"
+          size="icon"
+          aria-label="Icono del curso"
+          className="size-10 text-muted-foreground"
         >
-          <X />
+          {icon ? <CourseIcon icon={icon} className="size-[18px]" /> : <Smile />}
         </Button>
-      )}
-      {/* El tipo y el peso los valida el bucket (migración 0004); `accept` solo filtra el picker. */}
+      </PopoverTrigger>
+
+      {/* Pegar cuelga del popover entero, no del tab: radix enfoca el content al abrir, así que
+          ⌘V funciona desde cualquier pestaña sin tener que ir hasta el dropzone. */}
+      <PopoverContent className="w-64 gap-0 p-0" onPaste={(e) => upload(e.clipboardData.files[0])}>
+        <Tabs defaultValue="iconos" className="gap-0">
+          {/* El borde del header hace de riel del subrayado de la pestaña activa. */}
+          <div className="flex items-center border-b px-1.5">
+            <TabsList variant="line">
+              <TabsTrigger value="iconos">Íconos</TabsTrigger>
+              <TabsTrigger value="subir">Subir</TabsTrigger>
+            </TabsList>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              disabled={!icon}
+              className="ml-auto text-muted-foreground"
+              onClick={() => set(null)}
+            >
+              Eliminar
+            </Button>
+          </div>
+
+          {/* 15 presets: 5 columnas dan 3 filas justas, sin fila huérfana. */}
+          <TabsContent value="iconos" className="grid grid-cols-5 justify-items-center gap-1 p-2">
+            {Object.keys(PRESET_ICONS).map((n) => (
+              <Button
+                key={n}
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={n}
+                aria-pressed={icon === `lucide:${n}`}
+                className={icon === `lucide:${n}` ? "bg-muted text-foreground" : ""}
+                onClick={() => set(`lucide:${n}`)}
+              >
+                <CourseIcon icon={`lucide:${n}`} />
+              </Button>
+            ))}
+          </TabsContent>
+
+          <TabsContent value="subir" className="p-2.5">
+            {/* `preventDefault` en dragOver es lo único que hace la zona soltable: sin eso el
+                browser abre la imagen en la pestaña. */}
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={uploading}
+              className={cn(
+                "h-16 w-full gap-2 border border-dashed transition-colors",
+                dragging
+                  ? "border-ring bg-muted text-foreground"
+                  : "border-border bg-muted/40 text-muted-foreground",
+              )}
+              onClick={() => file.current?.click()}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragging(true)
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault()
+                setDragging(false)
+                upload(e.dataTransfer.files[0])
+              }}
+            >
+              {uploading ? <Loader2 className="animate-spin" /> : <ImageIcon />}
+              {uploading ? "Subiendo…" : dragging ? "Soltá acá" : "Subir una imagen"}
+            </Button>
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              o soltala acá · <Kbd>⌘V</Kbd> para pegarla
+            </p>
+          </TabsContent>
+        </Tabs>
+      </PopoverContent>
+
+      {/* Fuera del popover a propósito: si estuviera adentro, cerrarlo desmontaría el input y
+          mataría el `change` del archivo elegido. El tipo y el peso los valida el bucket
+          (migración 0004); `accept` solo filtra el picker del SO. */}
       <input
         ref={file}
         type="file"
@@ -480,7 +543,7 @@ function IconPicker({
         className="hidden"
         onChange={pick}
       />
-    </div>
+    </Popover>
   )
 }
 
@@ -533,19 +596,18 @@ function CourseForm({ course, onClose }: { course: Course | null; onClose: () =>
               <FieldLabel htmlFor="course-name" className="eyebrow">
                 Nombre
               </FieldLabel>
-              <Input
-                id="course-name"
-                autoFocus
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ej: Compiladores desde cero"
-                className="h-10"
-              />
-            </Field>
-            <Field>
-              <FieldLabel className="eyebrow">Icono</FieldLabel>
-              <IconPicker icon={icon} onChange={setIcon} />
+              <div className="flex items-center gap-2">
+                <IconPicker icon={icon} onChange={setIcon} />
+                <Input
+                  id="course-name"
+                  autoFocus
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ej: Compiladores desde cero"
+                  className="h-10"
+                />
+              </div>
             </Field>
             {/* Estado y fechas solo al editar: crear un curso es escribir el nombre y listo. */}
             {course && (
