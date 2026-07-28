@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { supabase } from "@/lib/supabase"
-import { downloadMarkdown } from "@/lib/tiptap-markdown"
-import type { Note, TiptapDoc } from "@/types/database"
+import { supabase } from "@/core/lib/supabase"
+import { downloadMarkdown } from "@/core/lib/tiptap-markdown"
+import type { Note, TiptapDoc } from "@/core/types/database"
 
 const EMPTY_DOC: TiptapDoc = { type: "doc", content: [] }
 
