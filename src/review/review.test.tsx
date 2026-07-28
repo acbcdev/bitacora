@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter } from "react-router-dom"
-import { TooltipProvider } from "@/components/ui/tooltip"
-import { Review } from "@/pages/review"
+import { TooltipProvider } from "@/core/ui/tooltip"
+import { Review } from "@/review/review"
 
 // Spy hoisted para poder referenciarlo dentro del factory de vi.mock.
 const { insertReadLog } = vi.hoisted(() => ({
@@ -10,7 +10,7 @@ const { insertReadLog } = vi.hoisted(() => ({
 }))
 
 // Mock del cliente Supabase: cola de 2 notas + un curso. Sin red.
-vi.mock("@/lib/supabase", () => {
+vi.mock("@/core/lib/supabase", () => {
   const rows: Record<string, unknown[]> = {
     courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
     notes: [],
@@ -50,7 +50,7 @@ vi.mock("@/lib/supabase", () => {
 })
 
 // Tiptap no corre limpio en jsdom y no es lo que testeamos acá.
-vi.mock("@/components/editor", () => ({ Editor: () => <div data-testid="editor" /> }))
+vi.mock("@/core/components/editor", () => ({ Editor: () => <div data-testid="editor" /> }))
 
 function renderReview() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })

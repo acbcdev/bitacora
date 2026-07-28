@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { supabase } from "@/lib/supabase"
-import type { Note } from "@/types/database"
+import { supabase } from "@/core/lib/supabase"
+import type { Note } from "@/core/types/database"
 
 // Cola de repaso (review/01): RPC review_queue() — notas de cursos active, no borradas,
 // más viejas primero (nunca-leídas primero), limit 3. Ver migrations/0003.

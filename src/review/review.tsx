@@ -1,23 +1,17 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Flame, Pencil } from "lucide-react"
-import { Editor } from "@/components/editor"
-import { NoteSkeleton } from "@/components/skeletons"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty"
-import { Kbd } from "@/components/ui/kbd"
-import { Progress } from "@/components/ui/progress"
-import { useCourses } from "@/lib/courses"
-import { useReviewQueue, useMarkRead } from "@/lib/review"
-import { DAILY_GOAL, todayKey, useReadStats } from "@/lib/stats"
-import { Courses } from "@/pages/courses"
+import { Editor } from "@/core/components/editor"
+import { NoteSkeleton } from "@/core/components/skeletons"
+import { Button } from "@/core/ui/button"
+import { Card } from "@/core/ui/card"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
+import { Kbd } from "@/core/ui/kbd"
+import { Progress } from "@/core/ui/progress"
+import { useCourses } from "@/courses/courses.api"
+import { useReviewQueue, useMarkRead } from "@/review/review.api"
+import { DAILY_GOAL, todayKey, useReadStats } from "@/core/lib/stats"
+import { Courses } from "@/courses/courses"
 
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
 //   Space = marcar leído (insert read_log) + siguiente · J = saltar sig · K = saltar ant.
