@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
+import { useHotkeys } from "react-hotkeys-hook"
 import { ArrowLeft, Maximize2, Trash2 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { Editor } from "@/core/components/editor"
@@ -23,20 +24,8 @@ export function Note({ focus, setFocus }: { focus: boolean; setFocus: (v: boolea
   const del = useDeleteNote()
   const [confirming, setConfirming] = useState(false)
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const el = e.target as HTMLElement | null
-      if (el?.closest?.("input, textarea, select, [contenteditable=true]")) return
-      if (e.key.toLowerCase() === "f") {
-        e.preventDefault()
-        setFocus(!focus)
-      } else if (e.key === "Escape" && focus) {
-        setFocus(false)
-      }
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [focus, setFocus])
+  useHotkeys("f", () => setFocus(!focus), { preventDefault: true }, [focus, setFocus])
+  useHotkeys("escape", () => setFocus(false), { enabled: focus }, [setFocus])
 
   if (isLoading) return <NoteSkeleton />
   if (!note) return <p className="p-8 text-muted-foreground">Nota no encontrada.</p>

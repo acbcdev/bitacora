@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useHotkeys } from "react-hotkeys-hook"
 import { Flame, Pencil } from "lucide-react"
 import { Editor } from "@/core/components/editor"
 import { NoteSkeleton } from "@/core/components/skeletons"
@@ -35,24 +36,14 @@ export function Review() {
     setIndex((i) => i + 1) // avance optimista (ui-principles)
   }, [note, markRead])
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const el = e.target as HTMLElement | null
-      if (el?.closest?.("input, textarea, select, [contenteditable=true]")) return
-      if (e.key === " ") {
-        e.preventDefault() // no scrollear
-        next()
-      } else if (e.key.toLowerCase() === "j") {
-        e.preventDefault()
-        setIndex((i) => Math.min(i + 1, queue.length)) // saltar sin contar
-      } else if (e.key.toLowerCase() === "k") {
-        e.preventDefault()
-        setIndex((i) => Math.max(i - 1, 0))
-      }
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [next, queue.length])
+  useHotkeys("space", next, { preventDefault: true }, [next]) // no scrollear
+  useHotkeys(
+    "j",
+    () => setIndex((i) => Math.min(i + 1, queue.length)), // saltar sin contar
+    { preventDefault: true },
+    [queue.length],
+  )
+  useHotkeys("k", () => setIndex((i) => Math.max(i - 1, 0)), { preventDefault: true })
 
   if (isLoading)
     return (

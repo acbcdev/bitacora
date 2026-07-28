@@ -74,15 +74,16 @@ test("J/K saltan sin tocar read_log; Space inserta una fila y avanza", async () 
   await screen.findByText("Nota uno")
 
   // J = saltar sin contar → avanza, no inserta.
-  fireEvent.keyDown(window, { key: "j" })
+  // react-hotkeys-hook matchea por e.code y escucha en `document`, no `window`.
+  fireEvent.keyDown(document, { code: "KeyJ" })
   await screen.findByText("Nota dos")
   // K = volver sin contar.
-  fireEvent.keyDown(window, { key: "k" })
+  fireEvent.keyDown(document, { code: "KeyK" })
   await screen.findByText("Nota uno")
   expect(insertReadLog).not.toHaveBeenCalled()
 
   // Space = marcar leído (exactamente 1 insert) + avanzar.
-  fireEvent.keyDown(window, { key: " " })
+  fireEvent.keyDown(document, { code: "Space" })
   await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
   expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1" })
   await screen.findByText("Nota dos")

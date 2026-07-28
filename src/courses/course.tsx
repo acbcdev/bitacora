@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
+import { useHotkeys } from "react-hotkeys-hook"
 import { ArrowLeft, Check, Maximize2, Plus, Trash2 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { CourseIcon } from "@/courses/course-icon"
@@ -47,20 +48,13 @@ export function Course() {
   useEffect(() => setSel(null), [id])
 
   // J / K entre notas del curso.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const el = e.target as HTMLElement | null
-      if (el?.closest?.("input, textarea, select, [contenteditable=true]")) return
-      const key = e.key.toLowerCase()
-      if (key !== "j" && key !== "k") return
-      e.preventDefault()
-      const i = notes.findIndex((n) => n.id === selected?.id)
-      const target = notes[key === "j" ? Math.min(i + 1, notes.length - 1) : Math.max(i - 1, 0)]
-      if (target) setSel(target.id)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [notes, selected])
+  function step(dir: "j" | "k") {
+    const i = notes.findIndex((n) => n.id === selected?.id)
+    const target = notes[dir === "j" ? Math.min(i + 1, notes.length - 1) : Math.max(i - 1, 0)]
+    if (target) setSel(target.id)
+  }
+  useHotkeys("j", () => step("j"), { preventDefault: true }, [notes, selected])
+  useHotkeys("k", () => step("k"), { preventDefault: true }, [notes, selected])
 
   const read = notes.filter((n) => (stats?.byNote.get(n.id)?.count ?? 0) > 0).length
   const pct = notes.length ? Math.round((read / notes.length) * 100) : 0

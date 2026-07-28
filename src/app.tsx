@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom"
+import { useHotkeys } from "react-hotkeys-hook"
 import type { Session } from "@supabase/supabase-js"
 import {
   BookOpen,
@@ -78,42 +79,16 @@ function Shell() {
   }
 
   // Teclado global: ⌘K, ? y la secuencia G+H / G+C. Space/J/K son de cada pantalla.
-  const seq = useRef({ key: "", at: 0 })
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault()
-        setPalette((p) => !p)
-        return
-      }
-      const el = e.target as HTMLElement | null
-      if (el?.closest?.("input, textarea, select, [contenteditable=true]")) return
-      if (e.metaKey || e.ctrlKey || e.altKey) return
-
-      if (e.key === "?") {
-        e.preventDefault()
-        setCheat(true)
-        return
-      }
-      const key = e.key.toLowerCase()
-      if (seq.current.key === "g" && Date.now() - seq.current.at < 900) {
-        seq.current.key = ""
-        if (key === "h") {
-          e.preventDefault()
-          navigate("/")
-          return
-        }
-        if (key === "c") {
-          e.preventDefault()
-          navigate("/courses")
-          return
-        }
-      }
-      if (key === "g") seq.current = { key: "g", at: Date.now() }
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [navigate])
+  // ⌘K funciona incluso dentro de inputs/contenteditable, el resto no (default de la lib).
+  useHotkeys("mod+k", () => setPalette((p) => !p), {
+    enableOnFormTags: true,
+    enableOnContentEditable: true,
+    preventDefault: true,
+  })
+  // "?" físico es shift+/ — e.key ya no sirve de referencia con la lib, se ata a la tecla.
+  useHotkeys("shift+slash", () => setCheat(true), { preventDefault: true })
+  useHotkeys("g>h", () => navigate("/"), { sequenceTimeoutMs: 900, preventDefault: true })
+  useHotkeys("g>c", () => navigate("/courses"), { sequenceTimeoutMs: 900, preventDefault: true })
 
   // Se arma sólo cuando la palette abre — mapear ~1.500 notas en cada render no tiene sentido.
   function actions(): Action[] {
