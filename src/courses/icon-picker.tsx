@@ -6,11 +6,12 @@ import { uploadCourseIcon } from "@/courses/courses.api"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
 import { cn } from "@/core/lib/utils"
-import { Popover, PopoverContent, PopoverTrigger } from "@/core/ui/popover"
+import { Dropover, DropoverContent, DropoverTrigger } from "@/core/ui/dropover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/ui/tabs"
 
-// Popover a lo Notion: el trigger es el icono actual y adentro van las dos fuentes (presets /
-// imagen propia) en pestañas, más Eliminar. Elegir cierra — es un paso del form, no una pantalla.
+// Popover a lo Notion en desktop, drawer en mobile (Dropover): el trigger es el icono actual y
+// adentro van las dos fuentes (presets / imagen propia) en pestañas, más Eliminar. Elegir cierra —
+// es un paso del form, no una pantalla.
 export function IconPicker({
   icon,
   onChange,
@@ -52,8 +53,8 @@ export function IconPicker({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Dropover open={open} onOpenChange={setOpen}>
+      <DropoverTrigger asChild>
         <Button
           type="button"
           variant="outline"
@@ -61,14 +62,18 @@ export function IconPicker({
           aria-label="Icono del curso"
           className="size-10 text-muted-foreground"
         >
-          {icon ? <CourseIcon icon={icon} className="size-[18px]" /> : <Smile />}
+          {icon ? <CourseIcon icon={icon} className="size-4.5" /> : <Smile />}
         </Button>
-      </PopoverTrigger>
+      </DropoverTrigger>
 
-      {/* Pegar cuelga del popover entero, no del tab: radix enfoca el content al abrir, así que
-          ⌘V funciona desde cualquier pestaña sin tener que ir hasta el dropzone. */}
-      <PopoverContent className="w-64 gap-0 p-0" onPaste={(e) => upload(e.clipboardData.files[0])}>
-        <Tabs defaultValue="iconos" className="gap-0">
+      {/* Pegar cuelga del popover/drawer entero, no del tab: se enfoca el content al abrir, así
+          que ⌘V funciona desde cualquier pestaña sin tener que ir hasta el dropzone. */}
+      <DropoverContent
+        title="Ícono del curso"
+        className="md:w-64 gap-0 p-0 max-md:min-h-[300px]"
+        onPaste={(e) => upload(e.clipboardData.files[0])}
+      >
+        <Tabs defaultValue="iconos" className="max-md:flex-1 gap-0">
           {/* El borde del header hace de riel del subrayado de la pestaña activa. */}
           <div className="flex items-center border-b px-1.5">
             <TabsList variant="line">
@@ -87,25 +92,41 @@ export function IconPicker({
             </Button>
           </div>
 
-          {/* 15 presets: 5 columnas dan 3 filas justas, sin fila huérfana. */}
-          <TabsContent value="iconos" className="grid grid-cols-5 justify-items-center gap-1 p-2">
+          {/* 42 presets: 7 columnas dan 6 filas justas, sin fila huérfana. 7 × 32px (size="icon")
+              ≈ el ancho útil del popover (w-64 menos este padding), así el margen a los bordes
+              queda chico en vez del hueco enorme que dejaban 5 columnas en el mismo ancho.
+              (8 columnas no entra: 8 × 32 = 256px > los 244px útiles, se saldría del borde
+              redondeado del popover.) Track a min-content + justify-center: el sobrante se
+              reparte fuera del grid, no adentro de cada columna, que es lo que infla la
+              separación entre íconos. En mobile el drawer es full-bleed (sin los 244px del
+              popover) — íconos más grandes (44px, mínimo táctil de las guías de Apple/Google) con
+              más gap; 7 × 44px + gaps ≈ 330px, entra en cualquier viewport ≥360px sin overflow. */}
+          <TabsContent
+            value="iconos"
+            className="grid justify-center gap-0 p-1.5 grid-cols-[repeat(7,min-content)] max-md:gap-1"
+          >
             {Object.keys(PRESET_ICONS).map((n) => (
               <Button
                 key={n}
                 type="button"
                 variant="ghost"
-                size="icon-sm"
+                size="icon"
                 aria-label={n}
                 aria-pressed={icon === `lucide:${n}`}
-                className={icon === `lucide:${n}` ? "bg-muted text-foreground" : ""}
+                className={cn(
+                  "max-md:size-11",
+                  icon === `lucide:${n}` && "bg-muted text-foreground",
+                )}
                 onClick={() => set(`lucide:${n}`)}
               >
-                <CourseIcon icon={`lucide:${n}`} />
+                <CourseIcon icon={`lucide:${n}`} className="max-md:size-6" />
               </Button>
             ))}
           </TabsContent>
 
-          <TabsContent value="subir" className="p-2.5">
+          {/* max-md:flex-col: en mobile el botón crece para llenar el alto del drawer (heredado
+              de Tabs/TabsContent, ambos flex-1) en vez de quedar chico con hueco vacío debajo. */}
+          <TabsContent value="subir" className="p-2.5 max-md:flex max-md:flex-col">
             {/* `preventDefault` en dragOver es lo único que hace la zona soltable: sin eso el
                 browser abre la imagen en la pestaña. */}
             <Button
@@ -113,7 +134,7 @@ export function IconPicker({
               variant="ghost"
               disabled={uploading}
               className={cn(
-                "h-16 w-full gap-2 border border-dashed transition-colors",
+                "w-full gap-2 border border-dashed transition-colors md:h-16 max-md:flex-1",
                 dragging
                   ? "border-ring bg-muted text-foreground"
                   : "border-border bg-muted/40 text-muted-foreground",
@@ -134,11 +155,11 @@ export function IconPicker({
               {uploading ? "Subiendo…" : dragging ? "Soltá acá" : "Subir una imagen"}
             </Button>
             <p className="mt-2 text-center text-xs text-muted-foreground">
-              o soltala acá · <Kbd>⌘V</Kbd> para pegarla
+              o soltala acá · <Kbd>⌘</Kbd>+<Kbd>V</Kbd> para pegarla
             </p>
           </TabsContent>
         </Tabs>
-      </PopoverContent>
+      </DropoverContent>
 
       {/* Fuera del popover a propósito: si estuviera adentro, cerrarlo desmontaría el input y
           mataría el `change` del archivo elegido. El tipo y el peso los valida el bucket
@@ -150,6 +171,6 @@ export function IconPicker({
         className="hidden"
         onChange={pick}
       />
-    </Popover>
+    </Dropover>
   )
 }
