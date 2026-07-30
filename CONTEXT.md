@@ -59,9 +59,13 @@ Notas de licencia/tier:
 ## Schema (frozen)
 
 ```sql
-courses(id, user_id, name, status, started_at, finished_at, icon, deleted_at, created_at)
+courses(id, user_id, name, status, started_at, finished_at, icon, source, area, deleted_at, created_at)
   -- status: 'active' | 'paused' | 'done'
   -- icon: 'lucide:<Nombre>' (preset) o URL pública del bucket 'course-icons'. Nullable.
+  -- source: dónde se estudió (ej. 'Platzi', 'web.dev'). Texto libre, sin enum. Nullable.
+  -- area: tema/categoría del curso. Texto libre single-value (no tags), sin enum. Nullable.
+  --   source/area no tienen tabla propia: el <datalist> del form sugiere valores ya usados,
+  --   calculados en cliente desde useCourses() — no hay CRUD de categorías.
 notes(id, user_id, course_id, title, content, position, deleted_at, created_at)
   -- content: documento Tiptap. course_id uuid references courses(id) on delete set null
 read_log(id, user_id, note_id, read_at)
@@ -86,6 +90,19 @@ read_log(id, user_id, note_id, read_at)
 `goals` se diseñó y descartó a propósito: se mira 1×/semana, es una tabla + CRUD de 2h **después**
 de que el loop diario ande. Si vuelve el impulso hacia sync/stats/goals antes de que el loop
 diario funcione, es **scope creep** — frenarlo con estos datos, no con opinión.
+
+**Regla general (grilling 2026-07-28, `.scratch/platform-features/`):** la misma lógica aplica a
+toda feature nueva fuera de las 3 pantallas, no solo a `goals`. Repo tiene 5 días (primer commit
+2026-07-23), loop diario recién armado, sin uso real confirmado todavía. Hasta que el loop diario
+esté en uso real: gated — seguimiento de hábitos (mismo territorio que `goals`), Settings,
+abstracción DB→localStorage, sidebar de integración AI, tonos de nota vía AI, themes. Se reabren
+con el loop diario probado en uso real, no antes.
+
+**Themes — no MVP, feature a futuro, dirección ya resuelta si se retoma:** multi-theme estilo
+preset de editor de código (tipo OneDark/Dracula — un set fijo de colores por preset, no
+color-picker custom). Vive en un **Settings dialog** (`Dialog` de Radix vía shadcn, ADR 0005), no
+ruta nueva — no reabre "solo 3 pantallas" de `ui-principles.md` porque es overlay, no pantalla
+persistente. Hoy sigue el toggle claro/oscuro de `app.tsx:64-69`.
 
 ## Seguridad
 
