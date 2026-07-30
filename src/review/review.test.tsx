@@ -38,8 +38,27 @@ vi.mock("@/core/lib/supabase", () => {
           data:
             name === "review_queue"
               ? [
-                  { id: "n1", title: "Nota uno", content: { type: "doc" }, course_id: "c1" },
-                  { id: "n2", title: "Nota dos", content: { type: "doc" }, course_id: "c1" },
+                  {
+                    id: "n1",
+                    title: "Nota uno",
+                    content: { type: "doc" },
+                    course_id: "c1",
+                    kind: "note",
+                  },
+                  {
+                    id: "n2",
+                    title: "Nota dos",
+                    content: { type: "doc" },
+                    course_id: "c1",
+                    kind: "note",
+                  },
+                  {
+                    id: "f1",
+                    title: "Pregunta uno",
+                    content: { type: "doc" },
+                    course_id: "c1",
+                    kind: "flashcard",
+                  },
                 ]
               : [],
           error: null,
@@ -85,6 +104,35 @@ test("J/K saltan sin tocar read_log; Space inserta una fila y avanza", async () 
   // Space = marcar leído (exactamente 1 insert) + avanzar.
   fireEvent.keyDown(document, { code: "Space" })
   await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
-  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1" })
+  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
   await screen.findByText("Nota dos")
+})
+
+test("cola mixta: la flashcard se renderiza distinto y gradearla inserta el grade y avanza", async () => {
+  renderReview()
+  await screen.findByText("Nota uno")
+
+  // J saltea sin insertar, sin importar el kind del ítem al que se llega.
+  fireEvent.keyDown(document, { code: "KeyJ" })
+  fireEvent.keyDown(document, { code: "KeyJ" })
+  await screen.findByText("Pregunta uno")
+  expect(insertReadLog).not.toHaveBeenCalled()
+
+  // K también saltea sin insertar estando parado en una flashcard.
+  fireEvent.keyDown(document, { code: "KeyK" })
+  await screen.findByText("Nota dos")
+  fireEvent.keyDown(document, { code: "KeyJ" })
+  await screen.findByText("Pregunta uno")
+  expect(insertReadLog).not.toHaveBeenCalled()
+
+  // Antes de revelar: sin botones de grade, solo "Revelar respuesta" (distinto de una nota).
+  expect(screen.queryByRole("button", { name: "Marcar leído" })).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Correcto" })).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole("button", { name: "Revelar respuesta" }))
+
+  fireEvent.click(screen.getByRole("button", { name: "Correcto" }))
+  await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
+  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "f1", grade: "correcto" })
+  // Única flashcard de la cola (3 ítems) → avanza y termina el batch.
+  await screen.findByText("Batch terminado.")
 })

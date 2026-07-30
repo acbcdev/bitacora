@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
-import { ArrowLeft, Check, Maximize2, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Check, Maximize2, Plus, Sparkles, Trash2 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { CourseIcon } from "@/courses/course-icon"
 import { Editor } from "@/core/components/editor"
@@ -14,6 +14,7 @@ import { Kbd } from "@/core/ui/kbd"
 import { Progress } from "@/core/ui/progress"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useCourses, useUpdateCourse } from "@/courses/courses.api"
+import { useGenerateFlashcards, useRetention } from "@/flashcards/flashcards.api"
 import { useCreateNote, useDeleteNote, useNoteDraft, useNotes } from "@/notes/notes.api"
 import { dayOf, useReadStats } from "@/core/lib/stats"
 import type { CourseStatus } from "@/core/types/database"
@@ -40,6 +41,8 @@ export function Course() {
   const createNote = useCreateNote()
   const delNote = useDeleteNote()
   const updateCourse = useUpdateCourse()
+  const generateFlashcards = useGenerateFlashcards(id!)
+  const { data: retention } = useRetention()
 
   const course = courses.find((c) => c.id === id)
   const [sel, setSel] = useState<string | null>(null)
@@ -58,6 +61,7 @@ export function Course() {
 
   const read = notes.filter((n) => (stats?.byNote.get(n.id)?.count ?? 0) > 0).length
   const pct = notes.length ? Math.round((read / notes.length) * 100) : 0
+  const retentionPct = retention?.get(id!)
 
   if (!course) return <p className="p-8 text-muted-foreground">Curso no encontrado.</p>
 
@@ -110,6 +114,9 @@ export function Course() {
           <div className="mt-2 mb-3.5 flex items-center gap-2">
             <Badge variant={STATUS[course.status][1]}>{STATUS[course.status][0]}</Badge>
             <span className="mono-dim">{notes.length} notas</span>
+            {retentionPct !== undefined && (
+              <Badge variant="outline">{retentionPct}% retención</Badge>
+            )}
           </div>
           {(course.source || course.area) && (
             <div className="mb-3.5 flex flex-wrap gap-1.5">
@@ -159,6 +166,16 @@ export function Course() {
           >
             <Plus />
             Nueva nota
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            disabled={notes.length === 0 || generateFlashcards.isPending}
+            onClick={() => generateFlashcards.mutate()}
+          >
+            <Sparkles />
+            {generateFlashcards.isPending ? "Generando…" : "Generar flashcards"}
           </Button>
           {/* Acá se cierra el curso: el fin es cuando apretás el botón, no un date picker. */}
           {course.status !== "done" && (

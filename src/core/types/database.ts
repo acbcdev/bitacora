@@ -4,6 +4,8 @@
 // Mientras no exista el proyecto, van a mano — el schema está cerrado, no se inventa nada.
 
 export type CourseStatus = "active" | "paused" | "done"
+export type NoteKind = "note" | "flashcard"
+export type Grade = "correcto" | "parcial" | "incorrecto"
 
 // Documento Tiptap (JSON). Se guarda tal cual en notes.content.
 export type TiptapDoc = { type: "doc"; content?: unknown[] }
@@ -53,6 +55,7 @@ export type Database = {
           course_id: string | null
           title: string
           content: TiptapDoc
+          kind: NoteKind
           position: number
           imported: boolean
         } & Timestamps
@@ -62,6 +65,7 @@ export type Database = {
           course_id?: string | null
           title?: string
           content?: TiptapDoc
+          kind?: NoteKind
           position?: number
           imported?: boolean
           deleted_at?: string | null
@@ -71,8 +75,20 @@ export type Database = {
         Relationships: []
       }
       read_log: {
-        Row: { id: string; user_id: string; note_id: string; read_at: string }
-        Insert: { id?: string; user_id?: string; note_id: string; read_at?: string }
+        Row: {
+          id: string
+          user_id: string
+          note_id: string
+          read_at: string
+          grade: Grade | null
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          note_id: string
+          read_at?: string
+          grade?: Grade | null
+        }
         Update: Partial<Database["public"]["Tables"]["read_log"]["Insert"]>
         Relationships: []
       }

@@ -27,6 +27,6 @@ as $$
     count(*) as total,
     count(*) filter (where exists (select 1 from read_log r where r.note_id = n.id)) as read
   from notes n
-  where n.deleted_at is null and n.course_id is not null
+  where n.deleted_at is null and n.course_id is not null and n.kind = 'note'
   group by n.course_id;
 $$;

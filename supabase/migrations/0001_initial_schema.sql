@@ -20,6 +20,7 @@ create table notes (
   course_id  uuid references courses (id) on delete set null,  -- nota huérfana no rompe UI (ADR 0002)
   title      text not null default '',
   content    jsonb not null default '{}'::jsonb,               -- documento Tiptap (JSON)
+  kind       text not null default 'note' check (kind in ('note', 'flashcard')),
   position   integer not null default 0,                      -- orden dentro del curso
   imported   boolean not null default false,
   deleted_at timestamptz,
@@ -31,7 +32,8 @@ create table read_log (
   id      uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   note_id uuid not null references notes (id) on delete cascade,
-  read_at timestamptz not null default now()
+  read_at timestamptz not null default now(),
+  grade   text check (grade in ('correcto', 'parcial', 'incorrecto'))  -- solo si note.kind = 'flashcard'
 );
 
 -- Datos chicos (~1.500 notas). Solo los índices de FK que las queries de la app usan de verdad.

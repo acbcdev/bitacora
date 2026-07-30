@@ -16,6 +16,7 @@ export function useNotes(courseId: string) {
         .from("notes")
         .select("*")
         .eq("course_id", courseId)
+        .eq("kind", "note")
         .is("deleted_at", null)
         .order("position", { ascending: true })
       if (error) throw error
@@ -35,6 +36,7 @@ export function useAllNoteRefs() {
       const { data, error } = await supabase
         .from("notes")
         .select("id, title, course_id, position")
+        .eq("kind", "note")
         .is("deleted_at", null)
         .order("position", { ascending: true })
       if (error) throw error
@@ -53,6 +55,7 @@ export function useNote(id: string | undefined) {
         .from("notes")
         .select("*")
         .eq("id", id!)
+        .eq("kind", "note")
         .is("deleted_at", null)
         .single()
       if (error) throw error
