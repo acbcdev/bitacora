@@ -49,7 +49,18 @@ type Sort = "recientes" | "nombre" | "progreso" | "inicio"
 const INDICATOR_DONE = "[&>[data-slot=progress-indicator]]:bg-muted-foreground"
 
 // Las dos vacías son la columna del chevron y la de acciones.
-const HEADERS = ["", "Curso", "Estado", "Progreso", "Notas", "Inicio", "Últ. repaso", ""]
+const HEADERS = [
+  "",
+  "Curso",
+  "Fuente",
+  "Área",
+  "Estado",
+  "Progreso",
+  "Notas",
+  "Inicio",
+  "Últ. repaso",
+  "",
+]
 
 function fmt(d: string | null | undefined) {
   return d ? d.slice(0, 10) : "—"
@@ -177,7 +188,7 @@ export function Courses({ embed }: { embed?: boolean }) {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {HEADERS.map((h, i) => (
-                  <TableHead key={i} className={`eyebrow px-3 py-3 ${i >= 4 ? "text-right" : ""}`}>
+                  <TableHead key={i} className={`eyebrow px-3 py-3 ${i >= 6 ? "text-right" : ""}`}>
                     {h}
                   </TableHead>
                 ))}
@@ -198,6 +209,18 @@ export function Courses({ embed }: { embed?: boolean }) {
                       <CourseIcon icon={c.icon} className="text-muted-foreground" />
                       {c.name}
                     </span>
+                  </TableCell>
+                  <TableCell
+                    className="max-w-30 truncate px-3 py-3 text-muted-foreground"
+                    title={c.source ?? undefined}
+                  >
+                    {c.source || "—"}
+                  </TableCell>
+                  <TableCell
+                    className="max-w-30 truncate px-3 py-3 text-muted-foreground"
+                    title={c.area ?? undefined}
+                  >
+                    {c.area || "—"}
                   </TableCell>
                   <TableCell className="px-3 py-3">
                     <Badge variant={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>

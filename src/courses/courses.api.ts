@@ -42,6 +42,8 @@ type CourseInput = {
   started_at?: string | null
   finished_at?: string | null
   icon?: string | null
+  source?: string | null
+  area?: string | null
 }
 
 // Sube el icono y devuelve su URL pública. La carpeta tiene que ser el user_id: es lo que

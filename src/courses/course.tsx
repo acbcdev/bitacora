@@ -111,6 +111,12 @@ export function Course() {
             <Badge variant={STATUS[course.status][1]}>{STATUS[course.status][0]}</Badge>
             <span className="mono-dim">{notes.length} notas</span>
           </div>
+          {(course.source || course.area) && (
+            <div className="mb-3.5 flex flex-wrap gap-1.5">
+              {course.source && <Badge variant="outline">{course.source}</Badge>}
+              {course.area && <Badge variant="outline">{course.area}</Badge>}
+            </div>
+          )}
           <div className="mb-1.5 flex justify-between">
             <span className="eyebrow">Progreso</span>
             <span className="mono">{pct}%</span>

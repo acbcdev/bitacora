@@ -25,6 +25,8 @@ export type Database = {
           started_at: string | null
           finished_at: string | null
           icon: string | null // 'lucide:Book' o URL de imagen subida
+          source: string | null // dónde se estudió (ej. 'Platzi')
+          area: string | null // tema/categoría del curso
           imported: boolean
         } & Timestamps
         Insert: {
@@ -35,6 +37,8 @@ export type Database = {
           started_at?: string | null
           finished_at?: string | null
           icon?: string | null
+          source?: string | null
+          area?: string | null
           imported?: boolean
           deleted_at?: string | null
           created_at?: string

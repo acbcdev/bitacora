@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { IconPicker } from "@/courses/icon-picker"
-import { useCreateCourse, useUpdateCourse } from "@/courses/courses.api"
+import { useCourses, useCreateCourse, useUpdateCourse } from "@/courses/courses.api"
 import { Button } from "@/core/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/core/ui/field"
@@ -8,12 +8,26 @@ import { Input } from "@/core/ui/input"
 import { NativeSelect } from "@/core/ui/native-select"
 import type { Course, CourseStatus } from "@/core/types/database"
 
+// Valores distintos ya usados en otros cursos, para sugerir vía <datalist>. Mismo query
+// cacheado que usa la pantalla de Cursos — sin fetch adicional.
+function useCourseFieldSuggestions(field: "source" | "area") {
+  const { data: courses = [] } = useCourses()
+  return useMemo(
+    () => [...new Set(courses.map((c) => c[field]).filter((v): v is string => !!v))],
+    [courses, field],
+  )
+}
+
 export function CourseForm({ course, onClose }: { course: Course | null; onClose: () => void }) {
   const create = useCreateCourse()
   const update = useUpdateCourse()
+  const sourceOptions = useCourseFieldSuggestions("source")
+  const areaOptions = useCourseFieldSuggestions("area")
 
   const [name, setName] = useState(course?.name ?? "")
   const [icon, setIcon] = useState(course?.icon ?? null)
+  const [source, setSource] = useState(course?.source ?? "")
+  const [area, setArea] = useState(course?.area ?? "")
   const [status, setStatus] = useState<CourseStatus>(course?.status ?? "active")
   const [startedAt, setStartedAt] = useState(course?.started_at?.slice(0, 10) ?? "")
   const [finishedAt, setFinishedAt] = useState(course?.finished_at?.slice(0, 10) ?? "")
@@ -23,7 +37,17 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
     const done = { onSuccess: onClose }
     // Crear: nombre + icono. El inicio es ahora y el estado lo pone el default de la DB ('active');
     // el fin lo setea el botón Finalizar del curso.
-    if (!course) return create.mutate({ name, icon, started_at: new Date().toISOString() }, done)
+    if (!course)
+      return create.mutate(
+        {
+          name,
+          icon,
+          source: source || null,
+          area: area || null,
+          started_at: new Date().toISOString(),
+        },
+        done,
+      )
     // Pasar a "done" sin fecha → setear finished_at hoy.
     const finished =
       status === "done" && !finishedAt ? new Date().toISOString().slice(0, 10) : finishedAt
@@ -32,6 +56,8 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
         id: course.id,
         name,
         icon,
+        source: source || null,
+        area: area || null,
         status,
         started_at: startedAt || null,
         finished_at: finished || null,
@@ -67,6 +93,44 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
                 />
               </div>
             </Field>
+            <FieldGroup className="flex-row">
+              <Field>
+                <FieldLabel htmlFor="course-source" className="eyebrow">
+                  Fuente
+                </FieldLabel>
+                <Input
+                  id="course-source"
+                  list="course-source-options"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  placeholder="Ej: Platzi"
+                  className="h-10"
+                />
+                <datalist id="course-source-options">
+                  {sourceOptions.map((o) => (
+                    <option key={o} value={o} />
+                  ))}
+                </datalist>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="course-area" className="eyebrow">
+                  Área
+                </FieldLabel>
+                <Input
+                  id="course-area"
+                  list="course-area-options"
+                  value={area}
+                  onChange={(e) => setArea(e.target.value)}
+                  placeholder="Ej: Programación"
+                  className="h-10"
+                />
+                <datalist id="course-area-options">
+                  {areaOptions.map((o) => (
+                    <option key={o} value={o} />
+                  ))}
+                </datalist>
+              </Field>
+            </FieldGroup>
             {/* Estado y fechas solo al editar: crear un curso es escribir el nombre y listo. */}
             {course && (
               <>

@@ -7,6 +7,8 @@ create table courses (
   status      text not null default 'active' check (status in ('active', 'paused', 'done')),
   started_at  timestamptz,
   finished_at timestamptz,
+  source      text,                            -- dónde se estudió (ej. 'Platzi'). Texto libre.
+  area        text,                            -- tema/categoría del curso. Texto libre, single-value.
   imported    boolean not null default false,  -- fechas estimadas de Notion (CONTEXT.md)
   deleted_at  timestamptz,                     -- soft delete (ADR 0002). La app nunca hace DELETE.
   created_at  timestamptz not null default now()
