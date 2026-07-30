@@ -123,7 +123,7 @@ export function Courses({ embed }: { embed?: boolean }) {
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <InputGroup className="w-[220px] bg-card">
+        <InputGroup className="w-55 bg-card">
           <InputGroupAddon>
             <Search className="size-3.5" />
           </InputGroupAddon>
@@ -202,7 +202,7 @@ export function Courses({ embed }: { embed?: boolean }) {
                   <TableCell className="px-3 py-3">
                     <Badge variant={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
                   </TableCell>
-                  <TableCell className="w-[180px] px-3 py-3">
+                  <TableCell className="w-45 px-3 py-3">
                     <CourseProgress
                       read={progress?.get(c.id)?.read ?? 0}
                       total={progress?.get(c.id)?.total ?? 0}

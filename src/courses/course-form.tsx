@@ -42,10 +42,7 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        showCloseButton={false}
-        className="w-[420px] max-w-[92vw] gap-0 p-0 sm:max-w-[420px]"
-      >
+      <DialogContent showCloseButton={false} className="w-105 max-w-[92vw] gap-0 p-0 sm:max-w-105">
         <form onSubmit={submit}>
           <DialogHeader className="border-b px-8 py-6">
             <DialogTitle className="text-lg font-semibold">

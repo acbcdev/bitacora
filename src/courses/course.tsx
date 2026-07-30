@@ -86,7 +86,7 @@ export function Course() {
                   onClick={() => navigate("/courses")}
                   aria-label="Volver"
                 >
-                  <ArrowLeft className="size-[15px]" />
+                  <ArrowLeft className="size-3.75" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Volver</TooltipContent>
@@ -101,7 +101,7 @@ export function Course() {
         )}
       </div>
 
-      <aside className="flex w-[272px] shrink-0 flex-col overflow-y-auto border-l">
+      <aside className="flex w-68 shrink-0 flex-col overflow-y-auto border-l">
         <div className="px-5 pt-6 pb-5">
           <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-pretty">
             <CourseIcon icon={course.icon} className="size-5 text-muted-foreground" />
@@ -115,7 +115,7 @@ export function Course() {
             <span className="eyebrow">Progreso</span>
             <span className="mono">{pct}%</span>
           </div>
-          <Progress value={pct} className="h-[3px]" aria-label={`Progreso del curso: ${pct}%`} />
+          <Progress value={pct} className="h-0.75" aria-label={`Progreso del curso: ${pct}%`} />
         </div>
 
         <p className="eyebrow px-5 pt-4 pb-2">Notas</p>
@@ -132,7 +132,7 @@ export function Course() {
               >
                 <button onClick={() => setSel(n.id)}>
                   <span
-                    className={`mt-[7px] size-[5px] shrink-0 rounded-full ${count > 0 ? "bg-brand" : "bg-input"}`}
+                    className={`mt-1.75 size-1.25 shrink-0 rounded-full ${count > 0 ? "bg-brand" : "bg-input"}`}
                   />
                   {/* Sin `ItemTitle`: viene con `line-clamp-1` y los títulos largos tienen que
                       envolver, no cortarse. */}
@@ -203,7 +203,7 @@ function NotePane({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Volver">
-              <ArrowLeft className="size-[15px]" />
+              <ArrowLeft className="size-3.75" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Volver</TooltipContent>

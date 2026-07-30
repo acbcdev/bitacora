@@ -21,7 +21,7 @@ export function Login() {
 
   return (
     <div className="grid min-h-screen place-items-center px-6">
-      <div className="fade-in flex w-[380px] max-w-full flex-col gap-8">
+      <div className="fade-in flex w-95 max-w-full flex-col gap-8">
         <div>
           <h1 className="text-3xl font-semibold tracking-tighter">Bitácora</h1>
           <p className="mt-2.5 text-base text-muted-foreground">
