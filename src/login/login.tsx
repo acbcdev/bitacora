@@ -69,7 +69,6 @@ export function Login() {
 
         <div className="flex justify-between">
           <span className="mono-dim">Sin contraseña — magic link</span>
-          <span className="mono-dim">v0.3</span>
         </div>
       </div>
     </div>
