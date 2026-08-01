@@ -28,7 +28,6 @@ import {
   DropdownMenuTrigger,
 } from "@/core/ui/dropdown-menu"
 import { NativeSelect } from "@/core/ui/native-select"
-import { Progress } from "@/core/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/core/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/core/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
@@ -43,19 +42,15 @@ const STATUS: Record<CourseStatus, [string, "brand" | "warning" | "outline"]> = 
   done: ["hecho", "outline"],
 }
 
-type Sort = "recientes" | "nombre" | "progreso" | "inicio"
+type Sort = "recientes" | "nombre" | "rondas" | "inicio"
 
-// Curso al 100%: la barra pierde el acento de marca (regla visual del DS).
-const INDICATOR_DONE = "[&>[data-slot=progress-indicator]]:bg-muted-foreground"
-
-// Las dos vacías son la columna del chevron y la de acciones.
+// La vacía es la columna de acciones; el chevron va pegado al nombre en la misma celda.
 const HEADERS = [
-  "",
   "Curso",
   "Fuente",
   "Área",
   "Estado",
-  "Progreso",
+  "Rondas",
   "Notas",
   "Inicio",
   "Últ. repaso",
@@ -95,10 +90,18 @@ export function Courses({ embed }: { embed?: boolean }) {
     return m
   }, [noteRefs, stats])
 
-  const pct = (id: string) => {
-    const p = progress?.get(id)
-    return p?.total ? Math.round((p.read / p.total) * 100) : 0
-  }
+  // Rondas completas por curso: la nota MENOS repasada marca el pie del grupo — si todas
+  // llevan al menos 2 repasos, el curso lleva 2 rondas completas (sin ronda a medias).
+  const rounds = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const n of noteRefs) {
+      if (!n.course_id) continue
+      const count = stats?.byNote.get(n.id)?.count ?? 0
+      const prev = m.get(n.course_id)
+      m.set(n.course_id, prev === undefined ? count : Math.min(prev, count))
+    }
+    return m
+  }, [noteRefs, stats])
 
   const rows = courses
     .filter(
@@ -108,7 +111,7 @@ export function Courses({ embed }: { embed?: boolean }) {
     )
     .toSorted((a, b) => {
       if (sort === "nombre") return a.name.localeCompare(b.name)
-      if (sort === "progreso") return pct(b.id) - pct(a.id)
+      if (sort === "rondas") return (rounds.get(b.id) ?? 0) - (rounds.get(a.id) ?? 0)
       if (sort === "inicio") return (b.started_at ?? "").localeCompare(a.started_at ?? "")
       return (lastRead.get(b.id) ?? "").localeCompare(lastRead.get(a.id) ?? "")
     })
@@ -154,7 +157,7 @@ export function Courses({ embed }: { embed?: boolean }) {
         <Pill icon={<ArrowUpDown size={13} />} value={sort} onChange={setSort}>
           <option value="recientes">Últ. repaso</option>
           <option value="nombre">Nombre</option>
-          <option value="progreso">Progreso</option>
+          <option value="rondas">Rondas</option>
           <option value="inicio">Inicio</option>
         </Pill>
 
@@ -188,7 +191,12 @@ export function Courses({ embed }: { embed?: boolean }) {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {HEADERS.map((h, i) => (
-                  <TableHead key={i} className={`eyebrow px-3 py-3 ${i >= 6 ? "text-right" : ""}`}>
+                  <TableHead
+                    key={i}
+                    className={`eyebrow px-3 py-3 ${i >= 5 ? "text-right" : ""} ${
+                      i === 0 ? "sticky left-0 z-10 bg-card" : ""
+                    }`}
+                  >
                     {h}
                   </TableHead>
                 ))}
@@ -198,15 +206,13 @@ export function Courses({ embed }: { embed?: boolean }) {
               {rows.map((c) => (
                 <TableRow
                   key={c.id}
-                  className="cursor-pointer"
+                  className="group cursor-pointer"
                   onClick={() => navigate(`/course/${c.id}`)}
                 >
-                  <TableCell className="w-7 px-3 py-3 text-muted-foreground">
-                    <ChevronRight size={14} />
-                  </TableCell>
-                  <TableCell className="px-3 py-3 font-medium">
-                    <span className="flex items-center gap-2">
-                      <CourseIcon icon={c.icon} className="text-muted-foreground" />
+                  <TableCell className="sticky left-0 z-10 max-w-80 bg-card px-3 py-3 font-medium whitespace-normal group-hover:bg-muted/50">
+                    <span className="flex items-start gap-2">
+                      <ChevronRight size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+                      <CourseIcon icon={c.icon} className="mt-0.5 shrink-0 text-muted-foreground" />
                       {c.name}
                     </span>
                   </TableCell>
@@ -225,12 +231,7 @@ export function Courses({ embed }: { embed?: boolean }) {
                   <TableCell className="px-3 py-3">
                     <Badge variant={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
                   </TableCell>
-                  <TableCell className="w-45 px-3 py-3">
-                    <CourseProgress
-                      read={progress?.get(c.id)?.read ?? 0}
-                      total={progress?.get(c.id)?.total ?? 0}
-                    />
-                  </TableCell>
+                  <TableCell className="mono px-3 py-3">{rounds.get(c.id) ?? 0}</TableCell>
                   <TableCell className="mono px-3 py-3 text-right">
                     {progress?.get(c.id)?.total ?? 0}
                   </TableCell>
@@ -283,11 +284,9 @@ export function Courses({ embed }: { embed?: boolean }) {
                 </span>
                 <Badge variant={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
               </div>
-              <div className="mb-2.5">
-                <CourseProgress
-                  read={progress?.get(c.id)?.read ?? 0}
-                  total={progress?.get(c.id)?.total ?? 0}
-                />
+              <div className="mb-2.5 flex items-center gap-1.5">
+                <span className="eyebrow">Rondas</span>
+                <span className="mono">{rounds.get(c.id) ?? 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="mono-dim">{fmt(c.started_at)}</span>
@@ -304,23 +303,6 @@ export function Courses({ embed }: { embed?: boolean }) {
       )}
 
       {editing && <CourseForm course={editing === "new" ? null : editing} onClose={close} />}
-    </div>
-  )
-}
-
-// Progreso derivado (ADR 0003): notas leídas / total. Al 100% pierde el acento.
-function CourseProgress({ read, total }: { read: number; total: number }) {
-  const pct = total ? Math.round((read / total) * 100) : 0
-  return (
-    <div className="flex items-center gap-2.5">
-      <Progress
-        value={pct}
-        aria-label={`Progreso: ${read} de ${total} notas leídas`}
-        className={pct === 100 ? `flex-1 ${INDICATOR_DONE}` : "flex-1"}
-      />
-      <span className="mono">
-        {read}/{total}
-      </span>
     </div>
   )
 }
