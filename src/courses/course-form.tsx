@@ -10,19 +10,20 @@ import type { Course, CourseStatus } from "@/core/types/database"
 
 // Valores distintos ya usados en otros cursos, para sugerir vía <datalist>. Mismo query
 // cacheado que usa la pantalla de Cursos — sin fetch adicional.
-function useCourseFieldSuggestions(field: "source" | "area") {
+function useCourseFieldSuggestions() {
   const { data: courses = [] } = useCourses()
-  return useMemo(
-    () => [...new Set(courses.map((c) => c[field]).filter((v): v is string => !!v))],
-    [courses, field],
-  )
+  return useMemo(() => {
+    const uniq = (field: "source" | "area") => [
+      ...new Set(courses.map((c) => c[field]).filter((v): v is string => !!v)),
+    ]
+    return { sourceOptions: uniq("source"), areaOptions: uniq("area") }
+  }, [courses])
 }
 
 export function CourseForm({ course, onClose }: { course: Course | null; onClose: () => void }) {
   const create = useCreateCourse()
   const update = useUpdateCourse()
-  const sourceOptions = useCourseFieldSuggestions("source")
-  const areaOptions = useCourseFieldSuggestions("area")
+  const { sourceOptions, areaOptions } = useCourseFieldSuggestions()
 
   const [name, setName] = useState(course?.name ?? "")
   const [icon, setIcon] = useState(course?.icon ?? null)
