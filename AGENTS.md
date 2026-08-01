@@ -13,3 +13,6 @@ Five canonical triage roles, each label string equal to its name. See `docs/agen
 ### Domain docs
 
 Single-context — one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+use pnpm always 
+no use npx - use pnpm instead
