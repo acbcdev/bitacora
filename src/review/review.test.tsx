@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter } from "react-router-dom"
 import { TooltipProvider } from "@/core/ui/tooltip"
@@ -92,12 +92,12 @@ test("J/K saltan sin tocar read_log; Space inserta una fila y avanza", async () 
   renderReview()
   await screen.findByText("Nota uno")
 
-  // J = saltar sin contar → avanza, no inserta.
+  // K = saltar sin contar → avanza, no inserta.
   // react-hotkeys-hook matchea por e.code y escucha en `document`, no `window`.
-  fireEvent.keyDown(document, { code: "KeyJ" })
-  await screen.findByText("Nota dos")
-  // K = volver sin contar.
   fireEvent.keyDown(document, { code: "KeyK" })
+  await screen.findByText("Nota dos")
+  // J = volver sin contar.
+  fireEvent.keyDown(document, { code: "KeyJ" })
   await screen.findByText("Nota uno")
   expect(insertReadLog).not.toHaveBeenCalled()
 
@@ -112,16 +112,16 @@ test("cola mixta: la flashcard se renderiza distinto y gradearla inserta el grad
   renderReview()
   await screen.findByText("Nota uno")
 
-  // J saltea sin insertar, sin importar el kind del ítem al que se llega.
-  fireEvent.keyDown(document, { code: "KeyJ" })
-  fireEvent.keyDown(document, { code: "KeyJ" })
+  // K saltea sin insertar, sin importar el kind del ítem al que se llega.
+  fireEvent.keyDown(document, { code: "KeyK" })
+  fireEvent.keyDown(document, { code: "KeyK" })
   await screen.findByText("Pregunta uno")
   expect(insertReadLog).not.toHaveBeenCalled()
 
-  // K también saltea sin insertar estando parado en una flashcard.
-  fireEvent.keyDown(document, { code: "KeyK" })
-  await screen.findByText("Nota dos")
+  // J también saltea sin insertar estando parado en una flashcard.
   fireEvent.keyDown(document, { code: "KeyJ" })
+  await screen.findByText("Nota dos")
+  fireEvent.keyDown(document, { code: "KeyK" })
   await screen.findByText("Pregunta uno")
   expect(insertReadLog).not.toHaveBeenCalled()
 
@@ -135,4 +135,46 @@ test("cola mixta: la flashcard se renderiza distinto y gradearla inserta el grad
   expect(insertReadLog).toHaveBeenCalledWith({ note_id: "f1", grade: "correcto" })
   // Única flashcard de la cola (3 ítems) → avanza y termina el batch.
   await screen.findByText("Batch terminado.")
+})
+
+test("click en el card de una nota abre el dialog con la nota completa; cerrarlo lo saca", async () => {
+  renderReview()
+  await screen.findByText("Nota uno")
+
+  expect(screen.queryByTestId("editor")).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole("button", { name: /Nota uno/ }))
+  await screen.findByTestId("editor")
+
+  fireEvent.click(screen.getByRole("button", { name: "Close" }))
+  await waitFor(() => expect(screen.queryByTestId("editor")).not.toBeInTheDocument())
+
+  // Escape es el otro dismiss path que pide el spec (default de Radix, sin código propio).
+  fireEvent.click(screen.getByRole("button", { name: /Nota uno/ }))
+  await screen.findByTestId("editor")
+  fireEvent.keyDown(document, { key: "Escape" })
+  await waitFor(() => expect(screen.queryByTestId("editor")).not.toBeInTheDocument())
+})
+
+test("Marcar leído funciona desde el card sin abrir el dialog", async () => {
+  renderReview()
+  await screen.findByText("Nota uno")
+
+  fireEvent.click(screen.getByRole("button", { name: "Marcar leído" }))
+  await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
+  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
+  await screen.findByText("Nota dos")
+})
+
+test("Marcar leído también funciona desde adentro del dialog, y lo cierra", async () => {
+  renderReview()
+  await screen.findByText("Nota uno")
+
+  fireEvent.click(screen.getByRole("button", { name: /Nota uno/ }))
+  const dialog = await screen.findByRole("dialog")
+  fireEvent.click(within(dialog).getByRole("button", { name: "Marcar leído" }))
+
+  await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
+  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
+  await screen.findByText("Nota dos")
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
 })

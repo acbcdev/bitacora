@@ -46,9 +46,9 @@
   --tracking-wide: 0.04em;
   --tracking-widest: 0.12em;
 
-  /* Anchos del DS: --container-max 1120px + ancho de lectura 660px. */
+  /* Anchos del DS: --container-max 1120px + ancho de lectura 80ch (escala con font-size). */
   --container-shell: 1120px;
-  --container-read: 660px;
+  --container-read: 80ch;
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);

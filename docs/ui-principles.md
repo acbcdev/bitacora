@@ -8,8 +8,11 @@ interacción, no decoración.
 
 1. **Keyboard-first.** Cada acción frecuente tiene un shortcut. El mouse es opcional, no el camino
    principal. La pantalla de Repaso se maneja entera con `Space` / `J` / `K` sin tocar el mouse.
-2. **La nota manda.** En Repaso, la nota es grande y legible — es lo único importante en pantalla.
-   Todo lo demás (chrome, nav, metadata) es secundario y discreto.
+2. **La nota manda.** Abierta —en el dialog de Repaso o en la pantalla Nota— es grande, legible, lo
+   único importante en pantalla. Todo lo demás (chrome, nav, metadata) es secundario y discreto.
+   Excepción a propósito: el card de la cola de Repaso no muestra la nota completa, solo un extracto
+   corto + call to action — la nota completa vive en un dialog on-demand, no inline en la cola (ver
+   `.scratch/review-note-dialog/spec.md`).
 3. **Chrome mínimo.** Sin sidebars pesadas, sin toolbars llenas de botones que no se usan. Notion
    se siente lento por exceso de UI — no repetir eso.
 4. **Rápido de verdad.** Interacciones sin lag percibido. Optimismo en la UI donde ayude (avanzar

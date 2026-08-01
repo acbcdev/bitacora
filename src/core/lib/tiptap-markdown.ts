@@ -71,6 +71,32 @@ export function docToMarkdown(doc: TiptapDoc): string {
   return blocks((doc.content as Node[]) ?? [])
 }
 
+function plainInline(nodes: Node[] = []): string {
+  return nodes.map((n) => n.text ?? "").join("")
+}
+
+// Extracto sin formato (review/note-dialog): a diferencia de blocks(), separa bloques con un
+// espacio en vez de "\n\n" y no aplica marks — pensado para una sola línea truncada por CSS.
+function plainBlock(node: Node): string {
+  switch (node.type) {
+    case "bulletList":
+    case "orderedList":
+      return (node.content ?? []).map((item) => plainBlocks(item.content ?? [])).join(" ")
+    case "blockquote":
+      return plainBlocks(node.content ?? [])
+    default:
+      return plainInline(node.content)
+  }
+}
+
+function plainBlocks(nodes: Node[]): string {
+  return nodes.map(plainBlock).filter(Boolean).join(" ")
+}
+
+export function docToPlainText(doc: TiptapDoc): string {
+  return plainBlocks((doc.content as Node[]) ?? [])
+}
+
 const INLINE_RE =
   /`([^`]+)`|\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|\*([^*]+)\*|_([^_]+)_/g
 
