@@ -66,7 +66,11 @@ function renderCourse() {
       <MemoryRouter initialEntries={["/course/c1"]}>
         <TooltipProvider>
           <Routes>
-            <Route path="/course/:id" element={<Course />} />
+            <Route path="/course/:id" element={<Course focus={false} setFocus={() => {}} />} />
+            <Route
+              path="/course/:id/:noteId"
+              element={<Course focus={false} setFocus={() => {}} />}
+            />
           </Routes>
         </TooltipProvider>
       </MemoryRouter>

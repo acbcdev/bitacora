@@ -213,7 +213,17 @@ export function Review() {
                   )
                 ) : (
                   <>
-                    <Button variant="ghost" size="sm" onClick={() => navigate(`/note/${note.id}`)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        navigate(
+                          note.course_id
+                            ? `/course/${note.course_id}/${note.id}`
+                            : `/note/${note.id}`,
+                        )
+                      }
+                    >
                       <Pencil />
                       Editar
                     </Button>

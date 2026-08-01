@@ -156,7 +156,7 @@ function Shell() {
         group: "Notas",
         label: `${n.title || "(sin título)"}${n.course_id ? ` — ${courseName.get(n.course_id) ?? ""}` : ""}`,
         icon: <ChevronRight />,
-        run: () => navigate(`/note/${n.id}`),
+        run: () => navigate(n.course_id ? `/course/${n.course_id}/${n.id}` : `/note/${n.id}`),
       })),
     ]
   }
@@ -189,7 +189,13 @@ function Shell() {
           <Routes>
             <Route path="/" element={<Review />} />
             <Route path="/courses" element={<Courses />} />
-            <Route path="/course/:id" element={<Course />} />
+            <Route path="/course/:id" element={<Course focus={focus} setFocus={setFocus} />} />
+            <Route
+              path="/course/:id/:noteId"
+              element={<Course focus={focus} setFocus={setFocus} />}
+            />
+            {/* Solo para notas sin curso (note.course_id null) — con curso, la ruta principal
+                es /course/:id/:noteId de arriba. */}
             <Route path="/note/:id" element={<Note focus={focus} setFocus={setFocus} />} />
           </Routes>
         </main>
