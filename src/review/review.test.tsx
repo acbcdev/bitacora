@@ -145,12 +145,7 @@ test("click en el card de una nota abre el dialog con la nota completa; cerrarlo
   fireEvent.click(screen.getByRole("button", { name: /Nota uno/ }))
   await screen.findByTestId("editor")
 
-  fireEvent.click(screen.getByRole("button", { name: "Close" }))
-  await waitFor(() => expect(screen.queryByTestId("editor")).not.toBeInTheDocument())
-
-  // Escape es el otro dismiss path que pide el spec (default de Radix, sin código propio).
-  fireEvent.click(screen.getByRole("button", { name: /Nota uno/ }))
-  await screen.findByTestId("editor")
+  // Ya no hay X (showCloseButton={false}): cerrar es Esc o click afuera, default de Radix.
   fireEvent.keyDown(document, { key: "Escape" })
   await waitFor(() => expect(screen.queryByTestId("editor")).not.toBeInTheDocument())
 })

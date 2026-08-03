@@ -276,6 +276,14 @@
 .tiptap-host .ProseMirror hr {
   @apply my-6 border-border;
 }
+/* Sin esto el primer/último bloque suma su margin al padding del contenedor (dialog de
+   Repaso: título + heading con doble espacio). */
+.tiptap-host .ProseMirror > *:first-child {
+  margin-top: 0;
+}
+.tiptap-host .ProseMirror > *:last-child {
+  margin-bottom: 0;
+}
 
 /* Modo focus (tecla F): la nota más grande, nada más en pantalla. */
 [data-size="lg"] .tiptap-host .ProseMirror {

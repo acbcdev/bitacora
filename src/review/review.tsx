@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
-import { Flame, Pencil, Trash2 } from "lucide-react"
+import { Flame, Maximize2, Trash2 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { Editor } from "@/core/components/editor"
 import { NoteSkeleton } from "@/core/components/skeletons"
 import { Button } from "@/core/ui/button"
 import { Card } from "@/core/ui/card"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/core/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@/core/ui/dialog"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
 import { Kbd } from "@/core/ui/kbd"
 import { Progress } from "@/core/ui/progress"
@@ -84,7 +84,7 @@ export function Review() {
 
   if (isLoading)
     return (
-      <div className="fade-in mx-auto max-w-shell px-8 pt-9 pb-16">
+      <div className="fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8">
         <Card className="py-6">
           <NoteSkeleton />
         </Card>
@@ -93,7 +93,7 @@ export function Review() {
   const done = queue.length === 0 || index >= queue.length
 
   return (
-    <div className="fade-in mx-auto max-w-shell px-8 pt-9 pb-16">
+    <div className="fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8">
       <div className="mb-4 flex items-baseline justify-between">
         <p className="eyebrow">Hoy — {todayKey()}</p>
         <div className="flex items-center gap-6">
@@ -118,7 +118,7 @@ export function Review() {
       <Card className="mb-8 py-6">
         {done ? (
           // Cola vacía o batch terminado → estado claro, no error (review/02).
-          <Empty className="px-8 py-16">
+          <Empty className="px-4 py-12 sm:px-8 sm:py-16">
             <EmptyHeader>
               <EmptyTitle className="text-lg">
                 {queue.length === 0 ? "Nada para repasar hoy." : "Batch terminado."}
@@ -140,24 +140,24 @@ export function Review() {
             </EmptyContent>
           </Empty>
         ) : (
-          <div className="mx-auto max-w-read px-8">
+          <div className="mx-auto max-w-read px-4 sm:px-8">
             {note.kind === "note" ? (
               <button
                 type="button"
                 onClick={() => setDialogOpen(true)}
                 className="-m-2 mb-6 block w-full cursor-pointer rounded-lg p-2 text-left transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
-                <span className="mb-2 flex items-center justify-between">
+                <span className="mb-2 flex min-h-[2lh] items-start justify-between gap-3">
                   <span className="eyebrow flex items-center gap-1.5">
                     <CourseIcon icon={course?.icon ?? null} />
                     {course?.name ?? "Sin curso"}
                   </span>
-                  <span className="mono-dim">
+                  <span className="mono-dim shrink-0 whitespace-nowrap">
                     {index + 1} / {queue.length}
                   </span>
                 </span>
                 <span key={note.id} className="note-in block">
-                  <span className="mb-1.5 block text-3xl font-semibold tracking-tight text-pretty">
+                  <span className="mb-1.5 line-clamp-2 min-h-[2lh] text-3xl font-semibold tracking-tight text-pretty">
                     {note.title || "(sin título)"}
                   </span>
                   <span className="line-clamp-3 min-h-[3lh] text-muted-foreground">
@@ -167,9 +167,9 @@ export function Review() {
               </button>
             ) : (
               <>
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-6 flex min-h-[2lh] items-start justify-between gap-3">
                   <p className="eyebrow">{course?.name ?? "Sin curso"}</p>
-                  <span className="mono-dim">
+                  <span className="mono-dim shrink-0 whitespace-nowrap">
                     {index + 1} / {queue.length}
                   </span>
                 </div>
@@ -189,16 +189,17 @@ export function Review() {
               </>
             )}
 
-            <div className="mt-8 flex items-center justify-between border-t pt-5">
-              <div className="flex flex-wrap items-center gap-3.5 text-xs text-muted-foreground">
-                {note.kind === "flashcard" && revealed ? (
-                  <span>Elegí correcto / parcial / incorrecto abajo</span>
-                ) : (
-                  <span>
-                    <Kbd>Space</Kbd>{" "}
-                    {note.kind === "flashcard" ? "revelar respuesta" : "leído + siguiente"}
-                  </span>
-                )}
+            <div className="mt-8 flex items-center justify-end border-t pt-5 sm:justify-between">
+              {/* Los atajos no existen en mobile (no hay teclado): ahí el espacio va a los botones. */}
+              <div className="hidden flex-wrap items-center gap-3.5 text-xs text-muted-foreground sm:flex">
+                {note.kind === "flashcard" &&
+                  (revealed ? (
+                    <span>Elegí correcto / parcial / incorrecto abajo</span>
+                  ) : (
+                    <span>
+                      <Kbd>Space</Kbd> revelar respuesta
+                    </span>
+                  ))}
                 <span>
                   <Kbd>J</Kbd> volver
                 </span>
@@ -206,7 +207,7 @@ export function Review() {
                   <Kbd>K</Kbd> siguiente
                 </span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
                 {note.kind === "flashcard" ? (
                   revealed ? (
                     <>
@@ -245,7 +246,7 @@ export function Review() {
                     </Button>
                   )
                 ) : (
-                  <Button size="sm" onClick={markNoteRead}>
+                  <Button size="lg" onClick={markNoteRead}>
                     Marcar leído
                   </Button>
                 )}
@@ -257,38 +258,46 @@ export function Review() {
 
       {note &&
         note.kind === "note" && (
-          // Con showCloseButton por default (a diferencia de course-form/cheatsheet): esto es un
-          // visor de solo lectura, no un form — la X es el segundo de los dos dismiss paths del spec.
+          // Estilo "página" (Notion-like): todo en flujo normal dentro de una columna centrada,
+          // sin header/footer fijos — solo el expand flota arriba a la izquierda.
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-              <DialogHeader>
-                <p className="eyebrow mb-1 flex items-center gap-1.5">
-                  <CourseIcon icon={course?.icon ?? null} />
-                  {course?.name ?? "Sin curso"}
-                </p>
-                <DialogTitle className="text-xl font-semibold text-pretty">
-                  {note.title || "(sin título)"}
-                </DialogTitle>
-              </DialogHeader>
-              <Editor content={note.content} editable={false} />
-              <DialogFooter>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setDialogOpen(false)
-                    navigate(
-                      note.course_id ? `/course/${note.course_id}/${note.id}` : `/note/${note.id}`,
-                    )
-                  }}
-                >
-                  <Pencil />
-                  Editar
-                </Button>
-                <Button size="sm" onClick={markNoteRead}>
-                  Marcar leído
-                </Button>
-              </DialogFooter>
+            <DialogContent
+              showCloseButton={false}
+              className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
+            >
+              {/* Sin X: cerrar es Esc o click afuera. Solo el expand arriba a la izquierda. */}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-2 left-2 z-10"
+                aria-label="Abrir nota en foco"
+                onClick={() => {
+                  setDialogOpen(false)
+                  navigate(
+                    note.course_id ? `/course/${note.course_id}/${note.id}` : `/note/${note.id}`,
+                  )
+                }}
+              >
+                <Maximize2 className="size-3.5" />
+              </Button>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-8 sm:px-12 sm:py-10">
+                <div className="mx-auto max-w-2xl">
+                  <p className="eyebrow mb-4 flex items-center gap-1.5">
+                    <CourseIcon icon={course?.icon ?? null} />
+                    {course?.name ?? "Sin curso"}
+                  </p>
+                  <DialogTitle className="mb-8 text-2xl font-bold tracking-tight text-pretty sm:text-3xl">
+                    {note.title || "(sin título)"}
+                  </DialogTitle>
+                  <Editor content={note.content} editable={false} />
+                  <div className="mt-10 flex items-center justify-end border-t pt-6">
+                    <Button size="lg" onClick={markNoteRead}>
+                      Marcar leído
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
         )}

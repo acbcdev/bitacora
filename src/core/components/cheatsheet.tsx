@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@/core/ui/dialog"
 import { Kbd } from "@/core/ui/kbd"
 
 const GROUPS: [string, [string, string][]][] = [
@@ -20,11 +20,13 @@ const GROUPS: [string, [string, string][]][] = [
       ["K", "Siguiente, sin contar"],
     ],
   ],
+  ["Cursos", [["N", "Nuevo curso"]]],
   [
     "Nota",
     [
       ["F", "Focus mode"],
       ["J / K", "Moverse entre notas del curso"],
+      ["N", "Nueva nota"],
       ["Esc", "Salir de focus"],
     ],
   ],
@@ -33,29 +35,36 @@ const GROUPS: [string, [string, string][]][] = [
 export function Cheatsheet({ onClose }: { onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
+      {/* Mismo estilo "página" que el dialog de nota en Repaso: sin header en caja, sin X,
+          padding generoso — acá va más contenido sin sentirse listado. */}
       <DialogContent
         showCloseButton={false}
-        className="w-[440px] max-w-[92vw] gap-0 p-0 sm:max-w-[440px]"
+        className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:w-4xl"
       >
-        <DialogHeader className="flex-row items-center justify-between border-b px-5 py-4">
-          <DialogTitle className="text-base font-semibold">Atajos de teclado</DialogTitle>
-          <Kbd>esc</Kbd>
-        </DialogHeader>
-        <div className="flex flex-col gap-3.5 px-5 pt-3 pb-5">
-          {GROUPS.map(([group, items]) => (
-            <div key={group}>
-              <p className="eyebrow mb-2">{group}</p>
-              {items.map(([key, label]) => (
-                <div
-                  key={key}
-                  className="flex items-center justify-between border-b py-1.5 text-sm"
-                >
-                  <span className="text-fg-secondary">{label}</span>
-                  <Kbd>{key}</Kbd>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-12 sm:py-10">
+          <div className="mx-auto max-w-md">
+            <div className="mb-8 flex items-center justify-between">
+              <DialogTitle className="text-2xl font-bold tracking-tight text-pretty">
+                Atajos de teclado
+              </DialogTitle>
+              <Kbd>esc</Kbd>
+            </div>
+            <div className="flex flex-col gap-7">
+              {GROUPS.map(([group, items]) => (
+                <div key={group}>
+                  <p className="eyebrow mb-3">{group}</p>
+                  <div className="flex flex-col gap-2.5">
+                    {items.map(([key, label]) => (
+                      <div key={key} className="flex items-center justify-between text-sm">
+                        <span className="text-fg-secondary">{label}</span>
+                        <Kbd>{key}</Kbd>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
-          ))}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
