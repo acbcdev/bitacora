@@ -108,7 +108,7 @@ export function NoteEditor({
 
   return (
     <div
-      className={`fade-in mx-auto flex min-h-full max-w-read flex-col px-8 ${focus ? "py-16" : "pt-9 pb-16"}`}
+      className={`fade-in mx-auto flex min-h-full max-w-read flex-col px-4 sm:px-8 ${focus ? "py-16" : "pt-9 pb-16"}`}
     >
       {focus ? (
         <div className="fixed top-4 right-5 z-10">
@@ -142,7 +142,7 @@ export function NoteEditor({
             · {count} {count === 1 ? "repaso" : "repasos"} · últ. {dayOf(reads?.last)}
           </span>
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            {savedAt && <span className="mono-dim">Guardado {savedAt}</span>}
+            {savedAt && <span className="mono-dim hidden sm:inline">Guardado {savedAt}</span>}
             <Button variant="ghost" size="sm" onClick={() => setFocus(true)}>
               <Maximize2 />
               Focus

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { useHotkeys } from "react-hotkeys-hook"
 import {
   ArrowUpDown,
   ChevronRight,
@@ -31,6 +32,7 @@ import { NativeSelect } from "@/core/ui/native-select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/core/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/core/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
+import { useIsMobile } from "@/core/hooks/use-mobile"
 import { useCourses, useCourseProgress, useDeleteCourse } from "@/courses/courses.api"
 import { useAllNoteRefs } from "@/notes/notes.api"
 import { dayOf, useReadStats } from "@/core/lib/stats"
@@ -71,12 +73,15 @@ export function Courses({ embed }: { embed?: boolean }) {
   const { data: noteRefs = [] } = useAllNoteRefs()
   const { data: stats } = useReadStats()
   const del = useDeleteCourse()
+  const isMobile = useIsMobile()
 
-  const [view, setView] = useState<"tabla" | "tarjetas">("tabla")
+  const [view, setView] = useState<"tabla" | "tarjetas">("tarjetas")
   const [q, setQ] = useState("")
   const [status, setStatus] = useState<CourseStatus | "todos">("todos")
   const [sort, setSort] = useState<Sort>("recientes")
   const [editing, setEditing] = useState<Course | null | "new">(params.get("new") ? "new" : null)
+
+  useHotkeys("n", () => setEditing("new"), { preventDefault: true })
 
   // Últ. repaso por curso: el read_at más nuevo de cualquiera de sus notas (ADR 0003).
   const lastRead = useMemo(() => {
@@ -122,7 +127,7 @@ export function Courses({ embed }: { embed?: boolean }) {
   }
 
   return (
-    <div className={embed ? "fade-in" : "fade-in mx-auto max-w-shell px-8 pt-9 pb-16"}>
+    <div className={embed ? "fade-in" : "fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8"}>
       <div className="mb-6 flex items-baseline gap-3">
         <h1
           className={
@@ -137,7 +142,7 @@ export function Courses({ embed }: { embed?: boolean }) {
       </div>
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <InputGroup className="w-55 bg-card">
+        <InputGroup className="min-w-0 flex-1 bg-card sm:w-55 sm:flex-none">
           <InputGroupAddon>
             <Search className="size-3.5" />
           </InputGroupAddon>
@@ -148,13 +153,23 @@ export function Courses({ embed }: { embed?: boolean }) {
           />
         </InputGroup>
 
-        <Pill icon={<Filter size={13} />} value={status} onChange={setStatus}>
+        <Pill
+          icon={<Filter size={13} />}
+          active={status !== "todos"}
+          value={status}
+          onChange={setStatus}
+        >
           <option value="todos">Estado: todos</option>
           <option value="active">Activos</option>
           <option value="paused">Pausados</option>
           <option value="done">Hechos</option>
         </Pill>
-        <Pill icon={<ArrowUpDown size={13} />} value={sort} onChange={setSort}>
+        <Pill
+          icon={<ArrowUpDown size={13} />}
+          active={sort !== "recientes"}
+          value={sort}
+          onChange={setSort}
+        >
           <option value="recientes">Últ. repaso</option>
           <option value="nombre">Nombre</option>
           <option value="rondas">Rondas</option>
@@ -168,24 +183,31 @@ export function Courses({ embed }: { embed?: boolean }) {
           spacing={0}
           value={view}
           onValueChange={(v) => v && setView(v as typeof view)}
-          className="ml-auto"
+          className="ml-auto max-md:hidden"
         >
-          <ToggleGroupItem value="tabla" aria-label="tabla">
-            <Rows3 />
-          </ToggleGroupItem>
+          {/* Tabla no entra en un viewport angosto (columnas se pisan) — en mobile ni el toggle
+              se muestra: siempre cards. */}
           <ToggleGroupItem value="tarjetas" aria-label="tarjetas">
             <LayoutGrid />
           </ToggleGroupItem>
+          <ToggleGroupItem value="tabla" aria-label="tabla">
+            <Rows3 />
+          </ToggleGroupItem>
         </ToggleGroup>
-        <Button size="sm" onClick={() => setEditing("new")}>
+        <Button
+          size="sm"
+          onClick={() => setEditing("new")}
+          aria-label="Nuevo curso"
+          className="max-md:ml-auto max-md:size-8 max-md:p-0"
+        >
           <Plus />
-          Nuevo curso
+          <span className="max-md:hidden">Nuevo curso</span>
         </Button>
       </div>
 
       {isLoading ? (
         <TableSkeleton />
-      ) : view === "tabla" ? (
+      ) : view === "tabla" && !isMobile ? (
         <Card className="p-0">
           <Table>
             <TableHeader>
@@ -356,11 +378,13 @@ function RowActions({
 
 function Pill<T extends string>({
   icon,
+  active,
   value,
   onChange,
   children,
 }: {
   icon: React.ReactNode
+  active?: boolean
   value: T
   onChange: (v: T) => void
   children: React.ReactNode
@@ -369,13 +393,20 @@ function Pill<T extends string>({
     // El icono va absoluto sobre el select y este le deja lugar con `pl-8`: `NativeSelect` no
     // acepta hijos aparte de las opciones.
     <div className="relative">
-      <span className="pointer-events-none absolute top-1/2 left-2.5 z-10 -translate-y-1/2 text-muted-foreground">
+      <span
+        className={`pointer-events-none absolute top-1/2 left-2.5 z-10 -translate-y-1/2 ${
+          active ? "text-primary" : "text-muted-foreground"
+        }`}
+      >
         {icon}
       </span>
+      {/* En mobile el select queda del ancho del icono: texto transparente y sin chevron. Sigue
+          siendo un select nativo, así que tocarlo abre el picker del sistema; el icono en
+          `text-primary` avisa que el filtro no está en su valor por defecto. */}
       <NativeSelect
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="[&>select]:pl-8"
+        className="[&>select]:pl-8 max-md:w-8 max-md:[&>svg]:hidden max-md:[&>select]:pr-0 max-md:[&>select]:text-transparent"
       >
         {children}
       </NativeSelect>

@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useCourses, useUpdateCourse } from "@/courses/courses.api"
 import { useGenerateFlashcards, useRetention } from "@/flashcards/flashcards.api"
 import { useCreateNote, useNotes } from "@/notes/notes.api"
+import { useIsMobile } from "@/core/hooks/use-mobile"
 import { useReadStats } from "@/core/lib/stats"
 import type { CourseStatus } from "@/core/types/database"
 
@@ -43,12 +44,15 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
   const updateCourse = useUpdateCourse()
   const generateFlashcards = useGenerateFlashcards(id!)
   const { data: retention } = useRetention()
+  const isMobile = useIsMobile()
 
   const course = courses.find((c) => c.id === id)
   const selected = notes.find((n) => n.id === noteId) ?? notes[0]
 
   function select(target: { id: string }) {
     navigate(`/course/${id}/${target.id}`)
+    // Stacked en mobile la nota queda debajo del índice: sin esto, tocar una nota no se ve.
+    if (isMobile) document.getElementById("note-pane")?.scrollIntoView({ behavior: "smooth" })
   }
 
   // Auto-corrige la URL: sin noteId, o uno que no matchea ninguna nota del curso -> la 1ra.
@@ -66,6 +70,12 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
   }
   useHotkeys("j", () => step("j"), { preventDefault: true }, [notes, selected])
   useHotkeys("k", () => step("k"), { preventDefault: true }, [notes, selected])
+  useHotkeys(
+    "n",
+    () => createNote.mutate(id!, { onSuccess: (newId) => navigate(`/course/${id}/${newId}`) }),
+    { preventDefault: true },
+    [id, createNote],
+  )
 
   const read = notes.filter((n) => (stats?.byNote.get(n.id)?.count ?? 0) > 0).length
   const pct = notes.length ? Math.round((read / notes.length) * 100) : 0
@@ -74,8 +84,10 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
   if (!course) return <p className="p-8 text-muted-foreground">Curso no encontrado.</p>
 
   return (
-    <div className="fade-in flex h-full">
-      <div className="min-w-0 flex-1 overflow-y-auto">
+    // Mobile: una columna — índice del curso arriba, nota abajo (a 393px la nota partida en dos
+    // columnas queda de ~120px y el título rompe letra por letra). Scrollea `main`, no cada panel.
+    <div className="fade-in flex flex-col md:h-full md:flex-row">
+      <div id="note-pane" className="min-w-0 flex-1 md:overflow-y-auto">
         {isLoading ? (
           <NoteSkeleton />
         ) : selected ? (
@@ -87,7 +99,7 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
             embedded
           />
         ) : (
-          <div className="mx-auto max-w-read px-8 pt-9">
+          <div className="mx-auto max-w-read px-4 pt-9 sm:px-8">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -113,7 +125,7 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
       </div>
 
       {!focus && (
-        <aside className="flex w-68 shrink-0 flex-col overflow-y-auto border-l">
+        <aside className="flex shrink-0 flex-col border-b max-md:order-first md:w-68 md:overflow-y-auto md:border-b-0 md:border-l">
           <div className="px-5 pt-6 pb-5">
             <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-pretty">
               <CourseIcon icon={course.icon} className="size-5 text-muted-foreground" />

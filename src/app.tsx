@@ -17,7 +17,7 @@ import {
 import { CommandPalette, type Action } from "@/core/components/command-palette"
 import { Cheatsheet } from "@/core/components/cheatsheet"
 import { Sidebar } from "@/core/components/sidebar"
-import { SidebarProvider } from "@/core/ui/sidebar"
+import { SidebarProvider, SidebarTrigger } from "@/core/ui/sidebar"
 import { Toaster } from "@/core/ui/sonner"
 import { TooltipProvider } from "@/core/ui/tooltip"
 import { useCourses } from "@/courses/courses.api"
@@ -186,6 +186,10 @@ function Shell() {
           />
         )}
         <main className="min-w-0 flex-1 overflow-y-auto">
+          {/* En mobile el Sidebar es un Sheet cerrado: su propio trigger vive adentro y no se ve
+              hasta abrirlo. Este de acá afuera es el único modo de abrirlo. En flujo normal, no
+              fixed: así no se pisa con el h1 de cada pantalla. */}
+          <SidebarTrigger className="mt-2 ml-2 md:hidden" />
           <Routes>
             <Route path="/" element={<Review />} />
             <Route path="/courses" element={<Courses />} />

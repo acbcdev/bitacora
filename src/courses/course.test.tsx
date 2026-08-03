@@ -102,6 +102,24 @@ test("Generar flashcards invoca la edge function e inserta cada par como nota ki
   expect(inserted.map((n) => n.title)).toEqual(["¿Qué es X?", "¿Qué es Z?"])
 })
 
+// En mobile los dos paneles se apilan (índice arriba, nota abajo): elegir del índice tiene que
+// llevarte a la nota, si no el tap parece no hacer nada.
+test("en mobile, elegir una nota del índice scrollea al panel de la nota", async () => {
+  state.notes = [
+    { id: "n1", title: "Nota 1", content: { type: "doc" }, course_id: "c1", position: 0 },
+    { id: "n2", title: "Nota 2", content: { type: "doc" }, course_id: "c1", position: 1 },
+  ]
+  Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 375 })
+  const scrollIntoView = vi.fn()
+  Element.prototype.scrollIntoView = scrollIntoView
+
+  renderCourse()
+  fireEvent.click(await screen.findByRole("button", { name: /Nota 2/ }))
+
+  expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth" })
+  Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 1024 })
+})
+
 test("el botón queda deshabilitado si el curso no tiene notas", async () => {
   state.notes = []
   renderCourse()
