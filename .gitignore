@@ -17,7 +17,6 @@ dist-ssr
 .agents/
 .antigravitycli/
 .claude/
-.scratch/
 
 # editor / os
 .DS_Store
