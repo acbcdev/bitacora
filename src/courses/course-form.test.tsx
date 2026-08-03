@@ -91,22 +91,30 @@ beforeEach(() => {
   update.mockClear()
 })
 
-// Dialog (Radix) portalea el contenido a document.body, así que las opciones se buscan ahí
-// y no en el `container` de RTL.
-test("el datalist sugiere los valores de source/area ya usados, sin duplicados", async () => {
+// El combobox (Base UI) abre al click real del input, no con un solo evento sintético: hace
+// falta la secuencia completa (pointerdown+mousedown+click+focus) para que dispare.
+function openCombobox(input: HTMLElement) {
+  fireEvent.pointerDown(input)
+  fireEvent.mouseDown(input)
+  fireEvent.click(input)
+  fireEvent.focus(input)
+}
+
+// Dialog (Radix) y el popup del combobox (Base UI) portealan a document.body, así que las
+// opciones se buscan con `screen` (que ya mira todo el body) y no en el `container` de RTL.
+test("el combobox sugiere los valores de source/area ya usados, sin duplicados", async () => {
   renderForm(null)
 
-  await waitFor(() =>
-    expect(document.querySelectorAll("#course-source-options option")).toHaveLength(1),
-  )
-  const sourceOptions = [...document.querySelectorAll("#course-source-options option")].map(
-    (o) => (o as HTMLOptionElement).value,
-  )
-  const areaOptions = [...document.querySelectorAll("#course-area-options option")].map(
-    (o) => (o as HTMLOptionElement).value,
-  )
-  expect(sourceOptions).toEqual(["Platzi"])
-  expect(areaOptions.toSorted()).toEqual(["Marketing", "Programación"])
+  openCombobox(screen.getByLabelText("Fuente"))
+  // Dos cursos comparten source "Platzi" — debe aparecer una sola vez sugerido, no duplicado.
+  await waitFor(() => expect(screen.getAllByRole("option", { name: "Platzi" })).toHaveLength(1))
+
+  fireEvent.blur(screen.getByLabelText("Fuente"))
+  openCombobox(screen.getByLabelText("Área"))
+  await waitFor(() => {
+    expect(screen.getByRole("option", { name: "Marketing" })).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: "Programación" })).toBeInTheDocument()
+  })
 })
 
 test("crear un curso manda source/area tipeados en el payload", async () => {

@@ -2,6 +2,14 @@ import { useMemo, useState } from "react"
 import { IconPicker } from "@/courses/icon-picker"
 import { useCourses, useCreateCourse, useUpdateCourse } from "@/courses/courses.api"
 import { Button } from "@/core/ui/button"
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/core/ui/combobox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/core/ui/field"
 import { Input } from "@/core/ui/input"
@@ -18,6 +26,43 @@ function useCourseFieldSuggestions() {
     ]
     return { sourceOptions: uniq("source"), areaOptions: uniq("area") }
   }, [courses])
+}
+
+// Combobox de texto libre: a diferencia de un select, el valor es lo que esté tipeado en el
+// input (inputValue), no un ítem elegido de `items` — fuente/área no son un enum cerrado.
+function TextCombobox({
+  id,
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  id: string
+  value: string
+  onChange: (value: string) => void
+  options: string[]
+  placeholder: string
+}) {
+  return (
+    <Combobox<string>
+      items={options}
+      inputValue={value}
+      onInputValueChange={onChange}
+      onValueChange={(v) => onChange(v ?? "")}
+    >
+      <ComboboxInput id={id} placeholder={placeholder} className="h-10" />
+      <ComboboxContent>
+        <ComboboxEmpty>Sin resultados</ComboboxEmpty>
+        <ComboboxList>
+          {(item: string) => (
+            <ComboboxItem key={item} value={item}>
+              {item}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  )
 }
 
 export function CourseForm({ course, onClose }: { course: Course | null; onClose: () => void }) {
@@ -87,6 +132,7 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
                   id="course-name"
                   autoFocus
                   required
+                  autoComplete="off"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ej: Compiladores desde cero"
@@ -99,37 +145,25 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
                 <FieldLabel htmlFor="course-source" className="eyebrow">
                   Fuente
                 </FieldLabel>
-                <Input
+                <TextCombobox
                   id="course-source"
-                  list="course-source-options"
                   value={source}
-                  onChange={(e) => setSource(e.target.value)}
+                  onChange={setSource}
+                  options={sourceOptions}
                   placeholder="Ej: Platzi"
-                  className="h-10"
                 />
-                <datalist id="course-source-options">
-                  {sourceOptions.map((o) => (
-                    <option key={o} value={o} />
-                  ))}
-                </datalist>
               </Field>
               <Field>
                 <FieldLabel htmlFor="course-area" className="eyebrow">
                   Área
                 </FieldLabel>
-                <Input
+                <TextCombobox
                   id="course-area"
-                  list="course-area-options"
                   value={area}
-                  onChange={(e) => setArea(e.target.value)}
+                  onChange={setArea}
+                  options={areaOptions}
                   placeholder="Ej: Programación"
-                  className="h-10"
                 />
-                <datalist id="course-area-options">
-                  {areaOptions.map((o) => (
-                    <option key={o} value={o} />
-                  ))}
-                </datalist>
               </Field>
             </FieldGroup>
             {/* Estado y fechas solo al editar: crear un curso es escribir el nombre y listo. */}
