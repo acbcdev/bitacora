@@ -3,6 +3,7 @@ import type { Ref } from "react"
 import { EditorContent, useEditor } from "@tiptap/react"
 import type { Content } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
+import Image from "@tiptap/extension-image"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import type { TiptapDoc } from "@/core/types/database"
 import { markdownToDoc } from "@/core/lib/tiptap-markdown"
@@ -17,6 +18,7 @@ export type EditorHandle = {
 
 // Editor Tiptap (notes/01). StarterKit = headings, bold/italic/strike/code, listas, codeBlock,
 // blockquote, hr. WYSIWYG, MIT, sin Tiptap Cloud. content se guarda/recarga como JSON (notes.content).
+// Image: solo lectura de nodos existentes (notas importadas de Notion) — no hay upload desde la app.
 export function Editor({
   content,
   editable = true,
@@ -33,7 +35,7 @@ export function Editor({
   ref?: Ref<EditorHandle>
 }) {
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [StarterKit, Image],
     content: content as Content,
     editable,
     onUpdate: ({ editor: updated }) => onChange?.(updated.getJSON() as TiptapDoc),

@@ -106,5 +106,7 @@ export function CourseIcon({ icon, className }: { icon: string | null; className
       <img src={icon} alt="" className={cn("size-4 shrink-0 rounded-sm object-cover", className)} />
     )
   }
+  // Emoji: la mayoría de los íconos de página de Notion lo son (import de notion-import).
+  if (icon) return <span className={cn("size-4 shrink-0 text-center", className)}>{icon}</span>
   return null
 }
