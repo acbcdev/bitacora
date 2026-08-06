@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter } from "react-router-dom"
 import { TooltipProvider } from "@/core/ui/tooltip"
@@ -71,6 +71,24 @@ vi.mock("@/core/lib/supabase", () => {
 // Tiptap no corre limpio en jsdom y no es lo que testeamos acá.
 vi.mock("@/core/components/editor", () => ({ Editor: () => <div data-testid="editor" /> }))
 
+// Mock controlable de IntersectionObserver (el de src/test/setup.ts es no-op): guarda el callback
+// para poder simular "el botón Marcar leído se volvió visible" desde el test.
+let intersectionCallback: ((entries: { isIntersecting: boolean }[]) => void) | null = null
+class MockIntersectionObserver {
+  constructor(cb: (entries: { isIntersecting: boolean }[]) => void) {
+    intersectionCallback = cb
+  }
+  observe() {}
+  disconnect() {}
+}
+vi.stubGlobal("IntersectionObserver", MockIntersectionObserver)
+
+function markReadButtonVisible(visible: boolean) {
+  // El callback dispara setState fuera de un evento de React (no via fireEvent) — hay que
+  // envolverlo en act() para que el render se procese antes de la siguiente aserción.
+  act(() => intersectionCallback?.([{ isIntersecting: visible }]))
+}
+
 function renderReview() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
@@ -88,7 +106,7 @@ function renderReview() {
 
 beforeEach(() => insertReadLog.mockClear())
 
-test("J/K saltan sin tocar read_log; Space inserta una fila y avanza", async () => {
+test("J/K saltan sin tocar read_log; Enter inserta una fila y avanza", async () => {
   renderReview()
   await screen.findByText("Nota uno")
 
@@ -101,8 +119,27 @@ test("J/K saltan sin tocar read_log; Space inserta una fila y avanza", async () 
   await screen.findByText("Nota uno")
   expect(insertReadLog).not.toHaveBeenCalled()
 
-  // Space = marcar leído (exactamente 1 insert) + avanzar.
-  fireEvent.keyDown(document, { code: "Space" })
+  // Enter, con el dialog cerrado, marca leído al toque (exactamente 1 insert) + avanza.
+  fireEvent.keyDown(document, { code: "Enter" })
+  await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
+  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
+  await screen.findByText("Nota dos")
+})
+
+test("Enter dentro del dialog no marca leído hasta que el botón es visible", async () => {
+  renderReview()
+  await screen.findByText("Nota uno")
+
+  fireEvent.click(screen.getByRole("button", { name: /Nota uno/ }))
+  await screen.findByRole("dialog")
+
+  // Todavía no "vimos" el botón (IntersectionObserver no disparó) → Enter no hace nada.
+  fireEvent.keyDown(document, { code: "Enter" })
+  expect(insertReadLog).not.toHaveBeenCalled()
+
+  // Se vuelve visible → recién ahí Enter marca leído y avanza.
+  markReadButtonVisible(true)
+  fireEvent.keyDown(document, { code: "Enter" })
   await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
   expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
   await screen.findByText("Nota dos")
@@ -135,6 +172,37 @@ test("cola mixta: la flashcard se renderiza distinto y gradearla inserta el grad
   expect(insertReadLog).toHaveBeenCalledWith({ note_id: "f1", grade: "correcto" })
   // Única flashcard de la cola (3 ítems) → avanza y termina el batch.
   await screen.findByText("Batch terminado.")
+})
+
+test("Enter revela una flashcard sin revelar", async () => {
+  renderReview()
+  await screen.findByText("Nota uno")
+  fireEvent.keyDown(document, { code: "KeyK" })
+  fireEvent.keyDown(document, { code: "KeyK" })
+  await screen.findByText("Pregunta uno")
+
+  expect(screen.queryByTestId("editor")).not.toBeInTheDocument()
+  fireEvent.keyDown(document, { code: "Enter" })
+  await screen.findByTestId("editor")
+})
+
+test("con el diálogo de borrar flashcard abierto, Enter no queda capturado por Repaso", async () => {
+  renderReview()
+  await screen.findByText("Nota uno")
+
+  fireEvent.keyDown(document, { code: "KeyK" })
+  fireEvent.keyDown(document, { code: "KeyK" })
+  await screen.findByText("Pregunta uno")
+  fireEvent.click(screen.getByRole("button", { name: "Revelar respuesta" }))
+  fireEvent.click(screen.getByRole("button", { name: "Borrar flashcard" }))
+  await screen.findByRole("alertdialog")
+
+  // enabled: !confirmingDelete → el hook de Repaso no llama preventDefault acá, así que Enter
+  // sigue libre para el Cancelar/Borrar nativo del AlertDialog (fireEvent devuelve true = no
+  // prevented).
+  const notPrevented = fireEvent.keyDown(document, { code: "Enter" })
+  expect(notPrevented).toBe(true)
+  expect(insertReadLog).not.toHaveBeenCalled()
 })
 
 test("click en el card de una nota abre el dialog con la nota completa; cerrarlo lo saca", async () => {

@@ -61,7 +61,7 @@ vi.mock("@/core/components/editor", () => ({ Editor: () => <div data-testid="edi
 
 function renderCourse() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
+  return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={["/course/c1"]}>
         <TooltipProvider>
@@ -126,4 +126,26 @@ test("el botón queda deshabilitado si el curso no tiene notas", async () => {
   await screen.findByText("Curso")
 
   expect(screen.getByRole("button", { name: /Generar flashcards/ })).toBeDisabled()
+})
+
+// mod+j / mod+k: alias forzado (enableOnContentEditable) para navegar entre notas con el foco
+// adentro del editor — j,k solos se desactivan ahí por default de la lib. ctrlKey: true porque
+// jsdom reporta un userAgent sin "mac", así que "mod" resuelve a ctrlKey acá, no metaKey.
+test("mod+k / mod+j mueven entre notas del curso", async () => {
+  state.notes = [
+    { id: "n1", title: "Nota 1", content: { type: "doc" }, course_id: "c1", position: 0 },
+    { id: "n2", title: "Nota 2", content: { type: "doc" }, course_id: "c1", position: 1 },
+  ]
+  const { container } = renderCourse()
+  await screen.findByText("Nota 1")
+
+  fireEvent.keyDown(document, { code: "KeyK", ctrlKey: true })
+  await waitFor(() =>
+    expect(container.querySelector('button[data-active="true"]')?.textContent).toContain("Nota 2"),
+  )
+
+  fireEvent.keyDown(document, { code: "KeyJ", ctrlKey: true })
+  await waitFor(() =>
+    expect(container.querySelector('button[data-active="true"]')?.textContent).toContain("Nota 1"),
+  )
 })

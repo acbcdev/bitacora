@@ -70,6 +70,20 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
   }
   useHotkeys("j", () => step("j"), { preventDefault: true }, [notes, selected])
   useHotkeys("k", () => step("k"), { preventDefault: true }, [notes, selected])
+  // Alias mod+ forzado (enableOnContentEditable): j/k solos se desactivan con el foco adentro del
+  // editor embebido (default de la lib) — mod+ cubre ese caso, misma acción.
+  useHotkeys(
+    "mod+j",
+    () => step("j"),
+    { enableOnContentEditable: true, preventDefault: true },
+    [notes, selected],
+  )
+  useHotkeys(
+    "mod+k",
+    () => step("k"),
+    { enableOnContentEditable: true, preventDefault: true },
+    [notes, selected],
+  )
   useHotkeys(
     "n",
     () => createNote.mutate(id!, { onSuccess: (newId) => navigate(`/course/${id}/${newId}`) }),

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
@@ -80,8 +80,17 @@ export function Courses({ embed }: { embed?: boolean }) {
   const [status, setStatus] = useState<CourseStatus | "todos">("todos")
   const [sort, setSort] = useState<Sort>("recientes")
   const [editing, setEditing] = useState<Course | null | "new">(params.get("new") ? "new" : null)
+  const [selected, setSelected] = useState(0)
+  const [confirmingDelete, setConfirmingDelete] = useState<Course | null>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   useHotkeys("n", () => setEditing("new"), { preventDefault: true })
+  // "slash", no "/": la lib matchea por e.code (ver comentario de shift+slash en app.tsx).
+  useHotkeys("slash", () => searchRef.current?.focus(), { preventDefault: true, enabled: !embed })
+
+  // La fila seleccionada por teclado no sobrevive a un cambio de filtro/orden — evita apuntar a
+  // un curso que ya no está en la lista filtrada.
+  useEffect(() => setSelected(0), [q, status, sort])
 
   // Últ. repaso por curso: el read_at más nuevo de cualquiera de sus notas (ADR 0003).
   const lastRead = useMemo(() => {
@@ -121,6 +130,41 @@ export function Courses({ embed }: { embed?: boolean }) {
       return (lastRead.get(b.id) ?? "").localeCompare(lastRead.get(a.id) ?? "")
     })
 
+  // Nav por teclado sobre `rows`: J/K (+ Left/Right) mueven la selección, Enter abre (mismo
+  // destino que el click), E edita, Delete/Backspace borra (misma confirmación de siempre).
+  // enabled: !embed — dentro de Repaso esta lista es secundaria, J/K/Enter ya los usa la cola.
+  const clampSelected = (i: number) => Math.min(Math.max(i, 0), Math.max(rows.length - 1, 0))
+  useHotkeys(
+    "j,left",
+    () => setSelected((i) => clampSelected(i - 1)),
+    { preventDefault: true, enabled: !embed },
+    [rows.length],
+  )
+  useHotkeys(
+    "k,right",
+    () => setSelected((i) => clampSelected(i + 1)),
+    { preventDefault: true, enabled: !embed },
+    [rows.length],
+  )
+  useHotkeys(
+    "enter",
+    () => rows[selected] && navigate(`/course/${rows[selected].id}`),
+    { preventDefault: true, enabled: !embed },
+    [rows, selected, navigate],
+  )
+  useHotkeys(
+    "e",
+    () => rows[selected] && setEditing(rows[selected]),
+    { preventDefault: true, enabled: !embed },
+    [rows, selected],
+  )
+  useHotkeys(
+    "backspace,delete",
+    () => rows[selected] && setConfirmingDelete(rows[selected]),
+    { preventDefault: true, enabled: !embed },
+    [rows, selected],
+  )
+
   function close() {
     setEditing(null)
     if (params.get("new")) setParams({}, { replace: true })
@@ -147,8 +191,14 @@ export function Courses({ embed }: { embed?: boolean }) {
             <Search className="size-3.5" />
           </InputGroupAddon>
           <InputGroupInput
+            ref={searchRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Escape") return
+              if (q) setQ("")
+              searchRef.current?.blur()
+            }}
             placeholder="Buscar curso…"
           />
         </InputGroup>
@@ -225,13 +275,14 @@ export function Courses({ embed }: { embed?: boolean }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((c) => (
+              {rows.map((c, i) => (
                 <TableRow
                   key={c.id}
-                  className="group cursor-pointer"
+                  data-active={i === selected}
+                  className="group cursor-pointer data-[active=true]:bg-muted"
                   onClick={() => navigate(`/course/${c.id}`)}
                 >
-                  <TableCell className="sticky left-0 z-10 max-w-80 bg-card px-3 py-3 font-medium whitespace-normal group-hover:bg-muted/50">
+                  <TableCell className="sticky left-0 z-10 max-w-80 bg-card px-3 py-3 font-medium whitespace-normal group-hover:bg-muted/50 group-data-[active=true]:bg-muted/50">
                     <span className="flex items-start gap-2">
                       <ChevronRight size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
                       <CourseIcon icon={c.icon} className="mt-0.5 shrink-0 text-muted-foreground" />
@@ -293,11 +344,12 @@ export function Courses({ embed }: { embed?: boolean }) {
         </Card>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
-          {rows.map((c) => (
+          {rows.map((c, i) => (
             <Card
               key={c.id}
+              data-active={i === selected}
               onClick={() => navigate(`/course/${c.id}`)}
-              className="group cursor-pointer gap-0 p-5 transition-colors hover:bg-muted"
+              className="group cursor-pointer gap-0 p-5 transition-colors hover:bg-muted data-[active=true]:bg-muted"
             >
               <div className="mb-3.5 flex items-start justify-between gap-2">
                 <span className="flex items-center gap-2 text-sm font-medium text-pretty">
@@ -325,6 +377,17 @@ export function Courses({ embed }: { embed?: boolean }) {
       )}
 
       {editing && <CourseForm course={editing === "new" ? null : editing} onClose={close} />}
+
+      {/* Borrar por teclado (Delete/Backspace sobre la fila seleccionada) — separado del
+          ConfirmDelete de RowActions, que ya cubre el flujo de mouse. */}
+      <ConfirmDelete
+        open={confirmingDelete !== null}
+        onOpenChange={(open) => !open && setConfirmingDelete(null)}
+        what={confirmingDelete?.name ?? ""}
+        onConfirm={() => {
+          if (confirmingDelete) del.mutate(confirmingDelete.id)
+        }}
+      />
     </div>
   )
 }

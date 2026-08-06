@@ -15,18 +15,29 @@ const GROUPS: [string, [string, string][]][] = [
   [
     "Repaso",
     [
-      ["Space", "Marcar leído + siguiente"],
+      ["Enter", "Marcar leído + siguiente"],
       ["J", "Volver, sin contar"],
       ["K", "Siguiente, sin contar"],
     ],
   ],
-  ["Cursos", [["N", "Nuevo curso"]]],
+  [
+    "Cursos",
+    [
+      ["J / K", "Moverse por la lista"],
+      ["Enter", "Abrir el curso seleccionado"],
+      ["E", "Editar el curso seleccionado"],
+      ["Delete", "Borrar el curso seleccionado"],
+      ["/", "Buscar"],
+      ["N", "Nuevo curso"],
+    ],
+  ],
   [
     "Nota",
     [
-      ["F", "Focus mode"],
-      ["J / K", "Moverse entre notas del curso"],
+      ["F", "Focus mode (Mod+F si estás escribiendo)"],
+      ["J / K", "Moverse entre notas (Mod+J / Mod+K si estás escribiendo)"],
       ["N", "Nueva nota"],
+      ["Mod+Backspace", "Borrar nota"],
       ["Esc", "Salir de focus"],
     ],
   ],

@@ -8,6 +8,13 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 }
+// Idem IntersectionObserver: no-op por default. Los tests que necesiten controlar cuándo un
+// elemento "se vuelve visible" (ver review.test.tsx) lo pisan con su propio mock.
+globalThis.IntersectionObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+} as unknown as typeof IntersectionObserver
 // jsdom no implementa matchMedia. use-mobile.ts decide por innerWidth (jsdom default: 1024,
 // desktop) — este stub solo evita el "not implemented" al montar, el listener no hace falta.
 window.matchMedia ??= ((query: string) =>

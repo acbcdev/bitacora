@@ -90,14 +90,19 @@ export function NoteEditor({
   }, [title, onTitleChange])
 
   // Global en esta vista: por default react-hotkeys-hook ignora teclas con foco en
-  // input/textarea/contentEditable (para no interferir mientras escribís). Acá se fuerza,
-  // porque el foco está siempre en el título o el editor.
+  // input/textarea/contentEditable (para no interferir mientras escribís). Acá se fuerza para
+  // Esc y mod+, porque el foco está siempre en el título o el editor — pero `f` bare NO se
+  // fuerza: escribir la letra "f" en la nota disparaba el toggle de focus por error. `f` queda
+  // con el default (solo dispara con el foco afuera del editable) y `mod+f` cubre el caso de
+  // adentro, mismo patrón que mod+j/mod+k en Course.
   const globalScope = { enableOnFormTags: true, enableOnContentEditable: true }
-  useHotkeys("f", () => setFocus(!focus), { ...globalScope, preventDefault: true }, [
+  useHotkeys("f", () => setFocus(!focus), { preventDefault: true }, [focus, setFocus])
+  useHotkeys("mod+f", () => setFocus(!focus), { ...globalScope, preventDefault: true }, [
     focus,
     setFocus,
   ])
   useHotkeys("escape", () => setFocus(false), { ...globalScope, enabled: focus }, [setFocus])
+  useHotkeys("mod+backspace", () => setConfirming(true), { ...globalScope, preventDefault: true })
 
   if (isLoading) return <NoteSkeleton />
   if (!note) return <p className="p-8 text-muted-foreground">Nota no encontrada.</p>

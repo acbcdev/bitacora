@@ -21,7 +21,7 @@ import { Courses } from "@/courses/courses"
 import type { Grade } from "@/core/types/database"
 
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
-//   Space = marcar leído (insert read_log) + siguiente · J = volver · K = siguiente (sin contar).
+//   Enter = marcar leído (insert read_log) + siguiente · J = volver · K = siguiente (sin contar).
 // Debajo del repaso va la lista de cursos embebida, como en el diseño.
 export function Review() {
   const { data: queue = [], isLoading, refetch } = useReviewQueue()
@@ -34,6 +34,11 @@ export function Review() {
   const [revealed, setRevealed] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [readyToMark, setReadyToMark] = useState(false)
+  // Callback ref, no useRef: Radix monta el contenido del dialog un tick después de que
+  // `dialogOpen` pasa a true (patrón Presence) — un efecto atado a [dialogOpen] solo no vería el
+  // nodo real todavía. Con state, el effect de abajo se re-dispara en cuanto el botón se monta.
+  const [markReadBtn, setMarkReadBtn] = useState<HTMLButtonElement | null>(null)
 
   const note = queue[index]
   const course = courses.find((c) => c.id === note?.course_id)
@@ -47,6 +52,16 @@ export function Review() {
     setConfirmingDelete(false)
     setDialogOpen(false)
   }, [index])
+
+  // Gate de "Enter marca leído" dentro del dialog: recién se arma cuando el botón "Marcar leído"
+  // (al final del contenido) es visible — evita marcar leído sin haber llegado a leerlo.
+  useEffect(() => {
+    setReadyToMark(false)
+    if (!dialogOpen || !markReadBtn) return
+    const observer = new IntersectionObserver(([entry]) => setReadyToMark(entry.isIntersecting))
+    observer.observe(markReadBtn)
+    return () => observer.disconnect()
+  }, [dialogOpen, note?.id, markReadBtn])
 
   const advance = useCallback(() => setIndex((i) => i + 1), []) // avance optimista (ui-principles)
 
@@ -63,17 +78,25 @@ export function Review() {
     [note, markRead, advance],
   )
 
-  // Space: nota → leído + siguiente (igual que antes). Flashcard sin revelar → revela.
-  // Flashcard ya revelada → sin acción, la autoevaluación es explícita (3 botones).
-  const onSpace = useCallback(() => {
+  // Enter: nota → leído + siguiente. Con el dialog abierto, gateado a que el botón "Marcar leído"
+  // ya sea visible (si no, no hiciste nada todavía). Card cerrada: sin gate, el contenido corto ya
+  // está completo a la vista. Flashcard sin revelar → revela. Flashcard revelada → sin acción, la
+  // autoevaluación es explícita (3 botones).
+  const onEnter = useCallback(() => {
     if (note?.kind === "flashcard") {
       if (!revealed) setRevealed(true)
       return
     }
+    if (dialogOpen && !readyToMark) return
     markNoteRead()
-  }, [note, revealed, markNoteRead])
+  }, [note, revealed, dialogOpen, readyToMark, markNoteRead])
 
-  useHotkeys("space", onSpace, { preventDefault: true }, [onSpace]) // no scrollear
+  // enabled: evita que el mismo Enter dispare en paralelo con el ConfirmDelete de una flashcard
+  // (Enter sobre un botón enfocado —Cancelar/Borrar— ya lo activa el default del navegador).
+  useHotkeys("enter", onEnter, { preventDefault: true, enabled: !confirmingDelete }, [
+    onEnter,
+    confirmingDelete,
+  ])
   useHotkeys("j", () => setIndex((i) => Math.max(i - 1, 0)), { preventDefault: true }) // volver
   useHotkeys(
     "k",
@@ -197,7 +220,7 @@ export function Review() {
                     <span>Elegí correcto / parcial / incorrecto abajo</span>
                   ) : (
                     <span>
-                      <Kbd>Space</Kbd> revelar respuesta
+                      <Kbd>Enter</Kbd> revelar respuesta
                     </span>
                   ))}
                 <span>
@@ -292,7 +315,8 @@ export function Review() {
                   </DialogTitle>
                   <Editor content={note.content} editable={false} />
                   <div className="mt-10 flex items-center justify-end border-t pt-6">
-                    <Button size="lg" onClick={markNoteRead}>
+                    {/* ref: gate de Enter en onEnter — se arma cuando este botón es visible */}
+                    <Button ref={setMarkReadBtn} size="lg" onClick={markNoteRead}>
                       Marcar leído
                     </Button>
                   </div>
