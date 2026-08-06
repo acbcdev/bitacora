@@ -4,7 +4,6 @@ import { useHotkeys } from "react-hotkeys-hook"
 import type { Session } from "@supabase/supabase-js"
 import {
   BookOpen,
-  ChevronRight,
   Command,
   Flame,
   LogOut,
@@ -12,6 +11,7 @@ import {
   Moon,
   PanelLeft,
   Plus,
+  StickyNote,
   Sun,
 } from "lucide-react"
 import { CommandPalette, type Action } from "@/core/components/command-palette"
@@ -20,10 +20,11 @@ import { Sidebar } from "@/core/components/sidebar"
 import { SidebarProvider, SidebarTrigger } from "@/core/ui/sidebar"
 import { Toaster } from "@/core/ui/sonner"
 import { TooltipProvider } from "@/core/ui/tooltip"
+import { CourseIcon } from "@/courses/course-icon"
 import { useCourses } from "@/courses/courses.api"
 import { useAllNoteRefs } from "@/notes/notes.api"
-import { useReadStats } from "@/core/lib/stats"
 import { supabase } from "@/core/lib/supabase"
+import { mod } from "@/core/lib/utils"
 import { Course } from "@/courses/course"
 import { Courses } from "@/courses/courses"
 import { Login } from "@/login/login"
@@ -45,17 +46,16 @@ export function App() {
 
   if (loading) return null
   if (!session) return <Login />
-  return <Shell />
+  return <Shell session={session} />
 }
 
 // Shell del diseño: sidebar + main scrolleable + overlays (⌘K, ?). En focus mode (tecla F)
 // desaparece todo el chrome y queda sola la nota.
-function Shell() {
+function Shell({ session }: { session: Session }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const { data: courses = [] } = useCourses()
   const { data: notes = [] } = useAllNoteRefs()
-  const { data: stats } = useReadStats()
 
   const [palette, setPalette] = useState(false)
   const [cheat, setCheat] = useState(false)
@@ -85,8 +85,12 @@ function Shell() {
     enableOnContentEditable: true,
     preventDefault: true,
   })
-  // "?" físico es shift+/ — e.key ya no sirve de referencia con la lib, se ata a la tecla.
-  useHotkeys("shift+slash", () => setCheat(true), { preventDefault: true })
+  // "slash", no "/": la lib matchea por tecla física (e.code), no por e.key.
+  useHotkeys("mod+slash", () => setCheat((c) => !c), {
+    enableOnFormTags: true,
+    enableOnContentEditable: true,
+    preventDefault: true,
+  })
   useHotkeys("g>h", () => navigate("/"), { sequenceTimeoutMs: 900, preventDefault: true })
   useHotkeys("g>c", () => navigate("/courses"), { sequenceTimeoutMs: 900, preventDefault: true })
 
@@ -114,6 +118,18 @@ function Shell() {
         icon: <Plus />,
         run: () => navigate("/courses?new=1"),
       },
+      ...courses.map((c) => ({
+        group: "Cursos",
+        label: c.name,
+        icon: <CourseIcon icon={c.icon} />,
+        run: () => navigate(`/course/${c.id}`),
+      })),
+      ...notes.map((n) => ({
+        group: "Notas",
+        label: `${n.title || "(sin título)"}${n.course_id ? ` — ${courseName.get(n.course_id) ?? ""}` : ""}`,
+        icon: <StickyNote />,
+        run: () => navigate(n.course_id ? `/course/${n.course_id}/${n.id}` : `/note/${n.id}`),
+      })),
       {
         group: "Vista",
         label: collapsed ? "Expandir sidebar" : "Colapsar sidebar",
@@ -136,7 +152,7 @@ function Shell() {
       {
         group: "Vista",
         label: "Atajos de teclado",
-        kbd: "?",
+        kbd: mod("/"),
         icon: <Command />,
         run: () => setCheat(true),
       },
@@ -146,18 +162,6 @@ function Shell() {
         icon: <LogOut />,
         run: () => supabase.auth.signOut(),
       },
-      ...courses.map((c) => ({
-        group: "Cursos",
-        label: c.name,
-        icon: <BookOpen />,
-        run: () => navigate(`/course/${c.id}`),
-      })),
-      ...notes.map((n) => ({
-        group: "Notas",
-        label: `${n.title || "(sin título)"}${n.course_id ? ` — ${courseName.get(n.course_id) ?? ""}` : ""}`,
-        icon: <ChevronRight />,
-        run: () => navigate(n.course_id ? `/course/${n.course_id}/${n.id}` : `/note/${n.id}`),
-      })),
     ]
   }
 
@@ -179,7 +183,7 @@ function Shell() {
         {!focus && (
           <Sidebar
             courses={courses}
-            streak={stats?.streak ?? 0}
+            email={session.user.email ?? ""}
             dark={dark}
             onToggleTheme={() => setDark((d) => !d)}
             onLogout={() => supabase.auth.signOut()}
