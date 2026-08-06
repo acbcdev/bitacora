@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import { Flame, Maximize2, Trash2 } from "lucide-react"
@@ -17,6 +17,7 @@ import { useDeleteNote } from "@/notes/notes.api"
 import { useReviewQueue, useMarkRead } from "@/review/review.api"
 import { docToPlainText } from "@/core/lib/tiptap-markdown"
 import { DAILY_GOAL, todayKey, useReadStats } from "@/core/lib/stats"
+import { MOD } from "@/core/lib/utils"
 import { Courses } from "@/courses/courses"
 import type { Grade } from "@/core/types/database"
 
@@ -39,6 +40,7 @@ export function Review() {
   // `dialogOpen` pasa a true (patrón Presence) — un efecto atado a [dialogOpen] solo no vería el
   // nodo real todavía. Con state, el effect de abajo se re-dispara en cuanto el botón se monta.
   const [markReadBtn, setMarkReadBtn] = useState<HTMLButtonElement | null>(null)
+  const scroller = useRef<HTMLDivElement>(null)
 
   const note = queue[index]
   const course = courses.find((c) => c.id === note?.course_id)
@@ -95,6 +97,19 @@ export function Review() {
   // (Enter sobre un botón enfocado —Cancelar/Borrar— ya lo activa el default del navegador).
   useHotkeys("enter", onEnter, { preventDefault: true, enabled: !confirmingDelete }, [
     onEnter,
+    confirmingDelete,
+  ])
+
+  // mod+enter: vista expandida de la nota (misma acción que el botón Maximize2 del dialog),
+  // sin pasar primero por el dialog chico. Solo notas — flashcard no tiene vista expandida.
+  const openExpanded = useCallback(() => {
+    if (!note || note.kind !== "note") return
+    setDialogOpen(false)
+    navigate(note.course_id ? `/course/${note.course_id}/${note.id}` : `/note/${note.id}`)
+  }, [note, navigate])
+
+  useHotkeys("mod+enter", openExpanded, { preventDefault: true, enabled: !confirmingDelete }, [
+    openExpanded,
     confirmingDelete,
   ])
   useHotkeys("j", () => setIndex((i) => Math.max(i - 1, 0)), { preventDefault: true }) // volver
@@ -163,7 +178,7 @@ export function Review() {
             </EmptyContent>
           </Empty>
         ) : (
-          <div className="mx-auto max-w-read px-4 sm:px-8">
+          <div className="mx-auto max-w-3xl px-4 sm:px-8">
             {note.kind === "note" ? (
               <button
                 type="button"
@@ -223,6 +238,11 @@ export function Review() {
                       <Kbd>Enter</Kbd> revelar respuesta
                     </span>
                   ))}
+                {note.kind === "note" && (
+                  <span>
+                    <Kbd>{MOD}</Kbd>+<Kbd>Enter</Kbd> vista expandida
+                  </span>
+                )}
                 <span>
                   <Kbd>J</Kbd> volver
                 </span>
@@ -286,6 +306,12 @@ export function Review() {
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogContent
               showCloseButton={false}
+              // Foco al contenedor scrolleable (no al primer botón) → ↑/↓, PageUp/Down y Space
+              // scrollean el dialog con el comportamiento nativo del browser, sin handlers.
+              onOpenAutoFocus={(e) => {
+                e.preventDefault()
+                scroller.current?.focus()
+              }}
               className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
             >
               {/* Sin X: cerrar es Esc o click afuera. Solo el expand arriba a la izquierda. */}
@@ -294,17 +320,16 @@ export function Review() {
                 size="icon-sm"
                 className="absolute top-2 left-2 z-10"
                 aria-label="Abrir nota en foco"
-                onClick={() => {
-                  setDialogOpen(false)
-                  navigate(
-                    note.course_id ? `/course/${note.course_id}/${note.id}` : `/note/${note.id}`,
-                  )
-                }}
+                onClick={openExpanded}
               >
                 <Maximize2 className="size-3.5" />
               </Button>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-8 sm:px-12 sm:py-10">
+              <div
+                ref={scroller}
+                tabIndex={-1}
+                className="min-h-0 flex-1 overflow-y-auto px-5 py-8 focus:outline-none sm:px-12 sm:py-10"
+              >
                 <div className="mx-auto max-w-2xl">
                   <p className="eyebrow mb-4 flex items-center gap-1.5">
                     <CourseIcon icon={course?.icon ?? null} />
