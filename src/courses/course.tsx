@@ -62,25 +62,26 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
     }
   }, [id, noteId, selected, isLoading, navigate])
 
-  // J / K entre notas del curso.
-  function step(dir: "j" | "k") {
+  // J/K y flechas entre notas del curso. J/left = atras, K/right = adelante. Además de la versión
+  // bare (default de la lib: se desactiva sola con el foco en el editor embebido), se agrega el
+  // alias mod+ forzado para cuando el foco SÍ está adentro del editor — misma acción, dos formas
+  // de dispararla según dónde esté el foco.
+  function step(dir: "back" | "forward") {
     const i = notes.findIndex((n) => n.id === selected?.id)
-    const target = notes[dir === "j" ? Math.min(i + 1, notes.length - 1) : Math.max(i - 1, 0)]
+    const target = notes[dir === "forward" ? Math.min(i + 1, notes.length - 1) : Math.max(i - 1, 0)]
     if (target) select(target)
   }
-  useHotkeys("j", () => step("j"), { preventDefault: true }, [notes, selected])
-  useHotkeys("k", () => step("k"), { preventDefault: true }, [notes, selected])
-  // Alias mod+ forzado (enableOnContentEditable): j/k solos se desactivan con el foco adentro del
-  // editor embebido (default de la lib) — mod+ cubre ese caso, misma acción.
+  useHotkeys("j,left", () => step("back"), { preventDefault: true }, [notes, selected])
+  useHotkeys("k,right", () => step("forward"), { preventDefault: true }, [notes, selected])
   useHotkeys(
-    "mod+j",
-    () => step("j"),
+    "mod+j,mod+left",
+    () => step("back"),
     { enableOnContentEditable: true, preventDefault: true },
     [notes, selected],
   )
   useHotkeys(
-    "mod+k",
-    () => step("k"),
+    "mod+k,mod+right",
+    () => step("forward"),
     { enableOnContentEditable: true, preventDefault: true },
     [notes, selected],
   )
