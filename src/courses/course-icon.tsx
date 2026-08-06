@@ -1,6 +1,7 @@
 import {
   Atom,
   Book,
+  BookOpen,
   Brain,
   Briefcase,
   Calculator,
@@ -108,5 +109,5 @@ export function CourseIcon({ icon, className }: { icon: string | null; className
   }
   // Emoji: la mayoría de los íconos de página de Notion lo son (import de notion-import).
   if (icon) return <span className={cn("size-4 shrink-0 text-center", className)}>{icon}</span>
-  return null
+  return <BookOpen className={cn("size-4 shrink-0", className)} />
 }
