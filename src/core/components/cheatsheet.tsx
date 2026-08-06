@@ -1,3 +1,4 @@
+import { mod } from "@/core/lib/utils"
 import { Dialog, DialogContent, DialogTitle } from "@/core/ui/dialog"
 import { Kbd } from "@/core/ui/kbd"
 
@@ -5,8 +6,8 @@ const GROUPS: [string, [string, string][]][] = [
   [
     "Global",
     [
-      ["⌘K", "Command palette"],
-      ["?", "Este cheatsheet"],
+      [mod("K"), "Command palette"],
+      [mod("/"), "Este cheatsheet"],
       ["G luego H", "Ir a Hoy"],
       ["G luego C", "Ir a Cursos"],
       ["Esc", "Cerrar / salir"],
@@ -34,10 +35,10 @@ const GROUPS: [string, [string, string][]][] = [
   [
     "Nota",
     [
-      ["F", "Focus mode (Mod+F si estás escribiendo)"],
-      ["J / K", "Moverse entre notas (Mod+J / Mod+K si estás escribiendo)"],
+      ["F", `Focus mode (${mod("F")} si estás escribiendo)`],
+      ["J / K", `Moverse entre notas (${mod("J")} / ${mod("K")} si estás escribiendo)`],
       ["N", "Nueva nota"],
-      ["Mod+Backspace", "Borrar nota"],
+      [mod("Backspace"), "Borrar nota"],
       ["Esc", "Salir de focus"],
     ],
   ],

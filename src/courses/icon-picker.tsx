@@ -5,7 +5,7 @@ import { CourseIcon, PRESET_ICONS } from "@/courses/course-icon"
 import { uploadCourseIcon } from "@/courses/courses.api"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
-import { cn } from "@/core/lib/utils"
+import { cn, MOD } from "@/core/lib/utils"
 import { Dropover, DropoverContent, DropoverTrigger } from "@/core/ui/dropover"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/ui/tabs"
 
@@ -155,7 +155,7 @@ export function IconPicker({
               {uploading ? "Subiendo…" : dragging ? "Soltá acá" : "Subir una imagen"}
             </Button>
             <p className="mt-2 text-center text-xs text-muted-foreground">
-              o soltala acá · <Kbd>⌘</Kbd>+<Kbd>V</Kbd> para pegarla
+              o soltala acá · <Kbd>{MOD}</Kbd>+<Kbd>V</Kbd> para pegarla
             </p>
           </TabsContent>
         </Tabs>
