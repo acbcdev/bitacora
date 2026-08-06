@@ -1,9 +1,43 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { supabase } from "@/core/lib/supabase"
-import type { Course, CourseProgress, CourseStatus } from "@/core/types/database"
+import type { Course, CourseRow, CourseStatus } from "@/core/types/database"
 
 const STATUS_ORDER: Record<CourseStatus, number> = { active: 0, paused: 1, done: 2 }
+
+export const PAGE_SIZE = 24
+
+export type CoursesQuery = {
+  q: string
+  status: CourseStatus | "todos"
+  sort: "recientes" | "nombre" | "rondas" | "inicio"
+  page: number
+}
+
+// Una página de la lista de cursos (RPC courses_page, migración 0006). Búsqueda, filtro de
+// estado, orden, rondas y últ. repaso resueltos en Postgres — el cliente no agrega nada.
+// Cada cambio de filtro es otra query: la queryKey lleva los cuatro parámetros.
+export function useCoursesPage({ q, status, sort, page }: CoursesQuery) {
+  return useQuery({
+    // Prefijo ["courses"]: el invalidateQueries de las mutaciones ya matchea por prefijo, así que
+    // crear/editar/borrar refresca la página actual sin tocar nada más.
+    queryKey: ["courses", "page", q, status, sort, page],
+    // Sin esto la lista parpadea a skeleton en cada tecla del buscador y en cada cambio de página.
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<{ rows: CourseRow[]; total: number }> => {
+      const { data, error } = await supabase.rpc("courses_page", {
+        q,
+        status_filter: status === "todos" ? null : status,
+        sort,
+        page_size: PAGE_SIZE,
+        page_offset: (page - 1) * PAGE_SIZE,
+      })
+      if (error) throw error
+      // total_count viaja repetido en cada fila; sin filas, no hay resultados.
+      return { rows: data, total: data[0]?.total_count ?? 0 }
+    },
+  })
+}
 
 // Lista de cursos vivos. Orden estable: active → paused → done, luego más nuevo primero.
 // Datos chicos → ordeno en JS (Postgres no ordena por prioridad de enum sin CASE).
@@ -22,17 +56,8 @@ export function useCourses() {
   })
 }
 
-// Progreso derivado por curso (ADR 0003). Devuelto como mapa course_id → {total, read}.
-export function useCourseProgress() {
-  return useQuery({
-    queryKey: ["course_progress"],
-    queryFn: async (): Promise<Map<string, CourseProgress>> => {
-      const { data, error } = await supabase.rpc("course_progress")
-      if (error) throw error
-      return new Map(data.map((p) => [p.course_id, p]))
-    },
-  })
-}
+// El progreso por curso lo trae `courses_page` (columna `notes`) — la RPC `course_progress`
+// sigue en la DB pero ya no la llama nadie.
 
 // Parcial: crear solo manda nombre + inicio (status lo pone el default de la DB), y
 // "Finalizar" solo manda status + fin.

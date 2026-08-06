@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
@@ -29,13 +29,20 @@ import {
   DropdownMenuTrigger,
 } from "@/core/ui/dropdown-menu"
 import { NativeSelect } from "@/core/ui/native-select"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/core/ui/pagination"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/core/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/core/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useIsMobile } from "@/core/hooks/use-mobile"
-import { useCourses, useCourseProgress, useDeleteCourse } from "@/courses/courses.api"
-import { useAllNoteRefs } from "@/notes/notes.api"
-import { dayOf, useReadStats } from "@/core/lib/stats"
+import { PAGE_SIZE, useCoursesPage, useDeleteCourse } from "@/courses/courses.api"
+import { dayOf, relativeDay } from "@/core/lib/stats"
 import type { Course, CourseStatus } from "@/core/types/database"
 
 const STATUS: Record<CourseStatus, [string, "brand" | "warning" | "outline"]> = {
@@ -44,7 +51,16 @@ const STATUS: Record<CourseStatus, [string, "brand" | "warning" | "outline"]> = 
   done: ["hecho", "outline"],
 }
 
+const STATUS_DOT: Record<CourseStatus, string> = {
+  active: "bg-brand",
+  paused: "bg-warning",
+  done: "bg-muted-foreground",
+}
+
 type Sort = "recientes" | "nombre" | "rondas" | "inicio"
+
+// El buscador dispara una query por cambio: sin debounce sería una RPC por tecla.
+const SEARCH_DEBOUNCE = 300
 
 // La vacía es la columna de acciones; el chevron va pegado al nombre en la misma celda.
 const HEADERS = [
@@ -64,87 +80,76 @@ function fmt(d: string | null | undefined) {
 }
 
 // Pantalla Cursos (screen 2) como database view del diseño: buscar, filtrar por estado, ordenar,
-// y alternar tabla / tarjetas. Todo en cliente — 59 cursos, no hace falta nada del servidor.
+// y alternar tabla / tarjetas. Búsqueda, filtro, orden y paginado los resuelve la RPC
+// `courses_page` (migración 0006) — el cliente sólo guarda el estado de los controles.
 export function Courses({ embed }: { embed?: boolean }) {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const { data: courses = [], isLoading } = useCourses()
-  const { data: progress } = useCourseProgress()
-  const { data: noteRefs = [] } = useAllNoteRefs()
-  const { data: stats } = useReadStats()
   const del = useDeleteCourse()
   const isMobile = useIsMobile()
 
   const [view, setView] = useState<"tabla" | "tarjetas">("tarjetas")
   const [q, setQ] = useState("")
+  const [debouncedQ, setDebouncedQ] = useState("")
   const [status, setStatus] = useState<CourseStatus | "todos">("todos")
   const [sort, setSort] = useState<Sort>("recientes")
+  const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<Course | null | "new">(params.get("new") ? "new" : null)
   const [selected, setSelected] = useState(0)
   const [confirmingDelete, setConfirmingDelete] = useState<Course | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), SEARCH_DEBOUNCE)
+    return () => clearTimeout(t)
+  }, [q])
+
+  const { data, isLoading } = useCoursesPage({ q: debouncedQ, status, sort, page })
+  const rows = data?.rows ?? []
+  const total = data?.total ?? 0
+  const pages = Math.max(Math.ceil(total / PAGE_SIZE), 1)
+  // Distingue "todavía no creaste ningún curso" de "los filtros no matchean nada": con paginado
+  // en server no hay una lista completa en cliente contra la cual comparar.
+  const filtering = !!debouncedQ || status !== "todos"
+
   useHotkeys("n", () => setEditing("new"), { preventDefault: true })
-  // "slash", no "/": la lib matchea por e.code (ver comentario de shift+slash en app.tsx).
+  // "slash", no "/": la lib matchea por e.code (ver comentario de mod+slash en app.tsx).
   useHotkeys("slash", () => searchRef.current?.focus(), { preventDefault: true, enabled: !embed })
 
-  // La fila seleccionada por teclado no sobrevive a un cambio de filtro/orden — evita apuntar a
-  // un curso que ya no está en la lista filtrada.
-  useEffect(() => setSelected(0), [q, status, sort])
+  // Cambiar filtro/orden vuelve a la página 1: la 3 puede no existir en el resultado filtrado.
+  // La selección de teclado también se resetea — apuntaría a un curso que ya no está en la lista.
+  useEffect(() => {
+    setSelected(0)
+    setPage(1)
+  }, [debouncedQ, status, sort])
+  useEffect(() => setSelected(0), [page])
 
-  // Últ. repaso por curso: el read_at más nuevo de cualquiera de sus notas (ADR 0003).
-  const lastRead = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const n of noteRefs) {
-      const last = stats?.byNote.get(n.id)?.last
-      if (!n.course_id || !last) continue
-      const prev = m.get(n.course_id)
-      if (!prev || last > prev) m.set(n.course_id, last)
-    }
-    return m
-  }, [noteRefs, stats])
+  // Borrar el último curso de la última página la deja vacía: retroceder en vez de mostrar nada.
+  useEffect(() => {
+    if (page > pages) setPage(pages)
+  }, [page, pages])
 
-  // Rondas completas por curso: la nota MENOS repasada marca el pie del grupo — si todas
-  // llevan al menos 2 repasos, el curso lleva 2 rondas completas (sin ronda a medias).
-  const rounds = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const n of noteRefs) {
-      if (!n.course_id) continue
-      const count = stats?.byNote.get(n.id)?.count ?? 0
-      const prev = m.get(n.course_id)
-      m.set(n.course_id, prev === undefined ? count : Math.min(prev, count))
-    }
-    return m
-  }, [noteRefs, stats])
-
-  const rows = courses
-    .filter(
-      (c) =>
-        (status === "todos" || c.status === status) &&
-        c.name.toLowerCase().includes(q.toLowerCase()),
-    )
-    .toSorted((a, b) => {
-      if (sort === "nombre") return a.name.localeCompare(b.name)
-      if (sort === "rondas") return (rounds.get(b.id) ?? 0) - (rounds.get(a.id) ?? 0)
-      if (sort === "inicio") return (b.started_at ?? "").localeCompare(a.started_at ?? "")
-      return (lastRead.get(b.id) ?? "").localeCompare(lastRead.get(a.id) ?? "")
-    })
-
-  // Nav por teclado sobre `rows`: J/K (+ Left/Right) mueven la selección, Enter abre (mismo
-  // destino que el click), E edita, Delete/Backspace borra (misma confirmación de siempre).
-  // enabled: !embed — dentro de Repaso esta lista es secundaria, J/K/Enter ya los usa la cola.
-  const clampSelected = (i: number) => Math.min(Math.max(i, 0), Math.max(rows.length - 1, 0))
+  // Nav por teclado sobre la página actual: J/K (+ Left/Right) mueven la selección, Enter abre
+  // (mismo destino que el click), E edita, Delete/Backspace borra (misma confirmación de siempre).
+  // Pasarse del borde salta de página. enabled: !embed — dentro de Repaso esta lista es
+  // secundaria, J/K/Enter ya los usa la cola.
   useHotkeys(
     "j,left",
-    () => setSelected((i) => clampSelected(i - 1)),
+    () => {
+      if (selected === 0 && page > 1) return setPage(page - 1)
+      setSelected((i) => Math.max(i - 1, 0))
+    },
     { preventDefault: true, enabled: !embed },
-    [rows.length],
+    [selected, page],
   )
   useHotkeys(
     "k,right",
-    () => setSelected((i) => clampSelected(i + 1)),
+    () => {
+      if (selected === rows.length - 1 && page < pages) return setPage(page + 1)
+      setSelected((i) => Math.min(i + 1, Math.max(rows.length - 1, 0)))
+    },
     { preventDefault: true, enabled: !embed },
-    [rows.length],
+    [selected, rows.length, page, pages],
   )
   useHotkeys(
     "enter",
@@ -181,7 +186,7 @@ export function Courses({ embed }: { embed?: boolean }) {
           Cursos
         </h1>
         <span className="mono-dim">
-          {rows.length} de {courses.length}
+          {total} {total === 1 ? "curso" : "cursos"}
         </span>
       </div>
 
@@ -195,6 +200,9 @@ export function Courses({ embed }: { embed?: boolean }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
+              // Enter dispara la búsqueda sin esperar el debounce; el timer pendiente después
+              // setea el mismo valor y no hace nada.
+              if (e.key === "Enter") return setDebouncedQ(q)
               if (e.key !== "Escape") return
               if (q) setQ("")
               searchRef.current?.blur()
@@ -304,15 +312,13 @@ export function Courses({ embed }: { embed?: boolean }) {
                   <TableCell className="px-3 py-3">
                     <Badge variant={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
                   </TableCell>
-                  <TableCell className="mono px-3 py-3">{rounds.get(c.id) ?? 0}</TableCell>
-                  <TableCell className="mono px-3 py-3 text-right">
-                    {progress?.get(c.id)?.total ?? 0}
-                  </TableCell>
+                  <TableCell className="mono px-3 py-3">{c.rounds}</TableCell>
+                  <TableCell className="mono px-3 py-3 text-right">{c.notes}</TableCell>
                   <TableCell className="mono-dim px-3 py-3 text-right">
                     {fmt(c.started_at)}
                   </TableCell>
                   <TableCell className="mono-dim px-3 py-3 text-right">
-                    {dayOf(lastRead.get(c.id))}
+                    {dayOf(c.last_read)}
                   </TableCell>
                   <TableCell className="px-3 py-3 text-right">
                     <RowActions
@@ -329,10 +335,10 @@ export function Courses({ embed }: { embed?: boolean }) {
                     <Empty className="px-3 py-7">
                       <EmptyHeader>
                         <EmptyTitle>
-                          {courses.length === 0 ? "Sin cursos." : "Sin cursos que coincidan."}
+                          {filtering ? "Sin cursos que coincidan." : "Sin cursos."}
                         </EmptyTitle>
                         <EmptyDescription>
-                          {courses.length === 0 ? "Creá el primero." : "Ajustá los filtros."}
+                          {filtering ? "Ajustá los filtros." : "Creá el primero."}
                         </EmptyDescription>
                       </EmptyHeader>
                     </Empty>
@@ -343,28 +349,39 @@ export function Courses({ embed }: { embed?: boolean }) {
           </Table>
         </Card>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((c, i) => (
             <Card
               key={c.id}
               data-active={i === selected}
               onClick={() => navigate(`/course/${c.id}`)}
-              className="group cursor-pointer gap-0 p-5 transition-colors hover:bg-muted data-[active=true]:bg-muted"
+              className="group cursor-pointer gap-0 p-6 transition-colors hover:bg-muted data-[active=true]:bg-muted"
             >
-              <div className="mb-3.5 flex items-start justify-between gap-2">
-                <span className="flex items-center gap-2 text-sm font-medium text-pretty">
-                  <CourseIcon icon={c.icon} className="text-muted-foreground" />
-                  {c.name}
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <span className="flex min-h-12 items-start gap-2 text-base leading-6 font-medium text-pretty">
+                  <CourseIcon icon={c.icon} className="mt-0.5 shrink-0 text-muted-foreground" />
+                  <span className="line-clamp-2">{c.name}</span>
                 </span>
-                <Badge variant={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className={`mt-1.5 size-2 shrink-0 rounded-full ${STATUS_DOT[c.status]}`}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent className="capitalize">{STATUS[c.status][0]}</TooltipContent>
+                </Tooltip>
               </div>
-              <div className="mb-2.5 flex items-center gap-1.5">
+              <div className="mb-3 flex items-center gap-1.5 text-fg-secondary">
+                <span className="truncate">{c.source || "—"}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="truncate">{c.area || "—"}</span>
+              </div>
+              <div className="mb-3 flex items-center gap-1.5">
                 <span className="eyebrow">Rondas</span>
-                <span className="mono">{rounds.get(c.id) ?? 0}</span>
+                <span className="mono">{c.rounds}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="mono-dim">{fmt(c.started_at)}</span>
-                <span className="mono-dim">últ. {dayOf(lastRead.get(c.id))}</span>
+                <span className="mono-dim">{relativeDay(c.started_at)}</span>
                 <RowActions
                   course={c}
                   onEdit={() => setEditing(c)}
@@ -373,7 +390,64 @@ export function Courses({ embed }: { embed?: boolean }) {
               </div>
             </Card>
           ))}
+          {rows.length === 0 && (
+            <Empty className="col-span-full py-7">
+              <EmptyHeader>
+                <EmptyTitle>{filtering ? "Sin cursos que coincidan." : "Sin cursos."}</EmptyTitle>
+                <EmptyDescription>
+                  {filtering ? "Ajustá los filtros." : "Creá el primero."}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
         </div>
+      )}
+
+      {/* ponytail: sin elipsis — a 59 cursos son 3 páginas y entran todas. Si `pages` crece,
+          `PaginationEllipsis` ya está importable desde el mismo módulo. */}
+      {pages > 1 && (
+        <Pagination className="mt-8">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                text="Anterior"
+                href="#"
+                aria-disabled={page === 1}
+                className={page === 1 ? "pointer-events-none opacity-50" : ""}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setPage((p) => Math.max(p - 1, 1))
+                }}
+              />
+            </PaginationItem>
+            {Array.from({ length: pages }, (_, i) => (
+              <PaginationItem key={i}>
+                <PaginationLink
+                  href="#"
+                  isActive={page === i + 1}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setPage(i + 1)
+                  }}
+                >
+                  {i + 1}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext
+                text="Siguiente"
+                href="#"
+                aria-disabled={page === pages}
+                className={page === pages ? "pointer-events-none opacity-50" : ""}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setPage((p) => Math.min(p + 1, pages))
+                }}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       )}
 
       {editing && <CourseForm course={editing === "new" ? null : editing} onClose={close} />}

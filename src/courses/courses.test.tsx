@@ -31,9 +31,27 @@ vi.mock("@/core/lib/supabase", () => {
     }
     return chain
   }
-  return {
-    supabase: { from: query, rpc: () => Promise.resolve({ data: [], error: null }) },
+  // courses_page (migración 0006) en JS: mismo filtro/orden/slice que la RPC. Lo que se afirma acá
+  // es el comportamiento del componente; que el SQL haga esto de verdad lo prueba
+  // supabase/tests/0006_courses_page.test.sql.
+  const rpc = (fn: string, args: Record<string, unknown> = {}) => {
+    if (fn !== "courses_page") return Promise.resolve({ data: [], error: null })
+    const q = String(args.q ?? "").toLowerCase()
+    const status = args.status_filter as string | null
+    const all = (state.courses as Record<string, string>[])
+      .filter((c) => (!status || c.status === status) && c.name.toLowerCase().includes(q))
+      .toSorted((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    const offset = Number(args.page_offset ?? 0)
+    const rows = all.slice(offset, offset + Number(args.page_size ?? 24)).map((c) => ({
+      notes: 0,
+      rounds: 0,
+      last_read: null,
+      ...c,
+      total_count: all.length,
+    }))
+    return Promise.resolve({ data: rows, error: null })
   }
+  return { supabase: { from: query, rpc } }
 })
 
 function renderCourses() {
@@ -103,8 +121,8 @@ test("J/K mueven la selección y Enter navega al curso seleccionado", async () =
   const { container } = renderCoursesWithRoutes()
   await screen.findByText("Curso uno")
 
-  // useCourses() ya ordena por created_at desc (courses.api.ts) — "Curso dos" (2026-01-02) queda
-  // primero que "Curso uno" (2026-01-01), sin repasos que cambien el sort "recientes" acá.
+  // El sort "recientes" desempata por created_at desc en la RPC — "Curso dos" (2026-01-02) queda
+  // primero que "Curso uno" (2026-01-01), sin repasos que cambien el orden acá.
   expect(container.querySelector('[data-active="true"]')?.textContent).toContain("Curso dos")
 
   fireEvent.keyDown(document, { code: "KeyK" })
@@ -138,4 +156,71 @@ test('"/" enfoca el buscador', async () => {
   expect(search).not.toHaveFocus()
   fireEvent.keyDown(document, { code: "Slash" })
   expect(search).toHaveFocus()
+})
+
+const many = (n: number) =>
+  Array.from({ length: n }, (_, i) => ({
+    id: `c${i}`,
+    // created_at desc = "Curso 0" primero, para que el orden de render sea el del índice.
+    name: `Curso ${i}`,
+    status: "active",
+    created_at: `2026-01-${String(n - i).padStart(2, "0")}`,
+  }))
+
+test("la página trae 24 filas y Siguiente pide la que sigue", async () => {
+  state.courses = many(30)
+  renderCourses()
+  await screen.findByText("Curso 0")
+
+  expect(screen.queryByText("Curso 24")).toBeNull()
+  fireEvent.click(screen.getByRole("link", { name: "Go to next page" }))
+
+  await screen.findByText("Curso 24")
+  expect(screen.queryByText("Curso 0")).toBeNull()
+})
+
+test("ir a la página 2 y volver por número", async () => {
+  state.courses = many(30)
+  renderCourses()
+  await screen.findByText("Curso 0")
+
+  fireEvent.click(screen.getByRole("link", { name: "2" }))
+  await screen.findByText("Curso 24")
+
+  fireEvent.click(screen.getByRole("link", { name: "1" }))
+  await screen.findByText("Curso 0")
+})
+
+test("buscar vuelve a la página 1 y el total sale del server", async () => {
+  state.courses = many(30)
+  renderCourses()
+  await screen.findByText("Curso 0")
+  expect(screen.getByText("30 cursos")).toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole("link", { name: "2" }))
+  await screen.findByText("Curso 24")
+
+  // El debounce del buscador es de 300ms; findBy* espera hasta 1s.
+  fireEvent.change(screen.getByPlaceholderText("Buscar curso…"), { target: { value: "Curso 1" } })
+  await screen.findByText("11 cursos") // Curso 1 + Curso 10..19
+  expect(screen.queryByRole("navigation", { name: "pagination" })).toBeNull()
+})
+
+test("Enter en el buscador dispara la búsqueda sin esperar el debounce", async () => {
+  state.courses = many(30)
+  renderCourses()
+  await screen.findByText("Curso 0")
+
+  const search = screen.getByPlaceholderText("Buscar curso…")
+  fireEvent.change(search, { target: { value: "Curso 1" } })
+  fireEvent.keyDown(search, { key: "Enter" })
+  await screen.findByText("11 cursos")
+})
+
+test("sin resultados muestra el vacío de filtros", async () => {
+  renderCourses()
+  await screen.findByText("Curso móvil")
+
+  fireEvent.change(screen.getByPlaceholderText("Buscar curso…"), { target: { value: "zzz" } })
+  await screen.findByText("Sin cursos que coincidan.")
 })

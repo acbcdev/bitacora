@@ -103,6 +103,21 @@ export type Database = {
         Args: Record<string, never>
         Returns: { course_id: string; total: number; read: number }[]
       }
+      courses_page: {
+        Args: {
+          q?: string
+          status_filter?: CourseStatus | null
+          sort?: string
+          page_size?: number
+          page_offset?: number
+        }
+        Returns: (Database["public"]["Tables"]["courses"]["Row"] & {
+          notes: number
+          rounds: number
+          last_read: string | null
+          total_count: number
+        })[]
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
@@ -113,3 +128,4 @@ export type Database = {
 export type Course = Database["public"]["Tables"]["courses"]["Row"]
 export type Note = Database["public"]["Tables"]["notes"]["Row"]
 export type CourseProgress = Database["public"]["Functions"]["course_progress"]["Returns"][number]
+export type CourseRow = Database["public"]["Functions"]["courses_page"]["Returns"][number]
