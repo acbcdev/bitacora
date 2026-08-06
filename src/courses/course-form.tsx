@@ -51,7 +51,7 @@ function TextCombobox({
       onValueChange={(v) => onChange(v ?? "")}
     >
       <ComboboxInput id={id} placeholder={placeholder} className="h-10" />
-      <ComboboxContent>
+      <ComboboxContent collisionAvoidance={{ side: "none" }}>
         <ComboboxEmpty>Sin resultados</ComboboxEmpty>
         <ComboboxList>
           {(item: string) => (
