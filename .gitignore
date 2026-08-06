@@ -8,6 +8,9 @@ dist-ssr
 *.local
 *.tsbuildinfo
 
+# salida del import de Notion: CSVs + cache de la API
+scripts/notion-import/.out/
+
 # env — NUNCA commitear (anon key va acá; service_role jamás)
 .env
 .env.*

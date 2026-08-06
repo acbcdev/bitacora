@@ -1,4 +1,5 @@
-import { createInterface } from "node:readline/promises"
+import { mkdirSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
 import {
   collectPaginatedAPI,
   isFullPage,
@@ -7,15 +8,22 @@ import {
 } from "@notionhq/client"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { blocksToTiptap } from "./blocks-to-tiptap"
-import { computeStartedAt, mapCourseProperties } from "./course-mapping"
+import { cached, OUT_DIR } from "./cache"
+import { computeStartedAt, mapCourseProperties, type CourseMapResult } from "./course-mapping"
+import { toCsv, type CsvRow } from "./csv"
 import { fetchBlockTree } from "./fetch-block-tree"
 import { uploadImage } from "./images"
 import { createNotionClient } from "./notion-client"
 import { createAdminClient, resolveSingleUserId } from "./supabase-admin"
 
 const COURSES_DATA_SOURCE = "Curso Data"
-const write = process.argv.includes("--write")
 const skipped: string[] = []
+// Una imagen caída (CDN de terceros con hotlink protection, archivo borrado) no puede tirar abajo
+// una corrida de una hora: se degrada y se reporta al final. OJO: el curso igual se cachea con la
+// degradación adentro — para reintentarlo hay que borrar su json de .out/cache.
+const warnings: string[] = []
+
+type CourseBundle = { course: CsvRow; notes: CsvRow[]; estimatedDate: boolean }
 
 function env(name: string): string {
   const value = process.env[name]
@@ -58,6 +66,7 @@ function noteTitle(page: PageObjectResponse): string {
 // courses.icon acepta 'lucide:<Nombre>' o una URL pública (migración 0004); CourseIcon además
 // renderiza emoji tal cual. Los íconos tipo file/external se resubn porque las URLs de Notion expiran.
 async function resolveIcon(
+  notion: Client,
   page: PageObjectResponse,
   supabase: SupabaseClient,
   userId: string,
@@ -67,19 +76,24 @@ async function resolveIcon(
   if (icon.type === "emoji") return icon.emoji
   if (icon.type === "external")
     return uploadImage(supabase, "course-icons", userId, icon.external.url)
-  if (icon.type === "file") return uploadImage(supabase, "course-icons", userId, icon.file.url)
-  return null
+  if (icon.type !== "file") return null
+
+  // La URL firmada de un archivo de Notion dura 1h (icon.file.expiry_time). La lista de cursos se
+  // pide una sola vez al arranque y la corrida entera lleva más que eso, así que para el curso N la
+  // URL que vino en la lista ya venció (403 de S3). Se vuelve a pedir la página para tener una fresca.
+  const fresh = await notion.pages.retrieve({ page_id: page.id })
+  const url = isFullPage(fresh) && fresh.icon?.type === "file" ? fresh.icon.file.url : icon.file.url
+  return uploadImage(supabase, "course-icons", userId, url)
 }
 
-async function importNotes(
+async function noteRows(
   notion: Client,
   supabase: SupabaseClient,
   userId: string,
   coursePageId: string,
-  courseId: string | null,
-): Promise<number> {
+): Promise<CsvRow[]> {
   const dataSourceId = await findNotesDataSource(notion, coursePageId)
-  if (!dataSourceId) return 0
+  if (!dataSourceId) return []
 
   const pages = (
     await collectPaginatedAPI(notion.dataSources.query, {
@@ -88,119 +102,114 @@ async function importNotes(
     })
   ).filter(isFullPage)
 
-  let position = 0
-  for (const page of pages) {
+  const rows: CsvRow[] = []
+  for (const [position, page] of pages.entries()) {
     const blocks = await fetchBlockTree(notion, page.id, (url) =>
-      write ? uploadImage(supabase, "notes-images", userId, url) : Promise.resolve(url),
+      // Si la subida falla se deja la URL original en el documento: si es externa puede seguir
+      // resolviendo desde el browser, y si es de Notion queda rota pero visible para arreglar a mano.
+      uploadImage(supabase, "notes-images", userId, url).catch((err: Error) => {
+        warnings.push(`imagen de "${noteTitle(page)}": ${err.message}`)
+        return url
+      }),
     )
-    const content = { type: "doc" as const, content: blocksToTiptap(blocks) }
-    const title = noteTitle(page)
-
-    if (write && courseId) {
-      const { error } = await supabase.from("notes").insert({
-        user_id: userId,
-        course_id: courseId,
-        title,
-        content,
-        kind: "note",
-        position,
-        imported: true,
-        created_at: page.created_time,
-      })
-      if (error) throw new Error(`insert de nota "${title}" falló: ${error.message}`)
-    }
-    position++
+    rows.push({
+      // El id de página de Notion ya es un uuid: se usa tal cual como PK para que el CSV sea
+      // estable entre corridas y notes.course_id apunte al curso sin tabla de equivalencias.
+      id: page.id,
+      user_id: userId,
+      course_id: coursePageId,
+      title: noteTitle(page),
+      content: JSON.stringify({ type: "doc", content: blocksToTiptap(blocks) }),
+      kind: "note",
+      position,
+      imported: true,
+      created_at: page.created_time,
+    })
   }
-  return pages.length
+  return rows
 }
 
-async function confirmBackup(): Promise<void> {
-  // El spec pide backup de la DB antes de la corrida real. No hay credenciales de conexión
-  // directa en el repo para automatizar un pg_dump, así que se gatea con confirmación explícita.
-  const rl = createInterface({ input: process.stdin, output: process.stdout })
-  const answer = await rl.question(
-    "Esto BORRA todo lo que tenga imported = true en courses y notes, y reinserta desde Notion.\n" +
-      "OJO: el borrado de notas cascadea a read_log — se pierde el historial de repaso de las\n" +
-      "notas importadas, que CONTEXT.md declara que nunca se borra. En la primera corrida no hay\n" +
-      "historial que perder; en una re-corrida sí.\n" +
-      "¿Tenés backup de la DB? (escribí 'si' para continuar): ",
-  )
-  rl.close()
-  if (answer.trim().toLowerCase() !== "si") throw new Error("cancelado: hacé el backup primero")
+async function buildCourse(
+  notion: Client,
+  supabase: SupabaseClient,
+  userId: string,
+  page: PageObjectResponse,
+  mapped: Extract<CourseMapResult, { skip: false }>,
+): Promise<CourseBundle> {
+  const { startedAt, estimated } = computeStartedAt(mapped.startedAtRaw, page.created_time)
+  return {
+    course: {
+      id: page.id,
+      user_id: userId,
+      name: mapped.name,
+      // Todo lo que viene de Notion entra como 'done': es material ya estudiado. El status no
+      // afecta la cola de repaso (review_queue() no filtra por él, ver migración 0003).
+      status: "done",
+      started_at: startedAt,
+      finished_at: mapped.finishedAt,
+      icon: await resolveIcon(notion, page, supabase, userId).catch((err: Error) => {
+        warnings.push(`icono de "${mapped.name}": ${err.message}`)
+        return null
+      }),
+      source: mapped.source,
+      area: mapped.area,
+      imported: true,
+    },
+    notes: await noteRows(notion, supabase, userId, page.id),
+    estimatedDate: estimated,
+  }
 }
 
 async function main() {
   process.loadEnvFile(".env")
   const notion = createNotionClient(env("NOTION_TOKEN"))
+  // Sigue haciendo falta Supabase: las imágenes/íconos van a Storage porque las URLs `file` de
+  // Notion expiran ~1h, y el CSV necesita la URL final. A las tablas no se escribe nada.
   const supabase = createAdminClient(env("VITE_SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"))
   const userId = await resolveSingleUserId(supabase)
 
-  if (write) await confirmBackup()
-  else console.log("DRY-RUN — nada se escribe. Corré con --write para importar de verdad.\n")
-
-  if (write) {
-    // Notas primero: notes.course_id es ON DELETE SET NULL, no CASCADE, así que borrar cursos no
-    // se lleva sus notas. El delete de notas sí cascadea a read_log (FK ON DELETE CASCADE).
-    for (const table of ["notes", "courses"]) {
-      const { error } = await supabase.from(table).delete().eq("imported", true)
-      if (error) throw new Error(`delete de ${table} importados falló: ${error.message}`)
-    }
-  }
-
+  // Sin cachear a propósito: son 2 requests y las páginas traen URLs de icono firmadas que se
+  // pudren en 1h. Lo que se cachea es el resultado por curso, ya con las URLs de Storage resueltas.
   const coursePages = (
     await collectPaginatedAPI(notion.dataSources.query, {
       data_source_id: await findCoursesDataSource(notion),
     })
   ).filter(isFullPage)
 
-  let courses = 0
-  let notes = 0
+  const courseRows: CsvRow[] = []
+  const allNoteRows: CsvRow[] = []
   let estimatedDates = 0
 
-  for (const page of coursePages) {
+  const width = String(coursePages.length).length
+
+  for (const [index, page] of coursePages.entries()) {
+    const at = `[${String(index + 1).padStart(width)}/${coursePages.length}]`
     const mapped = mapCourseProperties(page.properties)
     if (mapped.skip) {
       skipped.push(mapped.reason)
       continue
     }
 
-    const { startedAt, estimated } = computeStartedAt(mapped.startedAtRaw, page.created_time)
-    if (estimated) estimatedDates++
-
-    let courseId: string | null = null
-    if (write) {
-      const { data, error } = await supabase
-        .from("courses")
-        .insert({
-          user_id: userId,
-          name: mapped.name,
-          // Todo lo que viene de Notion entra como 'done': es material ya estudiado. El status no
-          // afecta la cola de repaso (review_queue() no filtra por él, ver migración 0003).
-          status: "done",
-          started_at: startedAt,
-          finished_at: mapped.finishedAt,
-          icon: await resolveIcon(page, supabase, userId),
-          source: mapped.source,
-          area: mapped.area,
-          imported: true,
-        })
-        .select("id")
-        .single()
-      if (error) throw new Error(`insert del curso "${mapped.name}" falló: ${error.message}`)
-      courseId = data.id
-    }
-
-    const noteCount = await importNotes(notion, supabase, userId, page.id, courseId)
-    console.log(`${mapped.name} — ${noteCount} notas`)
-    courses++
-    notes += noteCount
+    const bundle = await cached(page.id, () => buildCourse(notion, supabase, userId, page, mapped))
+    courseRows.push(bundle.course)
+    allNoteRows.push(...bundle.notes)
+    if (bundle.estimatedDate) estimatedDates++
+    console.log(`${at} ${mapped.name} — ${bundle.notes.length} notas`)
   }
 
-  console.log(`\n${courses} cursos, ${notes} notas${write ? " importados" : " (dry-run)"}.`)
+  mkdirSync(OUT_DIR, { recursive: true })
+  writeFileSync(join(OUT_DIR, "courses.csv"), toCsv(courseRows))
+  writeFileSync(join(OUT_DIR, "notes.csv"), toCsv(allNoteRows))
+
+  console.log(`\n${courseRows.length} cursos, ${allNoteRows.length} notas → ${OUT_DIR}/`)
   console.log(`${estimatedDates} cursos con started_at estimado desde created_time.`)
   if (skipped.length) {
     console.log(`\n${skipped.length} filas salteadas para revisión manual:`)
     for (const reason of skipped) console.log(`  - ${reason}`)
+  }
+  if (warnings.length) {
+    console.log(`\n${warnings.length} imágenes que no se pudieron subir:`)
+    for (const warning of warnings) console.log(`  - ${warning}`)
   }
 }
 
