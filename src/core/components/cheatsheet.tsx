@@ -16,7 +16,6 @@ const GROUPS: [string, [string, string][]][] = [
   [
     "Repaso",
     [
-      ["Enter", "Marcar leído + siguiente"],
       ["J", "Volver, sin contar"],
       ["K", "Siguiente, sin contar"],
     ],

@@ -4,17 +4,26 @@ import { MemoryRouter } from "react-router-dom"
 import { TooltipProvider } from "@/core/ui/tooltip"
 import { Review } from "@/review/review"
 
-// Spy hoisted para poder referenciarlo dentro del factory de vi.mock.
-const { insertReadLog } = vi.hoisted(() => ({
-  insertReadLog: vi.fn(() => Promise.resolve({ error: null })),
-}))
+// Spy hoisted para poder referenciarlo dentro del factory de vi.mock. El insert además guarda la
+// fila en `readLog`: las stats ("leídas hoy", racha) se derivan de read_log, así que sin esto no
+// se puede testear que se refresquen.
+const { insertReadLog, readLog } = vi.hoisted(() => {
+  const rows: unknown[] = []
+  return {
+    readLog: rows,
+    insertReadLog: vi.fn((row: { note_id: string }) => {
+      rows.push({ ...row, read_at: new Date().toISOString() })
+      return Promise.resolve({ error: null })
+    }),
+  }
+})
 
 // Mock del cliente Supabase: cola de 2 notas + un curso. Sin red.
 vi.mock("@/core/lib/supabase", () => {
   const rows: Record<string, unknown[]> = {
     courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
     notes: [],
-    read_log: [],
+    read_log: readLog,
   }
   // Cadena thenable: select/is/eq/order devuelven la misma cadena y se resuelven al await —
   // igual que el PostgrestBuilder real de supabase-js, que también es un thenable.
@@ -104,9 +113,21 @@ function renderReview() {
   )
 }
 
-beforeEach(() => insertReadLog.mockClear())
+beforeEach(() => {
+  insertReadLog.mockClear()
+  readLog.length = 0
+})
 
-test("J/K saltan sin tocar read_log; Enter inserta una fila y avanza", async () => {
+test("marcar leído refresca el contador de hoy", async () => {
+  renderReview()
+  await screen.findByText("Nota uno")
+  expect(screen.getByText("leídas hoy 0/3")).toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole("button", { name: "Marcar leído" }))
+  await screen.findByText("leídas hoy 1/3")
+})
+
+test("J/K saltan sin tocar read_log; Enter abre la nota sin marcarla", async () => {
   renderReview()
   await screen.findByText("Nota uno")
 
@@ -119,33 +140,36 @@ test("J/K saltan sin tocar read_log; Enter inserta una fila y avanza", async () 
   await screen.findByText("Nota uno")
   expect(insertReadLog).not.toHaveBeenCalled()
 
-  // Enter, con el dialog cerrado, marca leído al toque (exactamente 1 insert) + avanza.
+  // Enter con la card cerrada abre el dialog: nunca marca leído desde afuera.
   fireEvent.keyDown(document, { code: "Enter" })
-  await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
-  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
-  await screen.findByText("Nota dos")
+  const dialog = await screen.findByRole("dialog")
+  expect(insertReadLog).not.toHaveBeenCalled()
+  expect(within(dialog).getByText("Nota uno")).toBeInTheDocument()
 })
 
 test("Enter dentro del dialog no marca leído hasta que el botón es visible", async () => {
   renderReview()
   await screen.findByText("Nota uno")
 
-  fireEvent.click(screen.getByRole("button", { name: /Nota uno/ }))
+  fireEvent.keyDown(document, { code: "Enter" })
   await screen.findByRole("dialog")
 
   // Todavía no "vimos" el botón (IntersectionObserver no disparó) → Enter no hace nada.
   fireEvent.keyDown(document, { code: "Enter" })
   expect(insertReadLog).not.toHaveBeenCalled()
 
-  // Se vuelve visible → recién ahí Enter marca leído y avanza.
+  // Se vuelve visible → recién ahí Enter marca leído. No avanza: sigue en la misma nota, con el
+  // botón ya en "Leído", y un segundo Enter no vuelve a insertar.
   markReadButtonVisible(true)
   fireEvent.keyDown(document, { code: "Enter" })
-  await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
+  await screen.findByRole("button", { name: "Leído" })
   expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
-  await screen.findByText("Nota dos")
+  fireEvent.keyDown(document, { code: "Enter" })
+  expect(insertReadLog).toHaveBeenCalledTimes(1)
+  expect(screen.getByText("1 / 3")).toBeInTheDocument()
 })
 
-test("cola mixta: la flashcard se renderiza distinto y gradearla inserta el grade y avanza", async () => {
+test("cola mixta: la flashcard se renderiza distinto y gradearla inserta el grade sin avanzar", async () => {
   renderReview()
   await screen.findByText("Nota uno")
 
@@ -170,7 +194,9 @@ test("cola mixta: la flashcard se renderiza distinto y gradearla inserta el grad
   fireEvent.click(screen.getByRole("button", { name: "Correcto" }))
   await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
   expect(insertReadLog).toHaveBeenCalledWith({ note_id: "f1", grade: "correcto" })
-  // Única flashcard de la cola (3 ítems) → avanza y termina el batch.
+  // Calificar no avanza: los 3 botones quedan apagados hasta que te movés con K.
+  await waitFor(() => expect(screen.getByRole("button", { name: "Correcto" })).toBeDisabled())
+  fireEvent.keyDown(document, { code: "KeyK" })
   await screen.findByText("Batch terminado.")
 })
 
@@ -218,17 +244,23 @@ test("click en el card de una nota abre el dialog con la nota completa; cerrarlo
   await waitFor(() => expect(screen.queryByTestId("editor")).not.toBeInTheDocument())
 })
 
-test("Marcar leído funciona desde el card sin abrir el dialog", async () => {
+test("Marcar leído funciona desde el card sin abrir el dialog, y no avanza", async () => {
   renderReview()
   await screen.findByText("Nota uno")
 
   fireEvent.click(screen.getByRole("button", { name: "Marcar leído" }))
   await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
   expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
+  await screen.findByRole("button", { name: "Leído" })
+  expect(screen.getByText("1 / 3")).toBeInTheDocument()
+
+  // K sigue siendo la única forma de moverse, y la nota nueva vuelve a estar sin marcar.
+  fireEvent.keyDown(document, { code: "KeyK" })
   await screen.findByText("Nota dos")
+  expect(screen.getByRole("button", { name: "Marcar leído" })).toBeEnabled()
 })
 
-test("Marcar leído también funciona desde adentro del dialog, y lo cierra", async () => {
+test("Marcar leído también funciona desde adentro del dialog, que queda abierto", async () => {
   renderReview()
   await screen.findByText("Nota uno")
 
@@ -238,6 +270,11 @@ test("Marcar leído también funciona desde adentro del dialog, y lo cierra", as
 
   await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
   expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
+  await waitFor(() => expect(within(dialog).getByRole("button", { name: "Leído" })).toBeDisabled())
+  expect(screen.getByRole("dialog")).toBeInTheDocument()
+
+  // K desde adentro del dialog: avanza y lo cierra.
+  fireEvent.keyDown(document, { code: "KeyK" })
   await screen.findByText("Nota dos")
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
 })

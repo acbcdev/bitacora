@@ -24,8 +24,9 @@ export function useMarkRead() {
       const { error } = await supabase.from("read_log").insert({ note_id: noteId, grade })
       if (error) throw error
     },
-    // Solo progreso (derivado — ADR 0003). La cola NO se invalida acá: reshufflearía el batch
-    // bajo el usuario mid-repaso. Se refetchea al terminar el batch (ver Review screen).
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["course_progress"] }),
+    // Solo las stats derivadas de read_log (ADR 0003): "leídas hoy", racha y repasos por nota.
+    // La cola NO se invalida acá: reshufflearía el batch bajo el usuario mid-repaso. Se refetchea
+    // al terminar el batch (ver Review screen).
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["read_stats"] }),
   })
 }

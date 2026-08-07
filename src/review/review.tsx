@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
-import { Flame, Maximize2, Trash2 } from "lucide-react"
+import { Flame, Trash2 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { Editor } from "@/core/components/editor"
 import { NoteSkeleton } from "@/core/components/skeletons"
+import { NoteDialog } from "@/review/note-dialog"
 import { Button } from "@/core/ui/button"
 import { Card } from "@/core/ui/card"
-import { Dialog, DialogContent, DialogTitle } from "@/core/ui/dialog"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
 import { Kbd } from "@/core/ui/kbd"
 import { Progress } from "@/core/ui/progress"
@@ -22,7 +22,8 @@ import { Courses } from "@/courses/courses"
 import type { Grade } from "@/core/types/database"
 
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
-//   Enter = marcar leído (insert read_log) + siguiente · J = volver · K = siguiente (sin contar).
+//   Enter = abrir la nota (adentro, Enter otra vez = marcar leído) · J = volver · K = siguiente.
+// Marcar leído NUNCA avanza solo: inserta en read_log y el ítem se queda; movés vos con J/K.
 // Debajo del repaso va la lista de cursos embebida, como en el diseño.
 export function Review() {
   const { data: queue = [], isLoading, refetch } = useReviewQueue()
@@ -35,12 +36,9 @@ export function Review() {
   const [revealed, setRevealed] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [readyToMark, setReadyToMark] = useState(false)
-  // Callback ref, no useRef: Radix monta el contenido del dialog un tick después de que
-  // `dialogOpen` pasa a true (patrón Presence) — un efecto atado a [dialogOpen] solo no vería el
-  // nodo real todavía. Con state, el effect de abajo se re-dispara en cuanto el botón se monta.
-  const [markReadBtn, setMarkReadBtn] = useState<HTMLButtonElement | null>(null)
-  const scroller = useRef<HTMLDivElement>(null)
+  // Marcar leído no avanza: el ítem se queda y avanzás vos con K. `marked` evita el segundo
+  // insert en read_log si volvés a apretar Enter / el botón sobre la misma nota.
+  const [marked, setMarked] = useState(false)
 
   const note = queue[index]
   const course = courses.find((c) => c.id === note?.course_id)
@@ -48,57 +46,54 @@ export function Review() {
   const streak = stats?.streak ?? 0
   const donePct = Math.min(100, (readToday / DAILY_GOAL) * 100)
 
-  // Cada ítem nuevo arranca sin revelar, sin el diálogo de borrado y sin la nota abierta.
+  // Cada ítem nuevo arranca sin revelar, sin marcar, sin el diálogo de borrado y sin la nota
+  // abierta.
   useEffect(() => {
     setRevealed(false)
+    setMarked(false)
     setConfirmingDelete(false)
     setDialogOpen(false)
   }, [index])
 
-  // Gate de "Enter marca leído" dentro del dialog: recién se arma cuando el botón "Marcar leído"
-  // (al final del contenido) es visible — evita marcar leído sin haber llegado a leerlo.
-  useEffect(() => {
-    setReadyToMark(false)
-    if (!dialogOpen || !markReadBtn) return
-    const observer = new IntersectionObserver(([entry]) => setReadyToMark(entry.isIntersecting))
-    observer.observe(markReadBtn)
-    return () => observer.disconnect()
-  }, [dialogOpen, note?.id, markReadBtn])
-
   const advance = useCallback(() => setIndex((i) => i + 1), []) // avance optimista (ui-principles)
 
   const markNoteRead = useCallback(() => {
-    if (note) markRead.mutate({ noteId: note.id })
-    advance()
-  }, [note, markRead, advance])
+    if (!note || marked) return
+    markRead.mutate({ noteId: note.id })
+    setMarked(true)
+  }, [note, marked, markRead])
 
   const gradeFlashcard = useCallback(
     (grade: Grade) => {
-      if (note) markRead.mutate({ noteId: note.id, grade })
-      advance()
+      if (!note || marked) return
+      markRead.mutate({ noteId: note.id, grade })
+      setMarked(true)
     },
-    [note, markRead, advance],
+    [note, marked, markRead],
   )
 
-  // Enter: nota → leído + siguiente. Con el dialog abierto, gateado a que el botón "Marcar leído"
-  // ya sea visible (si no, no hiciste nada todavía). Card cerrada: sin gate, el contenido corto ya
-  // está completo a la vista. Flashcard sin revelar → revela. Flashcard revelada → sin acción, la
-  // autoevaluación es explícita (3 botones).
+  // Enter con la card cerrada: nota → abre el dialog. NO marca leído: desde la card solo se ve
+  // título + 3 líneas, marcar leído sin haber leído la nota es basura en read_log. Marcar leído
+  // por teclado vive en el dialog, gateado a haber scrolleado hasta el final.
+  // Flashcard sin revelar → revela. Flashcard revelada → sin acción, la autoevaluación es
+  // explícita (3 botones).
   const onEnter = useCallback(() => {
     if (note?.kind === "flashcard") {
       if (!revealed) setRevealed(true)
       return
     }
-    if (dialogOpen && !readyToMark) return
-    markNoteRead()
-  }, [note, revealed, dialogOpen, readyToMark, markNoteRead])
+    setDialogOpen(true)
+  }, [note, revealed])
 
-  // enabled: evita que el mismo Enter dispare en paralelo con el ConfirmDelete de una flashcard
-  // (Enter sobre un botón enfocado —Cancelar/Borrar— ya lo activa el default del navegador).
-  useHotkeys("enter", onEnter, { preventDefault: true, enabled: !confirmingDelete }, [
+  // enabled: dos hotkeys "enter" prendidos a la vez disparan los dos. Con el dialog abierto Enter
+  // es suyo (gateado a haber scrolleado hasta el final); con el ConfirmDelete de una flashcard
+  // abierto es del botón enfocado —Cancelar/Borrar— vía el default del navegador.
+  useHotkeys(
+    "enter",
     onEnter,
-    confirmingDelete,
-  ])
+    { preventDefault: true, enabled: !confirmingDelete && !dialogOpen },
+    [onEnter, confirmingDelete, dialogOpen],
+  )
 
   // mod+enter: vista expandida de la nota (misma acción que el botón Maximize2 del dialog),
   // sin pasar primero por el dialog chico. Solo notas — flashcard no tiene vista expandida.
@@ -232,16 +227,29 @@ export function Review() {
               <div className="hidden flex-wrap items-center gap-3.5 text-xs text-muted-foreground sm:flex">
                 {note.kind === "flashcard" &&
                   (revealed ? (
-                    <span>Elegí correcto / parcial / incorrecto abajo</span>
+                    <span>
+                      {marked ? (
+                        <>
+                          Listo — <Kbd>K</Kbd> para la siguiente
+                        </>
+                      ) : (
+                        "Elegí correcto / parcial / incorrecto abajo"
+                      )}
+                    </span>
                   ) : (
                     <span>
                       <Kbd>Enter</Kbd> revelar respuesta
                     </span>
                   ))}
                 {note.kind === "note" && (
-                  <span>
-                    <Kbd>{MOD}</Kbd>+<Kbd>Enter</Kbd> vista expandida
-                  </span>
+                  <>
+                    <span>
+                      <Kbd>Enter</Kbd> abrir
+                    </span>
+                    <span>
+                      <Kbd>{MOD}</Kbd>+<Kbd>Enter</Kbd> vista expandida
+                    </span>
+                  </>
                 )}
                 <span>
                   <Kbd>J</Kbd> volver
@@ -272,14 +280,24 @@ export function Review() {
                       <Button
                         size="sm"
                         variant="outline"
+                        disabled={marked}
                         onClick={() => gradeFlashcard("incorrecto")}
                       >
                         Incorrecto
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => gradeFlashcard("parcial")}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={marked}
+                        onClick={() => gradeFlashcard("parcial")}
+                      >
                         Parcial
                       </Button>
-                      <Button size="sm" onClick={() => gradeFlashcard("correcto")}>
+                      <Button
+                        size="sm"
+                        disabled={marked}
+                        onClick={() => gradeFlashcard("correcto")}
+                      >
                         Correcto
                       </Button>
                     </>
@@ -289,8 +307,8 @@ export function Review() {
                     </Button>
                   )
                 ) : (
-                  <Button size="lg" onClick={markNoteRead}>
-                    Marcar leído
+                  <Button size="lg" disabled={marked} onClick={markNoteRead}>
+                    {marked ? "Leído" : "Marcar leído"}
                   </Button>
                 )}
               </div>
@@ -299,57 +317,17 @@ export function Review() {
         )}
       </Card>
 
-      {note &&
-        note.kind === "note" && (
-          // Estilo "página" (Notion-like): todo en flujo normal dentro de una columna centrada,
-          // sin header/footer fijos — solo el expand flota arriba a la izquierda.
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent
-              showCloseButton={false}
-              // Foco al contenedor scrolleable (no al primer botón) → ↑/↓, PageUp/Down y Space
-              // scrollean el dialog con el comportamiento nativo del browser, sin handlers.
-              onOpenAutoFocus={(e) => {
-                e.preventDefault()
-                scroller.current?.focus()
-              }}
-              className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
-            >
-              {/* Sin X: cerrar es Esc o click afuera. Solo el expand arriba a la izquierda. */}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="absolute top-2 left-2 z-10"
-                aria-label="Abrir nota en foco"
-                onClick={openExpanded}
-              >
-                <Maximize2 className="size-3.5" />
-              </Button>
-
-              <div
-                ref={scroller}
-                tabIndex={-1}
-                className="min-h-0 flex-1 overflow-y-auto px-5 py-8 focus:outline-none sm:px-12 sm:py-10"
-              >
-                <div className="mx-auto max-w-2xl">
-                  <p className="eyebrow mb-4 flex items-center gap-1.5">
-                    <CourseIcon icon={course?.icon ?? null} />
-                    {course?.name ?? "Sin curso"}
-                  </p>
-                  <DialogTitle className="mb-8 text-2xl font-bold tracking-tight text-pretty sm:text-3xl">
-                    {note.title || "(sin título)"}
-                  </DialogTitle>
-                  <Editor content={note.content} editable={false} />
-                  <div className="mt-10 flex items-center justify-end border-t pt-6">
-                    {/* ref: gate de Enter en onEnter — se arma cuando este botón es visible */}
-                    <Button ref={setMarkReadBtn} size="lg" onClick={markNoteRead}>
-                      Marcar leído
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
+      {note && note.kind === "note" && (
+        <NoteDialog
+          note={note}
+          course={course}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          marked={marked}
+          onMarkRead={markNoteRead}
+          onExpand={openExpanded}
+        />
+      )}
 
       <Courses embed />
     </div>
