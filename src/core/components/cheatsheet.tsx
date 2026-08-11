@@ -37,7 +37,6 @@ const GROUPS: [string, [string, string][]][] = [
       ["F", `Focus mode (${mod("F")} si estás escribiendo)`],
       ["J / K", `Moverse entre notas (${mod("J")} / ${mod("K")} si estás escribiendo)`],
       ["N", "Nueva nota"],
-      [mod("Backspace"), "Borrar nota"],
       ["Esc", "Salir de focus"],
     ],
   ],

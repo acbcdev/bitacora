@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { supabase } from "@/core/lib/supabase"
-import { downloadMarkdown } from "@/core/lib/tiptap-markdown"
 import type { Note, TiptapDoc } from "@/core/types/database"
 
 const EMPTY_DOC: TiptapDoc = { type: "doc", content: [] }
@@ -165,7 +164,9 @@ export function useNoteDraft(id: string | undefined) {
       doc.current = d
       schedule()
     },
-    exportMd: () => downloadMarkdown(latest.current.title, doc.current),
+    // El doc en vivo, no el de la query: entre keystroke y autosave (800ms) `note.content`
+    // está atrasado. Lo consume NoteActions para copiar/exportar markdown.
+    getDoc: () => doc.current,
   }
 }
 

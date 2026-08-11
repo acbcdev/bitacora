@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useHotkeys } from "react-hotkeys-hook"
 import { Maximize2 } from "lucide-react"
 import { Editor } from "@/core/components/editor"
+import { NoteActions } from "@/notes/note-actions"
 import { Button } from "@/core/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/core/ui/dialog"
 import { Kbd } from "@/core/ui/kbd"
@@ -20,6 +21,8 @@ export function NoteDialog({
   onOpenChange,
   onMarkRead,
   onExpand,
+  onFocus,
+  onDeleted,
 }: {
   note: Note
   course: Course | undefined
@@ -28,12 +31,15 @@ export function NoteDialog({
   onOpenChange: (open: boolean) => void
   onMarkRead: () => void
   onExpand: () => void
+  onFocus: () => void
+  onDeleted: () => void
 }) {
   // Callback ref, no useRef: Radix monta el contenido un tick después de que `open` pasa a true
   // (patrón Presence) — un efecto atado a [open] solo no vería el nodo real todavía. Con state,
   // el effect de abajo se re-dispara en cuanto el botón se monta.
   const [markReadBtn, setMarkReadBtn] = useState<HTMLButtonElement | null>(null)
   const [readyToMark, setReadyToMark] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const scroller = useRef<HTMLDivElement>(null)
 
   // Gate de "Enter marca leído": recién se arma cuando el botón "Marcar leído" (al final del
@@ -46,11 +52,13 @@ export function NoteDialog({
     return () => observer.disconnect()
   }, [open, markReadBtn])
 
+  // `!confirming`: con el ConfirmDelete arriba, Enter es del botón enfocado (Cancelar) — si no,
+  // marcaría leído una nota que estás por borrar y mete basura en read_log.
   useHotkeys(
     "enter",
     onMarkRead,
-    { preventDefault: true, enabled: open && readyToMark && !marked },
-    [onMarkRead, open, readyToMark, marked],
+    { preventDefault: true, enabled: open && readyToMark && !marked && !confirming },
+    [onMarkRead, open, readyToMark, marked, confirming],
   )
 
   return (
@@ -65,7 +73,7 @@ export function NoteDialog({
         }}
         className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
       >
-        {/* Sin X: cerrar es Esc o click afuera. Solo el expand arriba a la izquierda. */}
+        {/* Sin X: cerrar es Esc o click afuera. Expand a la izquierda, acciones a la derecha. */}
         <Button
           variant="ghost"
           size="icon-sm"
@@ -75,6 +83,16 @@ export function NoteDialog({
         >
           <Maximize2 className="size-3.5" />
         </Button>
+        <div className="absolute top-2 right-2 z-10">
+          <NoteActions
+            note={note}
+            content={() => note.content}
+            confirming={confirming}
+            onConfirmingChange={setConfirming}
+            onFocus={onFocus}
+            onDeleted={onDeleted}
+          />
+        </div>
 
         <div
           ref={scroller}

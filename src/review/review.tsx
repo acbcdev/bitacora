@@ -107,6 +107,16 @@ export function Review() {
     openExpanded,
     confirmingDelete,
   ])
+
+  // "Focus" del menú de acciones: misma navegación que expandir, pero entrando ya en focus mode.
+  // `?focus=1` porque cambiar de ruta apaga el focus en App — el param se lo vuelve a prender.
+  const openFocused = useCallback(() => {
+    if (!note) return
+    setDialogOpen(false)
+    const to = note.course_id ? `/course/${note.course_id}/${note.id}` : `/note/${note.id}`
+    navigate(`${to}?focus=1`)
+  }, [note, navigate])
+
   useHotkeys("j", () => setIndex((i) => Math.max(i - 1, 0)), { preventDefault: true }) // volver
   useHotkeys(
     "k",
@@ -326,6 +336,11 @@ export function Review() {
           marked={marked}
           onMarkRead={markNoteRead}
           onExpand={openExpanded}
+          onFocus={openFocused}
+          onDeleted={() => {
+            setDialogOpen(false)
+            advance()
+          }}
         />
       )}
 

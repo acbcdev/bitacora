@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
-import { ArrowLeft, Maximize2, Trash2 } from "lucide-react"
-import { ConfirmDelete } from "@/core/components/confirm-delete"
+import { ArrowLeft } from "lucide-react"
 import { Editor } from "@/core/components/editor"
 import type { EditorHandle } from "@/core/components/editor"
 import { NoteSkeleton } from "@/core/components/skeletons"
+import { NoteActions } from "@/notes/note-actions"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useCourses } from "@/courses/courses.api"
-import { useDeleteNote, useNoteDraft } from "@/notes/notes.api"
+import { useNoteDraft } from "@/notes/notes.api"
 import { dayOf, useReadStats } from "@/core/lib/stats"
 
 // Editor de nota: usado standalone en /note/:id (notas sin curso) y embebido en Course.tsx
@@ -29,11 +29,10 @@ export function NoteEditor({
   embedded?: boolean
 }) {
   const navigate = useNavigate()
-  const { note, isLoading, title, savedAt, onTitleChange, onDocChange, save, exportMd } =
+  const { note, isLoading, title, savedAt, onTitleChange, onDocChange, save, getDoc } =
     useNoteDraft(id)
   const { data: courses = [] } = useCourses()
   const { data: stats } = useReadStats()
-  const del = useDeleteNote()
   const [confirming, setConfirming] = useState(false)
   const editorRef = useRef<EditorHandle>(null)
 
@@ -102,7 +101,6 @@ export function NoteEditor({
     setFocus,
   ])
   useHotkeys("escape", () => setFocus(false), { ...globalScope, enabled: focus }, [setFocus])
-  useHotkeys("mod+backspace", () => setConfirming(true), { ...globalScope, preventDefault: true })
 
   if (isLoading) return <NoteSkeleton />
   if (!note) return <p className="p-8 text-muted-foreground">Nota no encontrada.</p>
@@ -148,39 +146,15 @@ export function NoteEditor({
           </span>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {savedAt && <span className="mono-dim hidden sm:inline">Guardado {savedAt}</span>}
-            <Button variant="ghost" size="sm" onClick={() => setFocus(true)}>
-              <Maximize2 />
-              Focus
-            </Button>
-            <Button variant="outline" size="sm" onClick={exportMd}>
-              Export .md
-            </Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="hover:text-destructive"
-                  aria-label="Borrar nota"
-                  onClick={() => setConfirming(true)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Borrar nota</TooltipContent>
-            </Tooltip>
-            <ConfirmDelete
-              open={confirming}
-              onOpenChange={setConfirming}
-              what={title || "(sin título)"}
-              onConfirm={() =>
-                del.mutate(id, {
-                  // embedded: vuelve al curso (sin noteId) -> Course.tsx auto-selecciona la
-                  // próxima nota. standalone: al curso si tenía uno, si no a /courses.
-                  onSuccess: () =>
-                    navigate(note.course_id ? `/course/${note.course_id}` : "/courses"),
-                })
-              }
+            <NoteActions
+              note={{ ...note, title }}
+              content={getDoc}
+              confirming={confirming}
+              onConfirmingChange={setConfirming}
+              onFocus={() => setFocus(true)}
+              // embedded: vuelve al curso (sin noteId) -> Course.tsx auto-selecciona la próxima
+              // nota. standalone: al curso si tenía uno, si no a /courses.
+              onDeleted={() => navigate(note.course_id ? `/course/${note.course_id}` : "/courses")}
             />
           </div>
         </div>
