@@ -8,6 +8,8 @@ import {
   LayoutGrid,
   MoreHorizontal,
   Pencil,
+  Pin,
+  PinOff,
   Plus,
   Rows3,
   Search,
@@ -16,6 +18,7 @@ import {
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { CourseIcon } from "@/courses/course-icon"
 import { CourseForm } from "@/courses/course-form"
+import { togglePinnedCourse, usePinnedCourseIds } from "@/courses/pinned-courses"
 import { TableSkeleton } from "@/core/components/skeletons"
 import { Badge } from "@/core/ui/badge"
 import { Button } from "@/core/ui/button"
@@ -358,8 +361,8 @@ export function Courses({ embed }: { embed?: boolean }) {
               className="group cursor-pointer gap-0 p-6 transition-colors hover:bg-muted data-[active=true]:bg-muted"
             >
               <div className="mb-3 flex items-start justify-between gap-2">
-                <span className="flex min-h-12 items-start gap-2 text-base leading-6 font-medium text-pretty">
-                  <CourseIcon icon={c.icon} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="flex min-h-12 items-center gap-2 text-base leading-6 font-medium text-pretty">
+                  <CourseIcon icon={c.icon} className="size-7 shrink-0 text-muted-foreground" />
                   <span className="line-clamp-2">{c.name}</span>
                 </span>
                 <Tooltip>
@@ -477,6 +480,7 @@ function RowActions({
   onDelete: () => void
 }) {
   const [confirming, setConfirming] = useState(false)
+  const pinned = usePinnedCourseIds().includes(course.id)
 
   return (
     // El menú se portalea pero React igual propaga el click por el árbol, así que el
@@ -493,6 +497,10 @@ function RowActions({
         <TooltipContent>Acciones</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuItem onSelect={() => togglePinnedCourse(course.id)}>
+          {pinned ? <PinOff /> : <Pin />}
+          {pinned ? "Desfijar" : "Fijar"}
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={onEdit}>
           <Pencil />
           Editar
