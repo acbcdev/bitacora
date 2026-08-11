@@ -231,7 +231,7 @@ export function Courses({ embed }: { embed?: boolean }) {
           value={sort}
           onChange={setSort}
         >
-          <option value="recientes">Últ. repaso</option>
+          <option value="recientes">Recientes</option>
           <option value="nombre">Nombre</option>
           <option value="rondas">Rondas</option>
           <option value="inicio">Inicio</option>
