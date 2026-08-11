@@ -267,11 +267,73 @@
 .tiptap-host .ProseMirror code {
   @apply rounded bg-muted px-1 py-0.5 font-mono text-sm;
 }
+/* pt-10: deja lugar al header del node view (lenguaje + copiar), que va absoluto arriba. */
 .tiptap-host .ProseMirror pre {
-  @apply my-4 overflow-x-auto rounded-lg border bg-sunken p-4 font-mono text-sm leading-relaxed;
+  @apply my-4 overflow-x-auto rounded-lg border bg-sunken px-4 pt-10 pb-4 font-mono text-sm leading-relaxed;
 }
 .tiptap-host .ProseMirror pre code {
   @apply bg-transparent p-0;
+}
+/* Syntax highlighting (lowlight/highlight.js). Paleta propia estilo Vercel/Geist: no son los
+   tokens de marca del tema — una paleta de sintaxis necesita más hues que brand/warning. */
+.tiptap-host {
+  --code-comment: #6e6e6e;
+  --code-keyword: #d1005e;
+  --code-string: #007a33;
+  --code-entity: #8250df;
+  --code-type: #0550ae;
+}
+.dark .tiptap-host {
+  --code-comment: #a0a0a0;
+  --code-keyword: #ff4d8d;
+  --code-string: #00cb50;
+  --code-entity: #c473fc;
+  --code-type: #47a8ff;
+}
+/* Números, literales (true/null), keys de objeto y variables van sin color: en el tema de Vercel
+   son texto plano, y heredar --foreground los deja legibles en ambos temas. */
+.tiptap-host .ProseMirror pre .hljs-comment,
+.tiptap-host .ProseMirror pre .hljs-quote {
+  color: var(--code-comment);
+  @apply italic;
+}
+.tiptap-host .ProseMirror pre .hljs-keyword,
+.tiptap-host .ProseMirror pre .hljs-operator,
+.tiptap-host .ProseMirror pre .hljs-selector-tag {
+  color: var(--code-keyword);
+}
+.tiptap-host .ProseMirror pre .hljs-string,
+.tiptap-host .ProseMirror pre .hljs-regexp,
+.tiptap-host .ProseMirror pre .hljs-symbol,
+.tiptap-host .ProseMirror pre .hljs-name,
+.tiptap-host .ProseMirror pre .hljs-tag {
+  color: var(--code-string);
+}
+.tiptap-host .ProseMirror pre .hljs-title,
+.tiptap-host .ProseMirror pre .hljs-meta,
+.tiptap-host .ProseMirror pre .hljs-attribute,
+.tiptap-host .ProseMirror pre .hljs-section,
+.tiptap-host .ProseMirror pre .hljs-selector-id {
+  color: var(--code-entity);
+}
+.tiptap-host .ProseMirror pre .hljs-built_in,
+.tiptap-host .ProseMirror pre .hljs-type,
+.tiptap-host .ProseMirror pre .hljs-selector-class {
+  color: var(--code-type);
+}
+.tiptap-host .ProseMirror pre .hljs-deletion {
+  color: var(--destructive);
+  background-color: color-mix(in oklab, var(--destructive) 15%, transparent);
+}
+.tiptap-host .ProseMirror pre .hljs-addition {
+  color: var(--brand);
+  background-color: color-mix(in oklab, var(--brand) 15%, transparent);
+}
+.tiptap-host .ProseMirror pre .hljs-emphasis {
+  @apply italic;
+}
+.tiptap-host .ProseMirror pre .hljs-strong {
+  @apply font-semibold;
 }
 .tiptap-host .ProseMirror hr {
   @apply my-6 border-border;

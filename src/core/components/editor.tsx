@@ -1,12 +1,21 @@
 import { useEffect, useImperativeHandle } from "react"
 import type { Ref } from "react"
-import { EditorContent, useEditor } from "@tiptap/react"
+import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react"
 import type { Content } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Image from "@tiptap/extension-image"
+import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
+import { createLowlight, common } from "lowlight"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import type { TiptapDoc } from "@/core/types/database"
 import { markdownToDoc } from "@/core/lib/tiptap-markdown"
+import { CodeBlockView } from "@/core/components/code-block"
+
+const lowlight = createLowlight(common)
+
+const CodeBlock = CodeBlockLowlight.extend({
+  addNodeView: () => ReactNodeViewRenderer(CodeBlockView),
+}).configure({ lowlight })
 
 export type EditorHandle = {
   // Paste "smart" del título (notes/05): el resto del texto pegado entra al cuerpo, arriba de todo.
@@ -35,7 +44,7 @@ export function Editor({
   ref?: Ref<EditorHandle>
 }) {
   const editor = useEditor({
-    extensions: [StarterKit, Image],
+    extensions: [StarterKit.configure({ codeBlock: false }), CodeBlock, Image],
     content: content as Content,
     editable,
     onUpdate: ({ editor: updated }) => onChange?.(updated.getJSON() as TiptapDoc),
