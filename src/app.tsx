@@ -53,7 +53,7 @@ export function App() {
 // desaparece todo el chrome y queda sola la nota.
 function Shell({ session }: { session: Session }) {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const { data: courses = [] } = useCourses()
   const { data: notes = [] } = useAllNoteRefs()
 
@@ -68,8 +68,25 @@ function Shell({ session }: { session: Session }) {
     localStorage.setItem("bita-theme", dark ? "dark" : "light")
   }, [dark])
 
-  // Cambiar de pantalla sale de focus mode.
-  useEffect(() => setFocus(false), [pathname])
+  // Cambiar de pantalla sale de focus mode — salvo que la URL lo pida con `?focus=1`, que es
+  // como el menú de acciones de la nota abre "Focus" desde el dialog de Repaso.
+  useEffect(() => setFocus(new URLSearchParams(search).has("focus")), [pathname, search])
+
+  // Focus = fullscreen nativo (como un video): se va también el chrome del browser, no sólo el
+  // de la app. requestFullscreen exige gesto del usuario: con `?focus=1` (navegación, sin
+  // gesto) la promesa rechaza y queda sólo el layout sin chrome — de ahí el catch.
+  // ponytail: Fullscreen API pelada, sin prefijos webkit (Safari 16.4+ ya va sin ellos).
+  useEffect(() => {
+    if (focus) document.documentElement.requestFullscreen().catch(() => {})
+    else if (document.fullscreenElement) document.exitFullscreen()
+
+    // Esc y F11 salen del fullscreen sin pasar por React (el browser se come la tecla).
+    function sync() {
+      if (!document.fullscreenElement) setFocus(false)
+    }
+    document.addEventListener("fullscreenchange", sync)
+    return () => document.removeEventListener("fullscreenchange", sync)
+  }, [focus])
 
   function toggleSidebar() {
     setCollapsed((c) => {
