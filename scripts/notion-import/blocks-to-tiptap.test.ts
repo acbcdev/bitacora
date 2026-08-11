@@ -167,6 +167,22 @@ test("code block con lenguaje", () => {
   ])
 })
 
+test("code block multilínea usa \\n y no hardBreak", () => {
+  const doc = blocksToTiptap([
+    block({
+      type: "code",
+      code: { rich_text: rt("const x = 1\nconst y = 2"), caption: [], language: "javascript" },
+    }),
+  ])
+  expect(doc).toEqual([
+    {
+      type: "codeBlock",
+      attrs: { language: "javascript" },
+      content: [{ type: "text", text: "const x = 1\nconst y = 2" }],
+    },
+  ])
+})
+
 test("quote", () => {
   const doc = blocksToTiptap([
     block({ type: "quote", quote: { rich_text: rt("cita"), color: "default" } }),

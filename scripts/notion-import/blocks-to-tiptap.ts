@@ -14,6 +14,12 @@ function extractRichText(b: ResolvedBlock): RichTextItemResponse[] | null {
   return null
 }
 
+// Un code block es texto plano: los marks de Notion (bold, code, links) no aplican adentro.
+function codeText(items: RichTextItemResponse[]): TiptapNode[] {
+  const text = items.map((i) => i.plain_text).join("")
+  return text ? [{ type: "text", text }] : []
+}
+
 function listItemNode(b: ResolvedBlock): TiptapNode {
   const richText =
     b.type === "bulleted_list_item"
@@ -65,7 +71,11 @@ function blockToNode(b: ResolvedBlock): TiptapNode | null {
       return {
         type: "codeBlock",
         attrs: { language: b.code.language },
-        content: richTextToInline(b.code.rich_text),
+        // Texto crudo con \n, no richTextToInline: ahí los saltos salen como nodos hardBreak, que
+        // el schema de codeBlock (text*) no admite y que corren el syntax highlighting — el
+        // hardBreak ocupa una posición en el doc pero no aporta caracteres a textContent, que es
+        // lo que lowlight tokeniza, así que los colores se desfasan 1 char por línea.
+        content: codeText(b.code.rich_text),
       }
     case "quote":
       return {

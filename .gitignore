@@ -11,6 +11,9 @@ dist-ssr
 # salida del import de Notion: CSVs + cache de la API
 scripts/notion-import/.out/
 
+# backups de migraciones one-off de contenido
+.out/
+
 # env — NUNCA commitear (anon key va acá; service_role jamás)
 .env
 .env.*
