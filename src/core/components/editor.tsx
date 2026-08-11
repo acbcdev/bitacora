@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle } from "react"
+import { useEffect, useImperativeHandle, useRef } from "react"
 import type { Ref } from "react"
 import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react"
 import type { Content } from "@tiptap/react"
@@ -43,6 +43,7 @@ export function Editor({
   onPaste?: (text: string) => string
   ref?: Ref<EditorHandle>
 }) {
+  const lastEscape = useRef(0)
   const editor = useEditor({
     extensions: [StarterKit.configure({ codeBlock: false }), CodeBlock, Image],
     content: content as Content,
@@ -63,6 +64,18 @@ export function Editor({
         const nodes = (doc.content ?? []).map((n) => view.state.schema.nodeFromJSON(n))
         const slice = new Slice(Fragment.from(nodes), 0, 0)
         view.dispatch(view.state.tr.replaceSelection(slice))
+        return true
+      },
+      // Doble Esc (dentro de 500ms) saca el foco del editor. El primero se deja pasar para que
+      // siga cerrando lo que haya abierto encima (select del code block, dialog, focus mode).
+      handleKeyDown(view, event) {
+        if (event.key !== "Escape") return false
+
+        const double = Date.now() - lastEscape.current < 500
+        lastEscape.current = double ? 0 : Date.now()
+        if (!double) return false
+
+        view.dom.blur()
         return true
       },
     },
