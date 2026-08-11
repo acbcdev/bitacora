@@ -4,8 +4,9 @@ import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { TooltipProvider } from "@/core/ui/tooltip"
 import { Course } from "@/courses/course"
 
-const { insertNotes, invokeFn, state } = vi.hoisted(() => ({
+const { insertNotes, updateRow, invokeFn, state } = vi.hoisted(() => ({
   insertNotes: vi.fn((_input: unknown) => Promise.resolve({ error: null })),
+  updateRow: vi.fn((_input: unknown) => {}),
   invokeFn: vi.fn(() =>
     Promise.resolve({
       data: {
@@ -39,6 +40,10 @@ vi.mock("@/core/lib/supabase", () => {
       insert: (input: unknown) => {
         insertNotes(input)
         return Promise.resolve({ error: null })
+      },
+      update: (input: unknown) => {
+        updateRow(input)
+        return chain
       },
       // oxlint-disable-next-line unicorn/no-thenable -- imita al builder real de supabase-js
       then: (fn: (r: unknown) => unknown) =>
@@ -80,17 +85,25 @@ function renderCourse() {
 
 beforeEach(() => {
   insertNotes.mockClear()
+  updateRow.mockClear()
   invokeFn.mockClear()
   state.notes = [
     { id: "n1", title: "Nota 1", content: { type: "doc" }, course_id: "c1", position: 0 },
   ]
 })
 
+// Radix abre el menú con pointerdown, no con click; en jsdom es más estable dispararlo por
+// teclado (Enter en el trigger), que es el mismo camino que usa alguien navegando con tab.
+function openCourseMenu() {
+  fireEvent.keyDown(screen.getByRole("button", { name: "Acciones del curso" }), { key: "Enter" })
+}
+
 test("Generar flashcards invoca la edge function e inserta cada par como nota kind: flashcard", async () => {
   renderCourse()
   await screen.findByText("Curso")
 
-  fireEvent.click(screen.getByRole("button", { name: /Generar flashcards/ }))
+  openCourseMenu()
+  fireEvent.click(await screen.findByRole("menuitem", { name: /Generar flashcards/ }))
 
   await waitFor(() =>
     expect(invokeFn).toHaveBeenCalledWith("generate-flashcards", { body: { course_id: "c1" } }),
@@ -100,6 +113,36 @@ test("Generar flashcards invoca la edge function e inserta cada par como nota ki
   expect(inserted).toHaveLength(2)
   expect(inserted.every((n) => n.kind === "flashcard")).toBe(true)
   expect(inserted.map((n) => n.title)).toEqual(["¿Qué es X?", "¿Qué es Z?"])
+})
+
+// Borrar es soft delete (deleted_at, ADR 0002) y va detrás de una confirmación: el menú se
+// desmonta al elegir el item, así que el AlertDialog vive fuera del DropdownMenu.
+test("Borrar curso pide confirmación antes de tocar la DB", async () => {
+  renderCourse()
+  await screen.findByText("Curso")
+
+  openCourseMenu()
+  fireEvent.click(await screen.findByRole("menuitem", { name: /Borrar curso/ }))
+  await screen.findByRole("alertdialog")
+  expect(updateRow).not.toHaveBeenCalled()
+
+  fireEvent.click(screen.getByRole("button", { name: "Borrar" }))
+  await waitFor(() =>
+    expect(updateRow).toHaveBeenCalledWith(
+      expect.objectContaining({ deleted_at: expect.any(String) }),
+    ),
+  )
+})
+
+test("Editar curso abre el form con los datos del curso", async () => {
+  renderCourse()
+  await screen.findByText("Curso")
+
+  openCourseMenu()
+  fireEvent.click(await screen.findByRole("menuitem", { name: /Editar curso/ }))
+
+  await screen.findByRole("dialog")
+  expect(screen.getByLabelText("Nombre")).toHaveValue("Curso")
 })
 
 // En mobile los dos paneles se apilan (índice arriba, nota abajo): elegir del índice tiene que
@@ -125,7 +168,11 @@ test("el botón queda deshabilitado si el curso no tiene notas", async () => {
   renderCourse()
   await screen.findByText("Curso")
 
-  expect(screen.getByRole("button", { name: /Generar flashcards/ })).toBeDisabled()
+  openCourseMenu()
+  expect(await screen.findByRole("menuitem", { name: /Generar flashcards/ })).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  )
 })
 
 // mod+j / mod+k: alias forzado (enableOnContentEditable) para navegar entre notas con el foco

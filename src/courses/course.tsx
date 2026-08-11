@@ -1,17 +1,38 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
-import { ArrowLeft, Check, Plus, Sparkles } from "lucide-react"
+import {
+  ArrowLeft,
+  Check,
+  MoreHorizontal,
+  Pencil,
+  Pin,
+  PinOff,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  Trash2,
+} from "lucide-react"
+import { ConfirmDelete } from "@/core/components/confirm-delete"
+import { CourseForm } from "@/courses/course-form"
 import { CourseIcon } from "@/courses/course-icon"
 import { NoteEditor } from "@/notes/note"
 import { NoteSkeleton } from "@/core/components/skeletons"
-import { Badge } from "@/core/ui/badge"
 import { Button } from "@/core/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/core/ui/dropdown-menu"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
 import { Item } from "@/core/ui/item"
+import { Kbd } from "@/core/ui/kbd"
 import { Progress } from "@/core/ui/progress"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
-import { useCourses, useUpdateCourse } from "@/courses/courses.api"
+import { useCourses, useDeleteCourse, useUpdateCourse } from "@/courses/courses.api"
+import { togglePinnedCourse, usePinnedCourseIds } from "@/courses/pinned-courses"
 import { useGenerateFlashcards, useRetention } from "@/flashcards/flashcards.api"
 import { useCreateNote, useNotes } from "@/notes/notes.api"
 import { useIsMobile } from "@/core/hooks/use-mobile"
@@ -23,10 +44,10 @@ import type { CourseStatus } from "@/core/types/database"
 const NOTE_ITEM =
   "cursor-pointer items-start text-left text-fg-secondary hover:bg-muted data-[active=true]:bg-muted data-[active=true]:font-medium data-[active=true]:text-foreground"
 
-const STATUS: Record<CourseStatus, [string, "brand" | "warning" | "outline"]> = {
-  active: ["activo", "brand"],
-  paused: ["pausado", "warning"],
-  done: ["hecho", "outline"],
+const STATUS: Record<CourseStatus, string> = {
+  active: "activo",
+  paused: "pausado",
+  done: "hecho",
 }
 
 // Pantalla Curso: la nota a la izquierda (NoteEditor embedded, notes/06: mismo componente que
@@ -45,6 +66,10 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
   const generateFlashcards = useGenerateFlashcards(id!)
   const { data: retention } = useRetention()
   const isMobile = useIsMobile()
+  const deleteCourse = useDeleteCourse()
+  const pinned = usePinnedCourseIds().includes(id!)
+  const [editing, setEditing] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   const course = courses.find((c) => c.id === id)
   const selected = notes.find((n) => n.id === noteId) ?? notes[0]
@@ -139,35 +164,93 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
         )}
       </div>
 
+      {/* Desktop: solo la lista de notas scrollea — cabecera y acciones quedan fijas. Mobile: alto
+          auto, scrollea `main`, así que el overflow va con `md:`. */}
       {!focus && (
-        <aside className="flex shrink-0 flex-col border-b max-md:order-first md:w-68 md:overflow-y-auto md:border-b-0 md:border-l">
-          <div className="px-5 pt-6 pb-5">
-            <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-pretty">
-              <CourseIcon icon={course.icon} className="size-5 text-muted-foreground" />
-              {course.name}
-            </h1>
-            <div className="mt-2 mb-3.5 flex items-center gap-2">
-              <Badge variant={STATUS[course.status][1]}>{STATUS[course.status][0]}</Badge>
-              <span className="mono-dim">{notes.length} notas</span>
-              {retentionPct !== undefined && (
-                <Badge variant="outline">{retentionPct}% retención</Badge>
-              )}
+        <aside className="flex shrink-0 flex-col border-b max-md:order-first md:w-68 md:min-h-0 md:overflow-hidden md:border-b-0 md:border-l">
+          <div className="shrink-0 px-5 pt-6">
+            {/* Fuente/estado/área como eyebrow y no como badges: en 272px tres badges bajan a dos
+                filas y le compiten al nombre del curso, que es lo único que hay que leer rápido. */}
+            <div className="eyebrow flex items-center gap-2">
+              <CourseIcon icon={course.icon} className="size-5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">
+                {[course.source, STATUS[course.status], course.area].filter(Boolean).join(" · ")}
+              </span>
+              {/* Generar flashcards y cerrar el curso son de una vez por curso: acá, no compitiendo
+                  con "Nueva nota" al pie. Además las flashcards no se ven en esta lista (kind
+                  'flashcard', `useNotes` filtra 'note') — el resultado vive en /review. */}
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="-mr-1.5 shrink-0"
+                        aria-label="Acciones del curso"
+                      >
+                        <MoreHorizontal className="size-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>Acciones</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onSelect={() => togglePinnedCourse(course.id)}>
+                    {pinned ? <PinOff /> : <Pin />}
+                    {pinned ? "Desfijar" : "Fijar"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setEditing(true)}>
+                    <Pencil />
+                    Editar curso
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={notes.length === 0 || generateFlashcards.isPending}
+                    onClick={() => generateFlashcards.mutate()}
+                  >
+                    <Sparkles />
+                    {generateFlashcards.isPending ? "Generando…" : "Generar flashcards"}
+                  </DropdownMenuItem>
+                  {/* Acá se cierra y se reabre el curso: el fin es cuando apretás el botón, no un
+                      date picker. Reabrir limpia `finished_at` — si no, un curso activo quedaría
+                      con fecha de fin. */}
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      updateCourse.mutate(
+                        course.status === "done"
+                          ? { id: course.id, status: "active", finished_at: null }
+                          : {
+                              id: course.id,
+                              status: "done",
+                              finished_at: new Date().toISOString(),
+                            },
+                      )
+                    }
+                  >
+                    {course.status === "done" ? <RotateCcw /> : <Check />}
+                    {course.status === "done" ? "Reabrir curso" : "Marcar finalizado"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
+                    <Trash2 />
+                    Borrar curso
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-            {(course.source || course.area) && (
-              <div className="mb-3.5 flex flex-wrap gap-1.5">
-                {course.source && <Badge variant="outline">{course.source}</Badge>}
-                {course.area && <Badge variant="outline">{course.area}</Badge>}
-              </div>
-            )}
-            <div className="mb-1.5 flex justify-between">
-              <span className="eyebrow">Progreso</span>
+            <h1 className="mt-2 text-lg font-semibold tracking-tight text-pretty">{course.name}</h1>
+            <div className="mt-4 mb-1.5 flex justify-between">
+              <span className="mono-dim">
+                {notes.length} notas
+                {retentionPct !== undefined && ` · ${retentionPct}% retención`}
+              </span>
               <span className="mono">{pct}%</span>
             </div>
             <Progress value={pct} className="h-0.75" aria-label={`Progreso del curso: ${pct}%`} />
           </div>
 
-          <p className="eyebrow px-5 pt-4 pb-2">Notas</p>
-          <div className="flex flex-col gap-0.5 px-3">
+          <p className="eyebrow shrink-0 px-5 pt-5 pb-2">Notas</p>
+          <div className="flex flex-col gap-0.5 px-3 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-2">
             {notes.map((n) => {
               const count = stats?.byNote.get(n.id)?.count ?? 0
               return (
@@ -192,10 +275,10 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
             })}
           </div>
 
-          <div className="mt-auto flex flex-col gap-2 p-5">
+          <div className="mt-auto shrink-0 border-t p-5 md:mt-0">
             <Button
-              variant="outline"
-              size="sm"
+              variant="secondary"
+              size="lg"
               className="w-full"
               onClick={() =>
                 createNote.mutate(id!, { onSuccess: (newId) => navigate(`/course/${id}/${newId}`) })
@@ -203,36 +286,23 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
             >
               <Plus />
               Nueva nota
+              <Kbd className="ml-auto">N</Kbd>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              disabled={notes.length === 0 || generateFlashcards.isPending}
-              onClick={() => generateFlashcards.mutate()}
-            >
-              <Sparkles />
-              {generateFlashcards.isPending ? "Generando…" : "Generar flashcards"}
-            </Button>
-            {/* Acá se cierra el curso: el fin es cuando apretás el botón, no un date picker. */}
-            {course.status !== "done" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full"
-                onClick={() =>
-                  updateCourse.mutate({
-                    id: course.id,
-                    status: "done",
-                    finished_at: new Date().toISOString(),
-                  })
-                }
-              >
-                <Check />
-                Finalizado
-              </Button>
-            )}
           </div>
+
+          {/* Mismo dialog que la lista de cursos: `CourseForm` se monta abierto y se desmonta al
+              cerrar, así el form arranca siempre con los valores frescos del curso. */}
+          {editing && <CourseForm course={course} onClose={() => setEditing(false)} />}
+
+          {/* Borrar deja la pantalla sin curso que mostrar, así que vuelve a la lista. */}
+          <ConfirmDelete
+            open={confirming}
+            onOpenChange={setConfirming}
+            what={course.name}
+            onConfirm={() =>
+              deleteCourse.mutate(course.id, { onSuccess: () => navigate("/courses") })
+            }
+          />
         </aside>
       )}
     </div>
