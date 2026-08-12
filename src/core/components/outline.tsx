@@ -4,10 +4,9 @@ import { cn } from "@/core/lib/utils"
 
 type Heading = { el: HTMLElement; level: number; text: string }
 
-// Ancho del tick y sangría del panel por nivel. h4–h6 no existen en las notas reales (0 de 919):
-// si aparecen, se pintan como h3.
-const TICK = ["w-6", "w-4", "w-3"]
-const INDENT = ["pl-2", "pl-5", "pl-8"]
+// Ancho del tick y sangría del panel por nivel: solo h1 y h2 (h3+ no entra al rail, ver abajo).
+const TICK = ["w-6", "w-4"]
+const INDENT = ["pl-2", "pl-5"]
 
 // Rail de headings al margen derecho de la nota (ver docs/adr/0007-outline-desde-el-dom.md).
 // Los headings salen del DOM del host, no del doc de Tiptap: el click necesita el elemento al que
@@ -25,13 +24,15 @@ export function Outline({
 
   // Rescaneo con debounce: el editor avisa por `version` cada vez que cambia el contenido, no hace
   // falta un MutationObserver.
+  // Solo h1/h2: h3 es el 42% de los headings del import y hace ruido en las notas largas. El costo
+  // está medido y aceptado: 222 de las 673 notas con outline se quedan sin rail (160 usan solo h3).
   useEffect(() => {
     const t = setTimeout(() => {
-      const els = host.current?.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6") ?? []
+      const els = host.current?.querySelectorAll<HTMLElement>("h1, h2") ?? []
       setHeadings(
         [...els].map((el) => ({
           el,
-          level: Math.min(Number(el.tagName[1]), 3),
+          level: Number(el.tagName[1]),
           text: el.textContent ?? "",
         })),
       )

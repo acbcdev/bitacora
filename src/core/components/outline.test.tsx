@@ -28,14 +28,20 @@ function Host({ html }: { html: string }) {
 }
 
 const ticks = (c: HTMLElement) => [...c.querySelectorAll<HTMLButtonElement>("[data-outline-tick]")]
-const headings = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>("h1, h2, h3")]
+const headings = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>("h1, h2")]
 
-const DOC = "<h1>Uno</h1><p>texto</p><h2>Dos</h2><p>texto</p><h3>Tres</h3>"
+const DOC = "<h1>Uno</h1><p>texto</p><h2>Dos</h2><p>texto</p><h2>Tres</h2>"
 
 test("un tick por heading", async () => {
   const { container } = render(<Host html={DOC} />)
 
   await waitFor(() => expect(ticks(container)).toHaveLength(3))
+})
+
+test("h3 no entra al rail", async () => {
+  const { container } = render(<Host html="<h1>Uno</h1><h3>Sub</h3><h2>Dos</h2><h3>Sub</h3>" />)
+
+  await waitFor(() => expect(ticks(container)).toHaveLength(2))
 })
 
 test("con menos de 2 headings no renderiza nada", async () => {

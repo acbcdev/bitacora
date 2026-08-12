@@ -17,8 +17,8 @@ Dos preguntas de fondo: de dónde salen los headings, y respecto de qué se posi
 ## Decisión
 
 **Los headings salen del DOM**, no del documento de Tiptap:
-`host.querySelectorAll("h1, h2, h3")`, rescaneado con debounce cuando el editor avisa que cambió
-el contenido.
+`host.querySelectorAll("h1, h2")`, rescaneado con debounce cuando el editor avisa que cambió
+el contenido. Solo h1/h2: ver "Consecuencias".
 
 **El rail se ancla con `position: sticky`**, nunca con `fixed` ni con medición de contenedores.
 Va dentro del wrapper del `Editor`, primero en el flujo, en un div de altura 0.
@@ -46,6 +46,11 @@ Va dentro del wrapper del `Editor`, primero en el flujo, en un div de altura 0.
   HTML pelado.
 - El rescaneo depende de que el editor avise. En modo lectura, `setContent` no dispara `onUpdate`
   — ese caso se emite a mano (`editor.tsx:84-86`).
+- **El rail muestra solo h1/h2.** h3 es el 42% de los headings del import y satura el rail en las
+  notas largas. Costo medido sobre las 919 notas del snapshot y aceptado a propósito: de las 673
+  notas que tienen ≥2 headings, **222 se quedan sin rail** (160 usan solo h3; otras 62 caen bajo el
+  umbral de 2 al filtrar). Si eso molesta en uso real, la vuelta atrás es adaptativa —
+  `top.length >= 2 ? top : todos`— no volver a meter h3 siempre.
 - Si algún día un heading se renderiza fuera del `contenteditable` (un título de nota, por
   ejemplo), no aparece en el Outline. Es intencional: el Outline mapea el **cuerpo** de la nota.
 - Este mismo criterio aplica a cualquier chrome futuro que tenga que flotar sobre la nota en las 3

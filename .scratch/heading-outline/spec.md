@@ -39,7 +39,7 @@ Medidos sobre las 919 notas del import, no estimados:
 | Con 7+ | 48% | El panel necesita scroll propio |
 | Mediana / p90 / max headings | 6 / 17 / 56 | 56 ticks × 8px = 448px: entran hasta en el dialog de 85vh |
 | Niveles usados | solo h1, h2, h3 | h4–h6 no existen en datos reales |
-| Notas que usan **solo h3** | 188 (20%) | **No se puede filtrar por nivel**: rompería 1 de cada 5 notas |
+| Notas que usan **solo h3** | 160 | Filtrar por nivel tiene costo — ver "Cambio post-implementación" |
 
 ## User Stories
 
@@ -64,7 +64,7 @@ Medidos sobre las 919 notas del import, no estimados:
 
 - Props: `host: RefObject<HTMLElement>` (el contenedor del editor) y una señal de rescaneo
   (`version: number` o similar) que dispara `Editor` en cada `update`.
-- **Fuente de los headings: el DOM.** `host.current.querySelectorAll("h1, h2, h3")` → lista de
+- **Fuente de los headings: el DOM.** `host.current.querySelectorAll("h1, h2")` → lista de
   `{ el, level, text }`. Da el elemento al que scrollear sin mapear posiciones de ProseMirror. Ver
   `docs/adr/0007-outline-desde-el-dom.md`.
 - **Rescaneo:** debounce 300ms sobre la señal de `Editor`. No hace falta `MutationObserver`: el
@@ -75,7 +75,7 @@ Medidos sobre las 919 notas del import, no estimados:
   el flujo: si el rail va después del contenido queda pegado abajo para siempre. `h-0` para no
   ocupar espacio del documento.
 - **Ticks:** `<button>` por heading, uniformemente espaciados (gap ~8px), ancho por nivel
-  (h1 `w-6`, h2 `w-4`, h3 `w-3`), alto 1–2px. Activo `bg-foreground`, resto
+  (h1 `w-6`, h2 `w-4`), alto 1–2px. Activo `bg-foreground`, resto
   `bg-muted-foreground/40`.
 - **Panel:** hermano de los ticks, `opacity-0 group-hover:opacity-100 group-focus-within:opacity-100`.
   CSS puro, sin estado ni timers. `max-h-[70vh] overflow-y-auto`, ancho fijo (~240px), abre
@@ -89,7 +89,7 @@ Medidos sobre las 919 notas del import, no estimados:
 - **`prefers-reduced-motion`:** cae a `behavior: "auto"`.
 - **Responsive:** `hidden md:block` — en touch no hay hover y no hay margen.
 - Focus mode: aparece normalmente (es lectura pura, es donde más sirve).
-- h4–h6 (no existen hoy en datos): se pintan como h3.
+- h3–h6: no entran al rail (ver "Cambio post-implementación").
 
 **`src/core/components/editor.tsx`:**
 
@@ -132,14 +132,28 @@ archivo.
 - **Minimapa proporcional** (ticks posicionados según dónde cae el heading en la altura real del
   doc). Descartado: obliga a medir `offsetTop` y recalcular en cada resize/edición. El rail es una
   lista de espaciado uniforme.
-- **Filtrar niveles** (mostrar solo h1/h2 y esconder h3). Descartado con datos: 188 notas usan solo
-  h3.
+- ~~**Filtrar niveles**~~ — revertido en la implementación, ver "Cambio post-implementación".
 - **Ventana alrededor del activo** en el panel (±6 ítems). Descartado: perdés la vista global justo
   en las notas de 56 secciones, que son las que más la necesitan.
 - **Mover el caret al saltar.** Descartado: acopla el outline al editor de Tiptap y no aplica en el
   dialog read-only.
 - **Auto-hide del rail** (aparece al scrollear, se desvanece a los 1.5s). Descartado: timer +
   estado + listener de scroll para ahorrar unos ticks de 1px.
+
+## Cambio post-implementación (2026-08-11): el rail muestra solo h1/h2
+
+Decisión del usuario después de ver el rail andando, contra la recomendación del spec original.
+Medido de nuevo sobre el mismo snapshot (`scripts/notion-import/.out/notes.csv`, 919 notas):
+
+| | |
+|---|---|
+| Headings por nivel | h1 954 · h2 3045 · **h3 2905 (42%)** |
+| Notas con outline hoy (≥2 headings) | 673 |
+| Notas que pierden el rail al filtrar | **222** (160 usan solo h3 · 62 caen bajo el umbral de 2) |
+
+O sea: 1 de cada 3 notas con outline se queda sin rail. Se acepta a cambio de un rail más limpio
+en las 451 restantes. Se evaluó y se descartó la variante adaptativa
+(`top.length >= 2 ? top : todos los niveles`) — es la vuelta atrás si esto molesta en uso real.
 
 ## Further Notes
 
