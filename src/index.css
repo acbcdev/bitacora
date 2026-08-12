@@ -249,6 +249,10 @@
 .tiptap-host .ProseMirror h3 {
   @apply mt-4 mb-2 text-md font-semibold;
 }
+/* Salto del Outline: el heading no queda pegado al borde de arriba del scroller. */
+.tiptap-host .ProseMirror :is(h1, h2, h3) {
+  @apply scroll-mt-4;
+}
 .tiptap-host .ProseMirror p {
   @apply my-4;
 }

@@ -55,6 +55,7 @@ Notas de licencia/tier:
 | **Cola de repaso** | Notas de cursos `active`, ordenadas por `max(read_at)` ascendente (las más viejas primero). |
 | **Soft delete** | Borrado lógico vía `deleted_at`. La app **nunca** hace `DELETE`. Toda query filtra `deleted_at is null`. |
 | **flag `imported`** | Marca notas/cursos migrados de Notion cuyas fechas son estimadas (`created_time` como aprox. de `started_at`). |
+| **Outline** | El rail de headings al margen derecho de una nota: ticks siempre visibles + panel de títulos al hover, marca la sección actual y salta al click. No decir "TOC", "índice" ni "minimapa". Vive en el `Editor`, así aparece en las 3 superficies que renderizan una nota (Nota standalone, Nota en curso, dialog de Repaso). Ver `docs/adr/0007-outline-desde-el-dom.md`. |
 
 ## Schema (frozen)
 

@@ -1,0 +1,124 @@
+import { useEffect, useRef, useState } from "react"
+import type { RefObject } from "react"
+import { cn } from "@/core/lib/utils"
+
+type Heading = { el: HTMLElement; level: number; text: string }
+
+// Ancho del tick y sangría del panel por nivel. h4–h6 no existen en las notas reales (0 de 919):
+// si aparecen, se pintan como h3.
+const TICK = ["w-6", "w-4", "w-3"]
+const INDENT = ["pl-2", "pl-5", "pl-8"]
+
+// Rail de headings al margen derecho de la nota (ver docs/adr/0007-outline-desde-el-dom.md).
+// Los headings salen del DOM del host, no del doc de Tiptap: el click necesita el elemento al que
+// scrollear, y así el componente no sabe nada del editor ni de qué contenedor scrollea.
+export function Outline({
+  host,
+  version,
+}: {
+  host: RefObject<HTMLElement | null>
+  version: number
+}) {
+  const [headings, setHeadings] = useState<Heading[]>([])
+  const [active, setActive] = useState(0)
+  const activeItem = useRef<HTMLButtonElement>(null)
+
+  // Rescaneo con debounce: el editor avisa por `version` cada vez que cambia el contenido, no hace
+  // falta un MutationObserver.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const els = host.current?.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6") ?? []
+      setHeadings(
+        [...els].map((el) => ({
+          el,
+          level: Math.min(Number(el.tagName[1]), 3),
+          text: el.textContent ?? "",
+        })),
+      )
+    }, 300)
+    return () => clearTimeout(t)
+  }, [host, version])
+
+  // Activo: gana el último heading que cruzó el borde superior del scroller. El rootMargin recorta
+  // la zona de intersección a la banda de arriba; si no queda ninguno adentro, sigue el anterior.
+  // Misma lógica editando que leyendo.
+  useEffect(() => {
+    if (!headings.length) return
+    const visible = new Set<Element>()
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) visible.add(e.target)
+          else visible.delete(e.target)
+        }
+        const last = headings.findLastIndex((h) => visible.has(h.el))
+        if (last >= 0) setActive(last)
+      },
+      { rootMargin: "0px 0px -80% 0px" },
+    )
+    for (const h of headings) io.observe(h.el)
+    return () => io.disconnect()
+  }, [headings])
+
+  // 27% de las notas tienen 0 o 1 heading: ahí el rail es chrome inútil.
+  if (headings.length < 2) return null
+
+  const jump = (h: Heading) =>
+    h.el.scrollIntoView({
+      // Excepción consciente a "sin animaciones": el movimiento ES el feedback de cuánto saltaste.
+      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "start",
+    })
+
+  return (
+    // sticky, nunca fixed: se ancla al scrollport ancestro sea cual sea (main, #note-pane o el div
+    // del dialog de Repaso). Va primero en el flujo — sticky no sube por encima de su posición
+    // natural — y con altura 0 para no ocupar espacio del documento.
+    // hidden md:block: en touch no hay hover ni margen donde ponerlo.
+    <div className="sticky top-[40vh] z-10 hidden h-0 md:block">
+      <nav
+        aria-label="Secciones"
+        // pl-6: zona de hover más ancha que los ticks, para no tener que apuntar a 2px.
+        className="group absolute -right-4 flex -translate-y-1/2 flex-col items-end gap-1.5 py-2 pl-6 sm:-right-6"
+        onMouseEnter={() => activeItem.current?.scrollIntoView({ block: "nearest" })}
+      >
+        {headings.map((h, i) => (
+          <button
+            key={i}
+            data-outline-tick
+            aria-label={h.text}
+            aria-current={i === active || undefined}
+            // preventDefault: clickear el rail mientras escribís no le roba el foco al editor.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => jump(h)}
+            className={cn(
+              "h-0.5 rounded-full transition-colors",
+              TICK[h.level - 1],
+              i === active ? "bg-foreground" : "bg-muted-foreground/40",
+            )}
+          />
+        ))}
+        {/* Panel de títulos: hermano de los ticks, puro CSS — sin estado ni timers. Abre encima
+            del texto: a 1280px de viewport el margen contra un texto de 80ch no alcanza. */}
+        <div className="pointer-events-none absolute top-1/2 right-full mr-2 max-h-[70vh] w-60 -translate-y-1/2 overflow-y-auto rounded-lg border bg-popover p-1.5 opacity-0 shadow-lg transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
+          {headings.map((h, i) => (
+            <button
+              key={i}
+              ref={i === active ? activeItem : null}
+              aria-current={i === active || undefined}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => jump(h)}
+              className={cn(
+                "block w-full truncate rounded py-1 pr-2 text-left text-sm hover:bg-accent",
+                INDENT[h.level - 1],
+                i === active ? "font-medium text-foreground" : "text-fg-secondary",
+              )}
+            >
+              {h.text}
+            </button>
+          ))}
+        </div>
+      </nav>
+    </div>
+  )
+}

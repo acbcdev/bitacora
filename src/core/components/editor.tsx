@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef } from "react"
+import { useEffect, useImperativeHandle, useRef, useState } from "react"
 import type { Ref } from "react"
 import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react"
 import type { Content } from "@tiptap/react"
@@ -10,6 +10,7 @@ import { Fragment, Slice } from "@tiptap/pm/model"
 import type { TiptapDoc } from "@/core/types/database"
 import { markdownToDoc } from "@/core/lib/tiptap-markdown"
 import { CodeBlockView } from "@/core/components/code-block"
+import { Outline } from "@/core/components/outline"
 
 const lowlight = createLowlight(common)
 
@@ -44,11 +45,17 @@ export function Editor({
   ref?: Ref<EditorHandle>
 }) {
   const lastEscape = useRef(0)
+  const host = useRef<HTMLDivElement>(null)
+  // Señal de rescaneo para el Outline: sube en cada cambio de contenido.
+  const [version, setVersion] = useState(0)
   const editor = useEditor({
     extensions: [StarterKit.configure({ codeBlock: false }), CodeBlock, Image],
     content: content as Content,
     editable,
-    onUpdate: ({ editor: updated }) => onChange?.(updated.getJSON() as TiptapDoc),
+    onUpdate: ({ editor: updated }) => {
+      setVersion((v) => v + 1)
+      onChange?.(updated.getJSON() as TiptapDoc)
+    },
     editorProps: {
       // Pega texto plano con sintaxis Markdown (**bold**, # heading, - lista...) como nodos
       // formateados en vez de texto literal. Si el portapapeles trae HTML (paste rico), no toca nada.
@@ -81,9 +88,13 @@ export function Editor({
     },
   })
 
-  // Modo lectura (Repaso): si cambia la nota mostrada, refrescar el contenido.
+  // Modo lectura (Repaso): si cambia la nota mostrada, refrescar el contenido. setContent no
+  // dispara onUpdate, así que el rescaneo del Outline se avisa a mano.
   useEffect(() => {
-    if (editor && !editable) editor.commands.setContent(content as Content)
+    if (editor && !editable) {
+      editor.commands.setContent(content as Content)
+      setVersion((v) => v + 1)
+    }
   }, [editor, editable, content])
 
   useImperativeHandle(
@@ -104,5 +115,12 @@ export function Editor({
     [editor],
   )
 
-  return <EditorContent editor={editor} className="tiptap-host" />
+  // El Outline va fuera del contenteditable (adentro de .ProseMirror sería contenido editable del
+  // documento) y primero en el flujo, que es lo que necesita su sticky. Ver ADR 0007.
+  return (
+    <div ref={host} className="relative">
+      <Outline host={host} version={version} />
+      <EditorContent editor={editor} className="tiptap-host" />
+    </div>
+  )
 }
