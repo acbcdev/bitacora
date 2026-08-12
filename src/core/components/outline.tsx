@@ -79,8 +79,12 @@ export function Outline({
     <div className="sticky top-[40vh] z-10 hidden h-0 md:block">
       <nav
         aria-label="Secciones"
+        // El offset negativo saca el rail de la columna de texto y lo lleva al gutter, cerca del
+        // borde del contenedor. Escalonado por breakpoint y siempre corto: el rail no puede pasarse
+        // del padding del scroller — `overflow-y-auto` hace que overflow-x compute a `auto`, así que
+        // asomarse un pixel de más le mete un scrollbar horizontal al dialog de Repaso.
         // pl-6: zona de hover más ancha que los ticks, para no tener que apuntar a 2px.
-        className="group absolute -right-4 flex -translate-y-1/2 flex-col items-end gap-1.5 py-2 pl-6 sm:-right-6"
+        className="group absolute -right-6 flex -translate-y-1/2 flex-col items-end gap-1.5 py-2 pl-6 lg:-right-10 xl:-right-24 2xl:-right-28"
         onMouseEnter={() => activeItem.current?.scrollIntoView({ block: "nearest" })}
       >
         {headings.map((h, i) => (
