@@ -90,7 +90,7 @@ export function Outline({
         // del padding del scroller — `overflow-y-auto` hace que overflow-x compute a `auto`, así que
         // asomarse un pixel de más le mete un scrollbar horizontal al dialog de Repaso.
         // pl-6: zona de hover más ancha que los ticks, para no tener que apuntar a 2px.
-        className="group absolute -top-40 -right-6 flex flex-col items-end gap-1.5 py-2 pl-6 lg:-right-10 xl:-right-24 2xl:-right-28"
+        className="group absolute -top-40 -right-6 flex flex-col items-end gap-1.5 py-2 pl-6 lg:-right-10 xl:-right-32 2xl:-right-36"
         onMouseEnter={() => activeItem.current?.scrollIntoView({ block: "nearest" })}
       >
         {headings.map((h, i) => (
