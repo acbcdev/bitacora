@@ -73,17 +73,13 @@ export function NoteDialog({
         }}
         className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
       >
-        {/* Sin X: cerrar es Esc o click afuera. Expand a la izquierda, acciones a la derecha. */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="absolute top-2 left-2 z-10"
-          aria-label="Abrir nota en foco"
-          onClick={onExpand}
-        >
-          <Maximize2 className="size-3.5" />
-        </Button>
-        <div className="absolute top-2 right-2 z-10">
+        {/* Sin X: cerrar es Esc o click afuera. Expand a la izquierda, acciones a la derecha.
+            Barra en flujo (no absolute) para que el scrollbar del contenido arranque debajo y no
+            pase por encima de los botones. */}
+        <div className="flex shrink-0 items-center justify-between p-2">
+          <Button variant="ghost" size="icon-sm" aria-label="Abrir nota en foco" onClick={onExpand}>
+            <Maximize2 className="size-3.5" />
+          </Button>
           <NoteActions
             note={note}
             content={() => note.content}
@@ -97,7 +93,7 @@ export function NoteDialog({
         <div
           ref={scroller}
           tabIndex={-1}
-          className="min-h-0 flex-1 overflow-y-auto px-5 py-8 focus:outline-none sm:px-12 sm:py-10"
+          className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-8 focus:outline-none sm:px-12 sm:pt-6 sm:pb-10"
         >
           <div className="mx-auto max-w-2xl">
             <p className="eyebrow mb-4 flex items-center gap-1.5">
