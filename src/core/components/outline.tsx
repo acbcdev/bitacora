@@ -76,9 +76,9 @@ export function Outline({
     // del dialog de Repaso). Va primero en el flujo — sticky no sube por encima de su posición
     // natural — y con altura 0 para no ocupar espacio del documento.
     // hidden md:block: en touch no hay hover ni margen donde ponerlo.
-    // top-[20vh]: el rail arranca arriba y crece hacia abajo (como el de Notion), no centrado —
+    // top-[10vh]: el rail arranca arriba y crece hacia abajo (como el de Notion), no centrado —
     // con 40+ ticks, centrarlo lo dejaba comiéndose media pantalla.
-    <div className="sticky top-[20vh] z-10 hidden h-0 md:block">
+    <div className="sticky top-[10vh] z-10 hidden h-0 md:block">
       <nav
         aria-label="Secciones"
         // El offset negativo saca el rail de la columna de texto y lo lleva al gutter, cerca del
