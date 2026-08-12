@@ -1,18 +1,23 @@
 import { useState } from "react"
 import {
   BookOpen,
+  Check,
   ChevronRight,
   ChevronsUpDown,
   Flame,
   LogOut,
   Moon,
+  MoreHorizontal,
   Pin,
   PinOff,
+  RotateCcw,
   Sun,
 } from "lucide-react"
 import { NavLink } from "react-router-dom"
 import { CourseIcon } from "@/courses/course-icon"
+import { useUpdateCourse } from "@/courses/courses.api"
 import { togglePinnedCourse, usePinnedCourseIds } from "@/courses/pinned-courses"
+import { Button } from "@/core/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/core/ui/collapsible"
 import {
   DropdownMenu,
@@ -29,7 +34,6 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   Sidebar as SidebarRoot,
@@ -41,6 +45,10 @@ import type { Course } from "@/core/types/database"
 // pasarle `isActive` al botón, que obligaría a recalcular el match acá.
 const ACTIVE =
   "aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-accent-foreground"
+
+// Fila del sidebar: más alta y con texto más grande que el default del registry (h-8/text-sm).
+// El `size-8!` del modo colapsado gana igual, así que el rail de iconos no cambia.
+const ROW = "h-10 text-base [&_svg]:size-5"
 
 // Lo que solo tiene sentido con el sidebar abierto: en el rail de iconos no hay ancho para texto.
 const EXPANDED_ONLY = "group-data-[collapsible=icon]:hidden"
@@ -88,7 +96,7 @@ export function Sidebar({
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Hoy" className={ACTIVE}>
+              <SidebarMenuButton asChild tooltip="Hoy" className={`${ROW} ${ACTIVE}`}>
                 <NavLink to="/" end>
                   <Flame />
                   <span>Hoy</span>
@@ -96,7 +104,7 @@ export function Sidebar({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Cursos" className={ACTIVE}>
+              <SidebarMenuButton asChild tooltip="Cursos" className={`${ROW} ${ACTIVE}`}>
                 <NavLink to="/courses">
                   <BookOpen />
                   <span>Cursos</span>
@@ -211,25 +219,70 @@ function CourseGroup({
   )
 }
 
-// Fila de curso dentro de un CourseGroup: el botón de pin sólo aparece al hover (showOnHover),
-// como el resto de las acciones por fila del resto de la app.
+// Fila de curso dentro de un CourseGroup: pin y menú aparecen al hover, y recién ahí el nombre
+// cede ancho (`pr` sólo en hover). Con el `pr-8` fijo de SidebarMenuAction el nombre se truncaba
+// siempre para reservarle lugar a un botón invisible.
 function CourseMenuItem({ course, pinned }: { course: Course; pinned: boolean }) {
+  const updateCourse = useUpdateCourse()
+  const done = course.status === "done"
+
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild size="sm" tooltip={course.name} className={ACTIVE}>
+      {/* `hidden: false` pisa el default de SidebarMenuButton (tooltip sólo con sidebar colapsado):
+          acá el nombre del curso se trunca también estando abierto, así que el tooltip hace falta. */}
+      <SidebarMenuButton
+        asChild
+        tooltip={{ children: course.name, hidden: false }}
+        className={`${ROW} ${ACTIVE} transition-none group-focus-within/menu-item:pr-15 group-hover/menu-item:pr-15 group-has-data-[state=open]/menu-item:pr-15`}
+      >
         <NavLink to={`/course/${course.id}`}>
-          <CourseIcon icon={course.icon} />
+          <CourseIcon icon={course.icon} className="size-5" />
           <span>{course.name}</span>
         </NavLink>
       </SidebarMenuButton>
-      <SidebarMenuAction
-        showOnHover
-        type="button"
-        aria-label={pinned ? `Desfijar ${course.name}` : `Fijar ${course.name}`}
-        onClick={() => togglePinnedCourse(course.id)}
-      >
-        {pinned ? <PinOff size={13} /> : <Pin size={13} />}
-      </SidebarMenuAction>
+      {/* `data-[state=open]` mantiene las acciones visibles mientras el menú está abierto: si no,
+          al mover el mouse al dropdown la fila pierde el hover y los botones desaparecen. */}
+      <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5 opacity-0 group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 group-has-data-[state=open]/menu-item:opacity-100 group-data-[collapsible=icon]:hidden">
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="[&_svg]:size-4"
+          aria-label={pinned ? `Desfijar ${course.name}` : `Fijar ${course.name}`}
+          onClick={() => togglePinnedCourse(course.id)}
+        >
+          {pinned ? <PinOff /> : <Pin />}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="[&_svg]:size-4"
+              aria-label={`Acciones de ${course.name}`}
+            >
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="start" className="w-52">
+            <DropdownMenuItem onSelect={() => togglePinnedCourse(course.id)}>
+              {pinned ? <PinOff /> : <Pin />}
+              {pinned ? "Desfijar" : "Fijar"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() =>
+                updateCourse.mutate(
+                  done
+                    ? { id: course.id, status: "active", finished_at: null }
+                    : { id: course.id, status: "done", finished_at: new Date().toISOString() },
+                )
+              }
+            >
+              {done ? <RotateCcw /> : <Check />}
+              {done ? "Reabrir curso" : "Marcar finalizado"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </SidebarMenuItem>
   )
 }

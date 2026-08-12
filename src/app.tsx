@@ -194,7 +194,7 @@ function Shell({ session }: { session: Session }) {
         }}
         className="h-screen min-h-0 overflow-hidden"
         style={
-          { "--sidebar-width": "216px", "--sidebar-width-icon": "56px" } as React.CSSProperties
+          { "--sidebar-width": "260px", "--sidebar-width-icon": "56px" } as React.CSSProperties
         }
       >
         {!focus && (
