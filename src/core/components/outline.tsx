@@ -104,8 +104,10 @@ export function Outline({
           />
         ))}
         {/* Panel de títulos: hermano de los ticks, puro CSS — sin estado ni timers. Abre encima
-            del texto: a 1280px de viewport el margen contra un texto de 80ch no alcanza. */}
-        <div className="pointer-events-none absolute top-1/2 right-full mr-2 max-h-[70vh] w-60 -translate-y-1/2 overflow-y-auto rounded-lg border bg-popover p-1.5 opacity-0 shadow-lg transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
+            del texto (a 1280px el margen contra un texto de 80ch no alcanza) y encima de los ticks:
+            `right-0` lo alinea con el rail y, al ser el único hermano posicionado, pinta arriba.
+            -translate-y-[60%] en vez de 1/2: queda un poco más alto que el centro del rail. */}
+        <div className="pointer-events-none absolute top-1/2 right-0 max-h-[70vh] w-60 -translate-y-[60%] overflow-y-auto rounded-lg border bg-popover p-1.5 opacity-0 shadow-lg transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
           {headings.map((h, i) => (
             <button
               key={i}
