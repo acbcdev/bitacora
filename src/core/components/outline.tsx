@@ -76,9 +76,13 @@ export function Outline({
     // del dialog de Repaso). Va primero en el flujo — sticky no sube por encima de su posición
     // natural — y con altura 0 para no ocupar espacio del documento.
     // hidden md:block: en touch no hay hover ni margen donde ponerlo.
-    // top-[10vh]: el rail arranca arriba y crece hacia abajo (como el de Notion), no centrado —
-    // con 40+ ticks, centrarlo lo dejaba comiéndose media pantalla.
-    <div className="sticky top-[10vh] z-10 hidden h-0 md:block">
+    // El rail arranca arriba y crece hacia abajo (como el de Notion), no centrado — con 40+ ticks,
+    // centrarlo se comía media pantalla.
+    // top-48 + `-top-40` en el nav: sticky no puede subir por encima de su posición natural, que
+    // acá es el arranque del cuerpo de la nota (debajo del título). El offset negativo del nav lo
+    // levanta 160px en scroll 0; la línea de sticky (192px) es más grande que ese offset a
+    // propósito, así cuando queda pegado aterriza a 32px del borde del scroller y nunca se corta.
+    <div className="sticky top-48 z-10 hidden h-0 md:block">
       <nav
         aria-label="Secciones"
         // El offset negativo saca el rail de la columna de texto y lo lleva al gutter, cerca del
@@ -86,7 +90,7 @@ export function Outline({
         // del padding del scroller — `overflow-y-auto` hace que overflow-x compute a `auto`, así que
         // asomarse un pixel de más le mete un scrollbar horizontal al dialog de Repaso.
         // pl-6: zona de hover más ancha que los ticks, para no tener que apuntar a 2px.
-        className="group absolute -right-6 flex flex-col items-end gap-1.5 py-2 pl-6 lg:-right-10 xl:-right-24 2xl:-right-28"
+        className="group absolute -top-40 -right-6 flex flex-col items-end gap-1.5 py-2 pl-6 lg:-right-10 xl:-right-24 2xl:-right-28"
         onMouseEnter={() => activeItem.current?.scrollIntoView({ block: "nearest" })}
       >
         {headings.map((h, i) => (

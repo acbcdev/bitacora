@@ -70,8 +70,10 @@ Medidos sobre las 919 notas del import, no estimados:
 - **Rescaneo:** debounce 300ms sobre la señal de `Editor`. No hace falta `MutationObserver`: el
   editor ya avisa cuando cambia el contenido.
 - `headings.length < 2` → devuelve `null`.
-- **Anclaje: `sticky`, nunca `fixed`.** Un div `sticky top-[10vh] h-0` (arranca arriba y crece
-  hacia abajo, como el rail de Notion — centrarlo se comía media pantalla) que va **primero** en el
+- **Anclaje: `sticky`, nunca `fixed`.** Un div `sticky top-48 h-0` con el rail en `-top-40`
+  (arranca arriba y crece hacia abajo, como el de Notion — centrarlo se comía media pantalla; el
+  offset negativo lo sube por encima del arranque del cuerpo, que es hasta donde llega `sticky`
+  solo) que va **primero** en el
   wrapper, antes de `EditorContent`. `sticky` no puede subir por encima de su posición natural en
   el flujo: si el rail va después del contenido queda pegado abajo para siempre. `h-0` para no
   ocupar espacio del documento.
