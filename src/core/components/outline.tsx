@@ -76,7 +76,9 @@ export function Outline({
     // del dialog de Repaso). Va primero en el flujo — sticky no sube por encima de su posición
     // natural — y con altura 0 para no ocupar espacio del documento.
     // hidden md:block: en touch no hay hover ni margen donde ponerlo.
-    <div className="sticky top-[40vh] z-10 hidden h-0 md:block">
+    // top-[20vh]: el rail arranca arriba y crece hacia abajo (como el de Notion), no centrado —
+    // con 40+ ticks, centrarlo lo dejaba comiéndose media pantalla.
+    <div className="sticky top-[20vh] z-10 hidden h-0 md:block">
       <nav
         aria-label="Secciones"
         // El offset negativo saca el rail de la columna de texto y lo lleva al gutter, cerca del
@@ -84,7 +86,7 @@ export function Outline({
         // del padding del scroller — `overflow-y-auto` hace que overflow-x compute a `auto`, así que
         // asomarse un pixel de más le mete un scrollbar horizontal al dialog de Repaso.
         // pl-6: zona de hover más ancha que los ticks, para no tener que apuntar a 2px.
-        className="group absolute -right-6 flex -translate-y-1/2 flex-col items-end gap-1.5 py-2 pl-6 lg:-right-10 xl:-right-24 2xl:-right-28"
+        className="group absolute -right-6 flex flex-col items-end gap-1.5 py-2 pl-6 lg:-right-10 xl:-right-24 2xl:-right-28"
         onMouseEnter={() => activeItem.current?.scrollIntoView({ block: "nearest" })}
       >
         {headings.map((h, i) => (
@@ -106,8 +108,8 @@ export function Outline({
         {/* Panel de títulos: hermano de los ticks, puro CSS — sin estado ni timers. Abre encima
             del texto (a 1280px el margen contra un texto de 80ch no alcanza) y encima de los ticks:
             `right-0` lo alinea con el rail y, al ser el único hermano posicionado, pinta arriba.
-            -translate-y-[60%] en vez de 1/2: queda un poco más alto que el centro del rail. */}
-        <div className="pointer-events-none absolute top-1/2 right-0 max-h-[70vh] w-60 -translate-y-[60%] overflow-y-auto rounded-lg border bg-popover p-1.5 opacity-0 shadow-lg transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
+            top-0: abre desde el primer tick hacia abajo, igual que el rail. */}
+        <div className="pointer-events-none absolute top-0 right-0 max-h-[70vh] w-60 overflow-y-auto rounded-lg border bg-popover p-1.5 opacity-0 shadow-lg transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
           {headings.map((h, i) => (
             <button
               key={i}
