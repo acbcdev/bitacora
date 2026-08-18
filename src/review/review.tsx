@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
+import { toast } from "sonner"
 import { Flame, Trash2 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { Editor } from "@/core/components/editor"
@@ -22,8 +23,9 @@ import { Courses } from "@/courses/courses"
 import type { Grade } from "@/core/types/database"
 
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
-//   Enter = abrir la nota (adentro, Enter otra vez = marcar leído) · J = volver · K = siguiente.
-// Marcar leído NUNCA avanza solo: inserta en read_log y el ítem se queda; movés vos con J/K.
+//   Enter = abrir la nota (adentro, Enter otra vez = leído + siguiente) · J = volver · K = siguiente.
+// Desde la card, marcar leído NO avanza (no leíste la nota, solo el preview): el ítem se queda y
+// movés vos con J/K. Desde el dialog SÍ avanza: ahí el gate exige haber llegado al final.
 // Debajo del repaso va la lista de cursos embebida, como en el diseño.
 export function Review() {
   const { data: queue = [], isLoading, refetch } = useReviewQueue()
@@ -36,41 +38,48 @@ export function Review() {
   const [revealed, setRevealed] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
-  // Marcar leído no avanza: el ítem se queda y avanzás vos con K. `marked` evita el segundo
-  // insert en read_log si volvés a apretar Enter / el botón sobre la misma nota.
-  const [marked, setMarked] = useState(false)
-
+  // Marcar leído no avanza: el ítem se queda y avanzás vos con K. Se guardan los ids ya marcados
+  // (no un boolean por índice) para que volver con J a una nota ya leída no meta un segundo
+  // insert en read_log.
+  const [markedIds, setMarkedIds] = useState<ReadonlySet<string>>(new Set())
   const note = queue[index]
+  const marked = !!note && markedIds.has(note.id)
   const course = courses.find((c) => c.id === note?.course_id)
   const readToday = stats?.today ?? 0
   const streak = stats?.streak ?? 0
   const donePct = Math.min(100, (readToday / DAILY_GOAL) * 100)
 
-  // Cada ítem nuevo arranca sin revelar, sin marcar, sin el diálogo de borrado y sin la nota
-  // abierta.
+  // Cada ítem nuevo arranca sin revelar, sin el diálogo de borrado y sin la nota abierta.
   useEffect(() => {
     setRevealed(false)
-    setMarked(false)
     setConfirmingDelete(false)
     setDialogOpen(false)
   }, [index])
 
   const advance = useCallback(() => setIndex((i) => i + 1), []) // avance optimista (ui-principles)
 
-  const markNoteRead = useCallback(() => {
-    if (!note || marked) return
-    markRead.mutate({ noteId: note.id })
-    setMarked(true)
-  }, [note, marked, markRead])
-
-  const gradeFlashcard = useCallback(
-    (grade: Grade) => {
+  const mark = useCallback(
+    (grade?: Grade) => {
       if (!note || marked) return
       markRead.mutate({ noteId: note.id, grade })
-      setMarked(true)
+      setMarkedIds((ids) => new Set(ids).add(note.id))
     },
     [note, marked, markRead],
   )
+
+  const markNoteRead = useCallback(() => mark(), [mark])
+
+  // Repasos previos de esta nota (read_log) — el contador que muestra el dialog.
+  const reads = (note && stats?.byNote.get(note.id)?.count) ?? 0
+
+  // Desde el dialog leído SÍ avanza: cierra y pasa a la siguiente de una. El dialog lo cierra el
+  // effect de [index]. El toast es el feedback de que la fila entró en read_log.
+  const markReadAndNext = useCallback(() => {
+    if (marked) return
+    mark()
+    advance()
+    toast.success(reads === 0 ? "Leído por primera vez" : `Leído · ${reads + 1} repasos`)
+  }, [marked, mark, advance, reads])
 
   // Enter con la card cerrada: nota → abre el dialog. NO marca leído: desde la card solo se ve
   // título + 3 líneas, marcar leído sin haber leído la nota es basura en read_log. Marcar leído
@@ -291,7 +300,7 @@ export function Review() {
                         size="sm"
                         variant="outline"
                         disabled={marked}
-                        onClick={() => gradeFlashcard("incorrecto")}
+                        onClick={() => mark("incorrecto")}
                       >
                         Incorrecto
                       </Button>
@@ -299,15 +308,11 @@ export function Review() {
                         size="sm"
                         variant="outline"
                         disabled={marked}
-                        onClick={() => gradeFlashcard("parcial")}
+                        onClick={() => mark("parcial")}
                       >
                         Parcial
                       </Button>
-                      <Button
-                        size="sm"
-                        disabled={marked}
-                        onClick={() => gradeFlashcard("correcto")}
-                      >
+                      <Button size="sm" disabled={marked} onClick={() => mark("correcto")}>
                         Correcto
                       </Button>
                     </>
@@ -334,7 +339,8 @@ export function Review() {
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           marked={marked}
-          onMarkRead={markNoteRead}
+          reads={reads}
+          onMarkRead={markReadAndNext}
           onExpand={openExpanded}
           onFocus={openFocused}
           onDeleted={() => {

@@ -18,6 +18,7 @@ export function NoteDialog({
   course,
   open,
   marked,
+  reads,
   onOpenChange,
   onMarkRead,
   onExpand,
@@ -28,6 +29,7 @@ export function NoteDialog({
   course: Course | undefined
   open: boolean
   marked: boolean
+  reads: number
   onOpenChange: (open: boolean) => void
   onMarkRead: () => void
   onExpand: () => void
@@ -99,6 +101,10 @@ export function NoteDialog({
             <p className="eyebrow mb-4 flex items-center gap-1.5">
               <CourseIcon icon={course?.icon ?? null} />
               {course?.name ?? "Sin curso"}
+              {/* Cuántas veces se leyó esta nota (filas en read_log): contexto de "¿ya la vi?" */}
+              <span className="mono-dim normal-case">
+                · {reads === 0 ? "sin repasos" : `${reads} ${reads === 1 ? "repaso" : "repasos"}`}
+              </span>
             </p>
             <DialogTitle className="mb-8 text-2xl font-bold tracking-tight text-pretty sm:text-3xl">
               {note.title || "(sin título)"}
@@ -112,13 +118,13 @@ export function NoteDialog({
                   </>
                 ) : (
                   <>
-                    <Kbd>Enter</Kbd> marcar leído
+                    <Kbd>Enter</Kbd> marcar leído y pasar a la siguiente
                   </>
                 )}
               </span>
               {/* ref: gate de Enter — el hotkey se arma cuando este botón es visible */}
               <Button ref={setMarkReadBtn} size="lg" disabled={marked} onClick={onMarkRead}>
-                {marked ? "Leído" : "Marcar leído"}
+                {marked ? "Leído" : "Leído y siguiente"}
               </Button>
             </div>
           </div>
