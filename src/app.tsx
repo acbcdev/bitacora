@@ -16,12 +16,13 @@ import {
 } from "lucide-react"
 import { CommandPalette, type Action } from "@/core/components/command-palette"
 import { Cheatsheet } from "@/core/components/cheatsheet"
-import { Sidebar } from "@/core/components/sidebar"
+import { courseJumps, Sidebar, sidebarCourseGroups } from "@/core/components/sidebar"
 import { SidebarProvider, SidebarTrigger } from "@/core/ui/sidebar"
 import { Toaster } from "@/core/ui/sonner"
 import { TooltipProvider } from "@/core/ui/tooltip"
 import { CourseIcon } from "@/courses/course-icon"
 import { useCourses } from "@/courses/courses.api"
+import { usePinnedCourseIds } from "@/courses/pinned-courses"
 import { useAllNoteRefs } from "@/notes/notes.api"
 import { supabase } from "@/core/lib/supabase"
 import { mod } from "@/core/lib/utils"
@@ -56,6 +57,7 @@ function Shell({ session }: { session: Session }) {
   const { pathname, search } = useLocation()
   const { data: courses = [] } = useCourses()
   const { data: notes = [] } = useAllNoteRefs()
+  const pinnedIds = usePinnedCourseIds()
 
   const [palette, setPalette] = useState(false)
   const [cheat, setCheat] = useState(false)
@@ -110,6 +112,10 @@ function Shell({ session }: { session: Session }) {
   })
   useHotkeys("g>h", () => navigate("/"), { sequenceTimeoutMs: 900, preventDefault: true })
   useHotkeys("g>c", () => navigate("/courses"), { sequenceTimeoutMs: 900, preventDefault: true })
+
+  // G luego 1..9 salta a un curso del sidebar, en el mismo orden que se ve ahí.
+  const { pinned, active, recent } = sidebarCourseGroups(courses, pinnedIds)
+  const jumps = courseJumps([...pinned, ...active, ...recent])
 
   // Se arma sólo cuando la palette abre — mapear ~1.500 notas en cada render no tiene sentido.
   function actions(): Action[] {
@@ -225,10 +231,25 @@ function Shell({ session }: { session: Session }) {
           </Routes>
         </main>
 
+        {jumps.map(([n, c]) => (
+          <CourseHotkey key={n} n={n} id={c.id} />
+        ))}
         {palette && <CommandPalette onClose={() => setPalette(false)} actions={actions()} />}
         {cheat && <Cheatsheet onClose={() => setCheat(false)} />}
         <Toaster theme={dark ? "dark" : "light"} />
       </SidebarProvider>
     </TooltipProvider>
   )
+}
+
+// Un componente (= un hook) por dígito, no un solo useHotkeys con los 9: la lib comparte el
+// buffer de secuencia entre todos los atajos de una misma llamada, así que "g>1","g>2",... se
+// pisan entre sí y sólo llega a disparar el primero.
+function CourseHotkey({ n, id }: { n: number; id: string }) {
+  const navigate = useNavigate()
+  useHotkeys(`g>${n}`, () => navigate(`/course/${id}`), {
+    sequenceTimeoutMs: 900,
+    preventDefault: true,
+  })
+  return null
 }

@@ -53,6 +53,30 @@ const ROW = "h-10 text-base [&_svg]:size-5"
 // Lo que solo tiene sentido con el sidebar abierto: en el rail de iconos no hay ancho para texto.
 const EXPANDED_ONLY = "group-data-[collapsible=icon]:hidden"
 
+// Cada curso vive en un solo grupo: fijado gana sobre activo, activo sobre reciente — sin eso
+// el mismo curso aparecería duplicado en dos secciones.
+// Vive acá afuera porque App usa el mismo orden para numerar el atajo G>1..9.
+export function sidebarCourseGroups(courses: Course[], pinnedIds: string[]) {
+  return {
+    pinned: courses.filter((c) => pinnedIds.includes(c.id)),
+    active: courses.filter((c) => c.status === "active" && !pinnedIds.includes(c.id)),
+    // Mismo criterio que el sort "Recientes" de /courses (started_at desc, ver migración 0009),
+    // acá recortado a un puñado.
+    recent: courses
+      .filter((c) => c.status !== "active" && !pinnedIds.includes(c.id))
+      .toSorted((a, b) => (b.started_at ?? "").localeCompare(a.started_at ?? ""))
+      .slice(0, 5),
+  }
+}
+
+// Qué curso abre cada dígito del atajo G>1..9, con la regla de ⌘1..9 del browser: 1-8 son
+// posición en el sidebar y 9 es siempre el último, haya los que haya.
+export function courseJumps(courses: Course[]): [number, Course][] {
+  const jumps: [number, Course][] = courses.slice(0, 8).map((c, i) => [i + 1, c])
+  if (courses.length > 0) jumps.push([9, courses.at(-1)!])
+  return jumps
+}
+
 // Sidebar del diseño: nav de 2 items + cursos activos + menú de cuenta al pie. Colapsable a rail de
 // iconos (chrome mínimo, ui-principles #3). El estado colapsado lo controla App.
 export function Sidebar({
@@ -69,16 +93,7 @@ export function Sidebar({
   onLogout: () => void
 }) {
   const pinnedIds = usePinnedCourseIds()
-  // Cada curso vive en un solo grupo: fijado gana sobre activo, activo sobre reciente — sin eso
-  // el mismo curso aparecería duplicado en dos secciones.
-  const pinned = courses.filter((c) => pinnedIds.includes(c.id))
-  const active = courses.filter((c) => c.status === "active" && !pinnedIds.includes(c.id))
-  // Mismo criterio que el sort "Recientes" de /courses (started_at desc, ver migración 0009),
-  // acá recortado a un puñado.
-  const recent = courses
-    .filter((c) => c.status !== "active" && !pinnedIds.includes(c.id))
-    .toSorted((a, b) => (b.started_at ?? "").localeCompare(a.started_at ?? ""))
-    .slice(0, 5)
+  const { pinned, active, recent } = sidebarCourseGroups(courses, pinnedIds)
   const [fijadoOpen, setFijadoOpen] = useState(true)
   const [activosOpen, setActivosOpen] = useState(true)
   const [recientesOpen, setRecientesOpen] = useState(false)
