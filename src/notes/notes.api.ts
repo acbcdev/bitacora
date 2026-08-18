@@ -63,28 +63,38 @@ export function useNote(id: string | undefined) {
   })
 }
 
-// Crea nota al final del curso (position = max+1). Devuelve el id para navegar al editor.
+// Crea nota al final del curso (position = max+1). Devuelve la fila entera para navegar al editor
+// sin volver a pedirla. Un solo roundtrip en todo el flujo — ver ADR 0008.
 export function useCreateNote() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (courseId: string): Promise<string> => {
-      const { data: last } = await supabase
-        .from("notes")
-        .select("position")
-        .eq("course_id", courseId)
-        .is("deleted_at", null)
-        .order("position", { ascending: false })
-        .limit(1)
-        .maybeSingle()
+    mutationFn: async (courseId: string): Promise<Note> => {
+      // El SELECT del último position sobra: la lista del curso ya está en cache (useNotes corre
+      // al entrar). Sin cache el fallback es 0 — solo pasaría llamando esto fuera de la pantalla
+      // Curso, que hoy no ocurre. Colisión de position = orden ambiguo entre dos notas, no error
+      // (no hay unique constraint), así que tampoco hace falta blindarlo.
+      const cached = qc.getQueryData<Note[]>(["notes", courseId]) ?? []
+      const position = Math.max(-1, ...cached.map((n) => n.position)) + 1
       const { data, error } = await supabase
         .from("notes")
-        .insert({ course_id: courseId, position: (last?.position ?? -1) + 1, content: EMPTY_DOC })
-        .select("id")
+        .insert({ course_id: courseId, position, content: EMPTY_DOC })
+        .select("*") // la fila entera sale gratis en el mismo request; con .select("id") habría que ir a buscarla
         .single()
       if (error) throw error
-      return data.id
+      return data
     },
-    onSuccess: (_id, courseId) => qc.invalidateQueries({ queryKey: ["notes", courseId] }),
+    onSuccess: (note, courseId) => {
+      // Sembrar, no invalidar: la fila la acaba de mandar el server, pedirla otra vez es preguntar
+      // dos veces lo mismo. Sin esto el editor monta con NoteSkeleton (useNote) y —peor— el efecto
+      // de auto-corrección de URL de Course no encuentra la nota en la lista vieja y te rebota a la
+      // primera del curso.
+      qc.setQueryData(["note", note.id], note)
+      qc.setQueryData<Note[]>(["notes", courseId], (old = []) => [...old, note])
+      // Refetch de fondo, para reconciliar cambios de otro device. Sin `return`: devolver la
+      // promesa haría que TanStack la espere antes del onSuccess del mutate() — o sea el navigate
+      // esperaría al refetch (medido: 372ms sobre 400ms de latencia).
+      qc.invalidateQueries({ queryKey: ["notes", courseId] })
+    },
   })
 }
 

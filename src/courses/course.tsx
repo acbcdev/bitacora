@@ -112,7 +112,7 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
   )
   useHotkeys(
     "n",
-    () => createNote.mutate(id!, { onSuccess: (newId) => navigate(`/course/${id}/${newId}`) }),
+    () => createNote.mutate(id!, { onSuccess: (note) => navigate(`/course/${id}/${note.id}`) }),
     { preventDefault: true },
     [id, createNote],
   )

@@ -41,4 +41,7 @@ recurrente** de esta app, no un lujo → Query es la herramienta correcta desde 
 - shadcn/ui necesita el alias de imports configurado en Vite (`@/`) — parte del setup de
   `foundation`.
 - Las mutaciones (insert en `read_log`, CRUD) invalidan las queries derivadas relevantes. Es el
-  patrón por defecto para toda escritura.
+  patrón por defecto para toda escritura. **Excepción (ADR 0008):** si la mutation ya devuelve la
+  fila del server, se siembra el cache con `setQueryData` — invalidar ahí es pedir dos veces lo
+  mismo, y bloquea (TanStack espera la promesa del `invalidateQueries` antes del `onSuccess` del
+  `mutate()`).
