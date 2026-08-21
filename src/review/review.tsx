@@ -21,6 +21,7 @@ import { DAILY_GOAL, todayKey, useReadStats } from "@/core/lib/stats"
 import { MOD } from "@/core/lib/utils"
 import { Courses } from "@/courses/courses"
 import type { Grade } from "@/core/types/database"
+import { HabitsPrototype } from "../../.scratch/habits/habits.prototype"
 
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
 //   Enter = abrir la nota (adentro, Enter otra vez = leído + siguiente) · J = volver · K = siguiente.
@@ -349,6 +350,9 @@ export function Review() {
           }}
         />
       )}
+
+      {/* PROTOTIPO — TIRAR. Tira de hábitos. Ver .scratch/habits/. */}
+      {import.meta.env.DEV && <HabitsPrototype />}
 
       <Courses embed />
     </div>
