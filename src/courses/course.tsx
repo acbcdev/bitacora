@@ -35,7 +35,7 @@ import { useCourses, useDeleteCourse, useUpdateCourse } from "@/courses/courses.
 import { togglePinnedCourse, usePinnedCourseIds } from "@/courses/pinned-courses"
 import { useGenerateFlashcards, useRetention } from "@/flashcards/flashcards.api"
 import { useCreateNote, useNotes } from "@/notes/notes.api"
-import { useIsMobile } from "@/core/hooks/use-mobile"
+import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import { useReadStats } from "@/core/lib/stats"
 import type { CourseStatus } from "@/core/types/database"
 

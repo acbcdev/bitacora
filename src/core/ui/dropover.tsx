@@ -1,6 +1,5 @@
 import * as React from "react"
-
-import { useIsMobile } from "@/core/hooks/use-mobile"
+import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import {
   Drawer,
   DrawerContent,

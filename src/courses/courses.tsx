@@ -43,7 +43,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/core/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/core/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
-import { useIsMobile } from "@/core/hooks/use-mobile"
+import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import { PAGE_SIZE, useCoursesPage, useDeleteCourse } from "@/courses/courses.api"
 import { dayOf, relativeDay } from "@/core/lib/stats"
 import type { Course, CourseStatus } from "@/core/types/database"
