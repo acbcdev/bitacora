@@ -1,6 +1,6 @@
 # 04 — Panel del hábito (`Dropover`) + Dialog de hábitos
 
-**Status:** ready-for-agent
+**Status:** resuelto — implementado 2026-08-20
 **Spec:** `.scratch/habits/spec.md`
 **Blocked by:** 02
 
@@ -99,3 +99,14 @@ el Settings dialog de `CONTEXT.md:102-106`.
 Se puede crear, editar y archivar un hábito sin recargar; el tile refleja el cambio; y desde el
 panel se corrige tanto hoy como un día de la ventana de 14. Sin test propio del CRUD: mismo patrón
 ya cubierto por `course-form.test.tsx`.
+
+## Comments
+
+- `src/habits/habit-panel.tsx` (Dropover) y `src/habits/habits-dialog.tsx` (lista + form + archivar).
+- El dialog es una sola superficie con tres estados: lista, alta y edición.
+- Los presets de un `check` son `0 / 1`: el resto de la escala no significa nada ahí.
+- Post-review: el `⌄` se esconde al hover **sólo de `md` para arriba**. En Tailwind v4 `hover:`
+  vive adentro de `@media (hover: hover)`, así que `opacity-0 group-hover:opacity-100` dejaba el
+  trigger invisible en el celular — que es justo el caso que este issue dice que no puede pasar.
+- Post-review: `ConfirmDelete` tomó un prop `verb` (default `"Borrar"`). Archivar decía "Borrar"
+  en el diálogo y "Archivar" en el botón.

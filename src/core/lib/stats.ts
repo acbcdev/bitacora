@@ -12,7 +12,7 @@ type ReadRow = { note_id: string; read_at: string }
 const EMPTY: ReadStats = { today: 0, streak: 0, byNote: new Map() }
 
 // Fecha local (no UTC): la racha se cuenta en los días del usuario, no del servidor.
-function dayKey(d: Date) {
+export function dayKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 

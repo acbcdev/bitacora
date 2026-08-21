@@ -1,6 +1,6 @@
 # 05 — Docs: glosario + cerrar el gate de hábitos
 
-**Status:** ready-for-agent
+**Status:** resuelto — implementado 2026-08-20
 **Spec:** `.scratch/habits/spec.md`
 **Blocked by:** 03
 
@@ -48,3 +48,12 @@ abierta** — no cerrarla de arrastre.
   que `g>1..9`. Sin fila nueva para letra bare — `H` bare no existe.
 - Dejar anotado que la vista completa de hábitos es un **Dialog**, no una 4ta pantalla, para que la
   regla de "solo 3 pantallas" no se lea como violada.
+
+## Comments
+
+- `CONTEXT.md`: glosario (6 filas nuevas), schema con las 2 tablas, la nota de por qué `habit_log`
+  no tiene la forma de `read_log`, y hábitos fuera de la lista de gated con el porqué escrito.
+- `docs/ui-principles.md`: fila de la convención para los chords `g>`/`h>` + la aclaración de que la
+  vista completa de hábitos es un Dialog, no una 4ta pantalla.
+- `.scratch/platform-features/`: Tier 3 y pregunta #2 marcados resueltos; la #5 sigue abierta.
+- Extra: el chord también entró en el cheatsheet (`mod+/`), que es donde el issue 03 lo mandaba.

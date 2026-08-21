@@ -1,6 +1,6 @@
 # 01 — Schema: `habits` + `habit_log` + RLS
 
-**Status:** ready-for-agent
+**Status:** resuelto — implementado 2026-08-20
 **Spec:** `.scratch/habits/spec.md`
 **ADR:** `docs/adr/0009-habit-log-por-dia-y-target-congelado.md`
 **Blocked by:** ninguno
@@ -59,3 +59,18 @@ create table habit_log (
 `pnpm typecheck` pasa con los tipos nuevos, un `upsert` con el mismo `(habit_id, day)` actualiza en
 vez de duplicar, y un insert desde otro usuario no ve las filas (verificación manual, el repo no
 testea RLS).
+
+## Comments
+
+- Implementado en `supabase/migrations/0010_habits.sql` (0009 ya estaba tomado por
+  `courses_page_recientes_started_at`).
+- Los tipos NO se regeneraron con `supabase gen types`: eso necesita el project-id y red. Se
+  escribieron a mano en `src/core/types/database.ts`, que es lo que ese archivo ya documenta en su
+  cabecera ("mientras no exista el proyecto, van a mano"). Alias nuevos: `Habit`, `HabitLog`,
+  `HabitKind`, `HabitMetric`, `HabitPeriod`.
+- El "done cuando" de RLS y del upsert queda para verificación manual contra la DB real: el repo no
+  testea SQL y este issue no abre esa práctica.
+- Post-review: `user_id` lleva `on delete cascade`, como las 3 tablas de `0001_initial_schema.sql`.
+  Se había escrito sin él.
+- El issue dice "mismas 4 policies por tabla"; `0002_rls.sql` en realidad tiene **una** policy
+  `for all` por tabla. La migración copia lo que hay en el repo, no lo que dice el issue.

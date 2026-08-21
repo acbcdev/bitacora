@@ -19,6 +19,7 @@ const GROUPS: [string, [string, string][]][] = [
     [
       ["J", "Volver, sin contar"],
       ["K", "Siguiente, sin contar"],
+      ["H luego 1-9", "Registrar el hábito N de la tira"],
     ],
   ],
   [

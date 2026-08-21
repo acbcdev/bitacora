@@ -42,6 +42,7 @@ import {
   Users,
   Video,
   Wrench,
+  type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/core/lib/utils"
 
@@ -94,7 +95,17 @@ export const PRESET_ICONS = {
 export type PresetIcon = keyof typeof PRESET_ICONS
 
 // `courses.icon` es 'lucide:<Nombre>' o la URL pública de una imagen subida (ver migración 0004).
-export function CourseIcon({ icon, className }: { icon: string | null; className?: string }) {
+// `fallback` es el icono de "sin icono": BookOpen para un curso, otro para un hábito (donde un
+// libro no significa nada).
+export function CourseIcon({
+  icon,
+  className,
+  fallback: Fallback = BookOpen,
+}: {
+  icon: string | null
+  className?: string
+  fallback?: LucideIcon
+}) {
   if (icon?.startsWith("lucide:")) {
     // `hasOwn` y no un lookup pelado: 'lucide:constructor' devolvería Object.prototype.constructor.
     const name = icon.slice(7)
@@ -109,5 +120,5 @@ export function CourseIcon({ icon, className }: { icon: string | null; className
   }
   // Emoji: la mayoría de los íconos de página de Notion lo son (import de notion-import).
   if (icon) return <span className={cn("size-4 shrink-0 text-center", className)}>{icon}</span>
-  return <BookOpen className={cn("size-4 shrink-0", className)} />
+  return <Fallback className={cn("size-4 shrink-0", className)} />
 }

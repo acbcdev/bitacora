@@ -101,8 +101,11 @@ todavía no tienen tecla.
 - Settings — confirmar qué contenido real la justifica como pantalla propia.
 
 **Tier 3 — contradice una decisión ya tomada, no reabrir sin caso nuevo**
-- Seguimiento de hábitos — mismo territorio que `goals`, ya descartado a propósito
-  (CONTEXT.md:84-88).
+- ~~Seguimiento de hábitos~~ — **RESUELTO (2026-08-20): reabierto con caso nuevo y specificado en
+  `.scratch/habits/spec.md`.** No era el mismo territorio que `goals`: entidad propia + log propio
+  + hábitos **malos**, nada de eso derivable de `read_log`. Responde la pregunta abierta #2. El
+  gate del loop diario (#5) **sigue abierto** — se saltó por decisión consciente del usuario, no
+  porque se haya resuelto.
 - Abstracción DB → localStorage — contradice ADR 0001 + 0004 + 0006 simultáneamente, y es
   generalización sin usuario real que la necesite hoy.
 
@@ -117,8 +120,10 @@ todavía no tienen tecla.
 1. **¿Hay presupuesto real para llamadas a LLM** (flashcards auto, tonos de nota)? Rompe el "$0, sin
    servidores propios" de CONTEXT.md. Si sí: ¿la API key vive en una Supabase Edge Function nueva
    (reabre ADR 0006 por el único caso que ese ADR deja abierto)?
-2. **Seguimiento de hábitos vs `goals` descartado** — ¿hay un caso concreto distinto al que ya se
-   evaluó y se descartó, o es la misma idea con otro nombre?
+2. ~~**Seguimiento de hábitos vs `goals` descartado**~~ — **RESUELTA (2026-08-20): sí, hay caso
+   concreto distinto.** `goals` eran metas de estudio derivables de `read_log`, miradas 1×/semana;
+   hábitos es una entidad con log propio, tocada a diario, e incluye hábitos malos. Ver
+   `.scratch/habits/spec.md` y `docs/adr/0009-habit-log-por-dia-y-target-congelado.md`.
 3. **DB abstraction a `localStorage`** — ¿para quién? Hoy sos el único usuario. Si el motivo real es
    otro (demo sin login, por ejemplo), nombrar ese caso concreto en vez de la abstracción genérica.
 4. **Settings** — ¿qué contenido va ahí que no sea ya el toggle de tema del sidebar?

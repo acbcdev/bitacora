@@ -55,6 +55,12 @@ Notas de licencia/tier:
 | **Cola de repaso** | Notas de cursos `active`, ordenadas por `max(read_at)` ascendente (las más viejas primero). |
 | **Soft delete** | Borrado lógico vía `deleted_at`. La app **nunca** hace `DELETE`. Toda query filtra `deleted_at is null`. |
 | **flag `imported`** | Marca notas/cursos migrados de Notion cuyas fechas son estimadas (`created_time` como aprox. de `started_at`). |
+| **Habit** | Un hábito. `kind` good/bad, `metric` check/count/time, y `target` + `period` = la frecuencia ("3 por semana"). `days` es aparte. |
+| **habit_log** | Una fila por hábito **por día**, con `amount` (cuánto) y `target` (la meta que regía ese día). Registrar es un **upsert**, no un insert. |
+| **`target` congelado** | La meta guardada en la fila del log. Es lo que hace que cambiar la meta no reescriba las rachas viejas (ADR 0009). |
+| **`days` (hábito)** | Los días en que se *planea* hacerlo (`{1,3,5}`). **Recordatorio, no regla**: no entra en ningún cálculo. Un hábito de días fijos se modela como cupo (`count 3/week`). |
+| **Cumplimiento** | Un hábito `good` cumple al llegar al target (piso); uno `bad`, mientras no lo pase (techo). |
+| **Racha de hábito** | Períodos consecutivos cumplidos. No confundir con la racha de `read_log`, que son días con repaso. |
 | **Outline** | El rail de headings al margen derecho de una nota: ticks siempre visibles + panel de títulos al hover, marca la sección actual y salta al click. No decir "TOC", "índice" ni "minimapa". Vive en el `Editor`, así aparece en las 3 superficies que renderizan una nota (Nota standalone, Nota en curso, dialog de Repaso). Ver `docs/adr/0007-outline-desde-el-dom.md`. |
 
 ## Schema (frozen)
@@ -70,10 +76,24 @@ courses(id, user_id, name, status, started_at, finished_at, icon, source, area, 
 notes(id, user_id, course_id, title, content, position, deleted_at, created_at)
   -- content: documento Tiptap. course_id uuid references courses(id) on delete set null
 read_log(id, user_id, note_id, read_at)
+
+habits(id, user_id, name, icon, kind, metric, target, period, days, deleted_at, created_at)
+  -- kind: 'good' (piso) | 'bad' (techo) · metric: 'check' | 'count' | 'time' ('time' = minutos)
+  -- target + period ('day'|'week'|'month') = la frecuencia. icon: igual que courses.icon.
+  -- days: smallint[] 0=dom … 6=sáb. RECORDATORIO, no regla: no entra en ningún cálculo.
+habit_log(id, user_id, habit_id, day, amount, target)
+  -- day date (fecha LOCAL, no UTC) · unique (habit_id, day) → registrar es un upsert
+  -- target: la meta vigente ese día. Congela el pct. Sin deleted_at: desmarcar es amount = 0.
+  -- habit_id uuid references habits(id) on delete set null
 ```
 
-- RLS en las 3 tablas: `auth.uid() = user_id`.
+- RLS en las 5 tablas: `auth.uid() = user_id`.
 - Todo derivado, nada denormalizado. Ver `docs/adr/0003-derive-everything-from-read-log.md`.
+- **`read_log` y `habit_log` NO son la misma forma, a propósito.** `read_log` sigue append-only,
+  sin `target` y sin `deleted_at`: un repaso es un hecho absoluto. Un hábito es un hecho medido
+  contra una meta editable, y por eso lleva una fila por día con la meta congelada. El porqué y las
+  alternativas descartadas están en `docs/adr/0009-habit-log-por-dia-y-target-congelado.md` — no
+  "unificarlas".
 
 ## Las 3 pantallas (y solo 3)
 
@@ -95,9 +115,15 @@ diario funcione, es **scope creep** — frenarlo con estos datos, no con opinió
 **Regla general (grilling 2026-07-28, `.scratch/platform-features/`):** la misma lógica aplica a
 toda feature nueva fuera de las 3 pantallas, no solo a `goals`. Repo tiene 5 días (primer commit
 2026-07-23), loop diario recién armado, sin uso real confirmado todavía. Hasta que el loop diario
-esté en uso real: gated — seguimiento de hábitos (mismo territorio que `goals`), Settings,
-abstracción DB→localStorage, sidebar de integración AI, tonos de nota vía AI, themes. Se reabren
-con el loop diario probado en uso real, no antes.
+esté en uso real: gated — Settings, abstracción DB→localStorage, sidebar de integración AI, tonos
+de nota vía AI, themes. Se reabren con el loop diario probado en uso real, no antes.
+
+**Hábitos salió de esa lista (2026-08-20).** Estaba gateado por ser "el mismo territorio que
+`goals`", y no lo es: `goals` eran metas de estudio derivables de `read_log` y miradas 1×/semana;
+hábitos es una entidad con log propio, tocada a diario, que incluye hábitos **malos** — algo que
+ningún derivado de `read_log` puede expresar. El otro gate (loop diario sin uso real confirmado)
+sigue sin resolverse: se saltó por **decisión consciente del usuario**, mismo precedente que dejó
+escrito el spec de flashcards. Ver `.scratch/habits/spec.md`. `goals` sigue descartado.
 
 **Themes — no MVP, feature a futuro, dirección ya resuelta si se retoma:** multi-theme estilo
 preset de editor de código (tipo OneDark/Dracula — un set fijo de colores por preset, no

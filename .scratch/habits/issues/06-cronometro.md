@@ -1,6 +1,6 @@
 # 06 — Cronómetro para hábitos `time` + notificación
 
-**Status:** ready-for-agent
+**Status:** resuelto — implementado 2026-08-20
 **Spec:** `.scratch/habits/spec.md`
 **Prototipo:** `.scratch/habits/habits.prototype.tsx` (`useTimer`) — **desactualizado en un punto**:
 el chunk fijo de 30 min para metas semanales ya no existe (ver abajo).
@@ -68,3 +68,15 @@ Puro, con `Date.now` mockeado — sin timers falsos ni RTL. Casos:
 - llegar a `target` notifica y limpia el `localStorage`.
 - leer el estado con un `startedAt` viejo en `localStorage` devuelve el transcurrido correcto (la
   prueba de que sobrevive al reload).
+
+## Comments
+
+- `src/habits/habit-timer.ts` + `habit-timer.test.ts` (7 casos, `Date.now` mockeado, sin RTL).
+- El snapshot de `useSyncExternalStore` es el string crudo de `localStorage`, no el objeto
+  parseado: comparar por identidad un objeto nuevo en cada llamada sería un render infinito.
+- Agregado que el issue no pedía: arrancar el cronómetro de otro hábito primero guarda lo que iba
+  corriendo. Un timer a la vez sigue siendo cierto, pero cambiar de hábito ya no tira los minutos.
+- Post-review: el auto-corte al llegar a la meta tiene dos guardas que el issue no nombraba —
+  sólo `good` (en un `bad` el target es un techo, y con techo 0 el timer se apagaba antes de
+  arrancar) y sólo si venías por debajo del target (dar play estando ya en la meta se auto-cortaba
+  en el primer render, en vez de seguir contando como pide la story 20).

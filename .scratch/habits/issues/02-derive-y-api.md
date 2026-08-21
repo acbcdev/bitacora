@@ -1,6 +1,6 @@
 # 02 — Derivación pura + `habits.api.ts`
 
-**Status:** ready-for-agent
+**Status:** resuelto — implementado 2026-08-20
 **Spec:** `.scratch/habits/spec.md`
 **ADR:** `docs/adr/0009-habit-log-por-dia-y-target-congelado.md`
 **Blocked by:** 01
@@ -82,3 +82,12 @@ Mismo estilo que `courses.api.ts` / `review.api.ts`, sin abstracción nueva:
 - **`habit.days` no cambia nada**: el mismo log con `days: null` y con `days: [1,3,5]` da idéntico
   `met`, `streak` y serie de 14.
 - `days` tiene 14 posiciones y cada una trae `amount` y `target`.
+
+## Comments
+
+- `src/habits/habits.ts` + `habits.test.ts` (11 casos) y `src/habits/habits.api.ts`.
+- `deriveHabit` filtra por `habit.id` adentro, así el call site le pasa el log entero sin filtrar.
+- La racha tiene un piso nuevo que el issue no nombraba: el período de `created_at`. Sin él, un
+  `bad` sin filas (donde "período sin filas" cumple) contaría hacia atrás para siempre.
+- `useSetDay` es optimista (`onMutate` escribe el cache): además de mover el número sin round-trip,
+  es lo que hace que dos clicks seguidos sumen 2 — el `+1` lee ese mismo cache.

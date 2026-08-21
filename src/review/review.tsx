@@ -20,14 +20,14 @@ import { docToPlainText } from "@/core/lib/tiptap-markdown"
 import { DAILY_GOAL, todayKey, useReadStats } from "@/core/lib/stats"
 import { MOD } from "@/core/lib/utils"
 import { Courses } from "@/courses/courses"
+import { HabitTiles } from "@/habits/habit-tiles"
 import type { Grade } from "@/core/types/database"
-import { HabitsPrototype } from "../../.scratch/habits/habits.prototype"
 
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
 //   Enter = abrir la nota (adentro, Enter otra vez = leído + siguiente) · J = volver · K = siguiente.
 // Desde la card, marcar leído NO avanza (no leíste la nota, solo el preview): el ítem se queda y
 // movés vos con J/K. Desde el dialog SÍ avanza: ahí el gate exige haber llegado al final.
-// Debajo del repaso va la lista de cursos embebida, como en el diseño.
+// Debajo del repaso va la tira de hábitos y después la lista de cursos embebida, como en el diseño.
 export function Review() {
   const { data: queue = [], isLoading, refetch } = useReviewQueue()
   const { data: courses = [] } = useCourses()
@@ -351,8 +351,9 @@ export function Review() {
         />
       )}
 
-      {/* PROTOTIPO — TIRAR. Tira de hábitos. Ver .scratch/habits/. */}
-      {import.meta.env.DEV && <HabitsPrototype />}
+      {/* Los hábitos van entre el repaso y Cursos: a la vista en la pantalla que ya se abre
+          2–3×/día, sin competirle el lugar a la nota. */}
+      <HabitTiles />
 
       <Courses embed />
     </div>

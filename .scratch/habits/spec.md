@@ -1,6 +1,6 @@
 # Feature: hábitos (buenos y malos, frecuencia custom) — MVP
 
-**Status:** ready-for-agent
+**Status:** resuelto — implementado 2026-08-20 (los 6 issues, ver sus `## Comments`)
 **Blocked by:** ninguno
 **ADR:** `docs/adr/0009-habit-log-por-dia-y-target-congelado.md`
 

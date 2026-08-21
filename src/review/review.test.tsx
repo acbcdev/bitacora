@@ -2,17 +2,30 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter } from "react-router-dom"
 import { TooltipProvider } from "@/core/ui/tooltip"
+import { todayKey } from "@/core/lib/stats"
 import { Review } from "@/review/review"
 
 // Spy hoisted para poder referenciarlo dentro del factory de vi.mock. El insert además guarda la
 // fila en `readLog`: las stats ("leídas hoy", racha) se derivan de read_log, así que sin esto no
 // se puede testear que se refresquen.
-const { insertReadLog, readLog } = vi.hoisted(() => {
+// Idem para el log de hábitos, con una diferencia: registrar es un UPSERT sobre (habit_id, day),
+// así que el fake pisa la fila del día en vez de agregar una nueva — es lo que testean los casos
+// de más abajo.
+const { insertReadLog, readLog, upsertHabitLog, habitLog } = vi.hoisted(() => {
   const rows: unknown[] = []
+  type LogRow = { habit_id: string; day: string; amount: number; target: number }
+  const habitRows: LogRow[] = []
   return {
     readLog: rows,
+    habitLog: habitRows,
     insertReadLog: vi.fn((row: { note_id: string }) => {
       rows.push({ ...row, read_at: new Date().toISOString() })
+      return Promise.resolve({ error: null })
+    }),
+    upsertHabitLog: vi.fn((row: LogRow) => {
+      const prev = habitRows.find((r) => r.habit_id === row.habit_id && r.day === row.day)
+      if (prev) Object.assign(prev, row)
+      else habitRows.push({ ...row })
       return Promise.resolve({ error: null })
     }),
   }
@@ -20,10 +33,26 @@ const { insertReadLog, readLog } = vi.hoisted(() => {
 
 // Mock del cliente Supabase: cola de 2 notas + un curso. Sin red.
 vi.mock("@/core/lib/supabase", () => {
+  // Tres hábitos, uno por métrica: el orden es el de la tira y el del chord h>1..9.
+  const habit = (over: Record<string, unknown>) => ({
+    user_id: "u1",
+    icon: null,
+    kind: "good",
+    days: null,
+    deleted_at: null,
+    created_at: "2026-01-01T00:00:00Z",
+    ...over,
+  })
   const rows: Record<string, unknown[]> = {
     courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
     notes: [],
     read_log: readLog,
+    habits: [
+      habit({ id: "h1", name: "Gym", metric: "count", target: 3, period: "week" }),
+      habit({ id: "h2", name: "Meditar", metric: "check", target: 1, period: "day" }),
+      habit({ id: "h3", name: "Leer", metric: "time", target: 25, period: "day" }),
+    ],
+    habit_log: habitLog,
   }
   // Cadena thenable: select/is/eq/order devuelven la misma cadena y se resuelven al await —
   // igual que el PostgrestBuilder real de supabase-js, que también es un thenable.
@@ -34,6 +63,7 @@ vi.mock("@/core/lib/supabase", () => {
       eq: () => chain,
       order: () => chain,
       insert: insertReadLog,
+      upsert: upsertHabitLog,
       // oxlint-disable-next-line unicorn/no-thenable -- es justamente lo que imita al builder real
       then: (fn: (r: unknown) => unknown) =>
         Promise.resolve({ data: rows[table] ?? [], error: null }).then(fn),
@@ -115,7 +145,10 @@ function renderReview() {
 
 beforeEach(() => {
   insertReadLog.mockClear()
+  upsertHabitLog.mockClear()
   readLog.length = 0
+  habitLog.length = 0
+  localStorage.clear()
 })
 
 test("marcar leído refresca el contador de hoy", async () => {
@@ -309,4 +342,81 @@ test("el dialog muestra cuántos repasos lleva la nota", async () => {
   expect(
     await within(await screen.findByRole("dialog")).findByText("· 1 repaso"),
   ).toBeInTheDocument()
+})
+
+// ── Tira de hábitos ───────────────────────────────────────────────────────────────────────────
+// Todo lo que escribe pasa por un upsert sobre (habit_id, day): el +1, el toggle y el panel son
+// el mismo camino, así que alcanza con mirar con qué se llama.
+
+test("click en un tile de cantidad upsertea hoy, y el segundo click suma sobre la misma fila", async () => {
+  renderReview()
+  const gym = await screen.findByRole("button", { name: "Registrar Gym" })
+
+  fireEvent.click(gym)
+  await waitFor(() => expect(upsertHabitLog).toHaveBeenCalledTimes(1))
+  expect(upsertHabitLog).toHaveBeenCalledWith(
+    { habit_id: "h1", day: todayKey(), amount: 1, target: 3 },
+    { onConflict: "habit_id,day" },
+  )
+
+  fireEvent.click(gym)
+  await waitFor(() => expect(upsertHabitLog).toHaveBeenCalledTimes(2))
+  expect(upsertHabitLog).toHaveBeenLastCalledWith(
+    expect.objectContaining({ amount: 2 }),
+    expect.anything(),
+  )
+  // Upsert, no insert: sigue habiendo una sola fila para el día.
+  expect(habitLog).toEqual([{ habit_id: "h1", day: todayKey(), amount: 2, target: 3 }])
+  expect(await screen.findByText("2/3")).toBeInTheDocument()
+})
+
+test("click en un check ya marcado lo deja en 0, no borra la fila", async () => {
+  habitLog.push({ habit_id: "h2", day: todayKey(), amount: 1, target: 1 })
+  renderReview()
+  const meditar = await screen.findByRole("button", { name: "Registrar Meditar" })
+  await waitFor(() => expect(meditar).toHaveAttribute("aria-pressed", "true"))
+
+  fireEvent.click(meditar)
+  await waitFor(() => expect(upsertHabitLog).toHaveBeenCalledTimes(1))
+  expect(upsertHabitLog).toHaveBeenCalledWith(
+    { habit_id: "h2", day: todayKey(), amount: 0, target: 1 },
+    { onConflict: "habit_id,day" },
+  )
+  expect(habitLog).toHaveLength(1)
+})
+
+test("click en un tile de tiempo arranca el cronómetro y todavía no escribe", async () => {
+  renderReview()
+  fireEvent.click(await screen.findByRole("button", { name: "Registrar Leer" }))
+
+  // El tiempo hecho entra en la DB recién al pausar o al llegar a la meta.
+  await waitFor(() => expect(localStorage.getItem("bita-timer")).toBeTruthy())
+  expect(upsertHabitLog).not.toHaveBeenCalled()
+  expect(await screen.findByRole("button", { name: "Cortar Leer" })).toBeInTheDocument()
+})
+
+test("el chord h>1 registra el primer hábito de la tira", async () => {
+  renderReview()
+  await screen.findByRole("button", { name: "Registrar Gym" })
+
+  fireEvent.keyDown(document, { code: "KeyH" })
+  fireEvent.keyDown(document, { code: "Digit1" })
+  await waitFor(() => expect(upsertHabitLog).toHaveBeenCalledTimes(1))
+  expect(upsertHabitLog).toHaveBeenCalledWith(
+    { habit_id: "h1", day: todayKey(), amount: 1, target: 3 },
+    { onConflict: "habit_id,day" },
+  )
+})
+
+test("los tiles no le roban Enter / J / K al repaso", async () => {
+  renderReview()
+  await screen.findByRole("button", { name: "Registrar Gym" })
+
+  fireEvent.keyDown(document, { code: "KeyK" })
+  await screen.findByText("Nota dos")
+  fireEvent.keyDown(document, { code: "KeyJ" })
+  await screen.findByText("Nota uno")
+  fireEvent.keyDown(document, { code: "Enter" })
+  await screen.findByRole("dialog")
+  expect(upsertHabitLog).not.toHaveBeenCalled()
 })

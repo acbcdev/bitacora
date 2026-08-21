@@ -1,6 +1,6 @@
 # 03 — Tira de tiles de hábitos en Hoy + chord `h > 1..9`
 
-**Status:** ready-for-agent
+**Status:** resuelto — implementado 2026-08-20
 **Spec:** `.scratch/habits/spec.md`
 **Prototipo:** `.scratch/habits/habits.prototype.tsx`. Dos rondas cerradas: la tira **no** es un
 card de filas (con 5 hábitos costaba más alto que la nota), y la anatomía es **relleno** — le ganó a
@@ -99,3 +99,23 @@ Click en el tile de un `count` hace exactamente 1 **upsert** con `habit_id`, `da
 `check` ya marcado lo deja en `amount: 0` (no borra) · click en un tile `time` arranca el cronómetro
 y **no** escribe todavía · `h>1` dispara el primer tile · los tiles no rompen `Enter`/`J`/`K` del
 repaso.
+
+## Comments
+
+- `src/habits/habit-tiles.tsx`, montado en `src/review/review.tsx` entre el card de repaso y
+  `<Courses embed />`. El prototipo (`habits.prototype.tsx`) se borró: ya no queda nada que mirar
+  ahí que no esté en el código real.
+- `CourseIcon` tomó el prop `fallback` (default `BookOpen`, los hábitos pasan `Target`).
+- **Overflow, desviación consciente:** el tope de 2 filas es un `max-height` y el botón "ver todos"
+  está SIEMPRE, en vez de aparecer sólo cuando algo no entra. Detectar el overflow real necesita
+  medir con ResizeObserver; el resultado visible es el mismo (lo que no entra se ve en el dialog).
+- La numeración del chord toma los primeros 9 tiles; el resto se opera desde el dialog.
+- **El `−` no se dibuja en un `bad` de métrica `time`**: ahí el gesto ya es el `▶` (medir la
+  recaída) y dos íconos dirían lo mismo dos veces. Viene tal cual del prototipo. El borde punteado
+  y la escala invertida sí están en las tres métricas.
+- Post-review: la tira **no se dibuja hasta que `habit_log` cargó**. El `+1` y el toggle se
+  calculan sobre lo de hoy y el target congelado sale de ese cache: con el log a medio cargar, un
+  click escribía `amount: 1` sobre la fila real del día y le pisaba el `target`.
+- Post-review: el `+` abre el dialog **en el form**, no en la lista — antes su `aria-label`
+  ("Nuevo hábito") mentía. `HabitsDialog` se monta abierto y se desmonta al cerrar, igual que
+  `CourseForm`.

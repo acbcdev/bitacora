@@ -35,6 +35,7 @@ si ya hay una tecla con este significado en otra vista — reusarla en vez de in
 | `Enter` | confirmar / abrir la acción principal | Cursos (abrir), Repaso (marcar leído/revelar, gateado en dialog), CourseForm (submit nativo), CommandPalette (cmdk) | — |
 | `Esc` | cerrar / cancelar / salir | siempre | — |
 | `/` (bind: `"slash"`, no `"/"` — la lib matchea por `e.code`) | enfocar buscador | Cursos | — |
+| chord `g>`/`h>` + dígito | acción por posición, sin gastar una letra bare: `g>1..9` = ir al curso N del sidebar, `h>1..9` = acción rápida del hábito N de la tira de Hoy | — (siempre chord) | — |
 | `mod+` | señal de "esto es deliberado, corré aunque el foco esté en un editor" | — | Note (`F`, borrar), Course (nav de notas), global (`mod+k`, precedente ya existente) |
 
 **Regla de fondo:** un atajo de una sola letra bare es inseguro en cualquier vista donde el foco
@@ -49,4 +50,6 @@ solo con `mod+`, sin alias bare, porque no hay beneficio en que anden fuera del 
 - No construir un component library "para después". shadcn copia lo que necesitás cuando lo
   necesitás.
 - No agregar animaciones/transiciones que metan latencia percibida.
-- No pantallas nuevas fuera de las 3 (Repaso, Cursos, Nota) sin reabrir el scope.
+- No pantallas nuevas fuera de las 3 (Repaso, Cursos, Nota) sin reabrir el scope. La vista completa
+  de hábitos es un **Dialog** justamente por eso: overlay, no 4ta pantalla — mismo criterio que el
+  Settings dialog de `CONTEXT.md`.

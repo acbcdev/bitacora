@@ -19,23 +19,29 @@ export function ConfirmDelete({
   onOpenChange,
   what,
   onConfirm,
+  // El verbo se pisa donde la acción no se llama "borrar" en la UI (hábitos: "archivar"). El
+  // mecanismo es el mismo soft delete; lo único que cambia es la palabra que ve el usuario.
+  verb = "Borrar",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   what: string
   onConfirm: () => void
+  verb?: string
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>¿Borrar “{what}”?</AlertDialogTitle>
+          <AlertDialogTitle>
+            ¿{verb} “{what}”?
+          </AlertDialogTitle>
           <AlertDialogDescription>No se puede deshacer desde la app.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction variant="destructive" onClick={onConfirm}>
-            Borrar
+            {verb}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
