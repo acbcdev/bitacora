@@ -75,31 +75,27 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
   const [open, setOpen] = useState(false)
   // Qué día se está corrigiendo: 13 = hoy. Sin grilla, se navega con las flechas.
   const [i, setI] = useState(TODAY)
-  // Borrador, y SÓLO mientras editás: `null` significa "no tocaste nada", y entonces no se escribe
-  // nada. Eso es lo que evita el bug del panel viejo, que guardaba una copia hecha al abrir y al
-  // cerrar la pisaba encima de lo que hubiera escrito el tile, el atajo h>N o el cronómetro.
-  const [draft, setDraft] = useState<number | null>(null)
 
   const day = dayAt(i)
-  const shown = draft ?? state.days[i].amount
+  // El número sale del cache, no de un borrador: MISMA fuente que el tile, así que el cronómetro
+  // o un h>N con el panel abierto se ven acá al toque.
+  const shown = state.days[i].amount
   const step = STEP[habit.metric]
 
-  // Se escribe al SALIR del día: al cerrar el panel y al cambiar de fecha. Sin `Guardar` (el click
-  // del tile tampoco pide confirmar) y sin un upsert por cada tap del `+`.
-  function commit() {
-    if (draft === null) return
-    setDay.mutate({ habit, day: dayKey(day), value: draft })
-    setDraft(null)
-  }
+  // Cada gesto escribe, igual que el click del tile — la mutation es optimista, el número se mueve
+  // sin esperar el round-trip. Antes esto juntaba los cambios en un borrador y los volcaba al
+  // cerrar, y por eso hacía falta un cartel ("Se guarda al cerrar. Sin guardar todavía.") que sólo
+  // existía para explicar su propia mecánica. Sin borrador no hay nada pendiente que avisar.
+  // ponytail: un upsert por tap del `+`. Es lo que ya hace el tile; si el spam molesta, debounce
+  // acá — no volver al borrador.
+  const write = (value: number) => setDay.mutate({ habit, day: dayKey(day), value })
 
   return (
     <Dropover
       open={open}
       onOpenChange={(next) => {
-        if (!next) commit()
         setOpen(next)
         setI(TODAY) // abrir y cerrar siempre vuelven a hoy: el panel corrige, no navega
-        setDraft(null)
       }}
     >
       <DropoverTrigger asChild>
@@ -138,10 +134,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
             variant="ghost"
             aria-label="Día anterior"
             disabled={i === 0}
-            onClick={() => {
-              commit() // lo editado es del día que estás dejando, no del que viene
-              setI(i - 1)
-            }}
+            onClick={() => setI(i - 1)}
           >
             <ChevronLeft />
           </Button>
@@ -155,10 +148,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
             variant="ghost"
             aria-label="Día siguiente"
             disabled={i === TODAY}
-            onClick={() => {
-              commit()
-              setI(i + 1)
-            }}
+            onClick={() => setI(i + 1)}
           >
             <ChevronRight />
           </Button>
@@ -172,7 +162,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
               type="button"
               variant={shown ? "outline" : "default"}
               className="flex-1"
-              onClick={() => setDraft(0)}
+              onClick={() => write(0)}
             >
               No lo hice
             </Button>
@@ -180,7 +170,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
               type="button"
               variant={shown ? "default" : "outline"}
               className="flex-1"
-              onClick={() => setDraft(1)}
+              onClick={() => write(1)}
             >
               Hecho
             </Button>
@@ -194,7 +184,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
                 size="icon-sm"
                 aria-label="Restar"
                 disabled={shown === 0}
-                onClick={() => setDraft(Math.max(0, shown - step))}
+                onClick={() => write(Math.max(0, shown - step))}
               >
                 <Minus />
               </InputGroupButton>
@@ -203,7 +193,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
               type="number"
               min={0}
               value={shown}
-              onChange={(e) => setDraft(Math.max(0, Number(e.target.value) || 0))}
+              onChange={(e) => write(Math.max(0, Number(e.target.value) || 0))}
               aria-label={`Cantidad de ${FMT.format(day)}`}
               className="text-center text-base tabular-nums"
             />
@@ -211,19 +201,13 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
               <InputGroupButton
                 size="icon-sm"
                 aria-label="Sumar"
-                onClick={() => setDraft(shown + step)}
+                onClick={() => write(shown + step)}
               >
                 <Plus />
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>
         )}
-
-        {/* Sin botón de guardar hay que decirlo: si no, se busca uno y se cierra creyendo que se
-            perdió. */}
-        <p className="text-xs text-muted-foreground">
-          {draft === null ? "Se guarda al cerrar." : "Se guarda al cerrar. Sin guardar todavía."}
-        </p>
       </DropoverContent>
     </Dropover>
   )
