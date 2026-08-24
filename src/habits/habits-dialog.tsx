@@ -25,7 +25,7 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
 
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
-      <DialogContent showCloseButton={false} className="w-120 max-w-[92vw] gap-0 p-0 sm:max-w-120">
+      <DialogContent showCloseButton={false} className="w-160 max-w-[92vw] gap-0 p-0 sm:max-w-160">
         {/* En el form el título visible ES el input del nombre (página de Notion), así que el
             header se esconde — pero el DialogTitle SIGUE montado: Radix lo exige para el
             aria-labelledby del dialog y sin él avisa por consola. */}
