@@ -65,6 +65,14 @@ export function shownMinutes(amount: number, t: Timer, now = Date.now()) {
   return amount + elapsedMinutes(t, now)
 }
 
+// El mm:ss que muestra el tile mientras corre: los mismos minutos acumulados que `shownMinutes`,
+// pero con los segundos del cronómetro a la vista. Es sólo para MIRAR — al pausar se sigue
+// guardando en minutos con `pausedValue`, así que el reloj puede decir 07:31 y guardarse 8.
+export function shownClock(amount: number, t: Timer, now = Date.now()) {
+  const s = amount * 60 + Math.floor((now - t.startedAt) / 1000)
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
+}
+
 // Lo que hay que escribir al pausar o al llegar a la meta. `null` = menos de medio minuto, no hay
 // nada que sumar. El timer no es un camino de escritura especial: esto va al mismo useSetDay que
 // el click y el panel, así que el panel puede corregirlo después como cualquier otro número.

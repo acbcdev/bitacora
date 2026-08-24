@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useHotkeys } from "react-hotkeys-hook"
-import { Check, Flame, Minus, Play, Plus, Square, Target } from "lucide-react"
+import { Check, Flame, Minus, Pause, Play, Plus, Target } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { CourseIcon } from "@/courses/course-icon"
@@ -14,6 +14,7 @@ import {
   clearTimer,
   finishTimer,
   pausedValue,
+  shownClock,
   shownMinutes,
   startTimer,
   useTimer,
@@ -33,11 +34,37 @@ type Entry = { h: Habit; state: HabitState }
 const ratio = (h: Habit, t: number) =>
   h.kind === "bad" && h.target === 0 ? `${t}` : `${t}/${h.target}`
 
+// Los tres estados vivos de un `time`. "Pausado" NO es un dato nuevo: pausar ya escribe los
+// minutos en habit_log y borra el cronómetro (habit-timer.ts), así que sale de lo que ya hay —
+// algo hecho, nada corriendo, y todavía falta. Sin campo nuevo y sin migración.
+type Run = { running: boolean; clock: string | null; paused: boolean }
+
 // El dato del tile sale de la métrica, no del kind: un object-map, no un switch.
-const LABEL: Record<HabitMetric, (h: Habit, t: number) => ReactNode> = {
+const LABEL: Record<HabitMetric, (h: Habit, t: number, r: Run) => ReactNode> = {
   check: (_h, t) => (t > 0 ? <Check size={14} strokeWidth={3} className="text-brand-fg" /> : "hoy"),
   count: ratio,
-  time: (h, t) => `${ratio(h, t)} min`,
+  // Corriendo el dato pasa a reloj: `7/20 min` cambia una vez cada 60 segundos y se lee congelado,
+  // que es justo lo contrario de lo que querés ver con el cronómetro andando.
+  time: (h, t, r) =>
+    r.clock ? (
+      <>
+        <span
+          aria-hidden
+          className="size-[5px] shrink-0 animate-pulse rounded-full bg-brand-strong"
+        />
+        <span className="text-[13px] font-medium text-brand-fg">{r.clock}</span>
+        <span className="opacity-70">/{h.target}</span>
+      </>
+    ) : (
+      <>
+        {ratio(h, t)} min
+        {/* El ‖ ámbar es lo único que separa "empezaste y frenaste" de "nunca arrancaste": el
+            número solo no lo dice, porque 0/20 y 7/20 se dibujan igual. */}
+        {r.paused && (
+          <Pause size={8} fill="currentColor" strokeWidth={0} className="text-warning" />
+        )}
+      </>
+    ),
 }
 
 // Piso de ancho del slot del dato, por métrica: un check no pasa de "hoy", un time va de "0/25 min"
@@ -93,6 +120,7 @@ export function HabitTiles() {
 
   const running = entries.find((e) => e.h.id === timer?.habitId)
   const shown = running && timer ? shownMinutes(running.state.total, timer) : 0
+  const clock = running && timer ? shownClock(running.state.total, timer) : null
   // Termina solo únicamente si fue ESTE cronómetro el que cruzó la meta. Dos guardas:
   //  · sólo un `good` — en un `bad` el target es un TECHO, pasarlo no es "listo", y con techo 0 se
   //    apagaría antes de arrancar;
@@ -189,6 +217,7 @@ export function HabitTiles() {
             e={e}
             total={running?.h.id === e.h.id ? shown : e.state.total}
             running={running?.h.id === e.h.id}
+            clock={running?.h.id === e.h.id ? clock : null}
             onQuick={() => quick(e)}
           />
         ))}
@@ -207,32 +236,41 @@ export function HabitTiles() {
   )
 }
 
-const quickLabel = (h: Habit, running: boolean) =>
-  running
-    ? `Cortar ${h.name}`
-    : h.kind === "bad"
-      ? `Registrar recaída de ${h.name}`
-      : `Registrar ${h.name}`
+// Tres gestos, tres verbos. "Cortar" mentía: el click sobre un cronómetro corriendo GUARDA los
+// minutos y pausa, no descarta nada.
+const quickLabel = (h: Habit, r: Run) =>
+  r.running
+    ? `Pausar ${h.name}`
+    : r.paused
+      ? `Reanudar ${h.name}`
+      : h.kind === "bad"
+        ? `Registrar recaída de ${h.name}`
+        : `Registrar ${h.name}`
 
 function HabitTile({
   e: { h, state },
   total,
   running,
+  clock,
   onQuick,
 }: {
   e: Entry
   total: number
   running: boolean
+  clock: string | null
   onQuick: () => void
 }) {
   const met = meets(h.kind, total, h.target)
   const over = h.kind === "bad" && !met
   const pct = Math.min(100, (total / Math.max(h.target, 1)) * 100)
+  const r: Run = { running, clock, paused: h.metric === "time" && !running && total > 0 && !met }
 
   return (
     <div
       className={cn(
         "group relative flex h-16 w-50 items-center gap-3 overflow-hidden rounded-lg border bg-card px-3",
+        // El tile entero se ilumina: el trigger no es el ▶, es toda la superficie.
+        "transition-colors hover:bg-muted",
         // El punteado significa "todavía tenés margen". Pasado el techo el borde se cierra: ya no
         // hay margen, y dejarlo punteado con el tile lleno contradice el dato.
         h.kind === "bad" && !over && "border-dashed",
@@ -260,11 +298,45 @@ function HabitTile({
             type="button"
             onClick={onQuick}
             aria-pressed={h.metric === "check" ? total > 0 : undefined}
-            aria-label={quickLabel(h, running)}
-            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+            aria-label={quickLabel(h, r)}
+            className="group/quick flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
           >
-            <span className="flex size-8 shrink-0 items-center justify-center text-fg-secondary">
-              <CourseIcon icon={h.icon} fallback={Target} className="size-5" />
+            {/* El slot del ícono ES el botón: en reposo el ícono del hábito, en hover el ▶, y
+                corriendo el ‖ — que es lo que hace el click. El ■ de antes decía "parar/descartar"
+                y el click guarda. El grupo es el BOTÓN y no el tile: pasar por el `⌄` no debe
+                prometer un play que ese click no dispara. */}
+            <span
+              className={cn(
+                "relative flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-secondary transition-colors",
+                "group-hover/quick:text-foreground",
+                running && "bg-brand-soft text-brand-fg group-hover/quick:text-brand-fg",
+                // El anillo dice que hay algo empezado sin repetir el número.
+                r.paused && "ring-1 ring-input",
+              )}
+            >
+              {running ? (
+                <Pause size={16} fill="currentColor" strokeWidth={0} />
+              ) : (
+                <>
+                  <CourseIcon
+                    icon={h.icon}
+                    fallback={Target}
+                    className={cn(
+                      "size-5 transition-opacity",
+                      h.metric === "time" && "group-hover/quick:opacity-0",
+                    )}
+                  />
+                  {h.metric === "time" && (
+                    <Play
+                      aria-hidden
+                      size={14}
+                      fill="currentColor"
+                      strokeWidth={0}
+                      className="absolute opacity-0 transition-opacity group-hover/quick:opacity-100"
+                    />
+                  )}
+                </>
+              )}
             </span>
             <span className="min-w-0 flex-1">
               <span
@@ -279,18 +351,14 @@ function HabitTile({
               corriendo este número sube solo y sin ancho fijo el tile late. */}
               <span
                 className={cn(
-                  "mono-dim flex items-center gap-1 text-xs tabular-nums",
+                  "mono-dim flex items-center gap-1 text-xs tabular-nums transition-colors",
                   SLOT[h.metric],
+                  "group-hover/quick:text-fg-secondary",
+                  r.paused && "text-fg-secondary",
                 )}
               >
-                {LABEL[h.metric](h, total)}
-                {h.metric === "time" &&
-                  (running ? (
-                    <Square size={9} fill="currentColor" className="text-brand-fg" />
-                  ) : (
-                    <Play size={9} fill="currentColor" />
-                  ))}
-                {/* En un `bad` de tiempo el gesto ya es el ▶: dos íconos dirían lo mismo dos veces. */}
+                {LABEL[h.metric](h, total, r)}
+                {/* En un `bad` de tiempo el gesto ya lo dice el slot: dos íconos, lo mismo dos veces. */}
                 {h.kind === "bad" && h.metric !== "time" && (
                   <Minus size={11} className="opacity-60" />
                 )}

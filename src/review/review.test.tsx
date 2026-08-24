@@ -392,7 +392,17 @@ test("click en un tile de tiempo arranca el cronómetro y todavía no escribe", 
   // El tiempo hecho entra en la DB recién al pausar o al llegar a la meta.
   await waitFor(() => expect(localStorage.getItem("bita-timer")).toBeTruthy())
   expect(upsertHabitLog).not.toHaveBeenCalled()
-  expect(await screen.findByRole("button", { name: "Cortar Leer" })).toBeInTheDocument()
+  expect(await screen.findByRole("button", { name: "Pausar Leer" })).toBeInTheDocument()
+})
+
+// Pausado no es un estado en la DB: es tiempo hecho + nada corriendo. Lo único que lo distingue
+// de "nunca arrancaste" es el label del botón (y el ‖ ámbar, que es decorativo).
+test("un tiempo empezado y frenado ofrece reanudar, no registrar", async () => {
+  habitLog.push({ habit_id: "h3", day: todayKey(), amount: 7, target: 25 })
+  renderReview()
+
+  expect(await screen.findByRole("button", { name: "Reanudar Leer" })).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Registrar Leer" })).not.toBeInTheDocument()
 })
 
 test("el chord h>1 registra el primer hábito de la tira", async () => {
