@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useHotkeys } from "react-hotkeys-hook"
 import { Check, Flame, Minus, Play, Plus, Square, Target } from "lucide-react"
+import { Button } from "@/core/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { CourseIcon } from "@/courses/course-icon"
 import { todayKey } from "@/core/lib/stats"
 import { cn } from "@/core/lib/utils"
-import { deriveHabit, meets, TRACKED_DAYS, type HabitState } from "@/habits/habits"
+import { deriveHabit, goalText, meets, TRACKED_DAYS, type HabitState } from "@/habits/habits"
 import { useHabitLog, useHabits, useSetDay } from "@/habits/habits.api"
-import { HabitPanel } from "@/habits/habit-panel"
+import { HabitHistory, HabitPanel } from "@/habits/habit-panel"
 import { HabitsDialog } from "@/habits/habits-dialog"
 import {
   clearTimer,
@@ -47,16 +49,15 @@ const SLOT: Record<HabitMetric, string> = {
   time: "min-w-16",
 }
 
-// El relleno no tiene color propio: se MEZCLA — rojo lo que falta, verde lo hecho. En un `bad` la
+// La barra no tiene color propio: se MEZCLA — rojo lo que falta, verde lo hecho. En un `bad` la
 // escala va al revés (llenarse es perder), y el rojo del techo pasado sale de la misma fórmula
 // (pct = 100 → done = 0), sin caso especial.
-// ponytail: la mezcla se rebaja contra --card, no contra transparent — es lo que mantiene legible
-// el texto de arriba y lo que hace que la escala se dé vuelta sola entre tema claro y oscuro.
-const MIX = 30 // cuánto pesa el color contra el fondo del card
-function fillColor(h: Habit, pct: number) {
-  const done = Math.round(h.kind === "good" ? pct : 100 - pct)
-  const scale = `color-mix(in oklab, var(--brand) ${done}%, var(--destructive))`
-  return `color-mix(in oklab, ${scale} ${MIX}%, var(--card))`
+// Va SÓLIDA. Antes esto era un relleno de fondo rebajado al 30% contra --card… en un tile que nunca
+// pintaba --card: se mezclaba contra un color que no estaba abajo y quedaba casi invisible. En 3px
+// no hay texto encima que proteger, así que no hay nada que rebajar.
+function barColor(kind: Habit["kind"], pct: number) {
+  const done = Math.round(kind === "good" ? pct : 100 - pct)
+  return `color-mix(in oklab, var(--brand) ${done}%, var(--destructive))`
 }
 
 export function HabitTiles() {
@@ -138,8 +139,46 @@ export function HabitTiles() {
   // sobre la fila real del día y le pisaría el target. Mostrar 0/3 mientras carga tampoco sirve.
   if (!logReady) return null
 
+  const met = entries.filter((e) => e.state.met).length
+
   return (
     <div className="mb-8">
+      {/* Misma cabecera que Cursos — mismo `text-xl` + contador `mono-dim`. Antes la tira aparecía
+          sin nombre entre el card de repaso y Cursos, y la única acción era un botón primario que
+          pesaba más que los hábitos: crear más competía con lo que ya tenías. */}
+      <div className="mb-3 flex items-center gap-3">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-xl font-semibold tracking-tight">Hábitos</h2>
+          {/* `met` es por PERÍODO, no por día (ADR 0009): un `3 por semana` cuenta como cumplido
+              con la semana hecha. De ahí "cumplidos" y no "hoy". */}
+          {entries.length > 0 && (
+            <span className="mono-dim">
+              {met}/{entries.length} cumplidos
+            </span>
+          )}
+        </div>
+
+        {entries.length > 0 && (
+          <button
+            type="button"
+            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setOpen("list")}
+          >
+            ver todos
+          </button>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setOpen("new")}
+          aria-label="Nuevo hábito"
+          className={cn(entries.length === 0 && "ml-auto", "max-md:size-8 max-md:p-0")}
+        >
+          <Plus />
+          <span className="max-md:hidden">Nuevo</span>
+        </Button>
+      </div>
+
       {/* Tope duro de 2 filas: acá vive la nota, y en mobile entran 1–2 tiles por fila.
           ponytail: el tope es un max-height, no una medición del overflow — "ver todos" está
           siempre y abre el dialog, que muestra todos igual. */}
@@ -153,22 +192,6 @@ export function HabitTiles() {
             onQuick={() => quick(e)}
           />
         ))}
-      </div>
-
-      <div className="mt-2 flex items-center justify-end gap-3 text-xs text-muted-foreground">
-        {entries.length > 0 && (
-          <button type="button" className="hover:text-foreground" onClick={() => setOpen("list")}>
-            ver todos
-          </button>
-        )}
-        <button
-          type="button"
-          aria-label="Nuevo hábito"
-          className="hover:text-foreground"
-          onClick={() => setOpen("new")}
-        >
-          <Plus size={14} />
-        </button>
       </div>
 
       {/* El dígito no se dibuja: mismo trato que g>1..9, que monta hotkeys invisibles y vive en el
@@ -209,63 +232,89 @@ function HabitTile({
   return (
     <div
       className={cn(
-        "group relative flex h-16 w-50 items-center gap-3 overflow-hidden rounded-lg border px-3",
+        "group relative flex h-16 w-50 items-center gap-3 overflow-hidden rounded-lg border bg-card px-3",
         // El punteado significa "todavía tenés margen". Pasado el techo el borde se cierra: ya no
         // hay margen, y dejarlo punteado con el tile lleno contradice el dato.
         h.kind === "bad" && !over && "border-dashed",
-        over
-          ? "border-destructive text-destructive"
-          : met && h.kind === "good"
-            ? "border-brand/50"
-            : "border-border",
+        // Cumplido NO toca el borde: la barra de abajo ya lo dice, y dos señales para el mismo
+        // hecho gastan el verde. El borde sólo habla cuando hay alarma (techo pasado en un `bad`).
+        over ? "border-destructive text-destructive" : "border-border",
       )}
     >
-      {/* El relleno es un span de fondo, no un background-image: así el texto de arriba nunca
-          cambia de color con el progreso. */}
-      <span
-        aria-hidden
-        style={{ width: `${pct}%`, backgroundColor: fillColor(h, pct) }}
-        className="absolute inset-y-0 left-0 transition-[width,background-color] duration-300"
-      />
+      {/* El progreso vive acá abajo y no en el fondo del tile: 3px sólidos se leen, un fondo
+          rebajado no. El riel gris existe para que un 5% se entienda como "5% de algo". */}
+      <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px] bg-muted">
+        <span
+          style={{ width: `${pct}%`, backgroundColor: barColor(h.kind, pct) }}
+          className="block h-full transition-[width,background-color] duration-300"
+        />
+      </span>
 
-      <button
-        type="button"
-        onClick={onQuick}
-        aria-pressed={h.metric === "check" ? total > 0 : undefined}
-        aria-label={quickLabel(h, running)}
-        className="relative flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
-      >
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-md border bg-card/60">
-          <CourseIcon icon={h.icon} fallback={Target} className="size-5" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span
-            className={cn(
-              "block truncate text-sm font-medium",
-              met && h.kind === "good" && "text-brand-fg",
-            )}
+      {/* Hover = MIRAR: los 14 días viven acá, no en el menú del `⌄`, que es para CORREGIR.
+          Tooltip y no popover: no hay nada que clickear adentro, así que no hace falta foco.
+          `delayDuration` propio — el provider de app.tsx está en 0 y una tarjeta de 14 cuadrados
+          saltando al primer píxel de hover es ruido. */}
+      <Tooltip delayDuration={400}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onQuick}
+            aria-pressed={h.metric === "check" ? total > 0 : undefined}
+            aria-label={quickLabel(h, running)}
+            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
           >
-            {h.name}
-          </span>
-          {/* Todo lo que cambia vive en un slot de ancho mínimo con tabular-nums: con el cronómetro
+            <span className="flex size-8 shrink-0 items-center justify-center text-fg-secondary">
+              <CourseIcon icon={h.icon} fallback={Target} className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span
+                className={cn(
+                  "block truncate text-sm font-medium",
+                  met && h.kind === "good" && "text-brand-fg",
+                )}
+              >
+                {h.name}
+              </span>
+              {/* Todo lo que cambia vive en un slot de ancho mínimo con tabular-nums: con el cronómetro
               corriendo este número sube solo y sin ancho fijo el tile late. */}
-          <span
-            className={cn("mono-dim flex items-center gap-1 text-xs tabular-nums", SLOT[h.metric])}
-          >
-            {LABEL[h.metric](h, total)}
-            {h.metric === "time" &&
-              (running ? (
-                <Square size={9} fill="currentColor" className="text-brand-fg" />
-              ) : (
-                <Play size={9} fill="currentColor" />
-              ))}
-            {/* En un `bad` de tiempo el gesto ya es el ▶: dos íconos dirían lo mismo dos veces. */}
-            {h.kind === "bad" && h.metric !== "time" && <Minus size={11} className="opacity-60" />}
-          </span>
-        </span>
-      </button>
+              <span
+                className={cn(
+                  "mono-dim flex items-center gap-1 text-xs tabular-nums",
+                  SLOT[h.metric],
+                )}
+              >
+                {LABEL[h.metric](h, total)}
+                {h.metric === "time" &&
+                  (running ? (
+                    <Square size={9} fill="currentColor" className="text-brand-fg" />
+                  ) : (
+                    <Play size={9} fill="currentColor" />
+                  ))}
+                {/* En un `bad` de tiempo el gesto ya es el ▶: dos íconos dirían lo mismo dos veces. */}
+                {h.kind === "bad" && h.metric !== "time" && (
+                  <Minus size={11} className="opacity-60" />
+                )}
+              </span>
+            </span>
+          </button>
+        </TooltipTrigger>
 
-      <span className="relative flex shrink-0 items-center gap-1 self-end pb-2.5">
+        {/* Superficie de popover, no la invertida del tooltip: adentro van 14 cuadrados de color
+            que sobre un fondo casi blanco se leerían al revés. Por eso también va sin flecha. */}
+        <TooltipContent
+          side="top"
+          sideOffset={6}
+          showArrow={false}
+          className="flex-col items-stretch gap-2 rounded-lg border bg-popover p-2.5 text-popover-foreground"
+        >
+          <span className="mono-dim text-[11px]">
+            {h.name} · {goalText(h)}
+          </span>
+          <HabitHistory habit={h} state={state} />
+        </TooltipContent>
+      </Tooltip>
+
+      <span className="flex shrink-0 items-center gap-1">
         {/* Sólo a partir de 2: un 🔥 0 es ruido y desmoraliza. */}
         {state.streak >= 2 && (
           <span className="mono-dim inline-flex items-center gap-0.5 text-[10px]">

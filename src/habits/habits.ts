@@ -12,17 +12,13 @@ export type HabitState = { total: number; met: boolean; streak: number; days: Da
 export const TRACKED_DAYS = 14
 
 const PERIOD_SHORT: Record<HabitPeriod, string> = { day: "día", week: "semana", month: "mes" }
-const WEEKDAYS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"]
 
 export const unit = (h: Pick<Habit, "metric">) => (h.metric === "time" ? " min" : "")
 
 // "3/semana", "25 min/día", "máx 0/día" — la meta en una línea. Un número suelto no dice si es
 // piso o techo; el "máx" sí.
-export const goalText = (h: Habit) =>
+export const goalText = (h: Pick<Habit, "kind" | "metric" | "target" | "period">) =>
   `${h.kind === "bad" ? "máx " : ""}${h.target}${unit(h)}/${PERIOD_SHORT[h.period]}`
-
-// Los días planeados, en texto. Es el único uso que tiene `days` en toda la app.
-export const daysText = (h: Habit) => h.days?.map((d) => WEEKDAYS[d]).join(" ") ?? ""
 
 // good = piso (llegar al target), bad = techo (no pasarlo). Mismo cálculo, signo distinto.
 export const meets = (kind: HabitKind, total: number, target: number) =>
