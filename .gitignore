@@ -30,3 +30,4 @@ scripts/notion-import/.out/
 .vscode/*
 !.vscode/extensions.json
 .idea
+.scratch
