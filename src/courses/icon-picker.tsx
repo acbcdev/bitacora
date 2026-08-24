@@ -15,9 +15,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/ui/tabs"
 export function IconPicker({
   icon,
   onChange,
+  className,
 }: {
   icon: string | null
   onChange: (v: string | null) => void
+  className?: string
 }) {
   const file = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
@@ -60,7 +62,7 @@ export function IconPicker({
           variant="outline"
           size="icon"
           aria-label="Icono del curso"
-          className="size-10 text-muted-foreground"
+          className={cn("size-10 text-muted-foreground", className)}
         >
           {icon ? <CourseIcon icon={icon} className="size-4.5" /> : <Smile />}
         </Button>
