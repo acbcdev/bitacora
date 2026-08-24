@@ -1,4 +1,4 @@
-import { deriveReadStats } from "@/core/lib/stats"
+import { deriveReadStats, lastDays } from "@/core/lib/stats"
 
 const now = new Date("2026-07-24T20:00:00")
 const at = (day: string, h = "10:00:00") => `2026-07-${day}T${h}`
@@ -40,4 +40,22 @@ test("byNote acumula repasos y guarda el último", () => {
     now,
   )
   expect(s.byNote.get("n1")).toEqual({ count: 3, last: at("24", "09:00:00") })
+})
+
+test("lastDays devuelve 14 días en orden, con huecos en cero y hoy al final", () => {
+  const s = deriveReadStats(
+    [
+      { note_id: "n1", read_at: at("24") },
+      { note_id: "n2", read_at: at("24", "11:00:00") },
+      { note_id: "n3", read_at: at("22") },
+      { note_id: "n4", read_at: at("11") }, // primer día de la ventana (14 días = desde el 11)
+    ],
+    now,
+  )
+  const days = lastDays(s.byDay, now)
+  expect(days).toHaveLength(14)
+  expect(days.at(-1)).toBe(2) // hoy, 24
+  expect(days.at(-2)).toBe(0) // 23, hueco
+  expect(days.at(-3)).toBe(1) // 22
+  expect(days[0]).toBe(1) // 11
 })

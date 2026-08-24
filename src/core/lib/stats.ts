@@ -5,11 +5,19 @@ import { supabase } from "@/core/lib/supabase"
 export const DAILY_GOAL = 3
 
 export type NoteReads = { count: number; last: string | null }
-export type ReadStats = { today: number; streak: number; byNote: Map<string, NoteReads> }
+export type ReadStats = {
+  today: number
+  streak: number
+  byNote: Map<string, NoteReads>
+  byDay: Map<string, number>
+}
 
 type ReadRow = { note_id: string; read_at: string }
 
-const EMPTY: ReadStats = { today: 0, streak: 0, byNote: new Map() }
+const EMPTY: ReadStats = { today: 0, streak: 0, byNote: new Map(), byDay: new Map() }
+
+// Ventana del hover de la racha. Misma que la de hábitos: más atrás es un calendario, otra UI.
+export const HISTORY_DAYS = 14
 
 // Fecha local (no UTC): la racha se cuenta en los días del usuario, no del servidor.
 export function dayKey(d: Date) {
@@ -42,10 +50,11 @@ export function relativeDay(iso: string | null | undefined) {
 // Racha = días consecutivos con al menos un repaso. Si hoy todavía no leyó, la racha de ayer
 // sigue viva (no se rompe hasta que pasa el día completo sin leer).
 export function deriveReadStats(rows: ReadRow[], now = new Date()): ReadStats {
-  const days = new Set<string>()
+  const byDay = new Map<string, number>()
   const byNote = new Map<string, NoteReads>()
   for (const r of rows) {
-    days.add(dayKey(new Date(r.read_at)))
+    const day = dayKey(new Date(r.read_at))
+    byDay.set(day, (byDay.get(day) ?? 0) + 1)
     const prev = byNote.get(r.note_id)
     byNote.set(r.note_id, {
       count: (prev?.count ?? 0) + 1,
@@ -54,20 +63,24 @@ export function deriveReadStats(rows: ReadRow[], now = new Date()): ReadStats {
   }
 
   const cursor = new Date(now)
-  const today = days.has(dayKey(cursor))
-  if (!today) cursor.setDate(cursor.getDate() - 1)
+  if (!byDay.has(dayKey(cursor))) cursor.setDate(cursor.getDate() - 1)
   let streak = 0
-  while (days.has(dayKey(cursor))) {
+  while (byDay.has(dayKey(cursor))) {
     streak++
     cursor.setDate(cursor.getDate() - 1)
   }
 
-  const today0 = dayKey(now)
-  return {
-    today: rows.filter((r) => dayKey(new Date(r.read_at)) === today0).length,
-    streak,
-    byNote,
-  }
+  return { today: byDay.get(dayKey(now)) ?? 0, streak, byNote, byDay }
+}
+
+// Los últimos HISTORY_DAYS días en orden, con los huecos en cero: la grilla necesita las celdas
+// vacías, y byDay sólo tiene los días que existieron.
+export function lastDays(byDay: Map<string, number> | undefined, now = new Date()) {
+  return Array.from({ length: HISTORY_DAYS }, (_, i) => {
+    const d = new Date(now)
+    d.setDate(d.getDate() - (HISTORY_DAYS - 1 - i))
+    return byDay?.get(dayKey(d)) ?? 0
+  })
 }
 
 // Todo derivado de read_log (ADR 0003): racha, leídas hoy, repasos y último repaso por nota.
