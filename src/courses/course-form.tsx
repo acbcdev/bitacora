@@ -10,7 +10,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/core/ui/combobox"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/ui/dialog"
+import { Drialog, DrialogContent, DrialogHeader, DrialogTitle } from "@/core/ui/drialog"
 import { Field, FieldGroup, FieldLabel } from "@/core/ui/field"
 import { Input } from "@/core/ui/input"
 import { NativeSelect } from "@/core/ui/native-select"
@@ -113,14 +113,14 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent showCloseButton={false} className="w-105 max-w-[92vw] gap-0 p-0 sm:max-w-105">
+    <Drialog open onOpenChange={(open) => !open && onClose()}>
+      <DrialogContent showCloseButton={false} className="gap-0 p-0 md:w-105 md:max-w-105">
         <form onSubmit={submit}>
-          <DialogHeader className="border-b px-8 py-6">
-            <DialogTitle className="text-lg font-semibold">
+          <DrialogHeader className="border-b px-8 py-6">
+            <DrialogTitle className="text-lg font-semibold">
               {course ? "Editar curso" : "Nuevo curso"}
-            </DialogTitle>
-          </DialogHeader>
+            </DrialogTitle>
+          </DrialogHeader>
           <FieldGroup className="px-8 py-6">
             <Field>
               <FieldLabel htmlFor="course-name" className="eyebrow">
@@ -220,7 +220,7 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
             <Button type="submit">{course ? "Guardar" : "Crear curso"}</Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </DrialogContent>
+    </Drialog>
   )
 }

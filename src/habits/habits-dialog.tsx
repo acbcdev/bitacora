@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Archive, CalendarDays, Check, Clock, Flame, Hash, Pencil, Target } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { Button } from "@/core/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/core/ui/dialog"
+import { Drialog, DrialogContent, DrialogHeader, DrialogTitle } from "@/core/ui/drialog"
 import { Input } from "@/core/ui/input"
 import { cn } from "@/core/lib/utils"
 import { CourseIcon } from "@/courses/course-icon"
@@ -12,7 +12,7 @@ import { useArchiveHabit, useHabitLog, useHabits, useSaveHabit } from "@/habits/
 import type { Habit, HabitMetric, HabitPeriod } from "@/core/types/database"
 
 // La vista completa de hábitos: crear, editar y archivar.
-// Dialog y no ruta: un overlay no reabre "solo 3 pantallas" (ui-principles), mismo criterio que el
+// Drialog y no ruta: un overlay no reabre "solo 3 pantallas" (ui-principles), mismo criterio que el
 // Settings dialog de CONTEXT.md.
 
 export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose: () => void }) {
@@ -24,16 +24,16 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
   const [archiving, setArchiving] = useState<Habit | null>(null)
 
   return (
-    <Dialog open onOpenChange={(next) => !next && onClose()}>
-      <DialogContent showCloseButton={false} className="w-160 max-w-[92vw] gap-0 p-0 sm:max-w-160">
+    <Drialog open onOpenChange={(next) => !next && onClose()}>
+      <DrialogContent showCloseButton={false} className="gap-0 p-0 md:w-160 md:max-w-160">
         {/* En el form el título visible ES el input del nombre (página de Notion), así que el
-            header se esconde — pero el DialogTitle SIGUE montado: Radix lo exige para el
-            aria-labelledby del dialog y sin él avisa por consola. */}
-        <DialogHeader className={form === null ? "border-b px-6 py-4" : "sr-only"}>
-          <DialogTitle className="text-lg font-semibold">
+            header se esconde — pero el DrialogTitle SIGUE montado: la primitiva lo exige para el
+            aria-labelledby del overlay y sin él avisa por consola. */}
+        <DrialogHeader className={form === null ? "border-b px-6 py-4" : "sr-only"}>
+          <DrialogTitle className="text-lg font-semibold">
             {form === null ? "Hábitos" : form === "new" ? "Nuevo hábito" : "Editar hábito"}
-          </DialogTitle>
-        </DialogHeader>
+          </DrialogTitle>
+        </DrialogHeader>
 
         {form === null ? (
           <div className="px-6 py-5">
@@ -87,7 +87,7 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
         ) : (
           <HabitForm habit={form === "new" ? null : form} onClose={() => setForm(null)} />
         )}
-      </DialogContent>
+      </DrialogContent>
 
       {/* Archivar = soft delete: el habit_log queda intacto y el hábito sale de la tira. */}
       <ConfirmDelete
@@ -100,7 +100,7 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
           setArchiving(null)
         }}
       />
-    </Dialog>
+    </Drialog>
   )
 }
 

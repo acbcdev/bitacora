@@ -4,7 +4,7 @@ import { Maximize2 } from "lucide-react"
 import { Editor } from "@/core/components/editor"
 import { NoteActions } from "@/notes/note-actions"
 import { Button } from "@/core/ui/button"
-import { Dialog, DialogContent, DialogTitle } from "@/core/ui/dialog"
+import { Drialog, DrialogContent, DrialogTitle } from "@/core/ui/drialog"
 import { Kbd } from "@/core/ui/kbd"
 import { CourseIcon } from "@/courses/course-icon"
 import type { Course, Note } from "@/core/types/database"
@@ -64,8 +64,8 @@ export function NoteDialog({
   )
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
+    <Drialog open={open} onOpenChange={onOpenChange}>
+      <DrialogContent
         showCloseButton={false}
         // Foco al contenedor scrolleable (no al primer botón) → ↑/↓, PageUp/Down y Space
         // scrollean el dialog con el comportamiento nativo del browser, sin handlers.
@@ -73,9 +73,14 @@ export function NoteDialog({
           e.preventDefault()
           scroller.current?.focus()
         }}
-        className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
+        // El `!` no es pereza: el 80vh de DrawerContent compila a clase + selector de atributo
+        // (`[data-vaul-drawer-direction=bottom]`, especificidad 0,2,0) y le gana a una media query
+        // pelada (0,1,0) — y twMerge no las ve en conflicto. Acá el alto es superficie de lectura:
+        // hay que llegar al final para que el gate deje marcar leído, así que el 20% muerto molesta.
+        className="flex flex-col gap-0 overflow-hidden p-0 max-md:max-h-[90vh]! md:max-h-[85vh] md:max-w-5xl"
       >
-        {/* Sin X: cerrar es Esc o click afuera. Expand a la izquierda, acciones a la derecha.
+        {/* Sin X: cerrar es Esc o click afuera (swipe hacia abajo en mobile). Expand a la
+            izquierda, acciones a la derecha.
             Barra en flujo (no absolute) para que el scrollbar del contenido arranque debajo y no
             pase por encima de los botones. */}
         <div className="flex shrink-0 items-center justify-between p-2">
@@ -106,9 +111,9 @@ export function NoteDialog({
                 · {reads === 0 ? "sin repasos" : `${reads} ${reads === 1 ? "repaso" : "repasos"}`}
               </span>
             </p>
-            <DialogTitle className="mb-8 text-2xl font-bold tracking-tight text-pretty sm:text-3xl">
+            <DrialogTitle className="mb-8 text-2xl font-bold tracking-tight text-pretty sm:text-3xl">
               {note.title || "(sin título)"}
-            </DialogTitle>
+            </DrialogTitle>
             <Editor content={note.content} editable={false} />
             <div className="mt-10 flex items-center justify-end gap-4 border-t pt-6 sm:justify-between">
               <span className="hidden text-xs text-muted-foreground sm:block">
@@ -129,7 +134,7 @@ export function NoteDialog({
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </DrialogContent>
+    </Drialog>
   )
 }
