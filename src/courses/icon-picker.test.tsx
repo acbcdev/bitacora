@@ -1,20 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { IconPicker } from "@/courses/icon-picker"
 
-const { upload } = vi.hoisted(() => ({ upload: vi.fn(() => Promise.resolve({ error: null })) }))
-
-// Solo el storage: `uploadCourseIcon` pide el user y sube al bucket. Sin red.
-vi.mock("@/core/lib/supabase", () => ({
-  supabase: {
-    auth: { getUser: () => Promise.resolve({ data: { user: { id: "u1" } }, error: null }) },
-    storage: {
-      from: () => ({
-        upload,
-        getPublicUrl: () => ({ data: { publicUrl: "https://cdn/icono.png" } }),
-      }),
-    },
-  },
+const { upload } = vi.hoisted(() => ({
+  upload: vi.fn(() => Promise.resolve("https://cdn/icono.png")),
 }))
+
+// Un método del Store, no el chain de storage de supabase-js: al picker le da igual si la imagen
+// termina en un bucket o en una data URL, sólo le importa recibir una URL.
+vi.mock("@/core/store", () => ({ store: { uploadCourseIcon: upload } }))
 
 beforeEach(() => upload.mockClear())
 

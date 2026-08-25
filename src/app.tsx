@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
-import type { Session } from "@supabase/supabase-js"
 import {
   BookOpen,
   Command,
@@ -11,6 +10,7 @@ import {
   Moon,
   PanelLeft,
   Plus,
+  Settings as SettingsIcon,
   StickyNote,
   Sun,
 } from "lucide-react"
@@ -24,7 +24,9 @@ import { CourseIcon } from "@/courses/course-icon"
 import { useCourses } from "@/courses/courses.api"
 import { usePinnedCourseIds } from "@/courses/pinned-courses"
 import { useAllNoteRefs } from "@/notes/notes.api"
-import { supabase } from "@/core/lib/supabase"
+import { Settings } from "@/settings/settings"
+import { store } from "@/core/store"
+import type { AuthUser } from "@/core/store/types"
 import { mod } from "@/core/lib/utils"
 import { Course } from "@/courses/course"
 import { Courses } from "@/courses/courses"
@@ -33,26 +35,27 @@ import { Note } from "@/notes/note"
 import { Review } from "@/review/review"
 
 export function App() {
-  const [session, setSession] = useState<Session | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // El seam de auth es del Store, no de Supabase: en modo local `getUser()` resuelve enseguida con
+  // el usuario del navegador y nunca se ve el Login.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
+    store.auth.getUser().then((u) => {
+      setUser(u)
       setLoading(false)
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
-    return () => sub.subscription.unsubscribe()
+    return store.auth.onChange(setUser)
   }, [])
 
   if (loading) return null
-  if (!session) return <Login />
-  return <Shell session={session} />
+  if (!user) return <Login />
+  return <Shell user={user} />
 }
 
 // Shell del diseño: sidebar + main scrolleable + overlays (⌘K, ?). En focus mode (tecla F)
 // desaparece todo el chrome y queda sola la nota.
-function Shell({ session }: { session: Session }) {
+function Shell({ user }: { user: AuthUser }) {
   const navigate = useNavigate()
   const { pathname, search } = useLocation()
   const { data: courses = [] } = useCourses()
@@ -61,6 +64,7 @@ function Shell({ session }: { session: Session }) {
 
   const [palette, setPalette] = useState(false)
   const [cheat, setCheat] = useState(false)
+  const [settings, setSettings] = useState(false)
   const [focus, setFocus] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("bita-sb") === "1")
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"))
@@ -112,6 +116,12 @@ function Shell({ session }: { session: Session }) {
   })
   useHotkeys("g>h", () => navigate("/"), { sequenceTimeoutMs: 900, preventDefault: true })
   useHotkeys("g>c", () => navigate("/courses"), { sequenceTimeoutMs: 900, preventDefault: true })
+  // ⌘, es la tecla de "preferencias" en macOS y la que todo el mundo prueba primero.
+  useHotkeys("mod+comma", () => setSettings((s) => !s), {
+    enableOnFormTags: true,
+    enableOnContentEditable: true,
+    preventDefault: true,
+  })
 
   // G luego 1..9 salta a un curso del sidebar, en el mismo orden que se ve ahí.
   const { pinned, active, recent } = sidebarCourseGroups(courses, pinnedIds)
@@ -180,10 +190,17 @@ function Shell({ session }: { session: Session }) {
         run: () => setCheat(true),
       },
       {
+        group: "Vista",
+        label: "Ajustes",
+        kbd: mod(","),
+        icon: <SettingsIcon />,
+        run: () => setSettings(true),
+      },
+      {
         group: "Cuenta",
-        label: "Cerrar sesión",
+        label: store.mode === "local" ? "Salir del modo local" : "Cerrar sesión",
         icon: <LogOut />,
-        run: () => supabase.auth.signOut(),
+        run: () => store.auth.signOut(),
       },
     ]
   }
@@ -206,10 +223,11 @@ function Shell({ session }: { session: Session }) {
         {!focus && (
           <Sidebar
             courses={courses}
-            email={session.user.email ?? ""}
+            email={user.email}
             dark={dark}
             onToggleTheme={() => setDark((d) => !d)}
-            onLogout={() => supabase.auth.signOut()}
+            onLogout={() => store.auth.signOut()}
+            onSettings={() => setSettings(true)}
           />
         )}
         <main className="min-w-0 flex-1 overflow-y-auto">
@@ -236,6 +254,13 @@ function Shell({ session }: { session: Session }) {
         ))}
         {palette && <CommandPalette onClose={() => setPalette(false)} actions={actions()} />}
         {cheat && <Cheatsheet onClose={() => setCheat(false)} />}
+        {settings && (
+          <Settings
+            onClose={() => setSettings(false)}
+            dark={dark}
+            onToggleTheme={() => setDark((d) => !d)}
+          />
+        )}
         <Toaster theme={dark ? "dark" : "light"} />
       </SidebarProvider>
     </TooltipProvider>

@@ -16,38 +16,28 @@ const { state } = vi.hoisted(() => ({
   },
 }))
 
-vi.mock("@/core/lib/supabase", () => {
-  const rows: Record<string, unknown[]> = {
-    courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
-    read_log: [],
-  }
-  const query = (table: string) => {
-    const chain: Record<string, unknown> = {
-      select: () => chain,
-      eq: () => chain,
-      is: () => chain,
-      order: () => chain,
-      limit: () => chain,
-      // El insert responde ya; lo lento son los SELECT, como en la vida real.
-      insert: (input: Record<string, unknown>) => {
-        const row = { ...input, id: "n2", title: "", content: { type: "doc" } }
-        state.notes.push(row)
-        return { select: () => ({ single: () => Promise.resolve({ data: row, error: null }) }) }
-      },
-      update: () => chain,
-      // oxlint-disable-next-line unicorn/no-thenable -- imita al builder real de supabase-js
-      then: (fn: (r: unknown) => unknown) =>
-        new Promise((resolve) => setTimeout(resolve, SELECT_MS))
-          .then(() => ({
-            data: table === "notes" ? state.notes.map((n) => ({ ...n })) : (rows[table] ?? []),
-            error: null,
-          }))
-          .then(fn),
-    }
-    return chain
-  }
-  return { supabase: { from: query, functions: { invoke: vi.fn() } } }
-})
+// Las lecturas tardan SELECT_MS; la escritura responde ya, como en la vida real. Con el seam esto
+// son seis funciones async — antes era un thenable a mano imitando el builder de supabase-js.
+const slow = <T,>(value: T) => new Promise<T>((r) => setTimeout(() => r(value), SELECT_MS))
+
+vi.mock("@/core/store", () => ({
+  store: {
+    canGenerateFlashcards: true,
+    listCourses: () =>
+      slow([{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }]),
+    listNotes: () => slow(state.notes.map((n) => ({ ...n }))),
+    listNoteRefs: () => slow(state.notes.map((n) => ({ ...n }))),
+    getNote: (id: string) => slow(state.notes.find((n) => n.id === id)),
+    readLog: () => slow([]),
+    gradedReads: () => slow([]),
+    createNote: (courseId: string, position: number) => {
+      const row = { id: "n2", course_id: courseId, position, title: "", content: { type: "doc" } }
+      state.notes.push(row)
+      return Promise.resolve(row)
+    },
+    updateNote: () => Promise.resolve(),
+  },
+}))
 
 vi.mock("@/core/components/editor", () => ({ Editor: () => <div data-testid="editor" /> }))
 

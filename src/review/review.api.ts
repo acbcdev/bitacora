@@ -1,29 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { supabase } from "@/core/lib/supabase"
-import type { Grade, Note } from "@/core/types/database"
+import { store } from "@/core/store"
+import type { Grade } from "@/core/types/database"
 
-// Cola de repaso (review/01): RPC review_queue() — notas de cursos active, no borradas,
-// más viejas primero (nunca-leídas primero), limit 3. Ver migrations/0003.
+// Cola de repaso: notas de cursos vivos, más viejas primero (nunca-leídas primero), limit 3.
+// En Supabase la resuelve la RPC `review_queue()` (migración 0003); en local, `derive.reviewQueue`
+// con la misma semántica.
 export function useReviewQueue() {
-  return useQuery({
-    queryKey: ["review_queue"],
-    queryFn: async (): Promise<Note[]> => {
-      const { data, error } = await supabase.rpc("review_queue")
-      if (error) throw error
-      return data
-    },
-  })
+  return useQuery({ queryKey: ["review_queue"], queryFn: () => store.reviewQueue() })
 }
 
-// Space marca leído: insert exactamente una fila en read_log (review/03). NUNCA se borra.
+// Space marca leído: exactamente una fila en read_log (review/03). NUNCA se borra.
 // `grade` solo se completa cuando el ítem repasado es una flashcard (flashcards/spec).
 export function useMarkRead() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ noteId, grade }: { noteId: string; grade?: Grade }) => {
-      const { error } = await supabase.from("read_log").insert({ note_id: noteId, grade })
-      if (error) throw error
-    },
+    mutationFn: (input: { noteId: string; grade?: Grade }) => store.markRead(input),
     // Solo las stats derivadas de read_log (ADR 0003): "leídas hoy", racha y repasos por nota.
     // La cola NO se invalida acá: reshufflearía el batch bajo el usuario mid-repaso. Se refetchea
     // al terminar el batch (ver Review screen).

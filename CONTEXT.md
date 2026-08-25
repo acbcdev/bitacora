@@ -34,8 +34,10 @@ Nivel medio (ver `docs/adr/0005-frontend-stack.md`):
 
 - **Routing:** React Router · **Data/estado servidor:** TanStack Query · **Styling:** Tailwind +
   Radix vía **shadcn/ui** · **PWA:** `vite-plugin-pwa` · **Testing:** Vitest · **pm:** pnpm.
-- **Acceso a datos:** `supabase-js` + tipos generados (`supabase gen types`). **Sin ORM**
-  (ADR 0006) — un ORM no tiene dónde correr sin backend y bypassa RLS.
+- **Acceso a datos:** el seam **`Store`** (`src/core/store/`) — ~20 métodos de dominio, dos
+  adapters detrás: `supabaseStore` (default, `supabase-js` + tipos generados) y `localStore`
+  (todo en el navegador). Ninguna pantalla importa `supabase-js`. **Sin ORM** (ADR 0006) —
+  `Store` no genera SQL ni mapea entidades. Ver ADR 0011.
 - **Sin design system formal.** Las guías visuales viven en `docs/ui-principles.md`
   (keyboard-first, nota grande, chrome mínimo).
 
@@ -56,10 +58,9 @@ Notas de licencia/tier:
 | **Progreso derivado** | `notas leídas / total del curso`. No se guarda: sale de `COUNT(*)` sobre `read_log`. |
 | **read_count** | Cuántas veces se repasó una nota. Derivado de `read_log`. |
 | **Racha / leídas hoy** | Derivados de `read_log` filtrando por fecha. |
-| **Cola de repaso** | Lo que sirve la RPC `review_queue(exclude_course_id, exclude_note_ids)`: **una** nota/flashcard viva a la vez, la más vieja que no esté ya vista ni sea del curso excluido; `nulls first` (nunca-leídas primero). El `status` del curso **no** filtra — `active`, `paused` y `done` entran igual. Si todo lo que queda es del curso excluido, hace fallback soltando el curso (no las vistas). Sin contador `1/3` en UI — one-by-one. |
-| **Intercalado forzado** | Garantía de que dos repasos seguidos no sean del mismo `course_id` si hay alternativa. Solo `course_id`, no `kind` — `kind` se mezcla solo por antigüedad. |
-| **`seen[]`** | Las notas ya servidas en esta sesión de Repaso. Vive en el cliente (`useState`), muere al recargar. Es el back-stack de `J` **y** el `exclude_note_ids` que va a la RPC: por eso saltear con `K` no puede devolverte la misma nota más adelante. `J`/`K` adentro de `seen[]` no pegan a la DB. |
-| **Presupuesto de llamadas** | Repaso hace **una llamada por nota servida, y solo hasta la meta**: 3 por día. Marcar la 3ª es marcar-y-cerrar, no marcar-y-siguiente. Montar la pantalla con la meta ya cumplida no llama. Pasada la meta solo llama `K` / "Cargar más". |
+| **Cola de repaso** | **Lo construido hoy:** `store.reviewQueue()` trae un batch de **3** notas/flashcards vivas de cursos vivos, las más viejas primero, `nulls first` (nunca-leídas primero). El `status` del curso **no** filtra — `active`, `paused` y `done` entran igual. Una nota sin curso (`course_id` null) **no** entra. Repaso camina ese batch con un índice; `J`/`K` se mueven adentro sin pegarle al store. En Supabase la resuelve la RPC `review_queue()` (migración 0003, **sin argumentos**); en modo local, `core/store/derive.ts` con la misma semántica y desempate determinista. |
+| **Cola one-by-one (NO construido)** | Diseño deseado, todavía sin implementar: `review_queue(exclude_course_id, exclude_note_ids)` sirviendo **una** nota a la vez, con **intercalado forzado** (dos repasos seguidos nunca del mismo `course_id` si hay alternativa), `seen[]` en el cliente como back-stack de `J` y `exclude_note_ids`, y fallback soltando el curso excluido. Estaba escrito acá como si existiera — no existe: la RPC no toma argumentos y `review.tsx` no tiene `seen[]`. Si se construye, hay que hacerlo **en los dos adapters**. Ver `.scratch/retention-system/spec.md`. |
+| **Presupuesto de llamadas** | Repaso pide **un batch de 3** y lo camina en memoria: `J`/`K` no llaman. Marcar leído es un insert en `read_log` y no re-pide la cola (reshufflearía el batch mid-repaso). Al llegar a la meta sale el `Empty` con "Cargar más", que refetchea. |
 | **Flashcard** | Una nota con `kind = 'flashcard'`: el `title` es la pregunta y el `content` la respuesta. **No es tabla propia** (ADR 0010). Se generan con AI desde las notas del curso; se repasan en Repaso (revelar → autoevaluar) y no aparecen en la lista de notas del curso. |
 | **Autoevaluación (`grade`)** | Cómo salió una flashcard: `correcto` / `parcial` / `incorrecto`. Va en la fila de `read_log` de ese repaso. En notas normales queda `null`. |
 | **% de retención** | `correctos / autoevaluaciones` del curso, derivado de `read_log.grade` — no se guarda (ADR 0003). Se muestra en la pantalla del curso. |
@@ -115,12 +116,19 @@ habit_log(id, user_id, habit_id, day, amount, target)
      `⌘/Ctrl+Enter` va directo a la vista expandida.
    - **Flashcard:** `Enter` revela la respuesta; después, autoevaluación explícita con los tres
      botones (correcto / parcial / incorrecto) — insert en `read_log` con `grade`.
-   - `J`/`K` = atrás / siguiente sin contar, para las dos, moviéndose sobre `seen[]`. Sin contador `1/3` — one-by-one. Ver `.scratch/retention-system/spec.md`.
-2. **Cursos** — lista con estado, progreso derivado, fechas. La pantalla del curso tiene el botón
-   "Generar flashcards" y el % de retención.
+   - `J`/`K` = atrás / siguiente sin contar, para las dos, moviéndose por el batch de 3 ya
+     cargado (sin pegarle al store). Ver `.scratch/retention-system/spec.md`.
+2. **Cursos** — lista con estado, progreso derivado, fechas. La pantalla del curso tiene el % de
+   retención y el botón "Generar flashcards" — este último **solo con Supabase**
+   (`store.canGenerateFlashcards`), porque necesita la Edge Function.
 3. **Nota** — editor Tiptap.
 
-**Auth:** magic link (default de Supabase, cero código).
+**Auth:** magic link (default de Supabase, cero código). En **modo local** no hay auth: el Login
+no se ve y `store.auth.getUser()` resuelve con el usuario del navegador. La app nunca ve el
+`Session` de `supabase-js` — el seam devuelve `AuthUser` (`{ email }`), ADR 0011.
+
+**Ajustes:** un `Drialog` (no una ruta — no reabre "solo 3 pantallas"), con tema y modo de
+almacenamiento. Se abre con `⌘,`, desde ⌘K o desde el menú de cuenta del sidebar.
 
 ## Fuera del MVP (decisión explícita, no olvido)
 
@@ -133,8 +141,17 @@ diario funcione, es **scope creep** — frenarlo con estos datos, no con opinió
 **Regla general (grilling 2026-07-28, `.scratch/platform-features/`):** la misma lógica aplica a
 toda feature nueva fuera de las 3 pantallas, no solo a `goals`. Repo tiene 5 días (primer commit
 2026-07-23), loop diario recién armado, sin uso real confirmado todavía. Hasta que el loop diario
-esté en uso real: gated — Settings, abstracción DB→localStorage, sidebar de integración AI, tonos
-de nota vía AI, themes. Se reabren con el loop diario probado en uso real, no antes.
+esté en uso real: gated — sidebar de integración AI, tonos de nota vía AI, themes (multi-preset).
+Se reabren con el loop diario probado en uso real, no antes.
+
+**Settings y la abstracción DB→localStorage salieron de esa lista (2026-08-25).** Salieron
+juntas y por el mismo motivo: dejaron de ser generalización especulativa y pasaron a tener
+beneficiarios concretos. El seam `Store` borró seis fakes de `supabase-js` de la suite de tests,
+hizo testeable sin Postgres lógica que antes no lo era (+25 tests), y arregló que `git clone &&
+pnpm dev` sin env no arrancara. Settings dejó de ser "una pantalla por si acaso" cuando apareció
+el primer ajuste que necesitaba un hogar — el modo de almacenamiento — y no es pantalla: es un
+dialog. El detalle y por qué esto **no** contradice ADR 0001/0004/0006 está en
+`docs/adr/0011-store-adapter-supabase-o-localstorage.md`.
 
 **Hábitos salió de esa lista (2026-08-20).** Estaba gateado por ser "el mismo territorio que
 `goals`", y no lo es: `goals` eran metas de estudio derivables de `read_log` y miradas 1×/semana;
@@ -155,7 +172,9 @@ como feature a specificar, no como gate. Ver `docs/adr/0010-flashcards-como-nota
 preset de editor de código (tipo OneDark/Dracula — un set fijo de colores por preset, no
 color-picker custom). Vive en un **Settings dialog** (`Dialog` de Radix vía shadcn, ADR 0005), no
 ruta nueva — no reabre "solo 3 pantallas" de `ui-principles.md` porque es overlay, no pantalla
-persistente. Hoy sigue el toggle claro/oscuro de `app.tsx:64-69`.
+persistente. **El Settings dialog ya existe** (`src/settings/settings.tsx`, 2026-08-25): cuando se
+retomen los themes, el hogar está y es ahí. Hoy sigue el toggle claro/oscuro, que vive en Ajustes
+y en el menú de cuenta del sidebar.
 
 ## Seguridad
 

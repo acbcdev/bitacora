@@ -1,10 +1,11 @@
 import { useState } from "react"
-import { Check } from "lucide-react"
+import { Check, HardDrive } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Card } from "@/core/ui/card"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/core/ui/field"
 import { Input } from "@/core/ui/input"
-import { supabase } from "@/core/lib/supabase"
+import { store } from "@/core/store"
+import { setStorageMode } from "@/core/store/mode"
 
 export function Login() {
   const [email, setEmail] = useState("")
@@ -14,9 +15,12 @@ export function Login() {
   async function send(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    const res = await supabase.auth.signInWithOtp({ email })
-    if (res.error) setError(res.error.message)
-    else setSent(true)
+    try {
+      await store.auth.signIn(email)
+      setSent(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo enviar el link")
+    }
   }
 
   return (
@@ -67,8 +71,17 @@ export function Login() {
           )}
         </Card>
 
-        <div className="flex justify-between">
-          <span className="mono-dim">Sin contraseña — magic link</span>
+        {/* La puerta al modo local. Vive acá y no sólo en Ajustes porque el caso que resuelve es
+            justamente el de alguien que todavía no tiene cuenta: probar la app sin registrarse.
+            Recarga (setStorageMode) y arranca contra el navegador. */}
+        <div className="flex flex-col gap-3">
+          <Button variant="ghost" onClick={() => setStorageMode("local")}>
+            <HardDrive />
+            Probar sin cuenta — todo en este navegador
+          </Button>
+          <div className="flex justify-between">
+            <span className="mono-dim">Sin contraseña — magic link</span>
+          </div>
         </div>
       </div>
     </div>

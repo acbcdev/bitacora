@@ -1,47 +1,22 @@
 import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { supabase } from "@/core/lib/supabase"
+import { store } from "@/core/store"
 import type { Note, TiptapDoc } from "@/core/types/database"
 
 const EMPTY_DOC: TiptapDoc = { type: "doc", content: [] }
 
+export type { NoteRef } from "@/core/store/types"
+
 // Notas vivas de un curso, en orden de position.
 export function useNotes(courseId: string) {
-  return useQuery({
-    queryKey: ["notes", courseId],
-    queryFn: async (): Promise<Note[]> => {
-      const { data, error } = await supabase
-        .from("notes")
-        .select("*")
-        .eq("course_id", courseId)
-        .eq("kind", "note")
-        .is("deleted_at", null)
-        .order("position", { ascending: true })
-      if (error) throw error
-      return data
-    },
-  })
+  return useQuery({ queryKey: ["notes", courseId], queryFn: () => store.listNotes(courseId) })
 }
-
-export type NoteRef = Pick<Note, "id" | "title" | "course_id" | "position">
 
 // Índice liviano de todas las notas (sin content): lo usan la command palette y el "últ. repaso"
 // por curso. ~1.500 filas de título — barato, y evita 59 queries por curso.
 export function useAllNoteRefs() {
-  return useQuery({
-    queryKey: ["note_refs"],
-    queryFn: async (): Promise<NoteRef[]> => {
-      const { data, error } = await supabase
-        .from("notes")
-        .select("id, title, course_id, position")
-        .eq("kind", "note")
-        .is("deleted_at", null)
-        .order("position", { ascending: true })
-      if (error) throw error
-      return data
-    },
-  })
+  return useQuery({ queryKey: ["note_refs"], queryFn: () => store.listNoteRefs() })
 }
 
 // Una nota por id. Puede tener course_id null (curso borrado) — la UI no debe romper.
@@ -49,17 +24,7 @@ export function useNote(id: string | undefined) {
   return useQuery({
     queryKey: ["note", id],
     enabled: !!id,
-    queryFn: async (): Promise<Note> => {
-      const { data, error } = await supabase
-        .from("notes")
-        .select("*")
-        .eq("id", id!)
-        .eq("kind", "note")
-        .is("deleted_at", null)
-        .single()
-      if (error) throw error
-      return data
-    },
+    queryFn: () => store.getNote(id!),
   })
 }
 
@@ -68,20 +33,14 @@ export function useNote(id: string | undefined) {
 export function useCreateNote() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (courseId: string): Promise<Note> => {
+    mutationFn: (courseId: string): Promise<Note> => {
       // El SELECT del último position sobra: la lista del curso ya está en cache (useNotes corre
       // al entrar). Sin cache el fallback es 0 — solo pasaría llamando esto fuera de la pantalla
       // Curso, que hoy no ocurre. Colisión de position = orden ambiguo entre dos notas, no error
       // (no hay unique constraint), así que tampoco hace falta blindarlo.
       const cached = qc.getQueryData<Note[]>(["notes", courseId]) ?? []
       const position = Math.max(-1, ...cached.map((n) => n.position)) + 1
-      const { data, error } = await supabase
-        .from("notes")
-        .insert({ course_id: courseId, position, content: EMPTY_DOC })
-        .select("*") // la fila entera sale gratis en el mismo request; con .select("id") habría que ir a buscarla
-        .single()
-      if (error) throw error
-      return data
+      return store.createNote(courseId, position)
     },
     onSuccess: (note, courseId) => {
       // Sembrar, no invalidar: la fila la acaba de mandar el server, pedirla otra vez es preguntar
@@ -101,18 +60,8 @@ export function useCreateNote() {
 export function useUpdateNote() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({
-      id,
-      title,
-      content,
-    }: {
-      id: string
-      title: string
-      content: TiptapDoc
-    }) => {
-      const { error } = await supabase.from("notes").update({ title, content }).eq("id", id)
-      if (error) throw error
-    },
+    mutationFn: (input: { id: string; title: string; content: TiptapDoc }) =>
+      store.updateNote(input),
     onSuccess: (_r, { id }) => {
       qc.invalidateQueries({ queryKey: ["note", id] })
       qc.invalidateQueries({ queryKey: ["notes"] })
@@ -184,13 +133,7 @@ export function useNoteDraft(id: string | undefined) {
 export function useDeleteNote() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("notes")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", id)
-      if (error) throw error
-    },
+    mutationFn: (id: string) => store.deleteNote(id),
     onSuccess: () => {
       toast.success("Nota borrada")
       qc.invalidateQueries({ queryKey: ["notes"] })

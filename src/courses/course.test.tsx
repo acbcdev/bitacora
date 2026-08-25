@@ -4,63 +4,35 @@ import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { TooltipProvider } from "@/core/ui/tooltip"
 import { Course } from "@/courses/course"
 
-const { insertNotes, updateRow, invokeFn, state } = vi.hoisted(() => ({
-  insertNotes: vi.fn((_input: unknown) => Promise.resolve({ error: null })),
-  updateRow: vi.fn((_input: unknown) => {}),
-  invokeFn: vi.fn(() =>
-    Promise.resolve({
-      data: {
-        flashcards: [
-          { question: "¿Qué es X?", answer: "Es Y" },
-          { question: "¿Qué es Z?", answer: "Es W" },
-        ],
-      },
-      error: null,
-    }),
-  ),
+const { generateFlashcards, deleteCourse, state } = vi.hoisted(() => ({
+  generateFlashcards: vi.fn(() => Promise.resolve()),
+  deleteCourse: vi.fn(() => Promise.resolve()),
   state: {
     notes: [
       { id: "n1", title: "Nota 1", content: { type: "doc" }, course_id: "c1", position: 0 },
-    ] as unknown[],
+    ] as Record<string, unknown>[],
   },
 }))
 
-// Mock del cliente Supabase + Edge Function: un curso con (o sin, según el test) notas.
-vi.mock("@/core/lib/supabase", () => {
-  const rows: Record<string, unknown[]> = {
-    courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
-    read_log: [],
-  }
-  const query = (table: string) => {
-    const chain = {
-      select: () => chain,
-      eq: () => chain,
-      is: () => chain,
-      order: () => chain,
-      insert: (input: unknown) => {
-        insertNotes(input)
-        return Promise.resolve({ error: null })
-      },
-      update: (input: unknown) => {
-        updateRow(input)
-        return chain
-      },
-      // oxlint-disable-next-line unicorn/no-thenable -- imita al builder real de supabase-js
-      then: (fn: (r: unknown) => unknown) =>
-        Promise.resolve({
-          data: table === "notes" ? state.notes : (rows[table] ?? []),
-          error: null,
-        }).then(fn),
-    }
-    return chain
-  }
-  return {
-    supabase: {
-      from: query,
-      functions: { invoke: invokeFn },
-    },
-  }
-})
+// Store falso: un curso con (o sin, según el test) notas. Antes esto era un builder de supabase-js
+// imitado a mano; ahora son funciones async que devuelven filas.
+vi.mock("@/core/store", () => ({
+  store: {
+    canGenerateFlashcards: true,
+    listCourses: async () => [
+      { id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" },
+    ],
+    listNotes: async () => state.notes,
+    listNoteRefs: async () => state.notes,
+    getNote: async (id: string) => state.notes.find((n) => n.id === id),
+    readLog: async () => [],
+    gradedReads: async () => [],
+    updateCourse: async () => {},
+    updateNote: async () => {},
+    deleteCourse,
+    generateFlashcards,
+  },
+}))
 
 vi.mock("@/core/components/editor", () => ({ Editor: () => <div data-testid="editor" /> }))
 
@@ -84,9 +56,8 @@ function renderCourse() {
 }
 
 beforeEach(() => {
-  insertNotes.mockClear()
-  updateRow.mockClear()
-  invokeFn.mockClear()
+  generateFlashcards.mockClear()
+  deleteCourse.mockClear()
   state.notes = [
     { id: "n1", title: "Nota 1", content: { type: "doc" }, course_id: "c1", position: 0 },
   ]
@@ -98,21 +69,17 @@ function openCourseMenu() {
   fireEvent.keyDown(screen.getByRole("button", { name: "Acciones del curso" }), { key: "Enter" })
 }
 
-test("Generar flashcards invoca la edge function e inserta cada par como nota kind: flashcard", async () => {
+// Qué se afirma acá cambió con el seam: que el menú dispara la operación del dominio para ESTE
+// curso. Que un par pregunta/respuesta se guarde como `kind: 'flashcard'` (ADR 0010) es interno
+// del adapter de Supabase — la Edge Function no existe del lado local.
+test("Generar flashcards dispara la generación para el curso abierto", async () => {
   renderCourse()
   await screen.findByText("Curso")
 
   openCourseMenu()
   fireEvent.click(await screen.findByRole("menuitem", { name: /Generar flashcards/ }))
 
-  await waitFor(() =>
-    expect(invokeFn).toHaveBeenCalledWith("generate-flashcards", { body: { course_id: "c1" } }),
-  )
-  await waitFor(() => expect(insertNotes).toHaveBeenCalledTimes(1))
-  const inserted = insertNotes.mock.calls[0][0] as { kind: string; title: string }[]
-  expect(inserted).toHaveLength(2)
-  expect(inserted.every((n) => n.kind === "flashcard")).toBe(true)
-  expect(inserted.map((n) => n.title)).toEqual(["¿Qué es X?", "¿Qué es Z?"])
+  await waitFor(() => expect(generateFlashcards).toHaveBeenCalledWith("c1"))
 })
 
 // Borrar es soft delete (deleted_at, ADR 0002) y va detrás de una confirmación: el menú se
@@ -124,14 +91,10 @@ test("Borrar curso pide confirmación antes de tocar la DB", async () => {
   openCourseMenu()
   fireEvent.click(await screen.findByRole("menuitem", { name: /Borrar curso/ }))
   await screen.findByRole("alertdialog")
-  expect(updateRow).not.toHaveBeenCalled()
+  expect(deleteCourse).not.toHaveBeenCalled()
 
   fireEvent.click(screen.getByRole("button", { name: "Borrar" }))
-  await waitFor(() =>
-    expect(updateRow).toHaveBeenCalledWith(
-      expect.objectContaining({ deleted_at: expect.any(String) }),
-    ),
-  )
+  await waitFor(() => expect(deleteCourse).toHaveBeenCalledWith("c1"))
 })
 
 test("Editar curso abre el form con los datos del curso", async () => {

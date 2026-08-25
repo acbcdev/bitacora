@@ -37,6 +37,7 @@ import { useGenerateFlashcards, useRetention } from "@/flashcards/flashcards.api
 import { useCreateNote, useNotes } from "@/notes/notes.api"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import { useReadStats } from "@/core/lib/stats"
+import { store } from "@/core/store"
 import type { CourseStatus } from "@/core/types/database"
 
 // `Item` solo trae hover para `<a>`; acá el nodo es un `<button>`, así que hover y selección van
@@ -204,7 +205,10 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
                     <Pencil />
                     Editar curso
                   </DropdownMenuItem>
+                  {/* Sin Edge Function no hay dónde correr la llamada a Anthropic ni dónde esconder
+                      la key (ADR 0010): en modo local el ítem no existe, en vez de existir y fallar. */}
                   <DropdownMenuItem
+                    hidden={!store.canGenerateFlashcards}
                     disabled={notes.length === 0 || generateFlashcards.isPending}
                     onClick={() => generateFlashcards.mutate()}
                   >

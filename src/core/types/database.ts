@@ -180,6 +180,7 @@ export type Database = {
 // Alias cómodos para el resto de la app.
 export type Course = Database["public"]["Tables"]["courses"]["Row"]
 export type Note = Database["public"]["Tables"]["notes"]["Row"]
+export type ReadLog = Database["public"]["Tables"]["read_log"]["Row"]
 export type Habit = Database["public"]["Tables"]["habits"]["Row"]
 export type HabitLog = Database["public"]["Tables"]["habit_log"]["Row"]
 export type CourseProgress = Database["public"]["Functions"]["course_progress"]["Returns"][number]

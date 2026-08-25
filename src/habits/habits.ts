@@ -1,10 +1,14 @@
 import { dayKey } from "@/core/lib/stats"
-import type { Habit, HabitKind, HabitLog, HabitPeriod } from "@/core/types/database"
+import type { Habit, HabitKind, HabitPeriod } from "@/core/types/database"
 
-// Derivación de hábitos: funciones puras, sin React ni Supabase. Mismo enfoque que
+// Derivación de hábitos: funciones puras, sin React ni acceso a datos. Mismo enfoque que
 // core/lib/stats.ts — el log entero baja al cliente y se agrega acá.
 
-export type HabitLogRow = Pick<HabitLog, "habit_id" | "day" | "amount" | "target">
+// La forma de la fila la define el seam (core/store/types), que es quien la produce en los dos
+// adapters. Se re-exporta desde acá porque este es el módulo que la consume.
+export type { HabitLogRow } from "@/core/store/types"
+import type { HabitLogRow } from "@/core/store/types"
+
 export type DayCell = { amount: number; target: number }
 export type HabitState = { total: number; met: boolean; streak: number; days: DayCell[] }
 

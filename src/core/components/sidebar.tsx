@@ -6,6 +6,7 @@ import {
   ChevronsUpDown,
   Flame,
   LogOut,
+  Settings as SettingsIcon,
   Moon,
   MoreHorizontal,
   Pin,
@@ -85,12 +86,14 @@ export function Sidebar({
   dark,
   onToggleTheme,
   onLogout,
+  onSettings,
 }: {
   courses: Course[]
   email: string
   dark: boolean
   onToggleTheme: () => void
   onLogout: () => void
+  onSettings: () => void
 }) {
   const pinnedIds = usePinnedCourseIds()
   const { pinned, active, recent } = sidebarCourseGroups(courses, pinnedIds)
@@ -174,6 +177,10 @@ export function Sidebar({
                 <DropdownMenuItem onClick={onToggleTheme}>
                   <ThemeIcon />
                   {themeLabel}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onSettings}>
+                  <SettingsIcon />
+                  Ajustes
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onLogout}>

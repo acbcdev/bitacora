@@ -18,21 +18,25 @@ const { insertReadLog, readLog, upsertHabitLog, habitLog } = vi.hoisted(() => {
   return {
     readLog: rows,
     habitLog: habitRows,
-    insertReadLog: vi.fn((row: { note_id: string }) => {
-      rows.push({ ...row, read_at: new Date().toISOString() })
-      return Promise.resolve({ error: null })
+    insertReadLog: vi.fn(({ noteId, grade }: { noteId: string; grade?: string }) => {
+      rows.push({ note_id: noteId, grade, read_at: new Date().toISOString() })
+      return Promise.resolve()
     }),
-    upsertHabitLog: vi.fn((row: LogRow) => {
-      const prev = habitRows.find((r) => r.habit_id === row.habit_id && r.day === row.day)
-      if (prev) Object.assign(prev, row)
-      else habitRows.push({ ...row })
-      return Promise.resolve({ error: null })
-    }),
+    upsertHabitLog: vi.fn(
+      ({ habitId, day, amount, target }: { habitId: string } & Omit<LogRow, "habit_id">) => {
+        const row = { habit_id: habitId, day, amount, target }
+        const prev = habitRows.find((r) => r.habit_id === habitId && r.day === day)
+        if (prev) Object.assign(prev, row)
+        else habitRows.push(row)
+        return Promise.resolve()
+      },
+    ),
   }
 })
 
-// Mock del cliente Supabase: cola de 2 notas + un curso. Sin red.
-vi.mock("@/core/lib/supabase", () => {
+// Store falso: cola de 2 notas + 1 flashcard, un curso y tres hábitos. Sin red y sin imitar el
+// builder de supabase-js — cada método es una función async que devuelve filas.
+vi.mock("@/core/store", () => {
   // Tres hábitos, uno por métrica: el orden es el de la tira y el del chord h>1..9.
   const habit = (over: Record<string, unknown>) => ({
     user_id: "u1",
@@ -43,66 +47,37 @@ vi.mock("@/core/lib/supabase", () => {
     created_at: "2026-01-01T00:00:00Z",
     ...over,
   })
-  const rows: Record<string, unknown[]> = {
-    courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
-    notes: [],
-    read_log: readLog,
-    habits: [
-      habit({ id: "h1", name: "Gym", metric: "count", target: 3, period: "week" }),
-      habit({ id: "h2", name: "Meditar", metric: "check", target: 1, period: "day" }),
-      habit({ id: "h3", name: "Leer", metric: "time", target: 25, period: "day" }),
-    ],
-    habit_log: habitLog,
-  }
-  // Cadena thenable: select/is/eq/order devuelven la misma cadena y se resuelven al await —
-  // igual que el PostgrestBuilder real de supabase-js, que también es un thenable.
-  const query = (table: string) => {
-    const chain = {
-      select: () => chain,
-      is: () => chain,
-      eq: () => chain,
-      order: () => chain,
-      insert: insertReadLog,
-      upsert: upsertHabitLog,
-      // oxlint-disable-next-line unicorn/no-thenable -- es justamente lo que imita al builder real
-      then: (fn: (r: unknown) => unknown) =>
-        Promise.resolve({ data: rows[table] ?? [], error: null }).then(fn),
-    }
-    return chain
-  }
+  const note = (over: Record<string, unknown>) => ({
+    content: { type: "doc" },
+    course_id: "c1",
+    kind: "note",
+    ...over,
+  })
   return {
-    supabase: {
-      rpc: (name: string) =>
-        Promise.resolve({
-          data:
-            name === "review_queue"
-              ? [
-                  {
-                    id: "n1",
-                    title: "Nota uno",
-                    content: { type: "doc" },
-                    course_id: "c1",
-                    kind: "note",
-                  },
-                  {
-                    id: "n2",
-                    title: "Nota dos",
-                    content: { type: "doc" },
-                    course_id: "c1",
-                    kind: "note",
-                  },
-                  {
-                    id: "f1",
-                    title: "Pregunta uno",
-                    content: { type: "doc" },
-                    course_id: "c1",
-                    kind: "flashcard",
-                  },
-                ]
-              : [],
-          error: null,
-        }),
-      from: query,
+    store: {
+      canGenerateFlashcards: true,
+      listCourses: async () => [
+        { id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" },
+      ],
+      coursesPage: async () => ({ rows: [], total: 0 }),
+      listNotes: async () => [],
+      listNoteRefs: async () => [],
+      deleteNote: async () => {},
+      reviewQueue: async () => [
+        note({ id: "n1", title: "Nota uno" }),
+        note({ id: "n2", title: "Nota dos" }),
+        note({ id: "f1", title: "Pregunta uno", kind: "flashcard" }),
+      ],
+      markRead: insertReadLog,
+      readLog: async () => readLog,
+      gradedReads: async () => [],
+      listHabits: async () => [
+        habit({ id: "h1", name: "Gym", metric: "count", target: 3, period: "week" }),
+        habit({ id: "h2", name: "Meditar", metric: "check", target: 1, period: "day" }),
+        habit({ id: "h3", name: "Leer", metric: "time", target: 25, period: "day" }),
+      ],
+      habitLog: async () => habitLog,
+      setHabitDay: upsertHabitLog,
     },
   }
 })
@@ -199,7 +174,7 @@ test("Enter dentro del dialog no marca leído hasta que el botón es visible", a
   markReadButtonVisible(true)
   fireEvent.keyDown(document, { code: "Enter" })
   await screen.findByText("Nota dos")
-  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
+  expect(insertReadLog).toHaveBeenCalledWith({ noteId: "n1", grade: undefined })
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   expect(screen.getByText("2 / 3")).toBeInTheDocument()
 })
@@ -230,7 +205,7 @@ test("cola mixta: la flashcard se renderiza distinto y gradearla inserta el grad
 
   fireEvent.click(screen.getByRole("button", { name: "Correcto" }))
   await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
-  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "f1", grade: "correcto" })
+  expect(insertReadLog).toHaveBeenCalledWith({ noteId: "f1", grade: "correcto" })
   // Calificar no avanza: los 3 botones quedan apagados hasta que te movés con K.
   await waitFor(() => expect(screen.getByRole("button", { name: "Correcto" })).toBeDisabled())
   fireEvent.keyDown(document, { code: "KeyK" })
@@ -331,7 +306,7 @@ test("Leído desde adentro del dialog lo cierra y pasa a la siguiente", async ()
   fireEvent.click(within(dialog).getByRole("button", { name: "Leído y siguiente" }))
 
   await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
-  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
+  expect(insertReadLog).toHaveBeenCalledWith({ noteId: "n1", grade: undefined })
   await screen.findByText("Nota dos")
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
 })
@@ -365,17 +340,16 @@ test("click en un tile de cantidad upsertea hoy, y el segundo click suma sobre l
 
   fireEvent.click(gym)
   await waitFor(() => expect(upsertHabitLog).toHaveBeenCalledTimes(1))
-  expect(upsertHabitLog).toHaveBeenCalledWith(
-    { habit_id: "h1", day: todayKey(), amount: 1, target: 3 },
-    { onConflict: "habit_id,day" },
-  )
+  expect(upsertHabitLog).toHaveBeenCalledWith({
+    habitId: "h1",
+    day: todayKey(),
+    amount: 1,
+    target: 3,
+  })
 
   fireEvent.click(gym)
   await waitFor(() => expect(upsertHabitLog).toHaveBeenCalledTimes(2))
-  expect(upsertHabitLog).toHaveBeenLastCalledWith(
-    expect.objectContaining({ amount: 2 }),
-    expect.anything(),
-  )
+  expect(upsertHabitLog).toHaveBeenLastCalledWith(expect.objectContaining({ amount: 2 }))
   // Upsert, no insert: sigue habiendo una sola fila para el día.
   expect(habitLog).toEqual([{ habit_id: "h1", day: todayKey(), amount: 2, target: 3 }])
   expect(await screen.findByText("2/3")).toBeInTheDocument()
@@ -389,10 +363,12 @@ test("click en un check ya marcado lo deja en 0, no borra la fila", async () => 
 
   fireEvent.click(meditar)
   await waitFor(() => expect(upsertHabitLog).toHaveBeenCalledTimes(1))
-  expect(upsertHabitLog).toHaveBeenCalledWith(
-    { habit_id: "h2", day: todayKey(), amount: 0, target: 1 },
-    { onConflict: "habit_id,day" },
-  )
+  expect(upsertHabitLog).toHaveBeenCalledWith({
+    habitId: "h2",
+    day: todayKey(),
+    amount: 0,
+    target: 1,
+  })
   expect(habitLog).toHaveLength(1)
 })
 
@@ -423,10 +399,12 @@ test("el chord h>1 registra el primer hábito de la tira", async () => {
   fireEvent.keyDown(document, { code: "KeyH" })
   fireEvent.keyDown(document, { code: "Digit1" })
   await waitFor(() => expect(upsertHabitLog).toHaveBeenCalledTimes(1))
-  expect(upsertHabitLog).toHaveBeenCalledWith(
-    { habit_id: "h1", day: todayKey(), amount: 1, target: 3 },
-    { onConflict: "habit_id,day" },
-  )
+  expect(upsertHabitLog).toHaveBeenCalledWith({
+    habitId: "h1",
+    day: todayKey(),
+    amount: 1,
+    target: 3,
+  })
 })
 
 test("los tiles no le roban Enter / J / K al repaso", async () => {

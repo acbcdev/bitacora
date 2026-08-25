@@ -35,31 +35,15 @@ const courses = [
   },
 ]
 
-// Cadena thenable que imita al PostgrestBuilder real (select/is se resuelven al await).
-// insert/update devuelven directo — CourseForm no encadena nada más sobre ellos salvo `.eq`.
-vi.mock("@/core/lib/supabase", () => {
-  const query = () => {
-    const chain = {
-      select: () => chain,
-      is: () => chain,
-      insert: (input: unknown) => {
-        insert(input)
-        return Promise.resolve({ error: null })
-      },
-      update: (input: unknown) => ({
-        eq: () => {
-          update(input)
-          return Promise.resolve({ error: null })
-        },
-      }),
-      // oxlint-disable-next-line unicorn/no-thenable -- imita al builder real de supabase-js
-      then: (fn: (r: unknown) => unknown) =>
-        Promise.resolve({ data: courses, error: null }).then(fn),
-    }
-    return chain
-  }
-  return { supabase: { from: query } }
-})
+// `updateCourse(id, input)` recibe el id aparte, así que el spy se queda sólo con el input — que
+// es lo que estos tests afirman.
+vi.mock("@/core/store", () => ({
+  store: {
+    listCourses: async () => courses,
+    createCourse: insert,
+    updateCourse: (_id: string, input: unknown) => update(input),
+  },
+}))
 
 const course2: Course = {
   id: "c2",

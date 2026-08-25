@@ -5,19 +5,11 @@ import { TooltipProvider } from "@/core/ui/tooltip"
 import { NoteActions } from "@/notes/note-actions"
 import type { Note, TiptapDoc } from "@/core/types/database"
 
-const { updateRow } = vi.hoisted(() => ({ updateRow: vi.fn((_input: unknown) => {}) }))
+const { deleteNote } = vi.hoisted(() => ({ deleteNote: vi.fn(() => Promise.resolve()) }))
 
-vi.mock("@/core/lib/supabase", () => {
-  const chain: Record<string, unknown> = {}
-  Object.assign(chain, {
-    update: (input: unknown) => {
-      updateRow(input)
-      return chain
-    },
-    eq: () => Promise.resolve({ error: null }),
-  })
-  return { supabase: { from: () => chain } }
-})
+// El test afirma la operación de dominio ("borrá esta nota"), no cómo se escribe el soft delete.
+// Que `deleted_at` sea la forma de borrar es cosa del adapter, y ahí es donde se testea.
+vi.mock("@/core/store", () => ({ store: { deleteNote } }))
 
 const doc: TiptapDoc = {
   type: "doc",
@@ -74,13 +66,13 @@ test("borrar nota pide confirmación y recién ahí hace el soft delete", async 
   fireEvent.click(await screen.findByRole("menuitem", { name: "Borrar nota" }))
   // El item solo pide abrir el confirm: no toca la DB.
   expect(onConfirmingChange).toHaveBeenCalledWith(true)
-  expect(updateRow).not.toHaveBeenCalled()
+  expect(deleteNote).not.toHaveBeenCalled()
 })
 
-test("confirmar borra por soft delete (deleted_at) y avisa al call site", async () => {
+test("confirmar borra la nota y avisa al call site", async () => {
   const { onDeleted } = renderActions({ confirming: true })
 
   fireEvent.click(await screen.findByRole("button", { name: "Borrar" }))
   await waitFor(() => expect(onDeleted).toHaveBeenCalled())
-  expect(updateRow).toHaveBeenCalledWith({ deleted_at: expect.any(String) })
+  expect(deleteNote).toHaveBeenCalledWith("n1")
 })

@@ -8,6 +8,7 @@ const GROUPS: [string, [string, string][]][] = [
     [
       [mod("K"), "Command palette"],
       [mod("/"), "Este cheatsheet"],
+      [mod(","), "Ajustes"],
       ["G luego H", "Ir a Hoy"],
       ["G luego C", "Ir a Cursos"],
       ["G luego 1-9", "Ir al curso N del sidebar (9 = el último)"],

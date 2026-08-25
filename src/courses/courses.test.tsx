@@ -14,44 +14,22 @@ const { state } = vi.hoisted(() => ({
   },
 }))
 
-// Mock del cliente Supabase.
-vi.mock("@/core/lib/supabase", () => {
-  const query = (table: string) => {
-    const chain = {
-      select: () => chain,
-      is: () => chain,
-      eq: () => chain,
-      order: () => chain,
-      // oxlint-disable-next-line unicorn/no-thenable -- imita al builder real de supabase-js
-      then: (fn: (r: unknown) => unknown) =>
-        Promise.resolve({
-          data: table === "courses" ? state.courses : [],
-          error: null,
-        }).then(fn),
-    }
-    return chain
+// El Store falso usa la derivación REAL (`derive.coursesPage`) en vez de una reimplementación de
+// la RPC escrita a mano acá. Antes este archivo tenía su propia versión en JS de la migración 0006
+// — dos definiciones de "una página de cursos" que podían divergir en silencio. Ahora hay una, y
+// además tiene su propio test (core/store/derive.test.ts).
+vi.mock("@/core/store", async () => {
+  const { coursesPage } = await import("@/core/store/derive")
+  type Query = Parameters<typeof coursesPage>[3]
+  return {
+    store: {
+      listCourses: async () => state.courses,
+      coursesPage: async (query: Query) => coursesPage(state.courses as never, [], [], query),
+      listNoteRefs: async () => [],
+      readLog: async () => [],
+      gradedReads: async () => [],
+    },
   }
-  // courses_page (migración 0006) en JS: mismo filtro/orden/slice que la RPC. Lo que se afirma acá
-  // es el comportamiento del componente; que el SQL haga esto de verdad lo prueba
-  // supabase/tests/0006_courses_page.test.sql.
-  const rpc = (fn: string, args: Record<string, unknown> = {}) => {
-    if (fn !== "courses_page") return Promise.resolve({ data: [], error: null })
-    const q = String(args.q ?? "").toLowerCase()
-    const status = args.status_filter as string | null
-    const all = (state.courses as Record<string, string>[])
-      .filter((c) => (!status || c.status === status) && c.name.toLowerCase().includes(q))
-      .toSorted((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
-    const offset = Number(args.page_offset ?? 0)
-    const rows = all.slice(offset, offset + Number(args.page_size ?? 24)).map((c) => ({
-      notes: 0,
-      rounds: 0,
-      last_read: null,
-      ...c,
-      total_count: all.length,
-    }))
-    return Promise.resolve({ data: rows, error: null })
-  }
-  return { supabase: { from: query, rpc } }
 })
 
 function renderCourses() {

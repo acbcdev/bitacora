@@ -2,7 +2,8 @@
 
 **Status:** grilling — parcialmente superado por los hechos. Hábitos: **hecho** (2026-08-20).
 AI: **el blocker de arquitectura cayó** (2026-07-30, Edge Function `generate-flashcards` + ADR 0010).
-Siguen sin resolver y sin spec: mobile, shortcuts, Settings, themes, abstracción DB.
+**Abstracción DB + Settings: hechos (2026-08-25)** — ver ADR 0011 y el bloque al final.
+Siguen sin resolver y sin spec: mobile, más shortcuts, themes (multi-preset), sidebar AI, tonos.
 **Relacionado:** [[to-grill-retention-system]] — el ítem "AI genera flashcards" **ya salió**: las
 flashcards existen como `notes.kind = 'flashcard'`, generadas con Claude desde el botón de la
 pantalla Curso.
@@ -107,7 +108,8 @@ todavía no tienen tecla.
 - Mobile para Repaso — respaldado por ADR 0004 tal cual. Mayor prioridad del batch.
 
 **Tier 2 — reabre scope de pantallas, necesita justificar antes de construir**
-- Settings — confirmar qué contenido real la justifica como pantalla propia.
+- ~~Settings~~ — **HECHO (2026-08-25).** No terminó siendo pantalla: es un `Drialog`. Lo justificó
+  el modo de almacenamiento, que necesitaba dónde vivir. Ver el bloque "Resuelto" al final.
 
 **Tier 3 — contradice una decisión ya tomada, no reabrir sin caso nuevo**
 - ~~Seguimiento de hábitos~~ — **HECHO. Reabierto con caso nuevo, specificado en
@@ -117,8 +119,10 @@ todavía no tienen tecla.
   + hábitos **malos**, nada de eso derivable de `read_log`. Responde la pregunta abierta #2. El
   gate del loop diario (#5) **sigue abierto** — se saltó por decisión consciente del usuario, no
   porque se haya resuelto.
-- Abstracción DB → localStorage — contradice ADR 0001 + 0004 + 0006 simultáneamente, y es
-  generalización sin usuario real que la necesite hoy.
+- ~~Abstracción DB → localStorage~~ — **HECHA (2026-08-25), reabierta con caso nuevo.** El
+  rechazo aplicaba a "una capa genérica para un usuario hipotético"; lo construido es el seam
+  `Store` con dos adapters, y los beneficiarios son los tests, el clone sin env y probar la app
+  sin cuenta. Los tres ADRs siguen en pie — el detalle está en ADR 0011 y en el bloque "Resuelto".
 
 **Tier 4 — ~~requiere decisión de arquitectura nueva~~ → la decisión se tomó (2026-07-30, ADR 0010).
 El backend existe y la AI ya está en producción. Esto bajó de tier.**
@@ -140,11 +144,46 @@ El backend existe y la AI ya está en producción. Esto bajó de tier.**
    concreto distinto.** `goals` eran metas de estudio derivables de `read_log`, miradas 1×/semana;
    hábitos es una entidad con log propio, tocada a diario, e incluye hábitos malos. Ver
    `.scratch/habits/spec.md` y `docs/adr/0009-habit-log-por-dia-y-target-congelado.md`.
-3. **DB abstraction a `localStorage`** — ¿para quién? Hoy sos el único usuario. Si el motivo real es
-   otro (demo sin login, por ejemplo), nombrar ese caso concreto en vez de la abstracción genérica.
-4. **Settings** — ¿qué contenido va ahí que no sea ya el toggle de tema del sidebar?
+3. ~~**DB abstraction a `localStorage`** — ¿para quién?~~ — **RESUELTA (2026-08-25): los tests, el
+   clone sin env, y probar la app sin registrarse.** Los tres son concretos y existen hoy. Ver el
+   bloque "Resuelto" más abajo y ADR 0011.
+4. ~~**Settings** — ¿qué contenido va ahí?~~ — **RESUELTA (2026-08-25): el modo de almacenamiento.**
+   Ese fue el primer ajuste con necesidad real de un hogar; el tema se mudó ahí de acompañante.
 5. **¿El loop diario (Repaso/Cursos/Nota) ya está en uso diario real?** Misma pregunta sin resolver
    de [[to-grill-retention-system]] — condiciona si Tier 2/3/4 de este doc también son prematuros.
+
+## Resuelto 2026-08-25 — abstracción DB + Settings
+
+**Abstracción DB → `localStorage`: HECHA**, y el grill de arriba que la mandaba a Tier 3 estaba
+**bien razonado pero calibrado sobre otra propuesta**. Lo que se rechazó era "una capa genérica
+para un usuario hipotético". Lo que se construyó es el seam **`Store`** con dos adapters
+(`docs/adr/0011-store-adapter-supabase-o-localstorage.md`), y lo justifican tres beneficiarios
+que sí existen hoy:
+
+1. **La suite de tests.** Seis archivos hand-rolleaban un `thenable` falso imitando el builder de
+   `supabase-js`; `courses.test.tsx` llegaba a reimplementar la RPC `courses_page` entera en JS.
+   Todo eso se borró. La suite pasó de 135 a 160 tests: los 25 nuevos cubren lógica que antes
+   **sólo se podía testear con Postgres arriba**.
+2. **`git clone && pnpm dev` sin env de Supabase.** Antes tiraba en tiempo de import
+   (`createClient` exige url y key) — la app no arrancaba ni para mirarla.
+3. **Probar la app sin registrarse.** Que es exactamente lo que la pregunta abierta #3 pedía
+   nombrar como caso concreto en vez de "abstracción genérica de storage". Ese es su nombre.
+
+Los tres ADRs que se citaban en contra **siguen en pie**: el modo local es **excluyente** (o
+Postgres o navegador, nunca los dos), así que no es el offline-first/sync que cierra ADR 0004;
+`Store` no genera SQL ni mapea entidades, así que no es el ORM que rechaza ADR 0006; y Supabase
+sigue siendo el default y el único backend que sincroniza entre dispositivos (ADR 0001).
+
+**Settings: HECHO**, y la pregunta #4 ("¿qué contenido lo justifica?") **se respondió sola**: el
+modo de almacenamiento necesitaba un hogar. Es un `Drialog`, no una pantalla — no reabre "solo 3
+pantallas" de `ui-principles.md`. Contiene lo que hay hoy (tema + modo de almacenamiento) y nada
+especulativo. Se abre con `⌘,`, desde ⌘K o desde el menú de cuenta.
+
+**Themes bajó de costo sin haberse tocado:** el hogar que le faltaba (un Settings dialog) ahora
+existe. Sigue sin spec y sigue gateado, pero cuando se retome no hay que decidir dónde vive.
+
+**Lo que NO se hizo en este batch:** mobile para Repaso (sigue siendo lo más respaldado del doc,
+ADR 0004) y el inventario de acciones sin tecla para "más shortcuts" — sólo se agregó `⌘,`.
 
 ## Próximo paso
 

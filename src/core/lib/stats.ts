@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { supabase } from "@/core/lib/supabase"
+import { store } from "@/core/store"
 
 // Meta diaria = el batch de review_queue() (migrations/0003). El diseño muestra "leídas hoy N/M".
 export const DAILY_GOAL = 3
@@ -89,11 +89,7 @@ export function lastDays(byDay: Map<string, number> | undefined, now = new Date(
 export function useReadStats() {
   return useQuery({
     queryKey: ["read_stats"],
-    queryFn: async (): Promise<ReadStats> => {
-      const { data, error } = await supabase.from("read_log").select("note_id, read_at")
-      if (error) throw error
-      return deriveReadStats(data)
-    },
+    queryFn: async (): Promise<ReadStats> => deriveReadStats(await store.readLog()),
     placeholderData: EMPTY,
   })
 }
