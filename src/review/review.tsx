@@ -243,7 +243,11 @@ export function Review() {
             </EmptyContent>
           </Empty>
         ) : (
-          <div className="mx-auto max-w-3xl px-4 sm:px-8">
+          // w-full: `mx-auto` en un flex item CANCELA el stretch, así que sin ancho definido esta
+          // columna se dimensiona fit-content — y su min-content (el preview, que con `-m-2` pide
+          // más que la card) le ganaba al ancho real. Resultado: en 393px se iba 23px afuera y el
+          // `overflow-hidden` de la Card se comía el borde derecho del footer.
+          <div className="mx-auto w-full max-w-3xl px-4 sm:px-8">
             {note.kind === "note" ? (
               <button
                 type="button"
@@ -292,11 +296,12 @@ export function Review() {
               </>
             )}
 
-            <div className="mt-8 flex items-center justify-end border-t pt-5 sm:justify-between">
-              {/* Los atajos son solo desktop (en mobile no hay teclado). Los botones de la derecha
-                  van en los dos: sin ellos mobile no tiene cómo moverse por la cola. Los hints
-                  siguen al lado porque enseñan la tecla, que el botón no dice. */}
-              <div className="hidden flex-wrap items-center gap-3.5 text-xs text-muted-foreground sm:flex">
+            {/* `md` y no `sm`: acá se decide mobile, y ese breakpoint es 768 = MOBILE_BREAKPOINT
+                (misma regla que drialog.tsx). Los atajos son solo desktop —en mobile no hay
+                teclado—; los botones van en los dos, porque sin ellos mobile no tiene cómo moverse
+                por la cola, con la tecla adentro para que sigan enseñando el atajo en desktop. */}
+            <div className="mt-8 flex items-center justify-end border-t pt-5 md:justify-between">
+              <div className="hidden flex-wrap items-center gap-3.5 text-xs text-muted-foreground md:flex">
                 {note.kind === "flashcard" &&
                   (revealed ? (
                     <span>
@@ -323,12 +328,18 @@ export function Review() {
                     </span>
                   </>
                 )}
-                <span>
-                  <Kbd>J</Kbd> volver
-                </span>
-                <span>
-                  <Kbd>K</Kbd> siguiente
-                </span>
+                {/* Solo la flashcard: la nota lleva la tecla adentro del propio botón, y repetir
+                    el mismo glifo a 30cm de distancia es ruido. */}
+                {note.kind === "flashcard" && (
+                  <>
+                    <span>
+                      <Kbd>J</Kbd> volver
+                    </span>
+                    <span>
+                      <Kbd>K</Kbd> siguiente
+                    </span>
+                  </>
+                )}
               </div>
               <div className="flex flex-wrap justify-end gap-2">
                 {note.kind === "flashcard" ? (
@@ -379,11 +390,32 @@ export function Review() {
                   // read_log sin haber leído es basura (CONTEXT.md). Vive en el dialog, gateado a
                   // haber scrolleado hasta el final. El footer de una nota es navegación y nada
                   // más — ghost, para no competirle el peso visual a la nota (ui-principles).
+                  // El Kbd va adentro: el botón ES el atajo, no un duplicado suyo. Se esconde en
+                  // mobile porque ahí no hay tecla J que apretar — el botón queda solo, y más alto
+                  // para que sea un target táctil de verdad. aria-hidden: si no, el nombre
+                  // accesible sería "J Volver" en desktop y "Volver" en mobile.
                   <>
-                    <Button variant="ghost" size="sm" disabled={index === 0} onClick={prev}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="max-md:h-10 max-md:px-4"
+                      disabled={index === 0}
+                      onClick={prev}
+                    >
+                      <Kbd aria-hidden className="max-md:hidden">
+                        J
+                      </Kbd>
                       Volver
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={next}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="max-md:h-10 max-md:px-4"
+                      onClick={next}
+                    >
+                      <Kbd aria-hidden className="max-md:hidden">
+                        K
+                      </Kbd>
                       Siguiente
                     </Button>
                   </>
