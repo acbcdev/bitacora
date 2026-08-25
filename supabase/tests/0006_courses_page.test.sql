@@ -1,3 +1,8 @@
+-- OJO (2026-08-25, ADR 0011): `courses_page` YA NO LA LLAMA NADIE. La página de cursos la arma
+-- `derive.coursesPage` en el cliente, y su cobertura vive en `src/core/store/derive.test.ts`, que
+-- corre sin Postgres. Este archivo sigue acá porque la función sigue en la DB (retirarla es una
+-- migración), pero verde acá NO significa que la app funcione.
+--
 -- Test de courses_page (migración 0006). Sin framework: asserts de plpgsql, revienta en la
 -- primera que falle. Correr contra un Postgres vacío y descartable:
 --

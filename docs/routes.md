@@ -9,7 +9,7 @@ Fuente de verdad del routing. Si agregás una ruta, actualizá acá y en `src/ap
 
 | Path | Component | Archivo | Notas |
 |---|---|---|---|
-| `/` | `<Review />` | `src/review/review.tsx` | Repaso: cola `review_queue()` (notas + flashcards mezcladas, `limit 3`). `Enter` abre dialog, `J`/`K` navega sin contar |
+| `/` | `<Review />` | `src/review/review.tsx` | Repaso: cola `derive.reviewQueue(snapshot, 3)` (notas + flashcards mezcladas), congelada al montar. `Enter` abre dialog, `J`/`K` navega sin contar |
 | `/courses` | `<Courses />` | `src/courses/courses.tsx` | Lista cursos con estado/progreso derivado. `?new=1` abre form creación |
 | `/course/:id` | `<Course />` | `src/courses/course.tsx` | Curso + sus notas (`kind='note'`). Botón "Generar flashcards" + % retención |
 | `/course/:id/:noteId` | `<Course />` | `src/courses/course.tsx` | Misma pantalla, nota enfocada. Con `?focus=1` entra en focus mode |
@@ -33,7 +33,9 @@ Shell: `src/app.tsx:55` — sidebar + overlays (`⌘K` palette `src/core/compone
 Ordenado por costo/conflicto (`/.scratch/platform-features/to-grill-platform-features.md:100-154`, `/.scratch/retention-system/to-grill-retention-system.md:59-118`):
 
 ### Tier 1 — listo para spec-ear (sin blocker)
-1. **Intercalado forzado** — `review_queue()` RPC garantiza N `course_id` distintos en batch de 3. Solo SQL. Sin spec todavía.
+1. **Intercalado forzado** — **no existe**: decía que `review_queue()` lo garantizaba y esa RPC
+   nunca intercaló (ordena sólo por último repaso). Hoy la cola es `derive.reviewQueue`, así que
+   si se construye va en JS y sale gratis para los dos adapters. Sin spec todavía.
 2. ~~**Mobile Repaso**~~ — **hecho** (2026-08-24, `.scratch/drialog/spec.md`). La brecha era solo
    la superficie de overlay: viewport meta, Sidebar→Sheet, `useIsMobile`, `Dropover` y
    Cursos-fuerza-cards ya existían. `Drialog` (`src/core/ui/drialog.tsx`) cierra el hueco.
