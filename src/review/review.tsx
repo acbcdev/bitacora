@@ -59,8 +59,9 @@ function ReadHistory({ byDay }: { byDay?: Map<string, number> }) {
 
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
 //   Enter = abrir la nota (adentro, Enter otra vez = leído + siguiente) · J = volver · K = siguiente.
-// Desde la card, marcar leído NO avanza (no leíste la nota, solo el preview): el ítem se queda y
-// movés vos con J/K. Desde el dialog SÍ avanza: ahí el gate exige haber llegado al final.
+// Desde la card de una nota NO se marca leído: ahí solo se ve el preview. Eso vive en el dialog,
+// gateado a haber llegado al final (CONTEXT.md), y desde ahí sí avanza. El footer de la card es
+// navegación y nada más — los mismos J/K como botones, que sin teclado son la única salida.
 // Debajo del repaso va la tira de hábitos y después la lista de cursos embebida, como en el diseño.
 export function Review() {
   const { data: queue = [], isLoading, refetch } = useReviewQueue()
@@ -73,8 +74,8 @@ export function Review() {
   const [revealed, setRevealed] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
-  // Marcar leído no avanza: el ítem se queda y avanzás vos con K. Se guardan los ids ya marcados
-  // (no un boolean por índice) para que volver con J a una nota ya leída no meta un segundo
+  // Calificar una flashcard no avanza: el ítem se queda y avanzás vos. Se guardan los ids ya
+  // marcados (no un boolean por índice) para que volver a una ya leída no meta un segundo
   // insert en read_log.
   const [markedIds, setMarkedIds] = useState<ReadonlySet<string>>(new Set())
   const note = queue[index]
@@ -91,7 +92,10 @@ export function Review() {
     setDialogOpen(false)
   }, [index])
 
-  const advance = useCallback(() => setIndex((i) => i + 1), []) // avance optimista (ui-principles)
+  // Navegar la cola. Avance optimista (ui-principles): no espera al refetch. Una sola definición
+  // para los atajos y para los botones del footer — sin teclado, J/K no existen.
+  const next = useCallback(() => setIndex((i) => Math.min(i + 1, queue.length)), [queue.length])
+  const prev = useCallback(() => setIndex((i) => Math.max(i - 1, 0)), [])
 
   const mark = useCallback(
     (grade?: Grade) => {
@@ -102,8 +106,6 @@ export function Review() {
     [note, marked, markRead],
   )
 
-  const markNoteRead = useCallback(() => mark(), [mark])
-
   // Repasos previos de esta nota (read_log) — el contador que muestra el dialog.
   const reads = (note && stats?.byNote.get(note.id)?.count) ?? 0
 
@@ -112,9 +114,9 @@ export function Review() {
   const markReadAndNext = useCallback(() => {
     if (marked) return
     mark()
-    advance()
+    next()
     toast.success(reads === 0 ? "Leído por primera vez" : `Leído · ${reads + 1} repasos`)
-  }, [marked, mark, advance, reads])
+  }, [marked, mark, next, reads])
 
   // Enter con la card cerrada: nota → abre el dialog. NO marca leído: desde la card solo se ve
   // título + 3 líneas, marcar leído sin haber leído la nota es basura en read_log. Marcar leído
@@ -161,13 +163,8 @@ export function Review() {
     navigate(`${to}?focus=1`)
   }, [note, navigate])
 
-  useHotkeys("j", () => setIndex((i) => Math.max(i - 1, 0)), { preventDefault: true }) // volver
-  useHotkeys(
-    "k",
-    () => setIndex((i) => Math.min(i + 1, queue.length)), // siguiente, sin contar
-    { preventDefault: true },
-    [queue.length],
-  )
+  useHotkeys("j", prev, { preventDefault: true }, [prev]) // volver
+  useHotkeys("k", next, { preventDefault: true }, [next]) // siguiente, sin contar
 
   if (isLoading)
     return (
@@ -296,7 +293,9 @@ export function Review() {
             )}
 
             <div className="mt-8 flex items-center justify-end border-t pt-5 sm:justify-between">
-              {/* Los atajos no existen en mobile (no hay teclado): ahí el espacio va a los botones. */}
+              {/* Los atajos son solo desktop (en mobile no hay teclado). Los botones de la derecha
+                  van en los dos: sin ellos mobile no tiene cómo moverse por la cola. Los hints
+                  siguen al lado porque enseñan la tecla, que el botón no dice. */}
               <div className="hidden flex-wrap items-center gap-3.5 text-xs text-muted-foreground sm:flex">
                 {note.kind === "flashcard" &&
                   (revealed ? (
@@ -348,7 +347,7 @@ export function Review() {
                         open={confirmingDelete}
                         onOpenChange={setConfirmingDelete}
                         what={note.title || "(sin título)"}
-                        onConfirm={() => delFlashcard.mutate(note.id, { onSuccess: advance })}
+                        onConfirm={() => delFlashcard.mutate(note.id, { onSuccess: next })}
                       />
                       <Button
                         size="sm"
@@ -376,9 +375,18 @@ export function Review() {
                     </Button>
                   )
                 ) : (
-                  <Button size="lg" disabled={marked} onClick={markNoteRead}>
-                    {marked ? "Leído" : "Marcar leído"}
-                  </Button>
+                  // Marcar leído NO vive acá: desde la card se ven 3 líneas y un insert en
+                  // read_log sin haber leído es basura (CONTEXT.md). Vive en el dialog, gateado a
+                  // haber scrolleado hasta el final. El footer de una nota es navegación y nada
+                  // más — ghost, para no competirle el peso visual a la nota (ui-principles).
+                  <>
+                    <Button variant="ghost" size="sm" disabled={index === 0} onClick={prev}>
+                      Volver
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={next}>
+                      Siguiente
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -399,7 +407,7 @@ export function Review() {
           onFocus={openFocused}
           onDeleted={() => {
             setDialogOpen(false)
-            advance()
+            next()
           }}
         />
       )}

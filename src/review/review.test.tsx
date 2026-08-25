@@ -156,7 +156,10 @@ test("marcar leído refresca el contador de hoy", async () => {
   await screen.findByText("Nota uno")
   expect(screen.getByText("leídas hoy 0/3")).toBeInTheDocument()
 
-  fireEvent.click(screen.getByRole("button", { name: "Marcar leído" }))
+  // Marcar leído vive solo adentro del dialog (CONTEXT.md): desde la card se ven 3 líneas.
+  fireEvent.click(screen.getByRole("button", { name: /Nota uno/ }))
+  const dialog = await screen.findByRole("dialog")
+  fireEvent.click(within(dialog).getByRole("button", { name: "Leído y siguiente" }))
   await screen.findByText("leídas hoy 1/3")
 })
 
@@ -219,7 +222,9 @@ test("cola mixta: la flashcard se renderiza distinto y gradearla inserta el grad
   expect(insertReadLog).not.toHaveBeenCalled()
 
   // Antes de revelar: sin botones de grade, solo "Revelar respuesta" (distinto de una nota).
-  expect(screen.queryByRole("button", { name: "Marcar leído" })).not.toBeInTheDocument()
+  // Y sin los botones de navegación que sí tiene una nota: el dead-end de la flashcard calificada
+  // en mobile está pausado a propósito (.scratch/drialog/spec.md), no resuelto acá.
+  expect(screen.queryByRole("button", { name: "Siguiente" })).not.toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Correcto" })).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole("button", { name: "Revelar respuesta" }))
 
@@ -276,36 +281,42 @@ test("click en el card de una nota abre el dialog con la nota completa; cerrarlo
   await waitFor(() => expect(screen.queryByTestId("editor")).not.toBeInTheDocument())
 })
 
-test("Marcar leído funciona desde el card sin abrir el dialog, y no avanza", async () => {
+test("desde la card de una nota no se marca leído: su footer es navegación", async () => {
   renderReview()
   await screen.findByText("Nota uno")
 
-  fireEvent.click(screen.getByRole("button", { name: "Marcar leído" }))
-  await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
-  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
-  await screen.findByRole("button", { name: "Leído" })
-  expect(screen.getByText("1 / 3")).toBeInTheDocument()
+  // El insert en read_log vive en el dialog, gateado a haber scrolleado hasta el final
+  // (CONTEXT.md). Desde la card, que muestra 3 líneas, no hay forma de marcar.
+  expect(screen.queryByRole("button", { name: "Marcar leído" })).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Leído" })).not.toBeInTheDocument()
 
-  // K sigue siendo la única forma de moverse, y la nota nueva vuelve a estar sin marcar.
-  fireEvent.keyDown(document, { code: "KeyK" })
+  // Sin teclado J/K no existen, así que los botones son la única salida de la cola.
+  expect(screen.getByRole("button", { name: "Volver" })).toBeDisabled()
+  fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
   await screen.findByText("Nota dos")
-  expect(screen.getByRole("button", { name: "Marcar leído" })).toBeEnabled()
+  expect(screen.getByRole("button", { name: "Volver" })).toBeEnabled()
+  fireEvent.click(screen.getByRole("button", { name: "Volver" }))
+  await screen.findByText("Nota uno")
+  expect(insertReadLog).not.toHaveBeenCalled()
 })
 
-test("volver con J a una nota ya marcada no la inserta de nuevo", async () => {
+test("volver a una nota ya marcada no la inserta de nuevo", async () => {
   renderReview()
   await screen.findByText("Nota uno")
 
-  fireEvent.click(screen.getByRole("button", { name: "Marcar leído" }))
+  fireEvent.click(screen.getByRole("button", { name: /Nota uno/ }))
+  fireEvent.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Leído y siguiente" }),
+  )
   await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
-
-  fireEvent.keyDown(document, { code: "KeyK" })
   await screen.findByText("Nota dos")
-  fireEvent.keyDown(document, { code: "KeyJ" })
-  await screen.findByText("Nota uno")
 
-  // El estado "leído" es por nota, no por posición en la cola: el botón sigue apagado.
-  const btn = await screen.findByRole("button", { name: "Leído" })
+  // El estado "leído" es por nota, no por posición en la cola: al volver y reabrirla, el botón
+  // del dialog sigue apagado.
+  fireEvent.click(screen.getByRole("button", { name: "Volver" }))
+  await screen.findByText("Nota uno")
+  fireEvent.click(screen.getByRole("button", { name: /Nota uno/ }))
+  const btn = within(await screen.findByRole("dialog")).getByRole("button", { name: "Leído" })
   expect(btn).toBeDisabled()
   fireEvent.click(btn)
   expect(insertReadLog).toHaveBeenCalledTimes(1)
