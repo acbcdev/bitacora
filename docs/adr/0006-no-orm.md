@@ -38,3 +38,8 @@ createClient<Database>(url, anonKey)  // queries 100% tipadas, autocomplete
 - Regenerar `database.ts` cada vez que cambia el schema (raro — está frozen).
 - **Único caso para reabrir:** si aparece un backend propio (Edge Functions / server). No está en
   scope y contradice ADR 0001. Se reabre ahí, con ese backend concreto sobre la mesa.
+- **Reabierto y re-decidido (2026-07-30): sigue sin ORM.** Apareció el backend — la Edge Function
+  `generate-flashcards` (ADR 0010). Ahí un ORM tendría dónde correr, pero la función usa
+  `supabase-js` con el JWT del usuario justamente para que RLS siga filtrando: meter un ORM la
+  conectaría como rol privilegiado y saltearía las policies, el mismo problema de arriba movido de
+  lugar. La decisión no cambia.

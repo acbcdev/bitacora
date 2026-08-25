@@ -24,7 +24,11 @@ Notion sirve para **escribir**, pero no para:
 ## Stack (cerrado)
 
 Vite + React + **Tiptap** (editor WYSIWYG, licencia MIT) + **Supabase** (Postgres + Auth + RLS)
-→ **PWA** en Cloudflare Pages. Costo $0, sin servidores propios.
+→ **PWA** en Cloudflare Pages. Hosting y DB $0, **una** función serverless: la Edge Function
+`generate-flashcards` (`supabase/functions/`), que llama a la API de Anthropic con la key
+server-side. Eso es lo único que cuesta plata (por token) y lo único que corre fuera del browser:
+"sin servidores propios" sigue valiendo para todo lo demás. Ver
+`docs/adr/0010-flashcards-como-notas-y-edge-function.md`.
 
 Nivel medio (ver `docs/adr/0005-frontend-stack.md`):
 
@@ -52,7 +56,13 @@ Notas de licencia/tier:
 | **Progreso derivado** | `notas leídas / total del curso`. No se guarda: sale de `COUNT(*)` sobre `read_log`. |
 | **read_count** | Cuántas veces se repasó una nota. Derivado de `read_log`. |
 | **Racha / leídas hoy** | Derivados de `read_log` filtrando por fecha. |
-| **Cola de repaso** | Notas de cursos `active`, ordenadas por `max(read_at)` ascendente (las más viejas primero). |
+| **Cola de repaso** | Lo que sirve la RPC `review_queue(exclude_course_id, exclude_note_ids)`: **una** nota/flashcard viva a la vez, la más vieja que no esté ya vista ni sea del curso excluido; `nulls first` (nunca-leídas primero). El `status` del curso **no** filtra — `active`, `paused` y `done` entran igual. Si todo lo que queda es del curso excluido, hace fallback soltando el curso (no las vistas). Sin contador `1/3` en UI — one-by-one. |
+| **Intercalado forzado** | Garantía de que dos repasos seguidos no sean del mismo `course_id` si hay alternativa. Solo `course_id`, no `kind` — `kind` se mezcla solo por antigüedad. |
+| **`seen[]`** | Las notas ya servidas en esta sesión de Repaso. Vive en el cliente (`useState`), muere al recargar. Es el back-stack de `J` **y** el `exclude_note_ids` que va a la RPC: por eso saltear con `K` no puede devolverte la misma nota más adelante. `J`/`K` adentro de `seen[]` no pegan a la DB. |
+| **Presupuesto de llamadas** | Repaso hace **una llamada por nota servida, y solo hasta la meta**: 3 por día. Marcar la 3ª es marcar-y-cerrar, no marcar-y-siguiente. Montar la pantalla con la meta ya cumplida no llama. Pasada la meta solo llama `K` / "Cargar más". |
+| **Flashcard** | Una nota con `kind = 'flashcard'`: el `title` es la pregunta y el `content` la respuesta. **No es tabla propia** (ADR 0010). Se generan con AI desde las notas del curso; se repasan en Repaso (revelar → autoevaluar) y no aparecen en la lista de notas del curso. |
+| **Autoevaluación (`grade`)** | Cómo salió una flashcard: `correcto` / `parcial` / `incorrecto`. Va en la fila de `read_log` de ese repaso. En notas normales queda `null`. |
+| **% de retención** | `correctos / autoevaluaciones` del curso, derivado de `read_log.grade` — no se guarda (ADR 0003). Se muestra en la pantalla del curso. |
 | **Soft delete** | Borrado lógico vía `deleted_at`. La app **nunca** hace `DELETE`. Toda query filtra `deleted_at is null`. |
 | **flag `imported`** | Marca notas/cursos migrados de Notion cuyas fechas son estimadas (`created_time` como aprox. de `started_at`). |
 | **Habit** | Un hábito. `kind` good/bad, `metric` check/count/time, y `target` + `period` = la frecuencia ("3 por semana"). `days` es aparte. |
@@ -73,9 +83,11 @@ courses(id, user_id, name, status, started_at, finished_at, icon, source, area, 
   -- area: tema/categoría del curso. Texto libre single-value (no tags), sin enum. Nullable.
   --   source/area no tienen tabla propia: el <datalist> del form sugiere valores ya usados,
   --   calculados en cliente desde useCourses() — no hay CRUD de categorías.
-notes(id, user_id, course_id, title, content, position, deleted_at, created_at)
+notes(id, user_id, course_id, title, content, kind, position, imported, deleted_at, created_at)
   -- content: documento Tiptap. course_id uuid references courses(id) on delete set null
-read_log(id, user_id, note_id, read_at)
+  -- kind: 'note' | 'flashcard'. En una flashcard, title = pregunta y content = respuesta (ADR 0010).
+read_log(id, user_id, note_id, read_at, grade)
+  -- grade: 'correcto' | 'parcial' | 'incorrecto'. Solo se completa si la nota es kind 'flashcard'.
 
 habits(id, user_id, name, icon, kind, metric, target, period, days, deleted_at, created_at)
   -- kind: 'good' (piso) | 'bad' (techo) · metric: 'check' | 'count' | 'time' ('time' = minutos)
@@ -97,9 +109,15 @@ habit_log(id, user_id, habit_id, day, amount, target)
 
 ## Las 3 pantallas (y solo 3)
 
-1. **Repaso** — la que abre 2–3×/día. Nota grande. `Space` = marcar leído (insert en `read_log`)
-   + siguiente. `J`/`K` = saltar sin contar.
-2. **Cursos** — lista con estado, progreso derivado, fechas.
+1. **Repaso** — la que abre 2–3×/día. La cola trae **una** nota/flashcard a la vez, intercalada por `course_id` (ver Glosario). Corta al llegar a la meta del día: sale el `Empty` con "Cargar más", que libera la cola por el resto de la sesión (el contador sigue honesto — `4/3`, `5/3`).
+   - **Nota:** `Enter` abre el dialog; marcar leído (insert en `read_log`) vive ahí, gateado a haber
+     scrolleado hasta el final — desde la card se ven 3 líneas, marcar sin leer es basura en el log.
+     `⌘/Ctrl+Enter` va directo a la vista expandida.
+   - **Flashcard:** `Enter` revela la respuesta; después, autoevaluación explícita con los tres
+     botones (correcto / parcial / incorrecto) — insert en `read_log` con `grade`.
+   - `J`/`K` = atrás / siguiente sin contar, para las dos, moviéndose sobre `seen[]`. Sin contador `1/3` — one-by-one. Ver `.scratch/retention-system/spec.md`.
+2. **Cursos** — lista con estado, progreso derivado, fechas. La pantalla del curso tiene el botón
+   "Generar flashcards" y el % de retención.
 3. **Nota** — editor Tiptap.
 
 **Auth:** magic link (default de Supabase, cero código).
@@ -124,6 +142,14 @@ hábitos es una entidad con log propio, tocada a diario, que incluye hábitos **
 ningún derivado de `read_log` puede expresar. El otro gate (loop diario sin uso real confirmado)
 sigue sin resolverse: se saltó por **decisión consciente del usuario**, mismo precedente que dejó
 escrito el spec de flashcards. Ver `.scratch/habits/spec.md`. `goals` sigue descartado.
+
+**La AI ya entró, pero solo por una puerta (2026-07-30).** Flashcards generadas con Claude desde la
+Edge Function `generate-flashcards` — eso tumbó el blocker de arquitectura que gateaba *todo* el
+batch AI: hay dónde poner la key y dónde correr las llamadas (Supabase Edge Functions), y el gasto
+por token se aceptó a sabiendas. Lo que **sigue gateado no es la infra, es el chrome**: el "sidebar
+de integración AI" choca con `ui-principles.md` #3 (chrome mínimo) y sigue sin caso. Los tonos de nota vía AI ya no necesitan
+decisión de arquitectura — viven en Nota, una de las 3 pantallas, y reusan la Edge Function: quedan
+como feature a specificar, no como gate. Ver `docs/adr/0010-flashcards-como-notas-y-edge-function.md`.
 
 **Themes — no MVP, feature a futuro, dirección ya resuelta si se retoma:** multi-theme estilo
 preset de editor de código (tipo OneDark/Dracula — un set fijo de colores por preset, no
