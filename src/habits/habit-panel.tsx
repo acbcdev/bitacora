@@ -62,7 +62,7 @@ export function HabitHistory({ habit, state }: { habit: Habit; state: HabitState
             // Sólo el día en cero usa clase: al resto lo pinta color-mix por fracción. En un
             // `bad` la escala va al revés — el día limpio es el verde.
             cell.amount === 0 && (habit.kind === "good" ? "bg-muted" : "bg-brand/40"),
-            n === TODAY && "ring-1 ring-border ring-offset-1 ring-offset-popover",
+            n === TODAY && "ring-1 ring-brand ring-offset-1 ring-offset-transparent",
           )}
         />
       ))}

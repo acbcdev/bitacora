@@ -1,13 +1,31 @@
 import { useState } from "react"
-import { Archive, CalendarDays, Check, Clock, Flame, Hash, Pencil, Target } from "lucide-react"
+import {
+  Archive,
+  CalendarDays,
+  Check,
+  Clock,
+  Flame,
+  Hash,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Target,
+} from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { Button } from "@/core/ui/button"
 import { Drialog, DrialogContent, DrialogHeader, DrialogTitle } from "@/core/ui/drialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/core/ui/dropdown-menu"
 import { Input } from "@/core/ui/input"
 import { cn } from "@/core/lib/utils"
 import { CourseIcon } from "@/courses/course-icon"
 import { IconPicker } from "@/courses/icon-picker"
 import { deriveHabit, goalText } from "@/habits/habits"
+import { HabitHistory } from "@/habits/habit-panel"
 import { useArchiveHabit, useHabitLog, useHabits, useSaveHabit } from "@/habits/habits.api"
 import type { Habit, HabitMetric, HabitPeriod } from "@/core/types/database"
 
@@ -25,64 +43,91 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
 
   return (
     <Drialog open onOpenChange={(next) => !next && onClose()}>
-      <DrialogContent showCloseButton={false} className="gap-0 p-0 md:w-160 md:max-w-160">
+      <DrialogContent showCloseButton={false} className="gap-0 p-0 md:w-240 md:max-w-240">
         {/* En el form el título visible ES el input del nombre (página de Notion), así que el
             header se esconde — pero el DrialogTitle SIGUE montado: la primitiva lo exige para el
             aria-labelledby del overlay y sin él avisa por consola. */}
-        <DrialogHeader className={form === null ? "border-b px-6 py-4" : "sr-only"}>
-          <DrialogTitle className="text-lg font-semibold">
-            {form === null ? "Hábitos" : form === "new" ? "Nuevo hábito" : "Editar hábito"}
-          </DrialogTitle>
+        <DrialogHeader className={form === null ? "px-6 pt-5 pb-3" : "sr-only"}>
+          <div className="flex items-center gap-3">
+            <DrialogTitle className="flex items-baseline gap-3 text-lg font-semibold">
+              {form === null ? "Hábitos" : form === "new" ? "Nuevo hábito" : "Editar hábito"}
+              {form === null && habits.length > 0 && (
+                <span className="mono-dim text-xs font-normal">{habits.length} activos</span>
+              )}
+            </DrialogTitle>
+            {form === null && (
+              <Button variant="outline" className="ml-auto" onClick={() => setForm("new")}>
+                <Plus />
+                Nuevo
+              </Button>
+            )}
+          </div>
         </DrialogHeader>
 
         {form === null ? (
-          <div className="px-6 py-5">
-            {habits.length === 0 ? (
+          /* Alto FIJO, no max-h: con alto al contenido el dialog salta de tamaño al crear,
+             archivar o pasar de la lista al form, y el `+ Nuevo` del header se mueve abajo del
+             cursor. `content-start` para que las filas no se estiren a llenar el hueco.
+             Cards y no filas: es la MISMA forma que la tira de Hoy, así que la lista no estrena un
+             lenguaje propio — y en una card entran los 14 días, que en una fila no entraban. */
+          <div className="grid h-[70vh] grid-cols-1 content-start gap-2.5 overflow-y-auto px-6 pt-1 pb-6 sm:grid-cols-2 md:grid-cols-3">
+            {habits.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 Todavía no hay hábitos. Creá el primero.
               </p>
-            ) : (
-              <div className="flex flex-col">
-                {habits.map((h) => {
-                  const { streak } = deriveHabit(h, log)
-                  return (
-                    <div
-                      key={h.id}
-                      className="flex items-center gap-3 border-b py-2.5 text-sm last:border-0"
-                    >
-                      <CourseIcon icon={h.icon} fallback={Target} />
-                      <span className="min-w-0 flex-1 truncate">{h.name}</span>
-                      <span className="mono-dim text-xs">{goalText(h)}</span>
-                      {streak >= 2 && (
-                        <span className="mono-dim inline-flex items-center gap-0.5 text-xs">
-                          <Flame size={11} />
-                          {streak}
+            )}
+            {habits.map((h) => {
+              const state = deriveHabit(h, log)
+              return (
+                <div
+                  key={h.id}
+                  className="group flex flex-col gap-3 rounded-lg border bg-card p-3.5 transition-colors hover:border-input"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <CourseIcon icon={h.icon} fallback={Target} className="size-4.5" />
+                    {/* Un menú y no dos íconos sueltos: en la lista vieja el lápiz y el archivar
+                        estaban SIEMPRE encendidos en cada fila y eran lo más ruidoso del dialog.
+                        En mobile no hay hover donde esconderlo, así que ahí queda visible. */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Acciones de ${h.name}`}
+                          className="-mt-1 -mr-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 max-md:opacity-100"
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => setForm(h)}>
+                          <Pencil /> Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onSelect={() => setArchiving(h)}>
+                          <Archive /> Archivar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{h.name}</span>
+                      {state.streak >= 2 && (
+                        <span className="mono-dim inline-flex items-center gap-0.5 text-[10px]">
+                          <Flame size={10} />
+                          {state.streak}
                         </span>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Editar ${h.name}`}
-                        onClick={() => setForm(h)}
-                      >
-                        <Pencil className="size-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Archivar ${h.name}`}
-                        onClick={() => setArchiving(h)}
-                      >
-                        <Archive className="size-3.5" />
-                      </Button>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-            <div className="mt-6 flex justify-end">
-              <Button onClick={() => setForm("new")}>+ Nuevo</Button>
-            </div>
+                    <span className="mono-dim text-xs">{goalText(h)}</span>
+                  </div>
+
+                  {/* El mismo bloque de 14 días del tooltip del tile, sin variante propia. */}
+                  <HabitHistory habit={h} state={state} />
+                </div>
+              )
+            })}
           </div>
         ) : (
           <HabitForm habit={form === "new" ? null : form} onClose={() => setForm(null)} />
