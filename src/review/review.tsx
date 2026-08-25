@@ -10,7 +10,7 @@ import { NoteDialog } from "@/review/note-dialog"
 import { Button } from "@/core/ui/button"
 import { Card } from "@/core/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
-import { Kbd } from "@/core/ui/kbd"
+import { Kbd, KbdGroup } from "@/core/ui/kbd"
 import { Progress } from "@/core/ui/progress"
 import { CourseIcon } from "@/courses/course-icon"
 import { useCourses } from "@/courses/courses.api"
@@ -56,6 +56,12 @@ function ReadHistory({ byDay }: { byDay?: Map<string, number> }) {
     </span>
   )
 }
+
+// Los botones del footer viven sobre una card que YA cambia de fondo al hover —la card entera es
+// el target de abrir, así que no se puede hoverear un botón sin hoverear la card—. El ghost de
+// fábrica en dark hovea a muted/50: contra el fondo ya hovereado quedan a 3 puntos y el hover no
+// se ve. Un escalón más arriba (--input) los despega en los dos temas.
+const FOOTER_BTN = "hover:bg-input dark:hover:bg-input"
 
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
 //   Enter = abrir la nota (adentro, Enter otra vez = leído + siguiente) · J = volver · K = siguiente.
@@ -218,7 +224,15 @@ export function Review() {
         aria-label={`Meta diaria de lectura: ${readToday} de ${DAILY_GOAL} notas`}
       />
 
-      <Card className="mb-8 py-6">
+      {/* `relative`: el target de abrir es un overlay sobre la Card entera (abajo). */}
+      <Card
+        className={cn(
+          "relative mb-8 py-6",
+          // Mismo hover que las cards de Cursos (courses.tsx), un poco más suave: sobre 1120px de
+          // superficie el --muted sólido pesa demasiado.
+          note?.kind === "note" && !done && "transition-colors hover:bg-muted/55",
+        )}
+      >
         {done ? (
           // Cola vacía o batch terminado → estado claro, no error (review/02).
           <Empty className="px-4 py-12 sm:px-8 sm:py-16">
@@ -249,29 +263,36 @@ export function Review() {
           // `overflow-hidden` de la Card se comía el borde derecho del footer.
           <div className="mx-auto w-full max-w-3xl px-4 sm:px-8">
             {note.kind === "note" ? (
-              <button
-                type="button"
-                onClick={() => setDialogOpen(true)}
-                className="-m-2 mb-6 block w-full cursor-pointer rounded-lg p-2 text-left transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-              >
-                <span className="mb-2 flex min-h-[2lh] items-start justify-between gap-3">
-                  <span className="eyebrow flex items-center gap-1.5">
+              <>
+                {/* Abrir es toda la Card, no un rectángulo chico adentro de una card grande: un
+                    overlay absoluto sobre la Card (de ahí su `relative`). Va como hermano y no
+                    envolviendo el contenido porque el footer tiene botones propios — anidar
+                    <button> en <button> es HTML inválido; acá el footer se pone encima con z-10.
+                    ring-inset: la Card es overflow-hidden y un ring de afuera se recorta. */}
+                <button
+                  type="button"
+                  onClick={() => setDialogOpen(true)}
+                  aria-label={`Abrir ${note.title || "nota sin título"}`}
+                  className="absolute inset-0 cursor-pointer focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset focus-visible:outline-none"
+                />
+                <div className="mb-2 flex min-h-[2lh] items-start justify-between gap-3">
+                  <p className="eyebrow flex items-center gap-1.5">
                     <CourseIcon icon={course?.icon ?? null} />
                     {course?.name ?? "Sin curso"}
-                  </span>
+                  </p>
                   <span className="mono-dim shrink-0 whitespace-nowrap">
                     {index + 1} / {queue.length}
                   </span>
-                </span>
-                <span key={note.id} className="note-in block">
-                  <span className="mb-1.5 line-clamp-2 min-h-[2lh] text-3xl font-semibold tracking-tight text-pretty">
+                </div>
+                <div key={note.id} className="note-in mb-6">
+                  <h1 className="mb-1.5 line-clamp-2 min-h-[2lh] text-3xl font-semibold tracking-tight text-pretty">
                     {note.title || "(sin título)"}
-                  </span>
-                  <span className="line-clamp-3 min-h-[3lh] text-muted-foreground">
+                  </h1>
+                  <p className="line-clamp-3 min-h-[3lh] text-muted-foreground">
                     {docToPlainText(note.content) || <em>Nota sin contenido todavía.</em>}
-                  </span>
-                </span>
-              </button>
+                  </p>
+                </div>
+              </>
             ) : (
               <>
                 <div className="mb-6 flex min-h-[2lh] items-start justify-between gap-3">
@@ -300,8 +321,8 @@ export function Review() {
                 (misma regla que drialog.tsx). Los atajos son solo desktop —en mobile no hay
                 teclado—; los botones van en los dos, porque sin ellos mobile no tiene cómo moverse
                 por la cola, con la tecla adentro para que sigan enseñando el atajo en desktop. */}
-            <div className="mt-8 flex items-center justify-end border-t pt-5 md:justify-between">
-              <div className="hidden flex-wrap items-center gap-3.5 text-xs text-muted-foreground md:flex">
+            <div className="relative z-10 mt-8 flex items-center justify-end border-t pt-5 md:justify-between">
+              <div className="hidden flex-wrap items-center gap-2 text-xs text-muted-foreground md:flex">
                 {note.kind === "flashcard" &&
                   (revealed ? (
                     <span>
@@ -318,14 +339,25 @@ export function Review() {
                       <Kbd>Enter</Kbd> revelar respuesta
                     </span>
                   ))}
+                {/* Abrir y vista expandida son botones, no leyendas: son las dos acciones de la
+                    pantalla y ya existían como atajos: un <span> con un <Kbd> las dejaba
+                    inclickeables. Ghost como J/K — el footer entero es del mismo peso. */}
                 {note.kind === "note" && (
                   <>
-                    <span>
-                      <Kbd>Enter</Kbd> abrir
-                    </span>
-                    <span>
-                      <Kbd>{MOD}</Kbd>+<Kbd>Enter</Kbd> vista expandida
-                    </span>
+                    <Button
+                      variant="ghost"
+                      className={FOOTER_BTN}
+                      onClick={() => setDialogOpen(true)}
+                    >
+                      <Kbd aria-hidden>Enter</Kbd>
+                      Abrir
+                    </Button>
+                    <Button variant="ghost" className={FOOTER_BTN} onClick={openExpanded}>
+                      <KbdGroup aria-hidden>
+                        <Kbd>{MOD}</Kbd>+<Kbd>Enter</Kbd>
+                      </KbdGroup>
+                      Vista expandida
+                    </Button>
                   </>
                 )}
                 {/* Solo la flashcard: la nota lleva la tecla adentro del propio botón, y repetir
@@ -361,29 +393,21 @@ export function Review() {
                         onConfirm={() => delFlashcard.mutate(note.id, { onSuccess: next })}
                       />
                       <Button
-                        size="sm"
                         variant="outline"
                         disabled={marked}
                         onClick={() => mark("incorrecto")}
                       >
                         Incorrecto
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={marked}
-                        onClick={() => mark("parcial")}
-                      >
+                      <Button variant="outline" disabled={marked} onClick={() => mark("parcial")}>
                         Parcial
                       </Button>
-                      <Button size="sm" disabled={marked} onClick={() => mark("correcto")}>
+                      <Button disabled={marked} onClick={() => mark("correcto")}>
                         Correcto
                       </Button>
                     </>
                   ) : (
-                    <Button size="sm" onClick={() => setRevealed(true)}>
-                      Revelar respuesta
-                    </Button>
+                    <Button onClick={() => setRevealed(true)}>Revelar respuesta</Button>
                   )
                 ) : (
                   // Marcar leído NO vive acá: desde la card se ven 3 líneas y un insert en
@@ -397,8 +421,7 @@ export function Review() {
                   <>
                     <Button
                       variant="ghost"
-                      size="sm"
-                      className="max-md:h-10 max-md:px-4"
+                      className={cn(FOOTER_BTN, "max-md:h-10 max-md:px-4")}
                       disabled={index === 0}
                       onClick={prev}
                     >
@@ -409,8 +432,7 @@ export function Review() {
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
-                      className="max-md:h-10 max-md:px-4"
+                      className={cn(FOOTER_BTN, "max-md:h-10 max-md:px-4")}
                       onClick={next}
                     >
                       <Kbd aria-hidden className="max-md:hidden">
