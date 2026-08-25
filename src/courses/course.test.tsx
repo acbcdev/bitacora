@@ -4,32 +4,39 @@ import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { TooltipProvider } from "@/core/ui/tooltip"
 import { Course } from "@/courses/course"
 
-const { generateFlashcards, deleteCourse, state } = vi.hoisted(() => ({
+const { generateFlashcards, softDelete, state } = vi.hoisted(() => ({
   generateFlashcards: vi.fn(() => Promise.resolve()),
-  deleteCourse: vi.fn(() => Promise.resolve()),
+  softDelete: vi.fn(() => Promise.resolve()),
   state: {
     notes: [
-      { id: "n1", title: "Nota 1", content: { type: "doc" }, course_id: "c1", position: 0 },
+      {
+        id: "n1",
+        title: "Nota 1",
+        content: { type: "doc" },
+        course_id: "c1",
+        kind: "note",
+        position: 0,
+        created_at: "2026-01-01",
+      },
     ] as Record<string, unknown>[],
   },
 }))
 
-// Store falso: un curso con (o sin, según el test) notas. Antes esto era un builder de supabase-js
-// imitado a mano; ahora son funciones async que devuelven filas.
+// Store falso: un curso con (o sin, según el test) notas. Con el seam angosto es un snapshot y
+// tres escrituras — antes era un builder de supabase-js imitado a mano.
 vi.mock("@/core/store", () => ({
   store: {
     canGenerateFlashcards: true,
-    listCourses: async () => [
-      { id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" },
-    ],
-    listNotes: async () => state.notes,
-    listNoteRefs: async () => state.notes,
-    getNote: async (id: string) => state.notes.find((n) => n.id === id),
-    readLog: async () => [],
-    gradedReads: async () => [],
-    updateCourse: async () => {},
-    updateNote: async () => {},
-    deleteCourse,
+    snapshot: async () => ({
+      courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
+      notes: state.notes,
+      reads: [],
+      habits: [],
+      habitLog: [],
+    }),
+    note: async (id: string) => state.notes.find((n) => n.id === id),
+    save: async () => {},
+    softDelete,
     generateFlashcards,
   },
 }))
@@ -57,9 +64,17 @@ function renderCourse() {
 
 beforeEach(() => {
   generateFlashcards.mockClear()
-  deleteCourse.mockClear()
+  softDelete.mockClear()
   state.notes = [
-    { id: "n1", title: "Nota 1", content: { type: "doc" }, course_id: "c1", position: 0 },
+    {
+      id: "n1",
+      title: "Nota 1",
+      content: { type: "doc" },
+      course_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      position: 0,
+    },
   ]
 })
 
@@ -91,10 +106,10 @@ test("Borrar curso pide confirmación antes de tocar la DB", async () => {
   openCourseMenu()
   fireEvent.click(await screen.findByRole("menuitem", { name: /Borrar curso/ }))
   await screen.findByRole("alertdialog")
-  expect(deleteCourse).not.toHaveBeenCalled()
+  expect(softDelete).not.toHaveBeenCalled()
 
   fireEvent.click(screen.getByRole("button", { name: "Borrar" }))
-  await waitFor(() => expect(deleteCourse).toHaveBeenCalledWith("c1"))
+  await waitFor(() => expect(softDelete).toHaveBeenCalledWith("courses", "c1"))
 })
 
 test("Editar curso abre el form con los datos del curso", async () => {
@@ -112,8 +127,24 @@ test("Editar curso abre el form con los datos del curso", async () => {
 // llevarte a la nota, si no el tap parece no hacer nada.
 test("en mobile, elegir una nota del índice scrollea al panel de la nota", async () => {
   state.notes = [
-    { id: "n1", title: "Nota 1", content: { type: "doc" }, course_id: "c1", position: 0 },
-    { id: "n2", title: "Nota 2", content: { type: "doc" }, course_id: "c1", position: 1 },
+    {
+      id: "n1",
+      title: "Nota 1",
+      content: { type: "doc" },
+      course_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      position: 0,
+    },
+    {
+      id: "n2",
+      title: "Nota 2",
+      content: { type: "doc" },
+      course_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      position: 1,
+    },
   ]
   Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 375 })
   const scrollIntoView = vi.fn()
@@ -143,8 +174,24 @@ test("el botón queda deshabilitado si el curso no tiene notas", async () => {
 // jsdom reporta un userAgent sin "mac", así que "mod" resuelve a ctrlKey acá, no metaKey.
 test("mod+k / mod+j mueven entre notas del curso", async () => {
   state.notes = [
-    { id: "n1", title: "Nota 1", content: { type: "doc" }, course_id: "c1", position: 0 },
-    { id: "n2", title: "Nota 2", content: { type: "doc" }, course_id: "c1", position: 1 },
+    {
+      id: "n1",
+      title: "Nota 1",
+      content: { type: "doc" },
+      course_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      position: 0,
+    },
+    {
+      id: "n2",
+      title: "Nota 2",
+      content: { type: "doc" },
+      course_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      position: 1,
+    },
   ]
   const { container } = renderCourse()
   await screen.findByText("Nota 1")

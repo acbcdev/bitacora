@@ -2,32 +2,48 @@ import { localStore } from "@/core/store/local-store"
 
 // El adapter local se testea SIN mocks: localStorage es real (jsdom) y no hay red. Esa es la
 // diferencia con el adapter de Supabase, que sólo se puede testear imitando su cliente.
+//
+// Acá se prueba lo único que el adapter decide: qué filas salen en el snapshot y qué pasa al
+// escribir. Todo lo derivado (cola, página de cursos, retención) es de `derive.ts` y se prueba
+// aparte, una sola vez para los dos adapters.
 
 const store = localStore()
 
 beforeEach(() => localStorage.clear())
 
+async function seedCourse() {
+  await store.save("courses", { name: "React" })
+  const snap = await store.snapshot()
+  return snap.courses[0]
+}
+
 test("una nota creada se lee de vuelta, y editarla persiste", async () => {
-  await store.createCourse({ name: "React" })
-  const [curso] = await store.listCourses()
+  const curso = await seedCourse()
+  const nota = await store.save("notes", { course_id: curso.id, position: 0 })
 
-  const nota = await store.createNote(curso.id, 0)
-  expect(await store.getNote(nota.id)).toMatchObject({ course_id: curso.id, title: "" })
+  expect(await store.note(nota.id)).toMatchObject({ course_id: curso.id, title: "" })
 
-  await store.updateNote({ id: nota.id, title: "Hooks", content: { type: "doc", content: [] } })
-  expect((await store.getNote(nota.id)).title).toBe("Hooks")
-  expect(await store.listNotes(curso.id)).toHaveLength(1)
+  await store.save("notes", { id: nota.id, title: "Hooks" })
+  expect((await store.note(nota.id)).title).toBe("Hooks")
 })
 
-test("borrar es soft delete: sale de las listas pero la fila sigue en localStorage", async () => {
-  await store.createCourse({ name: "React" })
-  const [curso] = await store.listCourses()
-  const nota = await store.createNote(curso.id, 0)
+test("el snapshot trae las notas SIN content; el cuerpo se pide por id", async () => {
+  const curso = await seedCourse()
+  await store.save("notes", { course_id: curso.id, position: 0, title: "Con cuerpo" })
 
-  await store.deleteNote(nota.id)
+  const [ref] = (await store.snapshot()).notes
+  expect(ref).not.toHaveProperty("content")
+  expect(ref.title).toBe("Con cuerpo")
+  expect(await store.note(ref.id)).toHaveProperty("content")
+})
 
-  expect(await store.listNotes(curso.id)).toEqual([])
-  expect(await store.listNoteRefs()).toEqual([])
+test("borrar es soft delete: sale del snapshot pero la fila sigue en localStorage", async () => {
+  const curso = await seedCourse()
+  const nota = await store.save("notes", { course_id: curso.id, position: 0 })
+
+  await store.softDelete("notes", nota.id)
+
+  expect((await store.snapshot()).notes).toEqual([])
   // ADR 0002: la app nunca hace DELETE. La fila tiene que seguir ahí, con deleted_at.
   const raw = JSON.parse(localStorage.getItem("bita-local:notes")!)
   expect(raw).toHaveLength(1)
@@ -35,87 +51,65 @@ test("borrar es soft delete: sale de las listas pero la fila sigue en localStora
 })
 
 test("archivar un curso no toca sus notas", async () => {
-  await store.createCourse({ name: "React" })
-  const [curso] = await store.listCourses()
-  await store.createNote(curso.id, 0)
+  const curso = await seedCourse()
+  await store.save("notes", { course_id: curso.id, position: 0 })
 
-  await store.deleteCourse(curso.id)
+  await store.softDelete("courses", curso.id)
 
-  expect(await store.listCourses()).toEqual([])
-  expect(await store.listNotes(curso.id)).toHaveLength(1)
+  const snap = await store.snapshot()
+  expect(snap.courses).toEqual([])
+  expect(snap.notes).toHaveLength(1)
 })
 
-test("los cursos se ordenan active → paused → done", async () => {
-  await store.createCourse({ name: "Terminado", status: "done" })
-  await store.createCourse({ name: "Pausado", status: "paused" })
-  await store.createCourse({ name: "Activo", status: "active" })
-
-  expect((await store.listCourses()).map((c) => c.name)).toEqual(["Activo", "Pausado", "Terminado"])
+test("los defaults de la tabla los pone el adapter, igual que Postgres", async () => {
+  const curso = await seedCourse()
+  expect(curso).toMatchObject({ status: "active", imported: false, icon: null, deleted_at: null })
 })
 
-test("marcar leído agrega una fila al log y la cola respeta el orden", async () => {
-  await store.createCourse({ name: "React" })
-  const [curso] = await store.listCourses()
-  const a = await store.createNote(curso.id, 0)
-  const b = await store.createNote(curso.id, 1)
+test("read_log es append-only y guarda el grade de la flashcard", async () => {
+  const curso = await seedCourse()
+  const nota = await store.save("notes", { course_id: curso.id, position: 0 })
 
-  // Con las dos sin leer, la cola las trae a las dos.
-  expect(await store.reviewQueue()).toHaveLength(2)
+  await store.save("read_log", { note_id: nota.id })
+  await store.save("read_log", { note_id: nota.id, grade: "correcto" })
 
-  await store.markRead({ noteId: a.id })
-  expect(await store.readLog()).toEqual([{ note_id: a.id, read_at: expect.any(String) }])
-  // `a` pasa a tener lectura → `b` (nunca leída) queda primera.
-  expect((await store.reviewQueue()).map((n) => n.id)).toEqual([b.id, a.id])
-})
-
-test("el grade de una flashcard alimenta la retención por curso", async () => {
-  await store.createCourse({ name: "React" })
-  const [curso] = await store.listCourses()
-  const nota = await store.createNote(curso.id, 0)
-
-  await store.markRead({ noteId: nota.id, grade: "correcto" })
-  await store.markRead({ noteId: nota.id, grade: "incorrecto" })
-
-  expect(await store.gradedReads()).toEqual([
-    { grade: "correcto", course_id: curso.id },
-    { grade: "incorrecto", course_id: curso.id },
+  expect((await store.snapshot()).reads).toEqual([
+    { note_id: nota.id, read_at: expect.any(String), grade: null },
+    { note_id: nota.id, read_at: expect.any(String), grade: "correcto" },
   ])
-  // Un repaso sin grade (nota normal) no entra en el cálculo.
-  await store.markRead({ noteId: nota.id })
-  expect(await store.gradedReads()).toHaveLength(2)
 })
 
-test("registrar un hábito es upsert: dos veces el mismo día es UNA fila", async () => {
-  await store.saveHabit({ name: "Gym", metric: "count", target: 3, period: "week" })
-  const [habito] = await store.listHabits()
+test("habit_log se escribe por clave natural (habit_id, day): dos veces el mismo día es UNA fila", async () => {
+  await store.save("habits", { name: "Gym", metric: "count", target: 3, period: "week" })
+  const [habito] = (await store.snapshot()).habits
 
-  await store.setHabitDay({ habitId: habito.id, day: "2026-08-25", amount: 1, target: 3 })
-  await store.setHabitDay({ habitId: habito.id, day: "2026-08-25", amount: 2, target: 3 })
+  await store.save("habit_log", { habit_id: habito.id, day: "2026-08-25", amount: 1, target: 3 })
+  await store.save("habit_log", { habit_id: habito.id, day: "2026-08-25", amount: 2, target: 3 })
 
-  expect(await store.habitLog()).toEqual([
+  expect((await store.snapshot()).habitLog).toEqual([
     { habit_id: habito.id, day: "2026-08-25", amount: 2, target: 3 },
   ])
 })
 
-test("el target de un día ya registrado queda congelado aunque cambie la meta (ADR 0009)", async () => {
-  await store.saveHabit({ name: "Gym", metric: "count", target: 3, period: "week" })
-  const [habito] = await store.listHabits()
-  await store.setHabitDay({ habitId: habito.id, day: "2026-08-25", amount: 1, target: 3 })
+test("el adapter escribe el target que le dan — no lo decide él", async () => {
+  // Quién congela el target es `derive.frozenTarget`, del lado del llamador. El adapter no opina:
+  // si opinara, tendría que opinar igual que el de Supabase, y antes no lo hacía.
+  await store.save("habits", { name: "Gym", metric: "count", target: 3, period: "week" })
+  const [habito] = (await store.snapshot()).habits
 
-  // Sube la meta y vuelve a tocar el MISMO día: el target de esa fila no se reescribe.
-  await store.saveHabit({ id: habito.id, name: "Gym", target: 10 })
-  await store.setHabitDay({ habitId: habito.id, day: "2026-08-25", amount: 2, target: 10 })
+  await store.save("habit_log", { habit_id: habito.id, day: "2026-08-25", amount: 1, target: 3 })
+  await store.save("habit_log", { habit_id: habito.id, day: "2026-08-25", amount: 2, target: 99 })
 
-  expect((await store.habitLog())[0].target).toBe(3)
+  expect((await store.snapshot()).habitLog[0].target).toBe(99)
 })
 
 test("desmarcar deja la fila en cero, no la borra", async () => {
-  await store.saveHabit({ name: "Meditar", metric: "check", target: 1, period: "day" })
-  const [habito] = await store.listHabits()
-  await store.setHabitDay({ habitId: habito.id, day: "2026-08-25", amount: 1, target: 1 })
-  await store.setHabitDay({ habitId: habito.id, day: "2026-08-25", amount: 0, target: 1 })
+  await store.save("habits", { name: "Meditar" })
+  const [habito] = (await store.snapshot()).habits
+  await store.save("habit_log", { habit_id: habito.id, day: "2026-08-25", amount: 1, target: 1 })
+  await store.save("habit_log", { habit_id: habito.id, day: "2026-08-25", amount: 0, target: 1 })
 
-  expect(await store.habitLog()).toEqual([
+  expect((await store.snapshot()).habitLog).toEqual([
     { habit_id: habito.id, day: "2026-08-25", amount: 0, target: 1 },
   ])
 })
@@ -125,7 +119,13 @@ test("generar flashcards no está disponible sin backend, y lo dice antes de int
   await expect(store.generateFlashcards("c1")).rejects.toThrow(/Supabase/)
 })
 
+test("sin env de Supabase, salir del modo local avisa que no hay a dónde ir", async () => {
+  // Antes esto llamaba a setStorageMode('supabase') y recargaba: la app volvía a caer en local
+  // (no hay env) y el usuario veía un reload que no hacía nada.
+  expect(await store.auth.signOut()).toBe(false)
+})
+
 test("un localStorage corrupto no rompe la app: se lee como vacío", async () => {
   localStorage.setItem("bita-local:courses", "{ esto no es JSON")
-  expect(await store.listCourses()).toEqual([])
+  expect((await store.snapshot()).courses).toEqual([])
 })

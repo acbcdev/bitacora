@@ -1,5 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
-import { store } from "@/core/store"
+import { useSnapshot } from "@/core/lib/snapshot"
 
 // Meta diaria = el batch de review_queue() (migrations/0003). El diseño muestra "leídas hoy N/M".
 export const DAILY_GOAL = 3
@@ -84,12 +83,8 @@ export function lastDays(byDay: Map<string, number> | undefined, now = new Date(
 }
 
 // Todo derivado de read_log (ADR 0003): racha, leídas hoy, repasos y último repaso por nota.
-// ponytail: baja read_log entero y agrega en JS. A 2–3 notas/día son ~1k filas/año — cabe de
-// sobra en el cliente. Si alguna vez pesa, mover el GROUP BY a una RPC.
+// Es un `select` sobre el snapshot, no una query propia: las filas ya están en memoria.
 export function useReadStats() {
-  return useQuery({
-    queryKey: ["read_stats"],
-    queryFn: async (): Promise<ReadStats> => deriveReadStats(await store.readLog()),
-    placeholderData: EMPTY,
-  })
+  const { data } = useSnapshot((snap) => deriveReadStats(snap.reads))
+  return { data: data ?? EMPTY }
 }

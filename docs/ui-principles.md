@@ -36,6 +36,7 @@ si ya hay una tecla con este significado en otra vista — reusarla en vez de in
 | `Esc` | cerrar / cancelar / salir | siempre | — |
 | `/` (bind: `"slash"`, no `"/"` — la lib matchea por `e.code`) | enfocar buscador | Cursos | — |
 | chord `g>`/`h>` + dígito | acción por posición, sin gastar una letra bare: `g>1..9` = ir al curso N del sidebar, `h>1..9` = acción rápida del hábito N de la tira de Hoy | — (siempre chord) | — |
+| `mod+,` | abrir Ajustes | — | global (convención del SO: es la tecla que todo el mundo prueba primero) |
 | `mod+` | señal de "esto es deliberado, corré aunque el foco esté en un editor" | — | Note (`F`, borrar), Course (nav de notas), global (`mod+k`, precedente ya existente) |
 
 **Regla de fondo:** un atajo de una sola letra bare es inseguro en cualquier vista donde el foco

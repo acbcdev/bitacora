@@ -14,7 +14,7 @@ import { Kbd, KbdGroup } from "@/core/ui/kbd"
 import { Progress } from "@/core/ui/progress"
 import { CourseIcon } from "@/courses/course-icon"
 import { useCourses } from "@/courses/courses.api"
-import { useDeleteNote } from "@/notes/notes.api"
+import { useDeleteNote, useNote } from "@/notes/notes.api"
 import { useReviewQueue, useMarkRead } from "@/review/review.api"
 import { docToPlainText } from "@/core/lib/tiptap-markdown"
 import { DAILY_GOAL, HISTORY_DAYS, lastDays, todayKey, useReadStats } from "@/core/lib/stats"
@@ -23,6 +23,7 @@ import { cn, MOD } from "@/core/lib/utils"
 import { Courses } from "@/courses/courses"
 import { HabitTiles } from "@/habits/habit-tiles"
 import type { Grade } from "@/core/types/database"
+import type { NoteRef } from "@/core/store/types"
 
 // Los últimos 14 días de lectura, a lo GitHub. Sin clicks: es un resumen, no un control.
 // El color sale de la fracción leída contra la meta del día, no de un sí/no: 1 de 3 notas no es
@@ -70,7 +71,14 @@ const FOOTER_BTN = "hover:bg-input dark:hover:bg-input"
 // navegación y nada más — los mismos J/K como botones, que sin teclado son la única salida.
 // Debajo del repaso va la tira de hábitos y después la lista de cursos embebida, como en el diseño.
 export function Review() {
-  const { data: queue = [], isLoading, refetch } = useReviewQueue()
+  const { data: derived = [], isLoading } = useReviewQueue()
+  // La cola se CONGELA al montar. Marcar leído invalida el snapshot, y la cola sale de ahí: sin
+  // congelarla, el batch se reordenaría abajo del usuario en medio del repaso (la nota que acabás
+  // de leer se va al fondo y la de al lado te cambia el lugar). "Cargar más" la vuelve a tomar.
+  const [queue, setQueue] = useState<NoteRef[]>([])
+  useEffect(() => {
+    setQueue((prev) => (prev.length === 0 && derived.length > 0 ? derived : prev))
+  }, [derived])
   const { data: courses = [] } = useCourses()
   const { data: stats } = useReadStats()
   const markRead = useMarkRead()
@@ -85,6 +93,9 @@ export function Review() {
   // insert en read_log.
   const [markedIds, setMarkedIds] = useState<ReadonlySet<string>>(new Set())
   const note = queue[index]
+  // El snapshot trae las notas sin `content`: el documento de la que se está mirando se pide
+  // aparte, y sólo de esa. Abrir Repaso ya no baja tres docs Tiptap para mostrar uno.
+  const { data: openNote } = useNote(note?.id)
   const marked = !!note && markedIds.has(note.id)
   const course = courses.find((c) => c.id === note?.course_id)
   const readToday = stats?.today ?? 0
@@ -247,9 +258,10 @@ export function Review() {
             <EmptyContent>
               <Button
                 variant="outline"
+                // Re-tomar la cola del snapshot vivo: es el único punto donde se descongela.
                 onClick={() => {
                   setIndex(0)
-                  refetch()
+                  setQueue(derived)
                 }}
               >
                 Cargar más
@@ -289,7 +301,8 @@ export function Review() {
                     {note.title || "(sin título)"}
                   </h1>
                   <p className="line-clamp-3 min-h-[3lh] text-muted-foreground">
-                    {docToPlainText(note.content) || <em>Nota sin contenido todavía.</em>}
+                    {openNote &&
+                      (docToPlainText(openNote.content) || <em>Nota sin contenido todavía.</em>)}
                   </p>
                 </div>
               </>
@@ -311,7 +324,7 @@ export function Review() {
                       Pensá tu respuesta y revelala cuando estés listo.
                     </p>
                   ) : (
-                    <Editor content={note.content} editable={false} />
+                    openNote && <Editor content={openNote.content} editable={false} />
                   )}
                 </div>
               </>
@@ -448,9 +461,9 @@ export function Review() {
         )}
       </Card>
 
-      {note && note.kind === "note" && (
+      {note && note.kind === "note" && openNote && (
         <NoteDialog
-          note={note}
+          note={openNote}
           course={course}
           open={dialogOpen}
           onOpenChange={setDialogOpen}

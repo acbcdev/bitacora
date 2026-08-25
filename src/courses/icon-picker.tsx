@@ -2,7 +2,7 @@ import { useRef, useState } from "react"
 import { Image as ImageIcon, Loader2, Smile } from "lucide-react"
 import { toast } from "sonner"
 import { CourseIcon, PRESET_ICONS } from "@/courses/course-icon"
-import { uploadCourseIcon } from "@/courses/courses.api"
+import { store } from "@/core/store"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
 import { cn, MOD } from "@/core/lib/utils"
@@ -40,7 +40,7 @@ export function IconPicker({
     try {
       // ponytail: sube al elegir, así que cancelar el diálogo deja el archivo huérfano.
       // Limpiarlos en batch si algún día molesta.
-      set(await uploadCourseIcon(f))
+      set(await store.uploadCourseIcon(f))
     } catch {
       toast.error("No se pudo subir la imagen")
     } finally {

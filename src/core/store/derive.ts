@@ -1,19 +1,50 @@
-import type { Course, CourseRow, Note } from "@/core/types/database"
-import type { CoursesQuery, GradedRead, ReadRow } from "@/core/store/types"
+import type { Course, CourseRow, CourseStatus } from "@/core/types/database"
+import type { HabitLogRow, NoteRef, ReadRow, Snapshot } from "@/core/store/types"
 
-// Derivación pura: filas crudas → hechos del dominio. Sin React, sin Supabase, sin localStorage.
+// Todo lo derivado vive acá: funciones puras `Snapshot → hecho del dominio`. Sin React, sin
+// adapter, sin red.
 //
-// Por qué existe: ADR 0003 manda derivar todo de `read_log`, y hasta ahora eso vivía en tres
-// lugares con tres estrategias (RPC `courses_page` en SQL, `useReadStats` en JS, `useRetention`
-// con un join + JS). En cuanto hay un segundo adapter la parte que estaba en SQL tiene que
-// existir en JS igual — así que vive acá una sola vez, y `localStore` la usa.
+// Antes esto estaba repartido en tres estrategias incompatibles (la RPC `courses_page` en SQL,
+// `useReadStats` en JS, `useRetention` con un join + JS). Ahora hay un solo hogar y lo usan los
+// dos adapters — que es lo que hace que "modo local" y "modo Supabase" signifiquen lo mismo en
+// vez de parecerse.
 //
-// `supabaseStore` sigue delegando `coursesPage`/`reviewQueue` a las RPC: Postgres ya las tiene
-// y traerse 1.500 notas para ordenarlas en el cliente sería peor. Lo que sí comparten los dos
-// adapters es `retention()`. Estas funciones son, además, el contrato ejecutable de lo que
-// las RPC prometen — si algún día divergen, el test de acá lo dice.
+// El snapshot ya trae sólo filas vivas (el adapter filtró `deleted_at`), así que acá NO se vuelve
+// a chequear: la regla vive en un lado solo.
 
-// Cuántas veces se leyó cada nota y cuándo fue la última. Base de `rounds` y `last_read`.
+export type CoursesQuery = {
+  q: string
+  status: CourseStatus | "todos"
+  sort: "recientes" | "nombre" | "rondas" | "inicio"
+  page: number
+  pageSize: number
+}
+
+const STATUS_ORDER: Record<CourseStatus, number> = { active: 0, paused: 1, done: 2 }
+
+// Orden estable de la app: active → paused → done, después más nuevo primero. Lo usan el sidebar,
+// la command palette y el form de curso.
+export function liveCourses(snap: Snapshot): Course[] {
+  return snap.courses.toSorted(
+    (a, b) =>
+      STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || b.created_at.localeCompare(a.created_at),
+  )
+}
+
+// Las notas de un curso, en orden de `position`. Las flashcards no entran: no se listan en el
+// curso (ADR 0010).
+export function courseNotes(snap: Snapshot, courseId: string): NoteRef[] {
+  return snap.notes
+    .filter((n) => n.course_id === courseId && n.kind === "note")
+    .toSorted((a, b) => a.position - b.position)
+}
+
+// Índice de todas las notas para la command palette y el "últ. repaso" por curso.
+export function noteRefs(snap: Snapshot): NoteRef[] {
+  return snap.notes.filter((n) => n.kind === "note").toSorted((a, b) => a.position - b.position)
+}
+
+// Cuántas veces se leyó cada nota y cuándo fue la última.
 function readsByNote(reads: ReadRow[]) {
   const map = new Map<string, { count: number; last: string | null }>()
   for (const r of reads) {
@@ -26,17 +57,13 @@ function readsByNote(reads: ReadRow[]) {
   return map
 }
 
-// Comparadores de `order by`, uno por valor de `sort`. En la RPC son tres ramas `case when` que
-// se anulan entre sí; acá es un lookup y se lee de una.
-// `nombre` usa localeCompare (acentos) donde Postgres usa su collation — diferencia consciente,
-// y la que un usuario espera.
 const SORTS: Record<CoursesQuery["sort"], (a: CourseRow, b: CourseRow) => number> = {
   nombre: (a, b) => a.name.localeCompare(b.name),
   rondas: (a, b) => b.rounds - a.rounds,
-  // 'recientes' e 'inicio' son el mismo criterio desde la migración 0009: started_at desc,
-  // nulls last (para los 57 cursos importados created_at es sólo la hora del batch).
-  inicio: (a, b) => byStartedAt(a, b),
-  recientes: (a, b) => byStartedAt(a, b),
+  // 'recientes' e 'inicio' son el mismo criterio desde la migración 0009: para los 57 cursos
+  // importados `created_at` es sólo la hora del batch, y `started_at` la fecha real.
+  inicio: byStartedAt,
+  recientes: byStartedAt,
 }
 
 function byStartedAt(a: CourseRow, b: CourseRow) {
@@ -46,25 +73,23 @@ function byStartedAt(a: CourseRow, b: CourseRow) {
   return b.started_at.localeCompare(a.started_at)
 }
 
-// Espejo en JS de la RPC `courses_page` (migraciones 0006-0009): filtra, agrega notas/rondas/
-// último repaso, ordena y pagina.
+// La página de la pantalla Cursos. Reemplaza a la RPC `courses_page` (migraciones 0006-0009), que
+// queda en la DB sin que nadie la llame.
 //
 // `rounds` es el MÍNIMO de repasos entre las notas del curso — "cuántas vueltas completas le
 // diste", no el total. Un curso con una nota sin leer tiene 0 rondas por más que las otras 24
 // estén leídas 5 veces. Sale así de la RPC (`min(coalesce(rd.cnt, 0))`) y se mantiene.
 export function coursesPage(
-  courses: Course[],
-  notes: Note[],
-  reads: ReadRow[],
+  snap: Snapshot,
   query: CoursesQuery,
 ): { rows: CourseRow[]; total: number } {
-  const perNote = readsByNote(reads)
+  const perNote = readsByNote(snap.reads)
 
-  // Sólo notas vivas, kind 'note' y con curso: las flashcards no cuentan para el progreso
-  // de un curso (ADR 0010) y una nota huérfana no tiene a quién sumarle.
+  // Sólo notas `kind = 'note'` con curso: las flashcards no cuentan para el progreso del curso
+  // (ADR 0010) y una nota huérfana no tiene a quién sumarle.
   const stats = new Map<string, { notes: number; rounds: number; last_read: string | null }>()
-  for (const n of notes) {
-    if (n.deleted_at || n.kind !== "note" || !n.course_id) continue
+  for (const n of snap.notes) {
+    if (n.kind !== "note" || !n.course_id) continue
     const r = perNote.get(n.id)
     const s = stats.get(n.course_id)
     if (!s) {
@@ -77,10 +102,9 @@ export function coursesPage(
   }
 
   const q = query.q.toLowerCase()
-  const filtered: CourseRow[] = courses
+  const rows: CourseRow[] = snap.courses
     .filter(
       (c) =>
-        !c.deleted_at &&
         (query.status === "todos" || c.status === query.status) &&
         (q === "" || c.name.toLowerCase().includes(q)),
     )
@@ -91,51 +115,45 @@ export function coursesPage(
         notes: s?.notes ?? 0,
         rounds: s?.rounds ?? 0,
         last_read: s?.last_read ?? null,
-        // `count(*) over ()` viaja repetido en cada fila; se completa abajo con el total real.
-        total_count: 0,
+        total_count: 0, // se completa abajo con el total real
       }
     })
+    // `created_at desc` es el desempate final, igual que en la RPC.
+    .toSorted((a, b) => SORTS[query.sort](a, b) || b.created_at.localeCompare(a.created_at))
 
-  // created_at desc es el desempate final en la RPC, para los dos cursos que empatan en el
-  // criterio elegido.
-  const sorted = filtered.toSorted(
-    (a, b) => SORTS[query.sort](a, b) || b.created_at.localeCompare(a.created_at),
-  )
-
-  const total = sorted.length
+  const total = rows.length
   const from = (query.page - 1) * query.pageSize
   return {
-    rows: sorted.slice(from, from + query.pageSize).map((r) => ({ ...r, total_count: total })),
+    // `total_count` viajaba repetido en cada fila de la RPC; se respeta la forma para no tocar la
+    // pantalla. A diferencia de la RPC, una página fuera de rango sigue informando el total real.
+    rows: rows.slice(from, from + query.pageSize).map((r) => ({ ...r, total_count: total })),
     total,
   }
 }
 
-// Espejo en JS de la RPC `review_queue()` (migración 0003): notas vivas de cursos vivos, la más
-// vieja primero, nunca-leídas antes que todo.
+// La cola de repaso. Reemplaza a la RPC `review_queue()` (migración 0003).
 //
-// El `join courses` de la RPC deja afuera las notas sin curso (course_id null, curso borrado con
-// FK set null — ADR 0002). Se replica: si no, la cola local traería notas que la remota no trae.
-// El `status` del curso NO filtra: active, paused y done entran igual (CONTEXT.md).
+// Devuelve refs, no notas completas: el `content` de la nota servida lo pide Repaso aparte con
+// `store.note(id)`, y sólo de la que está mirando.
 //
-// Diferencia consciente con la RPC: acá el empate se rompe por created_at y después por id. La
-// RPC no tiene desempate, así que ante empate el orden es el que quiera Postgres. Determinista
-// es mejor que fiel a un no-determinismo.
-export function reviewQueue(
-  courses: Course[],
-  notes: Note[],
-  reads: ReadRow[],
-  limit: number,
-): Note[] {
-  const perNote = readsByNote(reads)
-  const live = new Set(courses.filter((c) => !c.deleted_at).map((c) => c.id))
+// El `join courses` de la RPC dejaba afuera las notas sin curso (`course_id` null, curso borrado
+// con FK set null — ADR 0002). Se replica. El `status` del curso NO filtra: active, paused y done
+// entran igual (CONTEXT.md).
+//
+// Diferencia consciente con la RPC: ante empate de fecha, acá desempata `created_at` y después
+// `id`. La RPC no desempataba, así que el orden lo elegía Postgres. Determinista es mejor que
+// fiel a un no-determinismo.
+export function reviewQueue(snap: Snapshot, limit: number): NoteRef[] {
+  const perNote = readsByNote(snap.reads)
+  const live = new Set(snap.courses.map((c) => c.id))
 
-  return notes
-    .filter((n) => !n.deleted_at && n.course_id && live.has(n.course_id))
+  return snap.notes
+    .filter((n) => n.course_id && live.has(n.course_id))
     .toSorted((a, b) => {
       const la = perNote.get(a.id)?.last ?? null
       const lb = perNote.get(b.id)?.last ?? null
-      // nulls first: una nota que nunca se leyó gana siempre.
       if (la !== lb) {
+        // nulls first: una nota que nunca se leyó gana siempre.
         if (!la) return -1
         if (!lb) return 1
         return la.localeCompare(lb)
@@ -145,16 +163,34 @@ export function reviewQueue(
     .slice(0, limit)
 }
 
-// % de retención por curso: correctos / autoevaluaciones. Lo usan los DOS adapters — es el
-// único cálculo que hoy ya se hacía en JS en los dos lados del seam.
-export function retention(rows: GradedRead[]): Map<string, number> {
+// % de retención por curso: correctos / autoevaluaciones (ADR 0003, nada denormalizado).
+// El join read_log → notes(course_id) que antes hacía PostgREST, acá es un Map.
+export function retention(snap: Snapshot): Map<string, number> {
+  const courseOf = new Map(snap.notes.map((n) => [n.id, n.course_id]))
   const totals = new Map<string, { correct: number; total: number }>()
-  for (const row of rows) {
-    if (!row.course_id) continue
-    const t = totals.get(row.course_id) ?? { correct: 0, total: 0 }
+  for (const r of snap.reads) {
+    if (!r.grade) continue
+    const courseId = courseOf.get(r.note_id)
+    if (!courseId) continue
+    const t = totals.get(courseId) ?? { correct: 0, total: 0 }
     t.total++
-    if (row.grade === "correcto") t.correct++
-    totals.set(row.course_id, t)
+    if (r.grade === "correcto") t.correct++
+    totals.set(courseId, t)
   }
   return new Map([...totals].map(([id, t]) => [id, Math.round((t.correct / t.total) * 100)]))
+}
+
+// El `target` que le corresponde a un día del log: si la fila YA existe vale el suyo —congelado—,
+// y si no, la meta viva del hábito (ADR 0009).
+//
+// Vive acá y no en los adapters a propósito. Cuando cada adapter lo resolvía por su cuenta no
+// coincidían: el local respetaba el target guardado y el de Supabase lo pisaba con el del upsert.
+// Ahora el llamador arma la fila completa y el adapter sólo la escribe.
+export function frozenTarget(
+  log: HabitLogRow[],
+  habitId: string,
+  day: string,
+  liveTarget: number,
+): number {
+  return log.find((r) => r.habit_id === habitId && r.day === day)?.target ?? liveTarget
 }

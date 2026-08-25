@@ -35,13 +35,15 @@ const courses = [
   },
 ]
 
-// `updateCourse(id, input)` recibe el id aparte, así que el spy se queda sólo con el input — que
-// es lo que estos tests afirman.
+// `save` es alta o edición según venga `id`. Los spies se quedan con el resto del payload, que es
+// lo que estos tests afirman.
 vi.mock("@/core/store", () => ({
   store: {
-    listCourses: async () => courses,
-    createCourse: insert,
-    updateCourse: (_id: string, input: unknown) => update(input),
+    snapshot: async () => ({ courses, notes: [], reads: [], habits: [], habitLog: [] }),
+    save: (_entity: string, input: { id?: string }) => {
+      const { id, ...values } = input
+      return (id ? update : insert)(values)
+    },
   },
 }))
 

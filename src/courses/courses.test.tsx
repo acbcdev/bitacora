@@ -18,19 +18,21 @@ const { state } = vi.hoisted(() => ({
 // la RPC escrita a mano acá. Antes este archivo tenía su propia versión en JS de la migración 0006
 // — dos definiciones de "una página de cursos" que podían divergir en silencio. Ahora hay una, y
 // además tiene su propio test (core/store/derive.test.ts).
-vi.mock("@/core/store", async () => {
-  const { coursesPage } = await import("@/core/store/derive")
-  type Query = Parameters<typeof coursesPage>[3]
-  return {
-    store: {
-      listCourses: async () => state.courses,
-      coursesPage: async (query: Query) => coursesPage(state.courses as never, [], [], query),
-      listNoteRefs: async () => [],
-      readLog: async () => [],
-      gradedReads: async () => [],
-    },
-  }
-})
+// El Store falso ya no tiene un método por query: devuelve el snapshot y la pantalla deriva. La
+// derivación que corre acá es la REAL (`derive.coursesPage`) — antes este archivo tenía su propia
+// reimplementación en JS de la migración 0006, o sea dos definiciones de "página de cursos" que
+// podían divergir en silencio.
+vi.mock("@/core/store", () => ({
+  store: {
+    snapshot: async () => ({
+      courses: state.courses,
+      notes: [],
+      reads: [],
+      habits: [],
+      habitLog: [],
+    }),
+  },
+}))
 
 function renderCourses() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })

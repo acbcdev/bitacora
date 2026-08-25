@@ -8,34 +8,55 @@ import { Course } from "@/courses/course"
 // que distingue "navegó con lo que ya tenía" de "esperó un roundtrip más" (ADR 0008).
 const SELECT_MS = 400
 
+const note = (over: Record<string, unknown>) => ({
+  title: "",
+  content: { type: "doc" },
+  course_id: "c1",
+  kind: "note",
+  position: 0,
+  created_at: "2026-01-01",
+  ...over,
+})
+
 const { state } = vi.hoisted(() => ({
   state: {
     notes: [
-      { id: "n1", title: "Nota 1", content: { type: "doc" }, course_id: "c1", position: 0 },
+      {
+        id: "n1",
+        title: "Nota 1",
+        content: { type: "doc" },
+        course_id: "c1",
+        kind: "note",
+        position: 0,
+        created_at: "2026-01-01",
+      },
     ] as Record<string, unknown>[],
   },
 }))
 
-// Las lecturas tardan SELECT_MS; la escritura responde ya, como en la vida real. Con el seam esto
-// son seis funciones async — antes era un thenable a mano imitando el builder de supabase-js.
+// Las lecturas tardan SELECT_MS; la escritura responde ya, como en la vida real.
 const slow = <T,>(value: T) => new Promise<T>((r) => setTimeout(() => r(value), SELECT_MS))
 
+// Con el seam angosto el fake es un snapshot y dos escrituras. El `save` responde de inmediato:
+// lo lento son las lecturas, que es justo lo que ADR 0008 no quiere que el navigate espere.
 vi.mock("@/core/store", () => ({
   store: {
     canGenerateFlashcards: true,
-    listCourses: () =>
-      slow([{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }]),
-    listNotes: () => slow(state.notes.map((n) => ({ ...n }))),
-    listNoteRefs: () => slow(state.notes.map((n) => ({ ...n }))),
-    getNote: (id: string) => slow(state.notes.find((n) => n.id === id)),
-    readLog: () => slow([]),
-    gradedReads: () => slow([]),
-    createNote: (courseId: string, position: number) => {
-      const row = { id: "n2", course_id: courseId, position, title: "", content: { type: "doc" } }
+    snapshot: () =>
+      slow({
+        courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
+        notes: state.notes.map((n) => ({ ...n })),
+        reads: [],
+        habits: [],
+        habitLog: [],
+      }),
+    note: (id: string) => slow(state.notes.find((n) => n.id === id)),
+    save: (_entity: string, input: Record<string, unknown>) => {
+      if (input.id) return Promise.resolve()
+      const row = { ...note(input), id: "n2" }
       state.notes.push(row)
       return Promise.resolve(row)
     },
-    updateNote: () => Promise.resolve(),
   },
 }))
 

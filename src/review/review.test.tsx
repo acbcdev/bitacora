@@ -18,24 +18,21 @@ const { insertReadLog, readLog, upsertHabitLog, habitLog } = vi.hoisted(() => {
   return {
     readLog: rows,
     habitLog: habitRows,
-    insertReadLog: vi.fn(({ noteId, grade }: { noteId: string; grade?: string }) => {
-      rows.push({ note_id: noteId, grade, read_at: new Date().toISOString() })
+    insertReadLog: vi.fn(({ note_id, grade }: { note_id: string; grade?: string | null }) => {
+      rows.push({ note_id, grade: grade ?? null, read_at: new Date().toISOString() })
       return Promise.resolve()
     }),
-    upsertHabitLog: vi.fn(
-      ({ habitId, day, amount, target }: { habitId: string } & Omit<LogRow, "habit_id">) => {
-        const row = { habit_id: habitId, day, amount, target }
-        const prev = habitRows.find((r) => r.habit_id === habitId && r.day === day)
-        if (prev) Object.assign(prev, row)
-        else habitRows.push(row)
-        return Promise.resolve()
-      },
-    ),
+    upsertHabitLog: vi.fn((row: LogRow) => {
+      const prev = habitRows.find((r) => r.habit_id === row.habit_id && r.day === row.day)
+      if (prev) Object.assign(prev, row)
+      else habitRows.push({ ...row })
+      return Promise.resolve()
+    }),
   }
 })
 
-// Store falso: cola de 2 notas + 1 flashcard, un curso y tres hábitos. Sin red y sin imitar el
-// builder de supabase-js — cada método es una función async que devuelve filas.
+// Store falso: cola de 2 notas + 1 flashcard, un curso y tres hábitos. Con el seam angosto es un
+// snapshot y dos escrituras — nada de imitar el builder de supabase-js.
 vi.mock("@/core/store", () => {
   // Tres hábitos, uno por métrica: el orden es el de la tira y el del chord h>1..9.
   const habit = (over: Record<string, unknown>) => ({
@@ -47,37 +44,42 @@ vi.mock("@/core/store", () => {
     created_at: "2026-01-01T00:00:00Z",
     ...over,
   })
-  const note = (over: Record<string, unknown>) => ({
-    content: { type: "doc" },
+  // `created_at` escalonado: la cola desempata por antigüedad, así que fija el orden n1, n2, f1.
+  const note = (over: { id: string } & Record<string, unknown>) => ({
     course_id: "c1",
     kind: "note",
+    position: 0,
     ...over,
   })
+  const notes = [
+    note({ id: "n1", title: "Nota uno", created_at: "2026-01-01T00:00:01Z" }),
+    note({ id: "n2", title: "Nota dos", created_at: "2026-01-01T00:00:02Z" }),
+    note({
+      id: "f1",
+      title: "Pregunta uno",
+      kind: "flashcard",
+      created_at: "2026-01-01T00:00:03Z",
+    }),
+  ]
   return {
     store: {
       canGenerateFlashcards: true,
-      listCourses: async () => [
-        { id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" },
-      ],
-      coursesPage: async () => ({ rows: [], total: 0 }),
-      listNotes: async () => [],
-      listNoteRefs: async () => [],
-      deleteNote: async () => {},
-      reviewQueue: async () => [
-        note({ id: "n1", title: "Nota uno" }),
-        note({ id: "n2", title: "Nota dos" }),
-        note({ id: "f1", title: "Pregunta uno", kind: "flashcard" }),
-      ],
-      markRead: insertReadLog,
-      readLog: async () => readLog,
-      gradedReads: async () => [],
-      listHabits: async () => [
-        habit({ id: "h1", name: "Gym", metric: "count", target: 3, period: "week" }),
-        habit({ id: "h2", name: "Meditar", metric: "check", target: 1, period: "day" }),
-        habit({ id: "h3", name: "Leer", metric: "time", target: 25, period: "day" }),
-      ],
-      habitLog: async () => habitLog,
-      setHabitDay: upsertHabitLog,
+      snapshot: async () => ({
+        courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
+        notes,
+        reads: readLog,
+        habits: [
+          habit({ id: "h1", name: "Gym", metric: "count", target: 3, period: "week" }),
+          habit({ id: "h2", name: "Meditar", metric: "check", target: 1, period: "day" }),
+          habit({ id: "h3", name: "Leer", metric: "time", target: 25, period: "day" }),
+        ],
+        habitLog,
+      }),
+      // El cuerpo de la nota abierta se pide aparte: el snapshot no lo trae.
+      note: async (id: string) => ({ ...notes.find((n) => n.id === id), content: { type: "doc" } }),
+      save: (entity: string, input: never) =>
+        entity === "read_log" ? insertReadLog(input) : upsertHabitLog(input),
+      softDelete: async () => {},
     },
   }
 })
@@ -174,7 +176,7 @@ test("Enter dentro del dialog no marca leído hasta que el botón es visible", a
   markReadButtonVisible(true)
   fireEvent.keyDown(document, { code: "Enter" })
   await screen.findByText("Nota dos")
-  expect(insertReadLog).toHaveBeenCalledWith({ noteId: "n1", grade: undefined })
+  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   expect(screen.getByText("2 / 3")).toBeInTheDocument()
 })
@@ -205,7 +207,7 @@ test("cola mixta: la flashcard se renderiza distinto y gradearla inserta el grad
 
   fireEvent.click(screen.getByRole("button", { name: "Correcto" }))
   await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
-  expect(insertReadLog).toHaveBeenCalledWith({ noteId: "f1", grade: "correcto" })
+  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "f1", grade: "correcto" })
   // Calificar no avanza: los 3 botones quedan apagados hasta que te movés con K.
   await waitFor(() => expect(screen.getByRole("button", { name: "Correcto" })).toBeDisabled())
   fireEvent.keyDown(document, { code: "KeyK" })
@@ -306,7 +308,7 @@ test("Leído desde adentro del dialog lo cierra y pasa a la siguiente", async ()
   fireEvent.click(within(dialog).getByRole("button", { name: "Leído y siguiente" }))
 
   await waitFor(() => expect(insertReadLog).toHaveBeenCalledTimes(1))
-  expect(insertReadLog).toHaveBeenCalledWith({ noteId: "n1", grade: undefined })
+  expect(insertReadLog).toHaveBeenCalledWith({ note_id: "n1", grade: undefined })
   await screen.findByText("Nota dos")
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
 })
@@ -341,7 +343,7 @@ test("click en un tile de cantidad upsertea hoy, y el segundo click suma sobre l
   fireEvent.click(gym)
   await waitFor(() => expect(upsertHabitLog).toHaveBeenCalledTimes(1))
   expect(upsertHabitLog).toHaveBeenCalledWith({
-    habitId: "h1",
+    habit_id: "h1",
     day: todayKey(),
     amount: 1,
     target: 3,
@@ -364,7 +366,7 @@ test("click en un check ya marcado lo deja en 0, no borra la fila", async () => 
   fireEvent.click(meditar)
   await waitFor(() => expect(upsertHabitLog).toHaveBeenCalledTimes(1))
   expect(upsertHabitLog).toHaveBeenCalledWith({
-    habitId: "h2",
+    habit_id: "h2",
     day: todayKey(),
     amount: 0,
     target: 1,
@@ -400,7 +402,7 @@ test("el chord h>1 registra el primer hábito de la tira", async () => {
   fireEvent.keyDown(document, { code: "Digit1" })
   await waitFor(() => expect(upsertHabitLog).toHaveBeenCalledTimes(1))
   expect(upsertHabitLog).toHaveBeenCalledWith({
-    habitId: "h1",
+    habit_id: "h1",
     day: todayKey(),
     amount: 1,
     target: 3,

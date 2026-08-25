@@ -1,72 +1,80 @@
 import { useEffect, useRef, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { store } from "@/core/store"
+import { courseNotes, noteRefs } from "@/core/store/derive"
+import { SNAPSHOT_KEY, useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
 import type { Note, TiptapDoc } from "@/core/types/database"
+import type { NoteRef, Snapshot } from "@/core/store/types"
 
 const EMPTY_DOC: TiptapDoc = { type: "doc", content: [] }
 
 export type { NoteRef } from "@/core/store/types"
 
-// Notas vivas de un curso, en orden de position.
+// Notas vivas de un curso, en orden de position. Son refs (sin `content`): la lista muestra
+// títulos, y el cuerpo lo trae `useNote` sólo de la nota abierta.
 export function useNotes(courseId: string) {
-  return useQuery({ queryKey: ["notes", courseId], queryFn: () => store.listNotes(courseId) })
+  return useSnapshot((snap) => courseNotes(snap, courseId))
 }
 
-// Índice liviano de todas las notas (sin content): lo usan la command palette y el "últ. repaso"
-// por curso. ~1.500 filas de título — barato, y evita 59 queries por curso.
+// Índice de todas las notas para la command palette y el "últ. repaso" por curso.
 export function useAllNoteRefs() {
-  return useQuery({ queryKey: ["note_refs"], queryFn: () => store.listNoteRefs() })
+  return useSnapshot(noteRefs)
 }
 
-// Una nota por id. Puede tener course_id null (curso borrado) — la UI no debe romper.
+// La única lectura que NO sale del snapshot: el documento Tiptap de una nota. Se pide por id y se
+// cachea aparte, así abrir una nota no arrastra el content de las otras 1.499.
 export function useNote(id: string | undefined) {
   return useQuery({
     queryKey: ["note", id],
     enabled: !!id,
-    queryFn: () => store.getNote(id!),
+    queryFn: () => store.note(id!),
   })
 }
 
-// Crea nota al final del curso (position = max+1). Devuelve la fila entera para navegar al editor
-// sin volver a pedirla. Un solo roundtrip en todo el flujo — ver ADR 0008.
+// Crea nota al final del curso (position = max+1) y devuelve la fila entera para navegar al editor
+// sin volver a pedirla — un solo roundtrip en todo el flujo (ADR 0008).
 export function useCreateNote() {
   const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (courseId: string): Promise<Note> => {
-      // El SELECT del último position sobra: la lista del curso ya está en cache (useNotes corre
-      // al entrar). Sin cache el fallback es 0 — solo pasaría llamando esto fuera de la pantalla
-      // Curso, que hoy no ocurre. Colisión de position = orden ambiguo entre dos notas, no error
-      // (no hay unique constraint), así que tampoco hace falta blindarlo.
-      const cached = qc.getQueryData<Note[]>(["notes", courseId]) ?? []
+  return useSnapshotMutation(
+    async (courseId: string): Promise<Note> => {
+      // El position sale del snapshot que ya está en cache; sin él, 0. Colisión de position =
+      // orden ambiguo entre dos notas, no error (no hay unique constraint).
+      const snap = qc.getQueryData<Snapshot>(SNAPSHOT_KEY)
+      const cached = snap ? courseNotes(snap, courseId) : []
       const position = Math.max(-1, ...cached.map((n) => n.position)) + 1
-      return store.createNote(courseId, position)
+      return store.save("notes", { course_id: courseId, position, content: EMPTY_DOC })
     },
-    onSuccess: (note, courseId) => {
-      // Sembrar, no invalidar: la fila la acaba de mandar el server, pedirla otra vez es preguntar
-      // dos veces lo mismo. Sin esto el editor monta con NoteSkeleton (useNote) y —peor— el efecto
-      // de auto-corrección de URL de Course no encuentra la nota en la lista vieja y te rebota a la
-      // primera del curso.
-      qc.setQueryData(["note", note.id], note)
-      qc.setQueryData<Note[]>(["notes", courseId], (old = []) => [...old, note])
-      // Refetch de fondo, para reconciliar cambios de otro device. Sin `return`: devolver la
-      // promesa haría que TanStack la espere antes del onSuccess del mutate() — o sea el navigate
-      // esperaría al refetch (medido: 372ms sobre 400ms de latencia).
-      qc.invalidateQueries({ queryKey: ["notes", courseId] })
+    {
+      onSuccess: (note) => {
+        // Sembrar, no invalidar (ADR 0008): la fila la acaba de mandar el server. Sin esto el
+        // editor monta con NoteSkeleton y —peor— el efecto de auto-corrección de URL de Course no
+        // encuentra la nota en el snapshot viejo y rebota a la primera del curso.
+        // El refetch del snapshot lo dispara `useSnapshotMutation` sin que nadie lo espere.
+        qc.setQueryData(["note", note.id], note)
+        qc.setQueryData<Snapshot>(SNAPSHOT_KEY, (snap) =>
+          snap ? { ...snap, notes: [...snap.notes, toRef(note)] } : snap,
+        )
+      },
     },
-  })
+  )
 }
+
+const toRef = ({ id, title, course_id, position, kind, created_at }: Note): NoteRef => ({
+  id,
+  title,
+  course_id,
+  position,
+  kind,
+  created_at,
+})
 
 export function useUpdateNote() {
   const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (input: { id: string; title: string; content: TiptapDoc }) =>
-      store.updateNote(input),
-    onSuccess: (_r, { id }) => {
-      qc.invalidateQueries({ queryKey: ["note", id] })
-      qc.invalidateQueries({ queryKey: ["notes"] })
-    },
-  })
+  return useSnapshotMutation(
+    (input: { id: string; title: string; content: TiptapDoc }) => store.save("notes", input),
+    { onSuccess: (_r, { id }) => qc.invalidateQueries({ queryKey: ["note", id] }) },
+  )
 }
 
 // ponytail: reorder (drag/up-down) no implementado. position se setea al crear (append al final).
@@ -131,12 +139,7 @@ export function useNoteDraft(id: string | undefined) {
 
 // Soft delete (ADR 0002). Nunca DELETE.
 export function useDeleteNote() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => store.deleteNote(id),
-    onSuccess: () => {
-      toast.success("Nota borrada")
-      qc.invalidateQueries({ queryKey: ["notes"] })
-    },
+  return useSnapshotMutation((id: string) => store.softDelete("notes", id), {
+    onSuccess: () => toast.success("Nota borrada"),
   })
 }

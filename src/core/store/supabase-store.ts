@@ -1,12 +1,15 @@
 import { getSupabase } from "@/core/lib/supabase"
-import type { Course, CourseStatus, Grade, Habit, Note, TiptapDoc } from "@/core/types/database"
-import type { GradedRead, NoteRef, ReadRow, Store } from "@/core/store/types"
+import type { Note, TiptapDoc } from "@/core/types/database"
+import type { Snapshot, Store, WriteInput, WriteResult, Writable } from "@/core/store/types"
 
-// Adapter contra Supabase — el default (CONTEXT.md: "Stack cerrado"). Todo lo que antes vivía
-// desparramado en los seis `*.api.ts` está acá; los hooks quedaron con React Query y nada más.
-// Ninguna decisión de la capa remota cambió: mismas RPC, mismo soft delete, mismo upsert.
-
-const STATUS_ORDER: Record<CourseStatus, number> = { active: 0, paused: 1, done: 2 }
+// Adapter contra Supabase — el default (CONTEXT.md, "Stack cerrado").
+//
+// Ya no llama a las RPC `courses_page` ni `review_queue`: la derivación vive en `derive.ts` y la
+// comparten los dos adapters (ADR 0011). Las funciones siguen en la DB, sin llamador — retirarlas
+// es una migración, y una migración es un cambio de DB.
+//
+// Lo que sí sigue igual: RLS aplica (`supabase-js` habla PostgREST directo, sin ORM — ADR 0006),
+// el borrado es lógico (ADR 0002) y read_log es append-only.
 
 function answerDoc(answer: string): TiptapDoc {
   return {
@@ -18,7 +21,6 @@ function answerDoc(answer: string): TiptapDoc {
 export function supabaseStore(): Store {
   return {
     mode: "supabase",
-    // La Edge Function `generate-flashcards` sólo existe de este lado (ADR 0010).
     canGenerateFlashcards: true,
 
     auth: {
@@ -38,57 +40,96 @@ export function supabaseStore(): Store {
       },
       async signOut() {
         await getSupabase().auth.signOut()
+        return true
       },
     },
 
-    // RPC `courses_page` (migración 0006, afinada hasta 0009): búsqueda, filtro, orden, rondas y
-    // último repaso resueltos en Postgres. El cliente no agrega nada.
-    async coursesPage({ q, status, sort, page, pageSize }) {
-      const { data, error } = await getSupabase().rpc("courses_page", {
-        q,
-        status_filter: status === "todos" ? null : status,
-        sort,
-        page_size: pageSize,
-        page_offset: (page - 1) * pageSize,
-      })
-      if (error) throw error
-      // total_count viaja repetido en cada fila; sin filas, no hay resultados.
-      return { rows: data, total: data[0]?.total_count ?? 0 }
+    // Las cinco tablas vivas en paralelo. Cinco requests que salen juntos y llegan juntos: en la
+    // versión anterior eran seis queries encadenadas a lo largo del arranque, cada una con su
+    // propio waterfall de React Query.
+    async snapshot(): Promise<Snapshot> {
+      const supabase = getSupabase()
+      const [courses, notes, reads, habits, habitLog] = await Promise.all([
+        supabase.from("courses").select("*").is("deleted_at", null),
+        // Sin `content`: es el 99% del peso y sólo lo necesita la nota abierta.
+        supabase
+          .from("notes")
+          .select("id, title, course_id, position, kind, created_at")
+          .is("deleted_at", null),
+        supabase.from("read_log").select("note_id, read_at, grade"),
+        supabase.from("habits").select("*").is("deleted_at", null),
+        supabase.from("habit_log").select("habit_id, day, amount, target"),
+      ])
+      const failed = [courses, notes, reads, habits, habitLog].find((r) => r.error)
+      if (failed?.error) throw failed.error
+      return {
+        courses: courses.data ?? [],
+        notes: notes.data ?? [],
+        reads: reads.data ?? [],
+        habits: habits.data ?? [],
+        habitLog: habitLog.data ?? [],
+      }
     },
 
-    // Orden estable: active → paused → done, luego más nuevo primero. Datos chicos → se ordena en
-    // JS (Postgres no ordena por prioridad de enum sin CASE).
-    async listCourses(): Promise<Course[]> {
-      const { data, error } = await getSupabase().from("courses").select("*").is("deleted_at", null)
+    async note(id): Promise<Note> {
+      const { data, error } = await getSupabase()
+        .from("notes")
+        .select("*")
+        .eq("id", id)
+        .is("deleted_at", null)
+        .single()
       if (error) throw error
-      return data.toSorted(
-        (a, b) =>
-          STATUS_ORDER[a.status] - STATUS_ORDER[b.status] ||
-          b.created_at.localeCompare(a.created_at),
-      )
+      return data
     },
 
-    async createCourse(input) {
-      const { error } = await getSupabase().from("courses").insert(input) // user_id: default auth.uid()
+    async save<E extends Writable>(entity: E, input: WriteInput[E]): Promise<WriteResult[E]> {
+      const supabase = getSupabase()
+      const { id, ...row } = input as { id?: string } & Record<string, unknown>
+
+      if (entity === "habit_log") {
+        // Upsert sobre la clave natural (habit_id, day) — el unique de la migración 0010.
+        // La fila llega completa, con el `target` ya congelado por `derive.frozenTarget`.
+        const { error } = await supabase
+          .from("habit_log")
+          .upsert(row as never, { onConflict: "habit_id,day" })
+        if (error) throw error
+        return undefined as WriteResult[E]
+      }
+
+      // Sólo `notes` devuelve la fila: el editor navega a la nota nueva sin volver a pedirla
+      // (ADR 0008). La fila entera sale gratis en el mismo request.
+      if (entity === "notes" && !id) {
+        const { data, error } = await supabase
+          .from("notes")
+          .insert(row as never)
+          .select("*")
+          .single()
+        if (error) throw error
+        return data as WriteResult[E]
+      }
+
+      // Sin `id` es alta y `user_id` lo pone el default `auth.uid()`; con `id`, edición.
+      // El cast de la tabla: en tiempo de tipos `entity` es una unión y el cliente no resuelve
+      // `.eq("id", …)` contra una unión de Row. Las cuatro tablas tienen `id` y el runtime es
+      // idéntico — acotarlo acá evita cuatro ramas que harían exactamente lo mismo.
+      const table = supabase.from(entity as "courses")
+      const { error } = id
+        ? await table.update(row as never).eq("id", id)
+        : await table.insert(row as never)
       if (error) throw error
+      return undefined as WriteResult[E]
     },
 
-    async updateCourse(id, input) {
-      const { error } = await getSupabase().from("courses").update(input).eq("id", id)
-      if (error) throw error
-    },
-
-    // Soft delete: set deleted_at. NUNCA DELETE (ADR 0002). No toca las notas del curso.
-    async deleteCourse(id) {
+    // Borrado lógico: nunca DELETE (ADR 0002). Borrar un curso no toca sus notas.
+    async softDelete(entity, id) {
       const { error } = await getSupabase()
-        .from("courses")
+        .from(entity)
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", id)
       if (error) throw error
     },
 
     // La carpeta tiene que ser el user_id: es lo que exige la policy de storage (migración 0004).
-    // El tipo y el tamaño los valida el bucket.
     async uploadCourseIcon(file) {
       const supabase = getSupabase()
       const { data, error: authError } = await supabase.auth.getUser()
@@ -98,97 +139,6 @@ export function supabaseStore(): Store {
       const { error } = await supabase.storage.from("course-icons").upload(path, file)
       if (error) throw error
       return supabase.storage.from("course-icons").getPublicUrl(path).data.publicUrl
-    },
-
-    async listNotes(courseId): Promise<Note[]> {
-      const { data, error } = await getSupabase()
-        .from("notes")
-        .select("*")
-        .eq("course_id", courseId)
-        .eq("kind", "note")
-        .is("deleted_at", null)
-        .order("position", { ascending: true })
-      if (error) throw error
-      return data
-    },
-
-    // Sin `content`: ~1.500 filas de título son baratas, las mismas con el documento Tiptap no.
-    async listNoteRefs(): Promise<NoteRef[]> {
-      const { data, error } = await getSupabase()
-        .from("notes")
-        .select("id, title, course_id, position")
-        .eq("kind", "note")
-        .is("deleted_at", null)
-        .order("position", { ascending: true })
-      if (error) throw error
-      return data
-    },
-
-    async getNote(id): Promise<Note> {
-      const { data, error } = await getSupabase()
-        .from("notes")
-        .select("*")
-        .eq("id", id)
-        .eq("kind", "note")
-        .is("deleted_at", null)
-        .single()
-      if (error) throw error
-      return data
-    },
-
-    // Devuelve la fila entera para navegar al editor sin volver a pedirla — un solo roundtrip en
-    // todo el flujo (ADR 0008).
-    async createNote(courseId, position): Promise<Note> {
-      const { data, error } = await getSupabase()
-        .from("notes")
-        .insert({ course_id: courseId, position, content: { type: "doc", content: [] } })
-        .select("*") // la fila entera sale gratis en el mismo request
-        .single()
-      if (error) throw error
-      return data
-    },
-
-    async updateNote({ id, title, content }) {
-      const { error } = await getSupabase().from("notes").update({ title, content }).eq("id", id)
-      if (error) throw error
-    },
-
-    async deleteNote(id) {
-      const { error } = await getSupabase()
-        .from("notes")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", id)
-      if (error) throw error
-    },
-
-    // RPC `review_queue()` (migración 0003): notas de cursos vivos, más viejas primero
-    // (nunca-leídas primero), limit 3.
-    async reviewQueue(): Promise<Note[]> {
-      const { data, error } = await getSupabase().rpc("review_queue")
-      if (error) throw error
-      return data
-    },
-
-    // Exactamente una fila en read_log. NUNCA se borra. `grade` sólo si es flashcard.
-    async markRead({ noteId, grade }: { noteId: string; grade?: Grade }) {
-      const { error } = await getSupabase().from("read_log").insert({ note_id: noteId, grade })
-      if (error) throw error
-    },
-
-    async readLog(): Promise<ReadRow[]> {
-      const { data, error } = await getSupabase().from("read_log").select("note_id, read_at")
-      if (error) throw error
-      return data
-    },
-
-    async gradedReads(): Promise<GradedRead[]> {
-      const { data, error } = await getSupabase()
-        .from("read_log")
-        .select("grade, note:notes(course_id)")
-        .not("grade", "is", null)
-      if (error) throw error
-      const rows = data as unknown as { grade: Grade; note: { course_id: string | null } | null }[]
-      return rows.map((r) => ({ grade: r.grade, course_id: r.note?.course_id ?? null }))
     },
 
     // Edge Function + insert de cada par como nota `kind: 'flashcard'` — mismo shape que una nota
@@ -210,52 +160,6 @@ export function supabaseStore(): Store {
         })),
       )
       if (insertError) throw insertError
-    },
-
-    // Orden de creación: es el de la tira y el del chord h>1..9. Si algo lo reordenara, h>2 sería
-    // otro hábito según el día.
-    async listHabits(): Promise<Habit[]> {
-      const { data, error } = await getSupabase()
-        .from("habits")
-        .select("*")
-        .is("deleted_at", null)
-        .order("created_at")
-      if (error) throw error
-      return data
-    },
-
-    async habitLog() {
-      const { data, error } = await getSupabase()
-        .from("habit_log")
-        .select("habit_id, day, amount, target")
-      if (error) throw error
-      return data
-    },
-
-    // Upsert sobre (habit_id, day), no un diff. `amount = 0` deja la fila en cero: no se borra nada.
-    async setHabitDay({ habitId, day, amount, target }) {
-      const { error } = await getSupabase()
-        .from("habit_log")
-        .upsert({ habit_id: habitId, day, amount, target }, { onConflict: "habit_id,day" })
-      if (error) throw error
-    },
-
-    // Alta y edición en la misma operación: el form del dialog es el mismo con y sin `id`.
-    async saveHabit({ id, ...input }) {
-      const supabase = getSupabase()
-      const { error } = id
-        ? await supabase.from("habits").update(input).eq("id", id)
-        : await supabase.from("habits").insert(input) // user_id: default auth.uid()
-      if (error) throw error
-    },
-
-    // Archivar = soft delete. El habit_log queda intacto.
-    async archiveHabit(id) {
-      const { error } = await getSupabase()
-        .from("habits")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", id)
-      if (error) throw error
     },
   }
 }

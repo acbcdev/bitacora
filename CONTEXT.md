@@ -34,10 +34,13 @@ Nivel medio (ver `docs/adr/0005-frontend-stack.md`):
 
 - **Routing:** React Router · **Data/estado servidor:** TanStack Query · **Styling:** Tailwind +
   Radix vía **shadcn/ui** · **PWA:** `vite-plugin-pwa` · **Testing:** Vitest · **pm:** pnpm.
-- **Acceso a datos:** el seam **`Store`** (`src/core/store/`) — ~20 métodos de dominio, dos
-  adapters detrás: `supabaseStore` (default, `supabase-js` + tipos generados) y `localStore`
-  (todo en el navegador). Ninguna pantalla importa `supabase-js`. **Sin ORM** (ADR 0006) —
-  `Store` no genera SQL ni mapea entidades. Ver ADR 0011.
+- **Acceso a datos:** el seam **`Store`** (`src/core/store/`) — seis métodos: `snapshot`, `note`,
+  `save`, `softDelete`, `uploadCourseIcon`, `generateFlashcards`. Dos adapters detrás:
+  `supabaseStore` (default, `supabase-js` + tipos generados) y `localStore` (todo en el
+  navegador). Ninguna pantalla importa `supabase-js`. **Sin ORM** (ADR 0006) — `Store` no genera
+  SQL ni mapea entidades. Ver ADR 0011.
+- **Derivación:** toda en `src/core/store/derive.ts`, funciones puras sobre el `Snapshot`,
+  compartidas por los dos adapters. Las pantallas no piden tablas: piden hechos derivados.
 - **Sin design system formal.** Las guías visuales viven en `docs/ui-principles.md`
   (keyboard-first, nota grande, chrome mínimo).
 
@@ -58,7 +61,7 @@ Notas de licencia/tier:
 | **Progreso derivado** | `notas leídas / total del curso`. No se guarda: sale de `COUNT(*)` sobre `read_log`. |
 | **read_count** | Cuántas veces se repasó una nota. Derivado de `read_log`. |
 | **Racha / leídas hoy** | Derivados de `read_log` filtrando por fecha. |
-| **Cola de repaso** | **Lo construido hoy:** `store.reviewQueue()` trae un batch de **3** notas/flashcards vivas de cursos vivos, las más viejas primero, `nulls first` (nunca-leídas primero). El `status` del curso **no** filtra — `active`, `paused` y `done` entran igual. Una nota sin curso (`course_id` null) **no** entra. Repaso camina ese batch con un índice; `J`/`K` se mueven adentro sin pegarle al store. En Supabase la resuelve la RPC `review_queue()` (migración 0003, **sin argumentos**); en modo local, `core/store/derive.ts` con la misma semántica y desempate determinista. |
+| **Cola de repaso** | **Lo construido hoy:** `derive.reviewQueue(snapshot, 3)` — un batch de **3** notas/flashcards vivas de cursos vivos, las más viejas primero, `nulls first` (nunca-leídas primero). El `status` del curso **no** filtra: `active`, `paused` y `done` entran igual. Una nota sin curso (`course_id` null) **no** entra. Devuelve **refs sin `content`**: el cuerpo de la que estás mirando lo pide Repaso con `store.note(id)`. El batch se **congela** en el cliente al montar —marcar leído invalida el snapshot, y sin congelarlo se reordenaría abajo del usuario—; "Cargar más" es lo único que lo descongela. `J`/`K` se mueven adentro del batch sin pegarle al store. La RPC `review_queue()` sigue en la DB **sin llamador** (ADR 0011). |
 | **Cola one-by-one (NO construido)** | Diseño deseado, todavía sin implementar: `review_queue(exclude_course_id, exclude_note_ids)` sirviendo **una** nota a la vez, con **intercalado forzado** (dos repasos seguidos nunca del mismo `course_id` si hay alternativa), `seen[]` en el cliente como back-stack de `J` y `exclude_note_ids`, y fallback soltando el curso excluido. Estaba escrito acá como si existiera — no existe: la RPC no toma argumentos y `review.tsx` no tiene `seen[]`. Si se construye, hay que hacerlo **en los dos adapters**. Ver `.scratch/retention-system/spec.md`. |
 | **Presupuesto de llamadas** | Repaso pide **un batch de 3** y lo camina en memoria: `J`/`K` no llaman. Marcar leído es un insert en `read_log` y no re-pide la cola (reshufflearía el batch mid-repaso). Al llegar a la meta sale el `Empty` con "Cargar más", que refetchea. |
 | **Flashcard** | Una nota con `kind = 'flashcard'`: el `title` es la pregunta y el `content` la respuesta. **No es tabla propia** (ADR 0010). Se generan con AI desde las notas del curso; se repasan en Repaso (revelar → autoevaluar) y no aparecen en la lista de notas del curso. |
@@ -72,6 +75,10 @@ Notas de licencia/tier:
 | **`days` (hábito)** | Los días en que se *planea* hacerlo (`{1,3,5}`). **Recordatorio, no regla**: no entra en ningún cálculo. Un hábito de días fijos se modela como cupo (`count 3/week`). |
 | **Cumplimiento** | Un hábito `good` cumple al llegar al target (piso); uno `bad`, mientras no lo pase (techo). |
 | **Racha de hábito** | Períodos consecutivos cumplidos. No confundir con la racha de `read_log`, que son días con repaso. |
+| **Store** | El seam de datos (`src/core/store/`). Seis métodos, no uno por query: el adapter trae filas y las escribe, nada más. Decir **Store** y **adapter**, no "repositorio", "servicio" ni "cliente". |
+| **Snapshot** | Lo que devuelve `store.snapshot()`: todas las filas VIVAS de las 5 tablas, con las notas **sin `content`**. Es la única query de lectura de la app — todo lo demás es un `select` sobre esto. |
+| **Derivación** | Las funciones puras de `derive.ts` que convierten un `Snapshot` en hechos del dominio (cola de repaso, página de cursos, retención, racha). Las comparten los dos adapters: una regla, un lugar. |
+| **Modo local** | El adapter que corre entero en el navegador (`localStorage`), sin cuenta y sin red. **Excluyente**, no offline-first: o Supabase o local, nunca los dos, sin sync (ADR 0011). |
 | **Outline** | El rail de headings al margen derecho de una nota: ticks siempre visibles + panel de títulos al hover, marca la sección actual y salta al click. No decir "TOC", "índice" ni "minimapa". Vive en el `Editor`, así aparece en las 3 superficies que renderizan una nota (Nota standalone, Nota en curso, dialog de Repaso). Ver `docs/adr/0007-outline-desde-el-dom.md`. |
 
 ## Schema (frozen)
@@ -144,9 +151,15 @@ toda feature nueva fuera de las 3 pantallas, no solo a `goals`. Repo tiene 5 dí
 esté en uso real: gated — sidebar de integración AI, tonos de nota vía AI, themes (multi-preset).
 Se reabren con el loop diario probado en uso real, no antes.
 
-**Settings y la abstracción DB→localStorage salieron de esa lista (2026-08-25).** Salieron
-juntas y por el mismo motivo: dejaron de ser generalización especulativa y pasaron a tener
-beneficiarios concretos. El seam `Store` borró seis fakes de `supabase-js` de la suite de tests,
+**Settings y la abstracción DB→localStorage salieron de esa lista (2026-08-25).** El gate era
+doble: (a) "no hay beneficiario real" y (b) "el loop diario todavía no está en uso real
+confirmado". **(a) se resolvió; (b) se saltó por decisión consciente del usuario** — mismo
+precedente que hábitos y que el spec de flashcards. La pregunta abierta #5 de
+`.scratch/platform-features/` **sigue sin responderse**, y sigue condicionando lo que queda
+gateado. Se dice acá para que no parezca resuelta.
+
+Lo que resolvió (a): dejaron de ser generalización especulativa y pasaron a tener beneficiarios
+concretos. El seam `Store` borró seis fakes de `supabase-js` de la suite de tests,
 hizo testeable sin Postgres lógica que antes no lo era (+25 tests), y arregló que `git clone &&
 pnpm dev` sin env no arrancara. Settings dejó de ser "una pantalla por si acaso" cuando apareció
 el primer ajuste que necesitaba un hogar — el modo de almacenamiento — y no es pantalla: es un

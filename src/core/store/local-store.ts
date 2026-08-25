@@ -1,24 +1,22 @@
-import { coursesPage, reviewQueue } from "@/core/store/derive"
+import { hasSupabaseEnv } from "@/core/lib/supabase"
 import { setStorageMode } from "@/core/store/mode"
+import type { Course, Habit, HabitLog, Note, ReadLog } from "@/core/types/database"
 import type {
-  Course,
-  CourseStatus,
-  Grade,
-  Habit,
-  HabitLog,
-  Note,
-  ReadLog,
-} from "@/core/types/database"
-import type { AuthUser, GradedRead, NoteRef, ReadRow, Store } from "@/core/store/types"
+  AuthUser,
+  Snapshot,
+  Store,
+  Writable,
+  WriteInput,
+  WriteResult,
+} from "@/core/store/types"
 
 // Adapter que corre ENTERO en el navegador: sin backend, sin cuenta, sin red. Mismo dominio que
-// `supabaseStore`, otro sustrato. Lo que en Supabase resuelven las RPC (`courses_page`,
-// `review_queue`) acá lo resuelven las funciones puras de `derive.ts` — la misma semántica escrita
-// una sola vez y testeada sin DB.
+// `supabaseStore`, otro sustrato — y como toda la derivación vive en `derive.ts`, este archivo no
+// reimplementa ninguna regla de negocio: lee filas, escribe filas.
 //
 // Lo que este modo NO es (ADR 0011): no es offline-first ni un sync engine. Es EXCLUYENTE — o
 // hablás con Postgres o con el navegador, nunca con los dos. Sin merge, sin conflictos, sin cola
-// de escrituras pendientes. Eso es lo que ADR 0004 cierra, y sigue cerrado.
+// de escrituras pendientes. Eso es lo que cierra ADR 0004, y sigue cerrado.
 
 const PREFIX = "bita-local:"
 
@@ -26,9 +24,6 @@ const PREFIX = "bita-local:"
 // para que las filas tengan la misma forma que las de Postgres.
 const LOCAL_USER_ID = "00000000-0000-0000-0000-000000000000"
 const LOCAL_USER: AuthUser = { email: "local" }
-
-// El mismo `limit 3` de la RPC `review_queue` (migración 0003).
-const REVIEW_BATCH = 3
 
 // Un icono en modo local se guarda como data URL DENTRO del presupuesto de ~5 MB que comparte con
 // las notas. Sin este techo, una foto de 3 MB se come la app entera y el error aparece después,
@@ -50,7 +45,7 @@ function read<K extends keyof Tables>(table: K): Tables[K][] {
     return JSON.parse(raw) as Tables[K][]
   } catch {
     // JSON corrupto: devolver [] y no tirar. Tirar acá dejaría la app sin arrancar y sin forma de
-    // llegar a Settings para exportar o cambiar de modo.
+    // llegar a Ajustes para cambiar de modo.
     return []
   }
 }
@@ -68,22 +63,8 @@ function write<K extends keyof Tables>(table: K, rows: Tables[K][]) {
 }
 
 const now = () => new Date().toISOString()
-
-// Soft delete (ADR 0002): nunca se saca la fila del array, se le pone `deleted_at`. Igual que en
-// Postgres — si acá se borrara de verdad, los dos adapters dejarían de significar lo mismo.
-function softDelete<K extends "courses" | "notes" | "habits">(table: K, id: string) {
-  write(
-    table,
-    read(table).map((row) => (row.id === id ? { ...row, deleted_at: now() } : row)),
-  )
-}
-
-const STATUS_ORDER: Record<CourseStatus, number> = { active: 0, paused: 1, done: 2 }
-
-// La forma cruda que consumen las funciones de `derive.ts`. Se lee tres veces (cola, página de
-// cursos, stats) y siempre igual.
-const readRows = (): ReadRow[] =>
-  read("read_log").map(({ note_id, read_at }) => ({ note_id, read_at }))
+const live = <T extends { deleted_at: string | null }>(rows: T[]) =>
+  rows.filter((r) => !r.deleted_at)
 
 function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -95,6 +76,28 @@ function fileToDataUrl(file: File) {
     reader.readAsDataURL(file)
   })
 }
+
+// Los defaults de migrations/0001, replicados: en Supabase los pone Postgres.
+const DEFAULTS = {
+  courses: {
+    status: "active",
+    started_at: null,
+    finished_at: null,
+    icon: null,
+    source: null,
+    area: null,
+    imported: false,
+  },
+  notes: {
+    course_id: null,
+    title: "",
+    content: { type: "doc", content: [] },
+    kind: "note",
+    position: 0,
+    imported: false,
+  },
+  habits: { icon: null, kind: "good", metric: "check", target: 1, period: "day", days: null },
+} as const
 
 export function localStore(): Store {
   return {
@@ -115,56 +118,106 @@ export function localStore(): Store {
         // No hay a dónde mandar un magic link. En modo local nunca se llega al Login.
       },
       async signOut() {
-        // "Cerrar sesión" en local no puede cerrar nada — lo único que significa es salir del modo
-        // local y volver a la pantalla de login de Supabase.
+        // "Cerrar sesión" en local no cierra nada: lo único que puede significar es volver a
+        // Supabase. Sin env no hay a dónde volver, y decirlo es mejor que recargar en falso —
+        // antes esto recargaba y caía de nuevo en local, sin explicar nada.
+        if (!hasSupabaseEnv) return false
         setStorageMode("supabase")
+        return true
       },
     },
 
-    async coursesPage(query) {
-      return coursesPage(read("courses"), read("notes"), readRows(), query)
+    // Sólo filas vivas, igual que el adapter de Supabase: el filtro de `deleted_at` es la regla
+    // universal de CONTEXT.md y vive de este lado del seam en los dos.
+    async snapshot(): Promise<Snapshot> {
+      return {
+        courses: live(read("courses")),
+        notes: live(read("notes")).map(({ id, title, course_id, position, kind, created_at }) => ({
+          id,
+          title,
+          course_id,
+          position,
+          kind,
+          created_at,
+        })),
+        reads: read("read_log").map(({ note_id, read_at, grade }) => ({ note_id, read_at, grade })),
+        habits: live(read("habits")),
+        habitLog: read("habit_log").map(({ habit_id, day, amount, target }) => ({
+          habit_id,
+          day,
+          amount,
+          target,
+        })),
+      }
     },
 
-    async listCourses() {
-      return read("courses")
-        .filter((c) => !c.deleted_at)
-        .toSorted(
-          (a, b) =>
-            STATUS_ORDER[a.status] - STATUS_ORDER[b.status] ||
-            b.created_at.localeCompare(a.created_at),
+    async note(id) {
+      const found = read("notes").find((n) => n.id === id && !n.deleted_at)
+      // Mismo comportamiento que `.single()` de PostgREST: sin fila, error.
+      if (!found) throw new Error("Nota no encontrada")
+      return found
+    },
+
+    async save<E extends Writable>(entity: E, input: WriteInput[E]): Promise<WriteResult[E]> {
+      const { id, ...values } = input as { id?: string } & Record<string, unknown>
+
+      // habit_log se identifica por su clave natural (habit_id, day), no por id — el unique de la
+      // migración 0010. La fila llega completa, con el `target` ya congelado por quien llama.
+      if (entity === "habit_log") {
+        const rows = read("habit_log")
+        const v = values as unknown as Omit<HabitLog, "id" | "user_id">
+        const i = rows.findIndex((r) => r.habit_id === v.habit_id && r.day === v.day)
+        const row = { ...v, id: rows[i]?.id ?? crypto.randomUUID(), user_id: LOCAL_USER_ID }
+        write("habit_log", i >= 0 ? rows.map((r, j) => (j === i ? row : r)) : [...rows, row])
+        return undefined as WriteResult[E]
+      }
+
+      if (entity === "read_log") {
+        // Append-only: un repaso es un hecho absoluto, no se edita ni se borra.
+        write("read_log", [
+          ...read("read_log"),
+          {
+            id: crypto.randomUUID(),
+            user_id: LOCAL_USER_ID,
+            grade: null,
+            read_at: now(),
+            ...values,
+          } as ReadLog,
+        ])
+        return undefined as WriteResult[E]
+      }
+
+      const table = entity as "courses" | "notes" | "habits"
+      const rows = read(table)
+
+      if (id) {
+        write(
+          table,
+          rows.map((r) => (r.id === id ? { ...r, ...values } : r)),
         )
+        return undefined as WriteResult[E]
+      }
+
+      const row = {
+        id: crypto.randomUUID(),
+        user_id: LOCAL_USER_ID,
+        ...DEFAULTS[table],
+        ...values,
+        deleted_at: null,
+        created_at: now(),
+      } as Tables[typeof table]
+      write(table, [...rows, row])
+      // Sólo `notes` devuelve la fila (ADR 0008); el resto no la necesita.
+      return (entity === "notes" ? row : undefined) as WriteResult[E]
     },
 
-    async createCourse(input) {
-      write("courses", [
-        ...read("courses"),
-        {
-          id: crypto.randomUUID(),
-          user_id: LOCAL_USER_ID,
-          name: input.name,
-          // Los defaults son los de migrations/0001, replicados: en Supabase los pone Postgres.
-          status: input.status ?? "active",
-          started_at: input.started_at ?? null,
-          finished_at: input.finished_at ?? null,
-          icon: input.icon ?? null,
-          source: input.source ?? null,
-          area: input.area ?? null,
-          imported: false,
-          deleted_at: null,
-          created_at: now(),
-        },
-      ])
-    },
-
-    async updateCourse(id, input) {
+    // Soft delete (ADR 0002): la fila nunca sale del array, se le pone `deleted_at`. Si acá se
+    // borrara de verdad, los dos adapters dejarían de significar lo mismo.
+    async softDelete(entity, id) {
       write(
-        "courses",
-        read("courses").map((c) => (c.id === id ? { ...c, ...input } : c)),
+        entity,
+        read(entity).map((row) => (row.id === id ? { ...row, deleted_at: now() } : row)),
       )
-    },
-
-    async deleteCourse(id) {
-      softDelete("courses", id)
     },
 
     async uploadCourseIcon(file) {
@@ -174,88 +227,9 @@ export function localStore(): Store {
         )
       }
       // Data URL y no un bucket: es la única forma de que la imagen sobreviva a un reload sin
-      // servidor. `course-icon.tsx` ya distingue 'lucide:<Nombre>' de una URL, y una data URL
-      // entra por esa segunda rama sin cambios.
+      // servidor. `course-icon.tsx` ya trata cualquier cosa que no empiece con 'lucide:' como
+      // imagen, así que una data URL entra por esa rama sin cambios.
       return fileToDataUrl(file)
-    },
-
-    async listNotes(courseId) {
-      return read("notes")
-        .filter((n) => n.course_id === courseId && n.kind === "note" && !n.deleted_at)
-        .toSorted((a, b) => a.position - b.position)
-    },
-
-    async listNoteRefs(): Promise<NoteRef[]> {
-      return read("notes")
-        .filter((n) => n.kind === "note" && !n.deleted_at)
-        .toSorted((a, b) => a.position - b.position)
-        .map(({ id, title, course_id, position }) => ({ id, title, course_id, position }))
-    },
-
-    async getNote(id) {
-      const note = read("notes").find((n) => n.id === id && n.kind === "note" && !n.deleted_at)
-      // Mismo comportamiento que `.single()` de PostgREST: sin fila, error. La pantalla Nota ya
-      // sabe mostrar el estado de error.
-      if (!note) throw new Error("Nota no encontrada")
-      return note
-    },
-
-    async createNote(courseId, position) {
-      const note: Note = {
-        id: crypto.randomUUID(),
-        user_id: LOCAL_USER_ID,
-        course_id: courseId,
-        title: "",
-        content: { type: "doc", content: [] },
-        kind: "note",
-        position,
-        imported: false,
-        deleted_at: null,
-        created_at: now(),
-      }
-      write("notes", [...read("notes"), note])
-      return note
-    },
-
-    async updateNote({ id, title, content }) {
-      write(
-        "notes",
-        read("notes").map((n) => (n.id === id ? { ...n, title, content } : n)),
-      )
-    },
-
-    async deleteNote(id) {
-      softDelete("notes", id)
-    },
-
-    async reviewQueue() {
-      return reviewQueue(read("courses"), read("notes"), readRows(), REVIEW_BATCH)
-    },
-
-    // Append-only, igual que en Postgres: un repaso es un hecho absoluto, no se edita ni se borra.
-    async markRead({ noteId, grade }) {
-      write("read_log", [
-        ...read("read_log"),
-        {
-          id: crypto.randomUUID(),
-          user_id: LOCAL_USER_ID,
-          note_id: noteId,
-          read_at: now(),
-          grade: grade ?? null,
-        },
-      ])
-    },
-
-    async readLog(): Promise<ReadRow[]> {
-      return readRows()
-    },
-
-    // El equivalente del join `read_log → notes(course_id)` que del otro lado hace PostgREST.
-    async gradedReads(): Promise<GradedRead[]> {
-      const courseOf = new Map(read("notes").map((n) => [n.id, n.course_id]))
-      return read("read_log")
-        .filter((r): r is ReadLog & { grade: Grade } => r.grade !== null)
-        .map((r) => ({ grade: r.grade, course_id: courseOf.get(r.note_id) ?? null }))
     },
 
     async generateFlashcards() {
@@ -263,71 +237,6 @@ export function localStore(): Store {
       // guardar la key sin backend (ADR 0010). `canGenerateFlashcards` deja que la UI lo esconda;
       // esto es la red por si alguien igual llega hasta acá.
       throw new Error("Generar flashcards necesita Supabase — no corre en modo local.")
-    },
-
-    async listHabits() {
-      return read("habits")
-        .filter((h) => !h.deleted_at)
-        .toSorted((a, b) => a.created_at.localeCompare(b.created_at))
-    },
-
-    async habitLog() {
-      return read("habit_log").map(({ habit_id, day, amount, target }) => ({
-        habit_id,
-        day,
-        amount,
-        target,
-      }))
-    },
-
-    // Upsert sobre (habit_id, day) — el unique constraint de la migración 0010, a mano.
-    async setHabitDay({ habitId, day, amount, target }) {
-      const rows = read("habit_log")
-      const i = rows.findIndex((r) => r.habit_id === habitId && r.day === day)
-      // Si la fila ya existía se respeta SU target: el día vale la meta que regía cuando lo
-      // empezaste (ADR 0009).
-      if (i >= 0) {
-        write(
-          "habit_log",
-          rows.map((r, j) => (j === i ? { ...r, amount } : r)),
-        )
-        return
-      }
-      write("habit_log", [
-        ...rows,
-        { id: crypto.randomUUID(), user_id: LOCAL_USER_ID, habit_id: habitId, day, amount, target },
-      ])
-    },
-
-    async saveHabit({ id, ...input }) {
-      const rows = read("habits")
-      if (id) {
-        write(
-          "habits",
-          rows.map((h) => (h.id === id ? { ...h, ...input } : h)),
-        )
-        return
-      }
-      write("habits", [
-        ...rows,
-        {
-          id: crypto.randomUUID(),
-          user_id: LOCAL_USER_ID,
-          name: input.name,
-          icon: input.icon ?? null,
-          kind: input.kind ?? "good",
-          metric: input.metric ?? "check",
-          target: input.target ?? 1,
-          period: input.period ?? "day",
-          days: input.days ?? null,
-          deleted_at: null,
-          created_at: now(),
-        },
-      ])
-    },
-
-    async archiveHabit(id) {
-      softDelete("habits", id)
     },
   }
 }

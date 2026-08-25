@@ -1,23 +1,22 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { store } from "@/core/store"
+import { reviewQueue } from "@/core/store/derive"
+import { useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
 import type { Grade } from "@/core/types/database"
 
-// Cola de repaso: notas de cursos vivos, más viejas primero (nunca-leídas primero), limit 3.
-// En Supabase la resuelve la RPC `review_queue()` (migración 0003); en local, `derive.reviewQueue`
-// con la misma semántica.
+// El mismo `limit 3` que tenía la RPC `review_queue` (migración 0003).
+export const REVIEW_BATCH = 3
+
+// Cola de repaso: notas vivas de cursos vivos, la más vieja primero, nunca-leídas antes que todo.
+// Devuelve refs — el `content` de la que se está mirando lo pide Repaso con `useNote(id)`, así
+// abrir la pantalla no baja tres documentos Tiptap para mostrar uno.
 export function useReviewQueue() {
-  return useQuery({ queryKey: ["review_queue"], queryFn: () => store.reviewQueue() })
+  return useSnapshot((snap) => reviewQueue(snap, REVIEW_BATCH))
 }
 
-// Space marca leído: exactamente una fila en read_log (review/03). NUNCA se borra.
-// `grade` solo se completa cuando el ítem repasado es una flashcard (flashcards/spec).
+// Marcar leído: exactamente una fila en read_log. NUNCA se borra.
+// `grade` sólo se completa cuando el ítem repasado es una flashcard.
 export function useMarkRead() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (input: { noteId: string; grade?: Grade }) => store.markRead(input),
-    // Solo las stats derivadas de read_log (ADR 0003): "leídas hoy", racha y repasos por nota.
-    // La cola NO se invalida acá: reshufflearía el batch bajo el usuario mid-repaso. Se refetchea
-    // al terminar el batch (ver Review screen).
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["read_stats"] }),
-  })
+  return useSnapshotMutation(({ noteId, grade }: { noteId: string; grade?: Grade }) =>
+    store.save("read_log", { note_id: noteId, grade }),
+  )
 }
