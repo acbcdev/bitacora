@@ -1,8 +1,11 @@
 # To-grill: plataforma (AI sidebar, shortcuts, hábitos, mobile, settings, themes, DB abstraction, tonos de nota)
 
-**Status:** grilling — sin resolver, sin spec.md todavía.
-**Relacionado:** [[to-grill-retention-system]] — el ítem "AI genera flashcards" depende del Tier 2
-de ese doc (la entidad `flashcards` todavía no existe).
+**Status:** grilling — parcialmente superado por los hechos. Hábitos: **hecho** (2026-08-20).
+AI: **el blocker de arquitectura cayó** (2026-07-30, Edge Function `generate-flashcards` + ADR 0010).
+Siguen sin resolver y sin spec: mobile, shortcuts, Settings, themes, abstracción DB.
+**Relacionado:** [[to-grill-retention-system]] — el ítem "AI genera flashcards" **ya salió**: las
+flashcards existen como `notes.kind = 'flashcard'`, generadas con Claude desde el botón de la
+pantalla Curso.
 
 ## Contexto original (brain dump del usuario, sin editar)
 
@@ -65,24 +68,30 @@ existe — el caso de YAGNI más claro de todo el batch. Si el motivo real es "q
 loguearme"/demo mode, ese es un caso concreto distinto y vale nombrarlo así, no como abstracción
 genérica de storage.
 
-**Sidebar de integración AI (generar flashcards automático) → varios problemas simultáneos:**
-- Depende de que exista la entidad `flashcards` — no existe todavía (Tier 2 de
-  [[to-grill-retention-system]], sin resolver).
+**Sidebar de integración AI (generar flashcards automático) → varios problemas simultáneos.
+Actualizado 2026-07-30: de los cuatro, dos ya cayeron.**
+- ~~Depende de que exista la entidad `flashcards`~~ — **resuelto**: son `notes.kind = 'flashcard'`,
+  y ya se generan con AI (botón "Generar flashcards" en la pantalla Curso, `course.tsx:208`).
 - `ui-principles.md` regla #3: "Sin sidebars pesadas, sin toolbars llenas de botones que no se usan."
   Un sidebar de AI es chrome adicional — choca directo con "chrome mínimo".
-- Costo: CONTEXT.md:27, textual: "Costo $0, sin servidores propios." Llamadas a un LLM tienen costo
-  por token — rompe el presupuesto $0 explícito del proyecto.
-- Seguridad: igual que Turso fue descartado en ADR 0001 porque el token expuesto en el browser =
-  compromiso total, una API key de LLM en el cliente tiene el mismo problema. Necesita vivir detrás
-  de un backend (Supabase Edge Function). Eso reabre ADR 0006, que dice textual: "Único caso para
-  reabrir: si aparece un backend propio (Edge Functions / server)." No está prohibido, pero es una
-  decisión de arquitectura nueva, no un feature chico.
+- ~~Costo: "$0, sin servidores propios"~~ — **el $0 literal ya se rompió, a sabiendas** (ADR 0010).
+  Sigue valiendo el criterio, no el número: el gasto de hoy es un click explícito por curso. Un
+  sidebar AI que dispara llamadas solo es otra cosa — eso sí hay que presupuestarlo.
+- ~~Seguridad / backend nuevo: la API key necesita una Edge Function, y eso reabre ADR 0006~~ —
+  **hecho**: `supabase/functions/generate-flashcards` corre con la key server-side y con el JWT del
+  usuario (RLS sigue aplicando). ADR 0006 se reabrió y se re-decidió: sigue sin ORM. Una feature AI
+  nueva ya **no** es decisión de arquitectura, es una función más al lado de la que existe.
+- **Lo que sigue en pie es el chrome**: `ui-principles.md` #3, "sin sidebars pesadas". Ese es hoy el
+  único blocker real del sidebar AI — y no se resuelve con infra, se resuelve con un caso de uso que
+  justifique la superficie.
 
-**Notas — botones de tono preestablecido + tonos propios (AI rewrite) → mismo problema de costo y
-arquitectura que el sidebar AI** (LLM = $, API key necesita backend). Distinto en que no agrega
-pantalla nueva (vive en Nota, una de las 3 pantallas ya aprobadas) — menor fricción con
-`ui-principles.md` en ese eje. Sí hay que vigilar cuántos botones se agregan al editor: "chrome
-mínimo" aplica igual ahí adentro.
+**Notas — botones de tono preestablecido + tonos propios (AI rewrite).** Escrito originalmente como
+"mismo problema de costo y arquitectura que el sidebar AI" (LLM = $, API key necesita backend).
+**Actualizado 2026-07-30: el problema de arquitectura ya no existe** — reusa la Edge Function que se
+construyó para flashcards. Queda solo el costo, acotado mientras sea un botón explícito. No agrega
+pantalla nueva (vive en Nota, una de las 3 ya aprobadas) — menor fricción con `ui-principles.md` en
+ese eje. Sí hay que vigilar cuántos botones se agregan al editor: "chrome mínimo" aplica igual ahí
+adentro.
 
 **Más shortcuts → sin conflicto, es la regla #1 de `ui-principles.md` tal cual.** Ítem más barato y
 más alineado de todo el batch. No necesita grill adicional, necesita lista concreta de qué acciones
@@ -101,25 +110,32 @@ todavía no tienen tecla.
 - Settings — confirmar qué contenido real la justifica como pantalla propia.
 
 **Tier 3 — contradice una decisión ya tomada, no reabrir sin caso nuevo**
-- ~~Seguimiento de hábitos~~ — **RESUELTO (2026-08-20): reabierto con caso nuevo y specificado en
-  `.scratch/habits/spec.md`.** No era el mismo territorio que `goals`: entidad propia + log propio
+- ~~Seguimiento de hábitos~~ — **HECHO. Reabierto con caso nuevo, specificado en
+  `.scratch/habits/spec.md` e implementado (2026-08-20): tablas `habits` + `habit_log`
+  (`0010_habits.sql`), tiles en Repaso, panel, dialog y cronómetro. Los 6 issues de
+  `.scratch/habits/issues/` están en `resuelto`.** No era el mismo territorio que `goals`: entidad propia + log propio
   + hábitos **malos**, nada de eso derivable de `read_log`. Responde la pregunta abierta #2. El
   gate del loop diario (#5) **sigue abierto** — se saltó por decisión consciente del usuario, no
   porque se haya resuelto.
 - Abstracción DB → localStorage — contradice ADR 0001 + 0004 + 0006 simultáneamente, y es
   generalización sin usuario real que la necesite hoy.
 
-**Tier 4 — requiere decisión de arquitectura nueva (AI = $ + backend nuevo)**
-- Sidebar AI (auto-generar flashcards) — bloqueado además por Tier 2 de
-  [[to-grill-retention-system]] (flashcards no existen aún). Choca con "chrome mínimo".
-- Notas: tonos preestablecidos + custom vía AI — mismo costo/arquitectura, menor fricción con
-  "solo 3 pantallas" porque vive en Nota.
+**Tier 4 — ~~requiere decisión de arquitectura nueva~~ → la decisión se tomó (2026-07-30, ADR 0010).
+El backend existe y la AI ya está en producción. Esto bajó de tier.**
+- ~~Auto-generar flashcards~~ — **hecho**, sin sidebar: un botón en la pantalla Curso.
+- Sidebar AI — lo único que lo frena hoy es "chrome mínimo" (`ui-principles.md` #3) + falta de caso
+  de uso. Ya no es un problema de infra.
+- Notas: tonos preestablecidos + custom vía AI — **el candidato más barato del batch AI ahora**:
+  reusa la Edge Function, vive en Nota (pantalla ya aprobada), no agrega chrome si son 2-3 botones.
+  Falta spec, no falta arquitectura.
 
 ## Preguntas abiertas (resolver antes de armar spec.md + issues)
 
-1. **¿Hay presupuesto real para llamadas a LLM** (flashcards auto, tonos de nota)? Rompe el "$0, sin
-   servidores propios" de CONTEXT.md. Si sí: ¿la API key vive en una Supabase Edge Function nueva
-   (reabre ADR 0006 por el único caso que ese ADR deja abierto)?
+1. ~~**¿Hay presupuesto real para llamadas a LLM**, y la key vive en una Edge Function?~~ —
+   **RESUELTA (2026-07-30): sí a las dos.** Las flashcards se generan con Claude desde
+   `supabase/functions/generate-flashcards`, key server-side. ADR 0006 reabierto y re-decidido (sigue
+   sin ORM). Detalle en `docs/adr/0010-flashcards-como-notas-y-edge-function.md`. Lo que queda abierto
+   es más chico: cuánto gasto tolera una feature que dispare llamadas **sin** click explícito.
 2. ~~**Seguimiento de hábitos vs `goals` descartado**~~ — **RESUELTA (2026-08-20): sí, hay caso
    concreto distinto.** `goals` eran metas de estudio derivables de `read_log`, miradas 1×/semana;
    hábitos es una entidad con log propio, tocada a diario, e incluye hábitos malos. Ver
@@ -132,5 +148,7 @@ todavía no tienen tecla.
 
 ## Próximo paso
 
-Resolver las preguntas de arriba antes de tocar `spec.md`. Tier 1 (shortcuts, mobile) no depende de
-ninguna respuesta — se puede spec-ear independiente si se quiere avanzar sin esperar.
+Tier 1 (shortcuts, mobile) no depende de ninguna respuesta pendiente — **es lo que queda listo para
+spec-ear**, y mobile-en-Repaso sigue siendo lo más respaldado del doc (ADR 0004). Las preguntas 3, 4
+y 5 (abstracción DB, contenido de Settings, gate del loop diario) siguen abiertas y siguen bloqueando
+sus features.

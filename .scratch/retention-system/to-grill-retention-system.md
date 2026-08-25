@@ -1,7 +1,8 @@
 # To-grill: sistema de retención (flashcards, intercalado, simulación, stats)
 
-**Status:** resuelto para flashcards — ver `spec.md` (fase 1, ready-for-agent). Intercalado (Tier 1) y
-`proyectos[]` (Tier 3) siguen sin spec.
+**Status:** flashcards **implementadas y en main** (2026-07-30, commit `bcb4267`) — el `spec.md` se
+borró al cerrarse; lo que quedó documentado es `docs/adr/0010-flashcards-como-notas-y-edge-function.md`.
+Intercalado (Tier 1) **specificado 2026-08-24** (`spec.md`, sin implementar). `proyectos[]` (Tier 3) sigue sin spec.
 **Blocked by:** ninguna.
 
 ## Contexto original (brain dump del usuario, sin editar)
@@ -64,13 +65,15 @@ antes de vender una feature que no está.
 **Tier 1 — barato, no toca schema frozen**
 - Intercalado forzado: `review_queue` garantiza N `course_id` distintos en el batch de 3.
 
-**Tier 2 — rompe schema frozen, necesita ADR nuevo**
+**Tier 2 — HECHO (2026-07-30). Salió por menos de lo estimado acá: 2 columnas, cero tablas nuevas.
+Ver "Qué terminó saliendo" abajo + ADR 0010.**
 - Flashcards: tabla `flashcards` (course_id, question, answer) + `flashcard_log` (grade:
   dificil/bien/facil, reviewed_at). Algoritmo: **Leitner boxes**, no SM-2 completo — menos código,
   mismo objetivo. Subir a SM-2 solo si se mide que Leitner se queda corto.
 - % retención real: derivado de `flashcard_log.grade` (agregado en query, mismo patrón que ADR 0003 —
   no columna guardada).
-- Colores 🟢🟡🔴: CSS sobre thresholds de %. Trivial, depende de lo anterior.
+- ~~Colores 🟢🟡🔴: CSS sobre thresholds de %~~ — **descartado (2026-08-23)**. El % ya se lee solo;
+  pintarlo es decoración, no información nueva.
 
 **Tier 3 — feature nueva independiente, 4ta entidad**
 - `projects` (course_id, name, applied_at, notes) para "simulación/aplicación real". No bloquea ni es
@@ -89,9 +92,31 @@ nueva contra un doc que dice explícito "schema frozen" y "solo 3 pantallas".
    grill, así que pasó a ser la opción más barata Y de mayor payoff. Intercalado queda segundo, sin
    spec todavía.
 
-Detalle completo de la arquitectura resuelta (schema, seams, scope) en `spec.md`.
+~~Detalle completo en `spec.md`~~ — ese spec se borró al implementarse. Lo que salió está abajo, y
+el porqué en `docs/adr/0010-flashcards-como-notas-y-edge-function.md`.
+
+## Qué terminó saliendo (2026-07-30)
+
+Más barato todavía que el "2 columnas, 0 tablas" del grill — y distinto en un punto:
+
+- **Flashcards = `notes.kind = 'flashcard'`**, title pregunta / content respuesta. Sin tabla nueva,
+  sin `flashcard_log`. Entran a `review_queue()` mezcladas con las notas: el intercalado entre notas
+  y flashcards salió gratis (el de cursos, Tier 1, sigue pendiente).
+- **`read_log.grade`** (`correcto`/`parcial`/`incorrecto`), nullable. Repasar una flashcard es el
+  mismo insert de siempre.
+- **% de retención** derivado de `grade` (`useRetention`, `src/flashcards/flashcards.api.ts`),
+  mostrado como texto en la pantalla Curso.
+- **Se generan con AI**, cosa que este grill no había considerado: Edge Function
+  `generate-flashcards` → Claude → el cliente inserta las filas. Ahí murió el "$0 literal".
+- **Leitner quedó afuera.** La cola sigue siendo por `max(read_at)`. El `grade` ya está guardado, así
+  que subir a cajas/intervalos después no pierde historial.
 
 ## Próximo paso
 
-Flashcards: implementar contra `spec.md` (`Status: ready-for-agent`). Intercalado (Tier 1) y
-`proyectos[]` (Tier 3) siguen sin spec — retomar este doc cuando toque esa fase.
+- ~~**Intercalado forzado (Tier 1)**~~ — **specificado 2026-08-24**, ver `spec.md`. El grill lo movió
+  de sitio: **no hay batch de 3**. La cola pasa a one-by-one y el intercalado deja de ser propiedad
+  del batch para ser propiedad de la transición — `review_queue(exclude_course_id, exclude_note_ids)`
+  + `seen[]` en el cliente. Se descubrió de paso que `CONTEXT.md` ya describía la feature como si
+  existiera (`grep exclude_course_id` daba 3 hits, los 3 en el doc): el diseño estaba escrito, el
+  código no. Falta implementar.
+- **`proyectos[]` (Tier 3)** — sin spec, 4ta entidad, sigue sin UI donde vivir.
