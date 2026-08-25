@@ -256,7 +256,6 @@ export function Courses({ embed }: { embed?: boolean }) {
           </ToggleGroupItem>
         </ToggleGroup>
         <Button
-          size="sm"
           onClick={() => setEditing("new")}
           aria-label="Nuevo curso"
           className="max-md:ml-auto max-md:size-8 max-md:p-0"

@@ -196,7 +196,6 @@ export function HabitTiles() {
           </button>
         )}
         <Button
-          size="sm"
           variant="outline"
           onClick={() => setOpen("new")}
           aria-label="Nuevo hábito"

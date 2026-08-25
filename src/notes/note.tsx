@@ -115,7 +115,7 @@ export function NoteEditor({
     >
       {focus ? (
         <div className="fixed top-4 right-5 z-10">
-          <Button variant="ghost" size="sm" onClick={() => setFocus(false)}>
+          <Button variant="ghost" onClick={() => setFocus(false)}>
             Salir de focus <Kbd>esc</Kbd>
           </Button>
         </div>
