@@ -30,6 +30,7 @@ import type { AuthUser } from "@/core/store/types"
 import { mod } from "@/core/lib/utils"
 import { Course } from "@/courses/course"
 import { Courses } from "@/courses/courses"
+import { ErrorBoundary } from "@/core/components/error-boundary"
 import { Login } from "@/login/login"
 import { Note } from "@/notes/note"
 import { Review } from "@/review/review"
@@ -235,18 +236,22 @@ function Shell({ user }: { user: AuthUser }) {
               hasta abrirlo. Este de acá afuera es el único modo de abrirlo. En flujo normal, no
               fixed: así no se pisa con el h1 de cada pantalla. */}
           <SidebarTrigger className="mt-2 ml-2 md:hidden" />
-          <Routes>
-            <Route path="/" element={<Review />} />
-            <Route path="/courses" element={<Courses />} />
-            <Route path="/course/:id" element={<Course focus={focus} setFocus={setFocus} />} />
-            <Route
-              path="/course/:id/:noteId"
-              element={<Course focus={focus} setFocus={setFocus} />}
-            />
-            {/* Solo para notas sin curso (note.course_id null) — con curso, la ruta principal
-                es /course/:id/:noteId de arriba. */}
-            <Route path="/note/:id" element={<Note focus={focus} setFocus={setFocus} />} />
-          </Routes>
+          {/* ErrorBoundary por sección: un crash en Review/Course/Note no mata el sidebar.
+              key=pathname resetea al navegar — sin esto, el error quedaría pegado al cambiar de ruta. */}
+          <ErrorBoundary key={pathname}>
+            <Routes>
+              <Route path="/" element={<Review />} />
+              <Route path="/courses" element={<Courses />} />
+              <Route path="/course/:id" element={<Course focus={focus} setFocus={setFocus} />} />
+              <Route
+                path="/course/:id/:noteId"
+                element={<Course focus={focus} setFocus={setFocus} />}
+              />
+              {/* Solo para notas sin curso (note.course_id null) — con curso, la ruta principal
+                  es /course/:id/:noteId de arriba. */}
+              <Route path="/note/:id" element={<Note focus={focus} setFocus={setFocus} />} />
+            </Routes>
+          </ErrorBoundary>
         </main>
 
         {jumps.map(([n, c]) => (

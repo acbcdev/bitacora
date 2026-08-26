@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom"
 import { LucideProvider } from "lucide-react"
 import { toast } from "sonner"
 import { App } from "@/app"
+import { ErrorBoundary } from "@/core/components/error-boundary"
 import "@/index.css"
 
 // Toda mutation que falla avisa, con el mensaje real de Supabase. Va acá y no hook por hook:
@@ -21,7 +22,9 @@ createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         {/* Iconos del DS: 16px, stroke 1.5. Se setea una vez acá y no en cada <Icon />. */}
         <LucideProvider size={16} strokeWidth={1.5}>
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </LucideProvider>
       </BrowserRouter>
     </QueryClientProvider>
