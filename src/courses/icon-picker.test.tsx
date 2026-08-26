@@ -1,18 +1,20 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
 import { IconPicker } from "@/courses/icon-picker"
+import { renderApp } from "@/test/harness"
 
 const { upload } = vi.hoisted(() => ({
   upload: vi.fn(() => Promise.resolve("https://cdn/icono.png")),
 }))
 
-// Un método del Store, no el chain de storage de supabase-js: al picker le da igual si la imagen
-// termina en un bucket o en una data URL, sólo le importa recibir una URL.
+// uploadCourseIcon es el único método que IconPicker toca — no necesita snapshot,
+// así que el fake sigue siendo un vi.fn puntual. Lo que sí migra al harness es
+// el wrapper (antes render() pelado, ahora QueryClient+Router+Tooltip via renderApp).
 vi.mock("@/core/store", () => ({ store: { uploadCourseIcon: upload } }))
 
 beforeEach(() => upload.mockClear())
 
 function open(onChange = vi.fn()) {
-  render(<IconPicker icon={null} onChange={onChange} />)
+  renderApp(<IconPicker icon={null} onChange={onChange} />)
   fireEvent.click(screen.getByLabelText("Icono del curso"))
   return { onChange, popover: screen.getByRole("dialog") }
 }
