@@ -36,7 +36,8 @@ import { togglePinnedCourse, usePinnedCourseIds } from "@/courses/pinned-courses
 import { useGenerateFlashcards, useRetention } from "@/flashcards/flashcards.api"
 import { useCreateNote, useNotes } from "@/notes/notes.api"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
-import { useReadStats } from "@/core/lib/stats"
+import { useSnapshot } from "@/core/lib/snapshot"
+import { EMPTY_READ_STATS, readStats } from "@/core/store/derive"
 import { store } from "@/core/store"
 import type { CourseStatus } from "@/core/types/database"
 
@@ -61,7 +62,7 @@ export function Course({ focus, setFocus }: { focus: boolean; setFocus: (v: bool
   const navigate = useNavigate()
   const { data: courses = [] } = useCourses()
   const { data: notes = [], isLoading } = useNotes(id!)
-  const { data: stats } = useReadStats()
+  const { data: stats = EMPTY_READ_STATS } = useSnapshot((s) => readStats(s))
   const createNote = useCreateNote()
   const updateCourse = useUpdateCourse()
   const generateFlashcards = useGenerateFlashcards(id!)

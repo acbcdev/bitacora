@@ -45,7 +45,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/core/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import { PAGE_SIZE, useCoursesPage, useDeleteCourse } from "@/courses/courses.api"
-import { dayOf, relativeDay } from "@/core/lib/stats"
+import { dayOf, relativeDay } from "@/core/lib/day"
 import type { Course, CourseStatus } from "@/core/types/database"
 
 const STATUS: Record<CourseStatus, [string, "brand" | "warning" | "outline"]> = {

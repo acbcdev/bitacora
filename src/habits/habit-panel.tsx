@@ -8,7 +8,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/core/ui/input-group"
-import { dayKey } from "@/core/lib/stats"
+import { dayKey } from "@/core/lib/day"
 import { cn } from "@/core/lib/utils"
 import { dayAt, goalText, TRACKED_DAYS, type DayCell, type HabitState } from "@/habits/habits"
 import { useSetDay } from "@/habits/habits.api"

@@ -17,7 +17,15 @@ import { useCourses } from "@/courses/courses.api"
 import { useDeleteNote, useNote } from "@/notes/notes.api"
 import { useReviewQueue, useMarkRead } from "@/review/review.api"
 import { docToPlainText } from "@/core/lib/tiptap-markdown"
-import { DAILY_GOAL, HISTORY_DAYS, lastDays, todayKey, useReadStats } from "@/core/lib/stats"
+import { todayKey } from "@/core/lib/day"
+import { useSnapshot } from "@/core/lib/snapshot"
+import {
+  DAILY_GOAL,
+  EMPTY_READ_STATS,
+  HISTORY_DAYS,
+  lastDays,
+  readStats,
+} from "@/core/store/derive"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { cn, MOD } from "@/core/lib/utils"
 import { Courses } from "@/courses/courses"
@@ -80,7 +88,7 @@ export function Review() {
     setQueue((prev) => (prev.length === 0 && derived.length > 0 ? derived : prev))
   }, [derived])
   const { data: courses = [] } = useCourses()
-  const { data: stats } = useReadStats()
+  const { data: stats = EMPTY_READ_STATS } = useSnapshot((s) => readStats(s))
   const markRead = useMarkRead()
   const delFlashcard = useDeleteNote()
   const navigate = useNavigate()

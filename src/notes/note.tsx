@@ -11,7 +11,9 @@ import { Kbd } from "@/core/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useCourses } from "@/courses/courses.api"
 import { useNoteDraft } from "@/notes/notes.api"
-import { dayOf, useReadStats } from "@/core/lib/stats"
+import { dayOf } from "@/core/lib/day"
+import { useSnapshot } from "@/core/lib/snapshot"
+import { EMPTY_READ_STATS, readStats } from "@/core/store/derive"
 
 // Editor de nota: usado standalone en /note/:id (notas sin curso) y embebido en Course.tsx
 // (notes/06, /course/:id/:noteId). F entra/sale de focus mode: se va todo el chrome (el
@@ -32,7 +34,7 @@ export function NoteEditor({
   const { note, isLoading, title, savedAt, onTitleChange, onDocChange, save, getDoc } =
     useNoteDraft(id)
   const { data: courses = [] } = useCourses()
-  const { data: stats } = useReadStats()
+  const { data: stats = EMPTY_READ_STATS } = useSnapshot((s) => readStats(s))
   const [confirming, setConfirming] = useState(false)
   const editorRef = useRef<EditorHandle>(null)
 
