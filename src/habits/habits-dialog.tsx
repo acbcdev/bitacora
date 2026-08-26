@@ -43,7 +43,13 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
 
   return (
     <Drialog open onOpenChange={(next) => !next && onClose()}>
-      <DrialogContent showCloseButton={false} className="gap-0 p-0 md:w-240 md:max-w-240">
+      <DrialogContent
+        showCloseButton={false}
+        className={cn(
+          "gap-0 p-0",
+          form === null ? "md:w-240 md:max-w-240" : "sm:max-w-[520px] md:max-w-[520px]",
+        )}
+      >
         {/* En el form el título visible ES el input del nombre (página de Notion), así que el
             header se esconde — pero el DrialogTitle SIGUE montado: la primitiva lo exige para el
             aria-labelledby del overlay y sin él avisa por consola. */}
