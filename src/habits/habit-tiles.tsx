@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
-import { useHotkeys } from "react-hotkeys-hook"
 import { Check, Flame, Minus, Pause, Play, Plus, Target } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { CourseIcon } from "@/courses/course-icon"
 import { todayKey } from "@/core/lib/day"
 import { cn } from "@/core/lib/utils"
+import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { deriveHabit, goalText, meets, TRACKED_DAYS, type HabitState } from "@/habits/habits"
 import { useHabitLog, useHabits, useSetDay } from "@/habits/habits.api"
 import { HabitHistory, HabitPanel } from "@/habits/habit-panel"
@@ -399,6 +399,6 @@ function HabitTile({
 // de secuencia entre los atajos de una misma llamada, así que "h>1","h>2",… se pisarían y sólo
 // dispararía el primero (mismo motivo que CourseHotkey en app.tsx).
 function HabitHotkey({ n, onHit }: { n: number; onHit: () => void }) {
-  useHotkeys(`h>${n}`, onHit, { sequenceTimeoutMs: 900, preventDefault: true }, [onHit])
+  useSafeHotkeys(`h>${n}`, onHit, { sequenceTimeoutMs: 900, preventDefault: true }, [onHit])
   return null
 }

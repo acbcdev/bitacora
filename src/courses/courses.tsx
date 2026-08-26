@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { useHotkeys } from "react-hotkeys-hook"
 import {
   ArrowUpDown,
   ChevronRight,
@@ -44,6 +43,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/core/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
+import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { PAGE_SIZE, useCoursesPage, useDeleteCourse } from "@/courses/courses.api"
 import { dayOf, relativeDay } from "@/core/lib/day"
 import type { Course, CourseStatus } from "@/core/types/database"
@@ -115,9 +115,12 @@ export function Courses({ embed }: { embed?: boolean }) {
   // en server no hay una lista completa en cliente contra la cual comparar.
   const filtering = !!debouncedQ || status !== "todos"
 
-  useHotkeys("n", () => setEditing("new"), { preventDefault: true })
+  useSafeHotkeys("n", () => setEditing("new"), { preventDefault: true })
   // "slash", no "/": la lib matchea por e.code (ver comentario de mod+slash en app.tsx).
-  useHotkeys("slash", () => searchRef.current?.focus(), { preventDefault: true, enabled: !embed })
+  useSafeHotkeys("slash", () => searchRef.current?.focus(), {
+    preventDefault: true,
+    enabled: !embed,
+  })
 
   // Cambiar filtro/orden vuelve a la página 1: la 3 puede no existir en el resultado filtrado.
   // La selección de teclado también se resetea — apuntaría a un curso que ya no está en la lista.
@@ -136,7 +139,7 @@ export function Courses({ embed }: { embed?: boolean }) {
   // (mismo destino que el click), E edita, Delete/Backspace borra (misma confirmación de siempre).
   // Pasarse del borde salta de página. enabled: !embed — dentro de Repaso esta lista es
   // secundaria, J/K/Enter ya los usa la cola.
-  useHotkeys(
+  useSafeHotkeys(
     "j,left",
     () => {
       if (selected === 0 && page > 1) return setPage(page - 1)
@@ -145,7 +148,7 @@ export function Courses({ embed }: { embed?: boolean }) {
     { preventDefault: true, enabled: !embed },
     [selected, page],
   )
-  useHotkeys(
+  useSafeHotkeys(
     "k,right",
     () => {
       if (selected === rows.length - 1 && page < pages) return setPage(page + 1)
@@ -154,19 +157,19 @@ export function Courses({ embed }: { embed?: boolean }) {
     { preventDefault: true, enabled: !embed },
     [selected, rows.length, page, pages],
   )
-  useHotkeys(
+  useSafeHotkeys(
     "enter",
     () => rows[selected] && navigate(`/course/${rows[selected].id}`),
     { preventDefault: true, enabled: !embed },
     [rows, selected, navigate],
   )
-  useHotkeys(
+  useSafeHotkeys(
     "e",
     () => rows[selected] && setEditing(rows[selected]),
     { preventDefault: true, enabled: !embed },
     [rows, selected],
   )
-  useHotkeys(
+  useSafeHotkeys(
     "backspace,delete",
     () => rows[selected] && setConfirmingDelete(rows[selected]),
     { preventDefault: true, enabled: !embed },

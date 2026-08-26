@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useHotkeys } from "react-hotkeys-hook"
 import { toast } from "sonner"
 import { Flame, Trash2 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
@@ -28,6 +27,7 @@ import {
 } from "@/core/store/derive"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { cn, MOD } from "@/core/lib/utils"
+import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { Courses } from "@/courses/courses"
 import { HabitTiles } from "@/habits/habit-tiles"
 import type { Grade } from "@/core/types/database"
@@ -159,7 +159,9 @@ export function Review() {
   // enabled: dos hotkeys "enter" prendidos a la vez disparan los dos. Con el dialog abierto Enter
   // es suyo (gateado a haber scrolleado hasta el final); con el ConfirmDelete de una flashcard
   // abierto es del botón enfocado —Cancelar/Borrar— vía el default del navegador.
-  useHotkeys(
+  // useSafeHotkeys ya bloquea si el foco está en un overlay de otro contexto (Hábitos,
+  // CourseForm, IconPicker) o si hay un dialog porteado abierto.
+  useSafeHotkeys(
     "enter",
     onEnter,
     { preventDefault: true, enabled: !confirmingDelete && !dialogOpen },
@@ -174,7 +176,7 @@ export function Review() {
     navigate(note.course_id ? `/course/${note.course_id}/${note.id}` : `/note/${note.id}`)
   }, [note, navigate])
 
-  useHotkeys("mod+enter", openExpanded, { preventDefault: true, enabled: !confirmingDelete }, [
+  useSafeHotkeys("mod+enter", openExpanded, { preventDefault: true, enabled: !confirmingDelete }, [
     openExpanded,
     confirmingDelete,
   ])
@@ -188,8 +190,16 @@ export function Review() {
     navigate(`${to}?focus=1`)
   }, [note, navigate])
 
-  useHotkeys("j", prev, { preventDefault: true }, [prev]) // volver
-  useHotkeys("k", next, { preventDefault: true }, [next]) // siguiente, sin contar
+  useSafeHotkeys("j", prev, { preventDefault: true, enabled: !confirmingDelete && !dialogOpen }, [
+    prev,
+    confirmingDelete,
+    dialogOpen,
+  ]) // volver
+  useSafeHotkeys("k", next, { preventDefault: true, enabled: !confirmingDelete && !dialogOpen }, [
+    next,
+    confirmingDelete,
+    dialogOpen,
+  ]) // siguiente, sin contar
 
   if (isLoading)
     return (
