@@ -340,6 +340,9 @@
 .tiptap-host .ProseMirror pre .hljs-strong {
   @apply font-semibold;
 }
+.tiptap-host .ProseMirror img {
+  @apply my-6 block max-w-full rounded-lg;
+}
 .tiptap-host .ProseMirror hr {
   @apply my-6 border-border;
 }
