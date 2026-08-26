@@ -42,6 +42,9 @@ function DialogContent({
   children,
   showCloseButton = true,
   onCloseAutoFocus,
+  onInteractOutside,
+  onPointerDownOutside,
+  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -51,6 +54,12 @@ function DialogContent({
   const opener = React.useRef<HTMLElement | null>(
     typeof document === "undefined" ? null : (document.activeElement as HTMLElement),
   )
+
+  function shouldPreventDismiss(target: HTMLElement | null) {
+    return !!target?.closest(
+      '[data-slot="combobox-content"], [data-slot="combobox-item"], [data-slot="combobox-list"], [data-slot="popover-content"], [data-slot="select-content"]',
+    )
+  }
 
   return (
     <DialogPortal>
@@ -62,6 +71,27 @@ function DialogContent({
           className,
         )}
         {...props}
+        onPointerDownOutside={(event) => {
+          if (shouldPreventDismiss(event.target as HTMLElement)) {
+            event.preventDefault()
+            return
+          }
+          onPointerDownOutside?.(event)
+        }}
+        onFocusOutside={(event) => {
+          if (shouldPreventDismiss(event.target as HTMLElement)) {
+            event.preventDefault()
+            return
+          }
+          onFocusOutside?.(event)
+        }}
+        onInteractOutside={(event) => {
+          if (shouldPreventDismiss(event.target as HTMLElement)) {
+            event.preventDefault()
+            return
+          }
+          onInteractOutside?.(event)
+        }}
         onCloseAutoFocus={(event) => {
           onCloseAutoFocus?.(event)
           if (event.defaultPrevented || !opener.current) return

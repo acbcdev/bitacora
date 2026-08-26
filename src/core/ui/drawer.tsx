@@ -38,8 +38,16 @@ function DrawerOverlay({
 function DrawerContent({
   className,
   children,
+  onInteractOutside,
+  onPointerDownOutside,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+  function shouldPreventDismiss(target: HTMLElement | null) {
+    return !!target?.closest(
+      '[data-slot="combobox-content"], [data-slot="combobox-item"], [data-slot="combobox-list"], [data-slot="popover-content"], [data-slot="select-content"]',
+    )
+  }
+
   return (
     <DrawerPortal data-slot="drawer-portal">
       <DrawerOverlay />
@@ -50,6 +58,20 @@ function DrawerContent({
           className,
         )}
         {...props}
+        onPointerDownOutside={(event) => {
+          if (shouldPreventDismiss(event.target as HTMLElement)) {
+            event.preventDefault()
+            return
+          }
+          onPointerDownOutside?.(event as never)
+        }}
+        onInteractOutside={(event) => {
+          if (shouldPreventDismiss(event.target as HTMLElement)) {
+            event.preventDefault()
+            return
+          }
+          onInteractOutside?.(event as never)
+        }}
       >
         <div className="mx-auto mt-4 hidden h-1 w-[100px] shrink-0 rounded-full bg-muted group-data-[vaul-drawer-direction=bottom]/drawer-content:block" />
         {children}

@@ -90,7 +90,7 @@ function PillCombobox({
           {dc ? (
             <span
               aria-hidden
-              className="size-[7px] shrink-0 rounded-full"
+              className="pointer-events-none size-[7px] shrink-0 rounded-full"
               style={{ background: dc }}
             />
           ) : (
@@ -109,14 +109,18 @@ function PillCombobox({
           <ComboboxTrigger className="size-6 rounded-full data-[pressed]:bg-transparent [&_svg]:size-3.5 opacity-60 hover:opacity-100" />
         </InputGroupAddon>
       </InputGroup>
-      <ComboboxContent align="center" className="min-w-[220px] rounded-xl p-1">
+      <ComboboxContent
+        align="center"
+        collisionAvoidance={{ side: "none" }}
+        className="min-w-[220px] rounded-xl p-1"
+      >
         <ComboboxEmpty>Sin resultados</ComboboxEmpty>
         <ComboboxList>
           {(item: string) => (
             <ComboboxItem key={item} value={item} className="gap-2">
               <span
                 aria-hidden
-                className="size-[7px] shrink-0 rounded-full"
+                className="pointer-events-none size-[7px] shrink-0 rounded-full"
                 style={{ background: dotColor(item) }}
               />
               {item}
