@@ -21,7 +21,13 @@ const PERIOD_SHORT: Record<HabitPeriod, string> = { day: "día", week: "semana",
 
 export const unit = (h: Pick<Habit, "metric">) => (h.metric === "time" ? " min" : "")
 
+export const displayTarget = (h: Pick<Habit, "metric" | "target">) =>
+  h.metric === "time" ? Math.round(h.target / 60) : h.target
+
+export const displayAmount = (h: Pick<Habit, "metric">, amountSec: number) =>
+  h.metric === "time" ? Math.floor(amountSec / 60) : amountSec
+
 // "3/semana", "25 min/día", "máx 0/día" — la meta en una línea. Un número suelto no dice si es
-// piso o techo; el "máx" sí.
+// piso o techo; el "máx" sí. Para time, target viene en segundos (0011), se muestra en min.
 export const goalText = (h: Pick<Habit, "kind" | "metric" | "target" | "period">) =>
-  `${h.kind === "bad" ? "máx " : ""}${h.target}${unit(h)}/${PERIOD_SHORT[h.period]}`
+  `${h.kind === "bad" ? "máx " : ""}${displayTarget(h)}${unit(h)}/${PERIOD_SHORT[h.period]}`

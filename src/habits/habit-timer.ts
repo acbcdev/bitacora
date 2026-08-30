@@ -13,6 +13,99 @@ export const TIMER_KEY = "bita-timer"
 
 const listeners = new Set<() => void>()
 
+let audioCtx: AudioContext | null = null
+
+function getAudioCtx(): AudioContext | null {
+  if (typeof window === "undefined") return null
+  const Ctx =
+    (window as unknown as { AudioContext?: typeof AudioContext }).AudioContext ??
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!Ctx) return null
+  audioCtx ??= new Ctx()
+  // resume debe ocurrir dentro del gesto; si falla queda suspended y el beep
+  // posterior se intentará de nuevo en playDoneSound()
+  if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {})
+  return audioCtx
+}
+
+// Fallback por si Web Audio está bloqueado: algunos browsers desbloquean <audio>
+// distinto que AudioContext. No embebemos wav de 10kb: el oscilador ES el sonido,
+// este fallback sólo intenta crear un AudioContext fresco por si el global quedó
+// en estado cerrado/suspended.
+function fallbackBeep() {
+  try {
+    const Ctx =
+      (window as unknown as { AudioContext?: typeof AudioContext }).AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!Ctx) return
+    const c = new Ctx()
+    const doBeep = () => beepWith(c)
+    if (c.state === "suspended")
+      c.resume()
+        .then(doBeep)
+        .catch(() => {})
+    else doBeep()
+  } catch {}
+}
+
+function beepWith(ctx: AudioContext) {
+  const now = ctx.currentTime
+  for (let i = 0; i < 3; i++) {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = "sine"
+    osc.frequency.value = 880
+    gain.gain.setValueAtTime(0, now + i * 0.18)
+    gain.gain.linearRampToValueAtTime(0.25, now + i * 0.18 + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.18 + 0.15)
+    osc.connect(gain).connect(ctx.destination)
+    osc.start(now + i * 0.18)
+    osc.stop(now + i * 0.18 + 0.16)
+  }
+}
+
+export function playDoneSound() {
+  // Intento 1: Web Audio. Si está suspended, esperamos al resume — sin esto el
+  // osc se schedula en un ctx suspendido y NUNCA suena (bug que viste: "no sonó").
+  const ctx = getAudioCtx()
+  if (!ctx) {
+    fallbackBeep()
+    return
+  }
+  const doVibrate = () => {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      ;(navigator as Navigator & { vibrate?: (p: number[]) => void }).vibrate?.([200, 100, 200])
+    }
+  }
+  if (ctx.state === "suspended") {
+    ctx
+      .resume()
+      .then(() => {
+        beepWith(ctx)
+        doVibrate()
+      })
+      .catch(() => fallbackBeep())
+    return
+  }
+  try {
+    beepWith(ctx)
+    doVibrate()
+  } catch {
+    fallbackBeep()
+  }
+}
+
+// Desbloqueo global: si el timer sobrevivió a un reload, startTimer no se volvió
+// a llamar en esta sesión y el ctx nunca se desbloqueó. Cualquier click lo desbloquea.
+if (typeof document !== "undefined") {
+  document.addEventListener("click", () => getAudioCtx(), { once: true, capture: true })
+}
+if (typeof window !== "undefined") {
+  // Para QA manual: window.bitaPlaySound() sin esperar 25 min
+  // oxlint-disable-next-line no-underscore-dangle -- helper de QA, no API pública
+  ;(window as unknown as { bitaPlaySound?: () => void }).bitaPlaySound = playDoneSound
+}
+
 function parse(raw: string | null): Timer | null {
   try {
     return raw ? JSON.parse(raw) : null
@@ -44,6 +137,10 @@ export function startTimer(habitId: string) {
   if (typeof Notification !== "undefined" && Notification.permission === "default") {
     Notification.requestPermission()
   }
+  // Desbloquea AudioContext dentro del gesto del usuario: sin esto, el beep de finishTimer
+  // (que corre segundos/minutos después, fuera de la ventana de "transient activation")
+  // quedaría silenciado por la autoplay policy.
+  getAudioCtx()
   localStorage.setItem(TIMER_KEY, JSON.stringify({ habitId, startedAt: Date.now() }))
   listeners.forEach((l) => l())
 }
@@ -53,43 +150,57 @@ export function clearTimer() {
   listeners.forEach((l) => l())
 }
 
-// Siempre Date.now() - startedAt, NUNCA contando ticks del setInterval: un tab en background lo
-// throttlea y el contador se atrasaría. `round` y no `floor` para que el error de cada pausa se
-// compense en vez de acumularse hacia abajo (±30s, ADR 0009).
+// Migración 0011: `amount` y `target` para metric=time ahora son SEGUNDOS.
+// Antes eran minutos int con `round` (±30s por pausa, ADR 0009). Ahora son segundos nativos:
+// `Math.floor((now - startedAt)/1000)` + amountSec, cero round. La view muestra min con /60.
+export function elapsedMs(t: Timer, now = Date.now()) {
+  return now - t.startedAt
+}
+export function elapsedSeconds(t: Timer, now = Date.now()) {
+  return Math.floor((now - t.startedAt) / 1000)
+}
+
+// Lo que hay en DB (segundos) + lo que va del cronómetro, en segundos.
+export function shownSeconds(amountSec: number, t: Timer, now = Date.now()) {
+  return amountSec + elapsedSeconds(t, now)
+}
+export function shownMs(amountSec: number, t: Timer, now = Date.now()) {
+  return shownSeconds(amountSec, t, now) * 1000
+}
+
+// Compat: amount venía en minutos. Ahora amountSec es segundos.
 export function elapsedMinutes(t: Timer, now = Date.now()) {
-  return Math.round((now - t.startedAt) / 60_000)
+  return Math.round(elapsedSeconds(t, now) / 60)
+}
+export function shownMinutes(amountSec: number, t: Timer, now = Date.now()) {
+  return Math.floor(shownSeconds(amountSec, t, now) / 60)
 }
 
-// Lo que muestra el tile mientras corre: lo acumulado del período (DB) + lo que va del cronómetro.
-export function shownMinutes(amount: number, t: Timer, now = Date.now()) {
-  return amount + elapsedMinutes(t, now)
-}
-
-// El mm:ss que muestra el tile mientras corre: los mismos minutos acumulados que `shownMinutes`,
-// pero con los segundos del cronómetro a la vista. Es sólo para MIRAR — al pausar se sigue
-// guardando en minutos con `pausedValue`, así que el reloj puede decir 07:31 y guardarse 8.
-export function shownClock(amount: number, t: Timer, now = Date.now()) {
-  const s = amount * 60 + Math.floor((now - t.startedAt) / 1000)
+export function shownClock(amountSec: number, t: Timer, now = Date.now()) {
+  const s = shownSeconds(amountSec, t, now)
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
 }
 
-// Lo que hay que escribir al pausar o al llegar a la meta. `null` = menos de medio minuto, no hay
-// nada que sumar. El timer no es un camino de escritura especial: esto va al mismo useSetDay que
-// el click y el panel, así que el panel puede corregirlo después como cualquier otro número.
-export function pausedValue(amount: number, t: Timer, now = Date.now()): number | null {
-  const mins = elapsedMinutes(t, now)
-  return mins > 0 ? amount + mins : null
+// Lo que hay que escribir al pausar. `null` = menos de 1s, no hay nada que sumar.
+// Antes era "menos de medio minuto" (round), ahora 1s porque guardamos segundos exactos.
+export function pausedValue(amountSec: number, t: Timer, now = Date.now()): number | null {
+  const s = elapsedSeconds(t, now)
+  if (s < 1) return null
+  return amountSec + s
 }
 
 // ponytail: la notificación sólo llega con la app abierta (el tab puede estar de fondo). Push con
 // la app cerrada necesita service worker + servidor que lo dispare — rompe el "$0, sin servidores
 // propios" de CONTEXT.md. Está en Out of Scope del spec.
 // El toast va siempre: es el fallback si el permiso está denegado.
-export function finishTimer(name: string, minutes: number) {
+export function finishTimer(name: string, minutesOrSec: number) {
   clearTimer()
-  toast.success(`${name} — ${minutes} min listos`)
+  playDoneSound()
+  // Compat: si viene en segundos (>=60) lo mostramos en minutos; si ya viene en minutos, igual.
+  const mins = minutesOrSec >= 60 ? Math.round(minutesOrSec / 60) : minutesOrSec
+  toast.success(`${name} — ${mins} min listos`)
   if (typeof Notification !== "undefined" && Notification.permission === "granted") {
     // oxlint-disable-next-line no-new -- la notificación es puro efecto, no hay nada que guardar
-    new Notification("Bitácora", { body: `Terminaste tus ${minutes} min de ${name}.` })
+    new Notification("Bitácora", { body: `Terminaste tus ${mins} min de ${name}.` })
   }
 }

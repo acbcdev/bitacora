@@ -238,16 +238,20 @@ function HabitForm({ habit, onClose }: { habit: Habit | null; onClose: () => voi
   const [name, setName] = useState(habit?.name ?? "")
   const [icon, setIcon] = useState(habit?.icon ?? null)
   const [metric, setMetric] = useState<HabitMetric>(habit?.metric ?? "check")
-  const [target, setTarget] = useState(String(habit?.target ?? 1))
+  const [target, setTarget] = useState(
+    String(habit ? (habit.metric === "time" ? Math.round(habit.target / 60) : habit.target) : 1),
+  )
   const [period, setPeriod] = useState<HabitPeriod>(habit?.period ?? "day")
 
   // En `check` la meta es 1 y no se pide: o lo hiciste o no. En el resto, piso 1 — una meta de 0 se
   // cumpliría sola todos los días.
+  // Para time, el input es minutos pero se guarda en segundos (0011) — la view hace la conversión.
+  const rawTarget = metric === "check" ? 1 : Math.max(1, Number(target) || 1)
   const goal = {
     kind: "good" as const,
     metric,
     period,
-    target: metric === "check" ? 1 : Math.max(1, Number(target) || 1),
+    target: metric === "time" ? rawTarget * 60 : rawTarget,
   }
 
   function submit(e: React.FormEvent) {

@@ -24,6 +24,7 @@ import type { Habit, HabitMetric } from "@/core/types/database"
 const TODAY = TRACKED_DAYS - 1
 
 // Cuánto mueve el `+`. En `time` de a 5: nadie corrige minutos de a uno.
+// El STEP sigue en minutos de display; toStorage lo pasa a segundos.
 const STEP: Record<HabitMetric, number> = { check: 1, count: 1, time: 5 }
 
 const FMT = new Intl.DateTimeFormat("es", { weekday: "short", day: "numeric", month: "short" })
@@ -79,8 +80,11 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
   const day = dayAt(i)
   // El número sale del cache, no de un borrador: MISMA fuente que el tile, así que el cronómetro
   // o un h>N con el panel abierto se ven acá al toque.
-  const shown = state.days[i].amount
+  // Para time, amount viene en segundos (0011) — en el panel se muestra en min.
+  const rawShown = state.days[i].amount
+  const shown = habit.metric === "time" ? Math.floor(rawShown / 60) : rawShown
   const step = STEP[habit.metric]
+  const toStorage = (v: number) => (habit.metric === "time" ? v * 60 : v)
 
   // Cada gesto escribe, igual que el click del tile — la mutation es optimista, el número se mueve
   // sin esperar el round-trip. Antes esto juntaba los cambios en un borrador y los volcaba al
@@ -88,7 +92,8 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
   // existía para explicar su propia mecánica. Sin borrador no hay nada pendiente que avisar.
   // ponytail: un upsert por tap del `+`. Es lo que ya hace el tile; si el spam molesta, debounce
   // acá — no volver al borrador.
-  const write = (value: number) => setDay.mutate({ habit, day: dayKey(day), value })
+  const write = (value: number) =>
+    setDay.mutate({ habit, day: dayKey(day), value: toStorage(value) })
 
   return (
     <Dropover

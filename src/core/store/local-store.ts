@@ -99,7 +99,43 @@ const DEFAULTS = {
   habits: { icon: null, kind: "good", metric: "check", target: 1, period: "day", days: null },
 } as const
 
+function maybeMigrateTimeToSeconds() {
+  if (localStorage.getItem("bita-migrated-0011")) return
+  try {
+    const habits = read("habits") as Habit[]
+    const timeIds = new Set(habits.filter((h) => h.metric === "time").map((h) => h.id))
+    if (timeIds.size === 0) {
+      localStorage.setItem("bita-migrated-0011", "1")
+      return
+    }
+    let touched = false
+    for (const h of habits) {
+      if (h.metric === "time" && h.target < 6000) {
+        // target en minutos (<100h) → segundos. Después de migrar son >60, y con flag no re-entra.
+        h.target *= 60
+        touched = true
+      }
+    }
+    if (touched) write("habits", habits as never)
+
+    const logs = read("habit_log") as HabitLog[]
+    let logTouched = false
+    for (const r of logs) {
+      if (timeIds.has(r.habit_id as string) && r.amount < 100000) {
+        // amount/target en minutos → segundos. 25 min = 25 vs 1500s, se distingue por ser < 6000.
+        // Un hábito nuevo post-migración ya viene en segundos (1500) pero el flag evita doble.
+        r.amount *= 60
+        r.target *= 60
+        logTouched = true
+      }
+    }
+    if (logTouched) write("habit_log", logs as never)
+  } catch {}
+  localStorage.setItem("bita-migrated-0011", "1")
+}
+
 export function localStore(): Store {
+  maybeMigrateTimeToSeconds()
   return {
     mode: "local",
     // Generar flashcards necesita la Edge Function con la API key server-side (ADR 0010). Sin

@@ -102,7 +102,7 @@ export type Database = {
           name: string
           icon: string | null // 'lucide:Dumbbell' o URL de imagen subida
           kind: HabitKind // good = piso, bad = techo
-          metric: HabitMetric // 'time' se mide en minutos
+          metric: HabitMetric // 'time' en segundos, count/check en count (migración 0011)
           target: number
           period: HabitPeriod
           days: number[] | null // 0=dom … 6=sáb. Recordatorio, no regla (ADR 0009).
@@ -124,7 +124,7 @@ export type Database = {
         Relationships: []
       }
       // Una fila por (habit_id, day) con la meta congelada — ADR 0009. Sin deleted_at: desmarcar
-      // es amount = 0.
+      // es amount = 0. En time son segundos (0011), en count/check son count.
       habit_log: {
         Row: {
           id: string
@@ -132,7 +132,7 @@ export type Database = {
           habit_id: string | null
           day: string // date en hora local del usuario (dayKey), no timestamptz
           amount: number
-          target: number // la meta que regía ese día
+          target: number // la meta que regía ese día (segundos si time)
         }
         Insert: {
           id?: string

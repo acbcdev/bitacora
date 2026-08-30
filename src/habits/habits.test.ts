@@ -99,17 +99,17 @@ test("una recaída del período anterior no borra los períodos limpios previos"
   expect(deriveHabit(h, rows, new Date(2026, 7, 18, 12)).streak).toBe(4)
 })
 
-test("time suma los minutos de cada día, no cuenta filas", () => {
-  const h = habit({ metric: "time", target: 150, period: "week" })
-  const rows = [row("2026-08-17", 30, 150), row("2026-08-18", 45, 150)]
+test("time suma los segundos de cada día, no cuenta filas", () => {
+  const h = habit({ metric: "time", target: 150 * 60, period: "week" })
+  const rows = [row("2026-08-17", 30 * 60, 150 * 60), row("2026-08-18", 45 * 60, 150 * 60)]
 
-  expect(deriveHabit(h, rows, NOW).total).toBe(75)
+  expect(deriveHabit(h, rows, NOW).total).toBe(75 * 60)
 })
 
 test("subir la meta no reescribe las rachas viejas: cada fila lleva su target (ADR 0009)", () => {
   // 16 días seguidos de exactamente 10 minutos (5 al 20 de agosto), todos con target 10 congelado.
   const rows = Array.from({ length: 16 }, (_, i) =>
-    row(`2026-08-${String(5 + i).padStart(2, "0")}`, 10, 10),
+    row(`2026-08-${String(5 + i).padStart(2, "0")}`, 10 * 60, 10 * 60),
   )
   const base = {
     metric: "time" as const,
@@ -117,12 +117,12 @@ test("subir la meta no reescribe las rachas viejas: cada fila lleva su target (A
     created_at: "2026-08-01T12:00:00Z",
   }
 
-  const antes = deriveHabit(habit({ ...base, target: 10 }), rows, NOW)
+  const antes = deriveHabit(habit({ ...base, target: 10 * 60 }), rows, NOW)
   expect(antes.met).toBe(true)
   expect(antes.streak).toBe(16)
 
   // Meta a 20: el período ACTUAL se re-puntúa contra la meta viva (10 < 20 → no cumple)...
-  const despues = deriveHabit(habit({ ...base, target: 20 }), rows, NOW)
+  const despues = deriveHabit(habit({ ...base, target: 20 * 60 }), rows, NOW)
   expect(despues.met).toBe(false)
   // ...pero los 15 días cerrados siguen cumplidos contra el target de sus filas.
   expect(despues.streak).toBe(15)
@@ -138,15 +138,19 @@ test("habits.days es recordatorio: el mismo log da idéntico resultado con y sin
 })
 
 test("days son 14 posiciones, de hace 13 días a hoy, con amount y target de cada fila", () => {
-  const h = habit({ metric: "time", target: 25 })
-  const rows = [row("2026-08-20", 10, 25), row("2026-08-07", 40, 15), row("2026-07-30", 99, 25)]
+  const h = habit({ metric: "time", target: 25 * 60 })
+  const rows = [
+    row("2026-08-20", 10 * 60, 25 * 60),
+    row("2026-08-07", 40 * 60, 15 * 60),
+    row("2026-07-30", 99 * 60, 25 * 60),
+  ]
 
   const { days } = deriveHabit(h, rows, NOW)
   expect(days).toHaveLength(14)
-  expect(days[13]).toEqual({ amount: 10, target: 25 })
-  expect(days[0]).toEqual({ amount: 40, target: 15 }) // el target viejo, no el vivo
+  expect(days[13]).toEqual({ amount: 10 * 60, target: 25 * 60 })
+  expect(days[0]).toEqual({ amount: 40 * 60, target: 15 * 60 }) // el target viejo, no el vivo
   // Un día sin fila no tiene target congelado: cae en el actual del hábito.
-  expect(days[1]).toEqual({ amount: 0, target: 25 })
+  expect(days[1]).toEqual({ amount: 0, target: 25 * 60 })
 })
 
 test("las filas de otros hábitos no entran en el cálculo", () => {

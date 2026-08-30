@@ -15,7 +15,7 @@ import {
   finishTimer,
   pausedValue,
   shownClock,
-  shownMinutes,
+  shownSeconds,
   startTimer,
   useTimer,
   type Timer,
@@ -31,8 +31,15 @@ type Entry = { h: Habit; state: HabitState }
 
 // "7/0" no quiere decir nada: con techo cero cualquier registro ya es pasarse, así que va el
 // número solo. Con techo > 0 la fracción sí informa cuánto te pasaste.
-const ratio = (h: Habit, t: number) =>
-  h.kind === "bad" && h.target === 0 ? `${t}` : `${t}/${h.target}`
+// Para time, t y h.target vienen en segundos (0011) — se muestran en min.
+const ratio = (h: Habit, t: number) => {
+  if (h.metric === "time") {
+    const mins = Math.floor(t / 60)
+    const targetMins = Math.round(h.target / 60)
+    return h.kind === "bad" && targetMins === 0 ? `${mins}` : `${mins}/${targetMins}`
+  }
+  return h.kind === "bad" && h.target === 0 ? `${t}` : `${t}/${h.target}`
+}
 
 // Los tres estados vivos de un `time`. "Pausado" NO es un dato nuevo: pausar ya escribe los
 // minutos en habit_log y borra el cronómetro (habit-timer.ts), así que sale de lo que ya hay —
@@ -45,6 +52,7 @@ const LABEL: Record<HabitMetric, (h: Habit, t: number, r: Run) => ReactNode> = {
   count: ratio,
   // Corriendo el dato pasa a reloj: `7/20 min` cambia una vez cada 60 segundos y se lee congelado,
   // que es justo lo contrario de lo que querés ver con el cronómetro andando.
+  // h.target para time viene en segundos — se muestra en min.
   time: (h, t, r) =>
     r.clock ? (
       <>
@@ -53,7 +61,7 @@ const LABEL: Record<HabitMetric, (h: Habit, t: number, r: Run) => ReactNode> = {
           className="size-[5px] shrink-0 animate-pulse rounded-full bg-brand-strong"
         />
         <span className="text-[13px] font-medium text-brand-fg">{r.clock}</span>
-        <span className="opacity-70">/{h.target}</span>
+        <span className="opacity-70">/{Math.round(h.target / 60)}</span>
       </>
     ) : (
       <>
@@ -119,13 +127,14 @@ export function HabitTiles() {
   )
 
   const running = entries.find((e) => e.h.id === timer?.habitId)
-  const shown = running && timer ? shownMinutes(running.state.total, timer) : 0
+  const shown = running && timer ? shownSeconds(running.state.total, timer) : 0
   const clock = running && timer ? shownClock(running.state.total, timer) : null
   // Termina solo únicamente si fue ESTE cronómetro el que cruzó la meta. Dos guardas:
   //  · sólo un `good` — en un `bad` el target es un TECHO, pasarlo no es "listo", y con techo 0 se
   //    apagaría antes de arrancar;
   //  · sólo si venías por debajo — dar play cuando ya llegaste al target (estás haciendo de más)
   //    corría hasta que lo cortás vos, no se auto-corta en el primer render.
+  // Con segundos (0011) no hay round: shown es segundos exactos, se compara directo.
   const reached =
     !!running &&
     running.h.kind === "good" &&

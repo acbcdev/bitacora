@@ -23,23 +23,24 @@ beforeEach(() => {
 
 afterEach(() => vi.restoreAllMocks())
 
-test("pausar a los 90s sobre un acumulado de 10 escribe 12, no 2", () => {
+test("pausar a los 90s sobre un acumulado de 10 min escribe 690s", () => {
   startTimer("h1")
-  // 90s son 1.5 min → round = 2, y se suman a lo que ya había en la DB.
-  expect(pausedValue(10, readTimer()!, NOW + SECONDS(90))).toBe(12)
+  // 10 min = 600s + 90s = 690s exactos, sin round (0011).
+  expect(pausedValue(600, readTimer()!, NOW + SECONDS(90))).toBe(690)
 })
 
-test("pausar antes del minuto no escribe nada", () => {
+test("pausar antes de 1s no escribe nada", () => {
   startTimer("h1")
-  // round(20/60) = 0: no hay minuto que sumar, así que no hay upsert.
-  expect(pausedValue(10, readTimer()!, NOW + SECONDS(20))).toBe(null)
+  // <1s no hay nada que sumar, así que no hay upsert.
+  expect(pausedValue(600, readTimer()!, NOW + 500)).toBe(null)
 })
 
 test("reanudar parte del acumulado de la DB, no de cero", () => {
   startTimer("h1")
   const t = readTimer()!
-  expect(shownMinutes(12, t, NOW)).toBe(12)
-  expect(shownMinutes(12, t, NOW + SECONDS(60))).toBe(13)
+  // shownMinutes ahora es floor(segundos/60), pero el acumulado viene en segundos (720s=12min)
+  expect(shownMinutes(720, t, NOW)).toBe(12)
+  expect(shownMinutes(720, t, NOW + SECONDS(60))).toBe(13)
 })
 
 test("llegar a la meta avisa y apaga el cronómetro", () => {
