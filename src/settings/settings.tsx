@@ -1,4 +1,4 @@
-import { AlertTriangle, Cloud, HardDrive, Moon, Sun } from "lucide-react"
+import { AlertTriangle, Cloud, HardDrive, Moon, Sun, Volume2 } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Drialog, DrialogContent, DrialogHeader, DrialogTitle } from "@/core/ui/drialog"
 import { hasSupabaseEnv } from "@/core/lib/supabase"
@@ -6,6 +6,7 @@ import { store } from "@/core/store"
 import { setStorageMode } from "@/core/store/mode"
 import { cn } from "@/core/lib/utils"
 import type { StorageMode } from "@/core/store/types"
+import { playDoneSound } from "@/habits/habit-timer"
 
 // Ajustes como Drialog y no como ruta: un overlay no reabre "solo 3 pantallas" (ui-principles),
 // mismo criterio que el dialog de hábitos. CONTEXT.md ya dejaba escrita esta dirección.
@@ -66,6 +67,17 @@ export function Settings({
             <Button variant="outline" onClick={onToggleTheme}>
               <ThemeIcon />
               {dark ? "Claro" : "Oscuro"}
+            </Button>
+          </section>
+
+          <section className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Sonido de hábitos</p>
+              <p className="text-sm text-muted-foreground">Beep al completar tu meta de tiempo.</p>
+            </div>
+            <Button variant="outline" onClick={() => playDoneSound()}>
+              <Volume2 />
+              Probar
             </Button>
           </section>
 
