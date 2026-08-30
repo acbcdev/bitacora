@@ -1,21 +1,19 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { Flame, Trash2 } from "lucide-react"
-import { ConfirmDelete } from "@/core/components/confirm-delete"
-import { Editor } from "@/core/components/editor"
+import { Flame } from "lucide-react"
 import { NoteSkeleton } from "@/core/components/skeletons"
 import { NoteDialog } from "@/review/note-dialog"
 import { Button } from "@/core/ui/button"
 import { Card } from "@/core/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
-import { Kbd, KbdGroup } from "@/core/ui/kbd"
 import { Progress } from "@/core/ui/progress"
-import { CourseIcon } from "@/courses/course-icon"
 import { useCourses } from "@/courses/courses.api"
 import { useDeleteNote, useNote } from "@/notes/notes.api"
-import { useReviewQueue, useMarkRead } from "@/review/review.api"
-import { docToPlainText } from "@/core/lib/tiptap-markdown"
+import { useReviewQueue } from "@/review/review.api"
+import { useReviewSession } from "@/review/review-session"
+import { FlashcardCard } from "@/review/flashcard-card"
+import { NoteCard } from "@/review/note-card"
 import { todayKey } from "@/core/lib/day"
 import { useSnapshot } from "@/core/lib/snapshot"
 import {
@@ -26,12 +24,10 @@ import {
   readStats,
 } from "@/core/store/derive"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
-import { cn, MOD } from "@/core/lib/utils"
+import { cn } from "@/core/lib/utils"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { Courses } from "@/courses/courses"
 import { HabitTiles } from "@/habits/habit-tiles"
-import type { Grade } from "@/core/types/database"
-import type { NoteRef } from "@/core/store/types"
 
 // Los últimos 14 días de lectura, a lo GitHub. Sin clicks: es un resumen, no un control.
 // El color sale de la fracción leída contra la meta del día, no de un sí/no: 1 de 3 notas no es
@@ -66,12 +62,6 @@ function ReadHistory({ byDay }: { byDay?: Map<string, number> }) {
   )
 }
 
-// Los botones del footer viven sobre una card que YA cambia de fondo al hover —la card entera es
-// el target de abrir, así que no se puede hoverear un botón sin hoverear la card—. El ghost de
-// fábrica en dark hovea a muted/50: contra el fondo ya hovereado quedan a 3 puntos y el hover no
-// se ve. Un escalón más arriba (--input) los despega en los dos temas.
-const FOOTER_BTN = "hover:bg-input dark:hover:bg-input"
-
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
 //   Enter = abrir la nota (adentro, Enter otra vez = leído + siguiente) · J = volver · K = siguiente.
 // Desde la card de una nota NO se marca leído: ahí solo se ve el preview. Eso vive en el dialog,
@@ -79,60 +69,37 @@ const FOOTER_BTN = "hover:bg-input dark:hover:bg-input"
 // navegación y nada más — los mismos J/K como botones, que sin teclado son la única salida.
 // Debajo del repaso va la tira de hábitos y después la lista de cursos embebida, como en el diseño.
 export function Review() {
-  const { data: derived = [], isLoading } = useReviewQueue()
-  // La cola se CONGELA al montar. Marcar leído invalida el snapshot, y la cola sale de ahí: sin
-  // congelarla, el batch se reordenaría abajo del usuario en medio del repaso (la nota que acabás
-  // de leer se va al fondo y la de al lado te cambia el lugar). "Cargar más" la vuelve a tomar.
-  const [queue, setQueue] = useState<NoteRef[]>([])
-  useEffect(() => {
-    setQueue((prev) => (prev.length === 0 && derived.length > 0 ? derived : prev))
-  }, [derived])
+  const { isLoading } = useReviewQueue()
+  const session = useReviewSession()
   const { data: courses = [] } = useCourses()
   const { data: stats = EMPTY_READ_STATS } = useSnapshot((s) => readStats(s))
-  const markRead = useMarkRead()
   const delFlashcard = useDeleteNote()
   const navigate = useNavigate()
-  const [index, setIndex] = useState(0)
-  const [revealed, setRevealed] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
-  // Calificar una flashcard no avanza: el ítem se queda y avanzás vos. Se guardan los ids ya
-  // marcados (no un boolean por índice) para que volver a una ya leída no meta un segundo
-  // insert en read_log.
-  const [markedIds, setMarkedIds] = useState<ReadonlySet<string>>(new Set())
-  const note = queue[index]
+  const note = session.item
   // El snapshot trae las notas sin `content`: el documento de la que se está mirando se pide
   // aparte, y sólo de esa. Abrir Repaso ya no baja tres docs Tiptap para mostrar uno.
   const { data: openNote } = useNote(note?.id)
-  const marked = !!note && markedIds.has(note.id)
+  const marked = session.marked
   const course = courses.find((c) => c.id === note?.course_id)
   const readToday = stats?.today ?? 0
   const streak = stats?.streak ?? 0
   const donePct = Math.min(100, (readToday / DAILY_GOAL) * 100)
+  const reads = session.reads
+  const revealed = session.revealed
 
-  // Cada ítem nuevo arranca sin revelar, sin el diálogo de borrado y sin la nota abierta.
+  // Cada ítem nuevo arranca sin el diálogo de borrado y sin la nota abierta.
+  // revealed lo resetea la sesión en su effect de index.
   useEffect(() => {
-    setRevealed(false)
     setConfirmingDelete(false)
     setDialogOpen(false)
-  }, [index])
+  }, [session.index])
 
-  // Navegar la cola. Avance optimista (ui-principles): no espera al refetch. Una sola definición
-  // para los atajos y para los botones del footer — sin teclado, J/K no existen.
-  const next = useCallback(() => setIndex((i) => Math.min(i + 1, queue.length)), [queue.length])
-  const prev = useCallback(() => setIndex((i) => Math.max(i - 1, 0)), [])
-
-  const mark = useCallback(
-    (grade?: Grade) => {
-      if (!note || marked) return
-      markRead.mutate({ noteId: note.id, grade })
-      setMarkedIds((ids) => new Set(ids).add(note.id))
-    },
-    [note, marked, markRead],
-  )
-
-  // Repasos previos de esta nota (read_log) — el contador que muestra el dialog.
-  const reads = (note && stats?.byNote.get(note.id)?.count) ?? 0
+  // Navegar la cola. Avance optimista (ui-principles): no espera al refetch.
+  const next = session.next
+  const prev = session.prev
+  const mark = session.mark
 
   // Desde el dialog leído SÍ avanza: cierra y pasa a la siguiente de una. El dialog lo cierra el
   // effect de [index]. El toast es el feedback de que la fila entró en read_log.
@@ -150,11 +117,11 @@ export function Review() {
   // explícita (3 botones).
   const onEnter = useCallback(() => {
     if (note?.kind === "flashcard") {
-      if (!revealed) setRevealed(true)
+      if (!revealed) session.reveal()
       return
     }
     setDialogOpen(true)
-  }, [note, revealed])
+  }, [note, revealed, session])
 
   // enabled: dos hotkeys "enter" prendidos a la vez disparan los dos. Con el dialog abierto Enter
   // es suyo (gateado a haber scrolleado hasta el final); con el ConfirmDelete de una flashcard
@@ -209,7 +176,7 @@ export function Review() {
         </Card>
       </div>
     )
-  const done = queue.length === 0 || index >= queue.length
+  const done = session.done
 
   return (
     <div className="fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8">
@@ -262,12 +229,12 @@ export function Review() {
           note?.kind === "note" && !done && "transition-colors hover:bg-muted/55",
         )}
       >
-        {done ? (
+        {done || !note ? (
           // Cola vacía o batch terminado → estado claro, no error (review/02).
           <Empty className="px-4 py-12 sm:px-8 sm:py-16">
             <EmptyHeader>
               <EmptyTitle className="text-lg">
-                {queue.length === 0 ? "Nada para repasar hoy." : "Batch terminado."}
+                {session.length === 0 ? "Nada para repasar hoy." : "Batch terminado."}
               </EmptyTitle>
               <EmptyDescription>
                 {readToday} {readToday === 1 ? "nota leída" : "notas leídas"} hoy.
@@ -277,204 +244,43 @@ export function Review() {
               <Button
                 variant="outline"
                 // Re-tomar la cola del snapshot vivo: es el único punto donde se descongela.
-                onClick={() => {
-                  setIndex(0)
-                  setQueue(derived)
-                }}
+                onClick={() => session.loadMore()}
               >
                 Cargar más
               </Button>
             </EmptyContent>
           </Empty>
         ) : (
-          // w-full: `mx-auto` en un flex item CANCELA el stretch, así que sin ancho definido esta
-          // columna se dimensiona fit-content — y su min-content (el preview, que con `-m-2` pide
-          // más que la card) le ganaba al ancho real. Resultado: en 393px se iba 23px afuera y el
-          // `overflow-hidden` de la Card se comía el borde derecho del footer.
           <div className="mx-auto w-full max-w-3xl px-4 sm:px-8">
             {note.kind === "note" ? (
-              <>
-                {/* Abrir es toda la Card, no un rectángulo chico adentro de una card grande: un
-                    overlay absoluto sobre la Card (de ahí su `relative`). Va como hermano y no
-                    envolviendo el contenido porque el footer tiene botones propios — anidar
-                    <button> en <button> es HTML inválido; acá el footer se pone encima con z-10.
-                    ring-inset: la Card es overflow-hidden y un ring de afuera se recorta. */}
-                <button
-                  type="button"
-                  onClick={() => setDialogOpen(true)}
-                  aria-label={`Abrir ${note.title || "nota sin título"}`}
-                  className="absolute inset-0 cursor-pointer focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset focus-visible:outline-none"
-                />
-                <div className="mb-2 flex min-h-[2lh] items-start justify-between gap-3">
-                  <p className="eyebrow flex items-center gap-1.5">
-                    <CourseIcon icon={course?.icon ?? null} />
-                    {course?.name ?? "Sin curso"}
-                  </p>
-                  <span className="mono-dim shrink-0 whitespace-nowrap">
-                    {index + 1} / {queue.length}
-                  </span>
-                </div>
-                <div key={note.id} className="note-in mb-6">
-                  <h1 className="mb-1.5 line-clamp-2 min-h-[2lh] text-3xl font-semibold tracking-tight text-pretty">
-                    {note.title || "(sin título)"}
-                  </h1>
-                  <p className="line-clamp-3 min-h-[3lh] text-muted-foreground">
-                    {openNote &&
-                      (docToPlainText(openNote.content) || <em>Nota sin contenido todavía.</em>)}
-                  </p>
-                </div>
-              </>
+              <NoteCard
+                item={note}
+                course={course}
+                openNote={openNote}
+                position={session.position}
+                onOpen={() => setDialogOpen(true)}
+                onOpenExpanded={openExpanded}
+                onPrev={prev}
+                onNext={next}
+                isFirst={session.index === 0}
+              />
             ) : (
-              <>
-                <div className="mb-6 flex min-h-[2lh] items-start justify-between gap-3">
-                  <p className="eyebrow">{course?.name ?? "Sin curso"}</p>
-                  <span className="mono-dim shrink-0 whitespace-nowrap">
-                    {index + 1} / {queue.length}
-                  </span>
-                </div>
-
-                <div key={note.id} className="note-in">
-                  <h1 className="mb-6 text-3xl font-semibold tracking-tight text-pretty">
-                    {note.title || "(sin título)"}
-                  </h1>
-                  {!revealed ? (
-                    <p className="text-muted-foreground">
-                      Pensá tu respuesta y revelala cuando estés listo.
-                    </p>
-                  ) : (
-                    openNote && <Editor content={openNote.content} editable={false} />
-                  )}
-                </div>
-              </>
+              <FlashcardCard
+                item={note}
+                course={course}
+                openNote={openNote}
+                position={session.position}
+                revealed={revealed}
+                marked={marked}
+                onReveal={() => session.reveal()}
+                onMark={mark}
+                onPrev={prev}
+                onNext={next}
+                confirmingDelete={confirmingDelete}
+                onConfirmingChange={setConfirmingDelete}
+                onDelete={() => delFlashcard.mutate(note.id, { onSuccess: next })}
+              />
             )}
-
-            {/* `md` y no `sm`: acá se decide mobile, y ese breakpoint es 768 = MOBILE_BREAKPOINT
-                (misma regla que drialog.tsx). Los atajos son solo desktop —en mobile no hay
-                teclado—; los botones van en los dos, porque sin ellos mobile no tiene cómo moverse
-                por la cola, con la tecla adentro para que sigan enseñando el atajo en desktop. */}
-            <div className="relative z-10 mt-8 flex items-center justify-end border-t pt-5 md:justify-between">
-              <div className="hidden flex-wrap items-center gap-2 text-xs text-muted-foreground md:flex">
-                {note.kind === "flashcard" &&
-                  (revealed ? (
-                    <span>
-                      {marked ? (
-                        <>
-                          Listo — <Kbd>K</Kbd> para la siguiente
-                        </>
-                      ) : (
-                        "Elegí correcto / parcial / incorrecto abajo"
-                      )}
-                    </span>
-                  ) : (
-                    <span>
-                      <Kbd>Enter</Kbd> revelar respuesta
-                    </span>
-                  ))}
-                {/* Abrir y vista expandida son botones, no leyendas: son las dos acciones de la
-                    pantalla y ya existían como atajos: un <span> con un <Kbd> las dejaba
-                    inclickeables. Ghost como J/K — el footer entero es del mismo peso. */}
-                {note.kind === "note" && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      className={FOOTER_BTN}
-                      onClick={() => setDialogOpen(true)}
-                    >
-                      <Kbd aria-hidden>Enter</Kbd>
-                      Abrir
-                    </Button>
-                    <Button variant="ghost" className={FOOTER_BTN} onClick={openExpanded}>
-                      <KbdGroup aria-hidden>
-                        <Kbd>{MOD}</Kbd>+<Kbd>Enter</Kbd>
-                      </KbdGroup>
-                      Vista expandida
-                    </Button>
-                  </>
-                )}
-                {/* Solo la flashcard: la nota lleva la tecla adentro del propio botón, y repetir
-                    el mismo glifo a 30cm de distancia es ruido. */}
-                {note.kind === "flashcard" && (
-                  <>
-                    <span>
-                      <Kbd>J</Kbd> volver
-                    </span>
-                    <span>
-                      <Kbd>K</Kbd> siguiente
-                    </span>
-                  </>
-                )}
-              </div>
-              <div className="flex flex-wrap justify-end gap-2">
-                {note.kind === "flashcard" ? (
-                  revealed ? (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="hover:text-destructive"
-                        aria-label="Borrar flashcard"
-                        onClick={() => setConfirmingDelete(true)}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                      <ConfirmDelete
-                        open={confirmingDelete}
-                        onOpenChange={setConfirmingDelete}
-                        what={note.title || "(sin título)"}
-                        onConfirm={() => delFlashcard.mutate(note.id, { onSuccess: next })}
-                      />
-                      <Button
-                        variant="outline"
-                        disabled={marked}
-                        onClick={() => mark("incorrecto")}
-                      >
-                        Incorrecto
-                      </Button>
-                      <Button variant="outline" disabled={marked} onClick={() => mark("parcial")}>
-                        Parcial
-                      </Button>
-                      <Button disabled={marked} onClick={() => mark("correcto")}>
-                        Correcto
-                      </Button>
-                    </>
-                  ) : (
-                    <Button onClick={() => setRevealed(true)}>Revelar respuesta</Button>
-                  )
-                ) : (
-                  // Marcar leído NO vive acá: desde la card se ven 3 líneas y un insert en
-                  // read_log sin haber leído es basura (CONTEXT.md). Vive en el dialog, gateado a
-                  // haber scrolleado hasta el final. El footer de una nota es navegación y nada
-                  // más — ghost, para no competirle el peso visual a la nota (ui-principles).
-                  // El Kbd va adentro: el botón ES el atajo, no un duplicado suyo. Se esconde en
-                  // mobile porque ahí no hay tecla J que apretar — el botón queda solo, y más alto
-                  // para que sea un target táctil de verdad. aria-hidden: si no, el nombre
-                  // accesible sería "J Volver" en desktop y "Volver" en mobile.
-                  <>
-                    <Button
-                      variant="ghost"
-                      className={cn(FOOTER_BTN, "max-md:h-10 max-md:px-4")}
-                      disabled={index === 0}
-                      onClick={prev}
-                    >
-                      <Kbd aria-hidden className="max-md:hidden">
-                        J
-                      </Kbd>
-                      Volver
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className={cn(FOOTER_BTN, "max-md:h-10 max-md:px-4")}
-                      onClick={next}
-                    >
-                      <Kbd aria-hidden className="max-md:hidden">
-                        K
-                      </Kbd>
-                      Siguiente
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
           </div>
         )}
       </Card>
