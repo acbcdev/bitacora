@@ -83,14 +83,14 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
           )}
           draggable={false}
         />
-        {/* Handles fuera del borde de la imagen (no encima) para que hover sobre la imagen
-            no mantenga ew-resize; solo la barra tiene cursor. Aparecen en ambos modos. */}
+        {/* Handles dentro del borde (8px inset) para no perder group-hover al mover a la barra.
+            Hit-area exacta de 3px + cursor solo en la barra evita sticky ew-resize sobre la imagen. */}
         <div
           contentEditable={false}
           data-resize-handle="left"
           onMouseDown={onMouseDown("left")}
           className={cn(
-            "absolute top-1/2 -left-3 flex -translate-y-1/2 items-center justify-center",
+            "absolute top-1/2 left-2 flex -translate-y-1/2 items-center justify-center",
             "opacity-0 transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto pointer-events-none",
             selected && "opacity-100 pointer-events-auto",
           )}
@@ -103,7 +103,7 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
           data-resize-handle="right"
           onMouseDown={onMouseDown("right")}
           className={cn(
-            "absolute top-1/2 -right-3 flex -translate-y-1/2 items-center justify-center",
+            "absolute top-1/2 right-2 flex -translate-y-1/2 items-center justify-center",
             "opacity-0 transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto pointer-events-none",
             selected && "opacity-100 pointer-events-auto",
           )}
