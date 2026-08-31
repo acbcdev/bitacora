@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, useState } from "react"
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react"
 import type { Ref } from "react"
 import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react"
 import type { Content } from "@tiptap/react"
@@ -11,6 +11,8 @@ import type { TiptapDoc } from "@/core/types/database"
 import { markdownToDoc } from "@/core/lib/tiptap-markdown"
 import { CodeBlockView } from "@/core/components/code-block"
 import { Outline } from "@/core/components/outline"
+import { collectImages, EditorLightbox } from "@/core/components/editor-lightbox"
+import type { LightboxImage } from "@/core/components/editor-lightbox"
 
 const lowlight = createLowlight(common)
 
@@ -48,6 +50,18 @@ export function Editor({
   const host = useRef<HTMLDivElement>(null)
   // Señal de rescaneo para el Outline: sube en cada cambio de contenido.
   const [version, setVersion] = useState(0)
+  const [lbOpen, setLbOpen] = useState(false)
+  const [lbIndex, setLbIndex] = useState(0)
+  const [lbImages, setLbImages] = useState<LightboxImage[]>([])
+  const lbOpenRef = useRef(lbOpen)
+  useEffect(() => {
+    lbOpenRef.current = lbOpen
+  }, [lbOpen])
+
+  const openLightboxRef = useRef<(src: string, alt?: string, docOverride?: TiptapDoc) => void>(
+    () => {},
+  )
+
   const editor = useEditor({
     extensions: [StarterKit.configure({ codeBlock: false }), CodeBlock, Image],
     content: content as Content,
@@ -73,9 +87,23 @@ export function Editor({
         view.dispatch(view.state.tr.replaceSelection(slice))
         return true
       },
+      handleClickOn(_view, _pos, node) {
+        if (node.type.name === "image") {
+          const src = (node.attrs as { src?: string }).src
+          const alt = (node.attrs as { alt?: string }).alt
+          if (src) {
+            // view.state.doc contiene la doc fresca al momento del click
+            const docJSON = _view.state.doc.toJSON() as TiptapDoc
+            openLightboxRef.current(src, alt, docJSON)
+            return true
+          }
+        }
+        return false
+      },
       // Doble Esc (dentro de 500ms) saca el foco del editor. El primero se deja pasar para que
       // siga cerrando lo que haya abierto encima (select del code block, dialog, focus mode).
       handleKeyDown(view, event) {
+        if (lbOpenRef.current) return false
         if (event.key !== "Escape") return false
 
         const double = Date.now() - lastEscape.current < 500
@@ -87,6 +115,54 @@ export function Editor({
       },
     },
   })
+
+  const openLightbox = useCallback(
+    (src: string, alt?: string, docOverride?: TiptapDoc) => {
+      const currentDoc = docOverride ?? (editor?.getJSON() as TiptapDoc | undefined) ?? content
+      const imgs = collectImages(currentDoc)
+      if (imgs.length === 0) {
+        if (!src) return
+        setLbImages([{ src, alt }])
+        setLbIndex(0)
+        setLbOpen(true)
+        return
+      }
+      let idx = imgs.findIndex((i) => i.src === src)
+      if (idx < 0) idx = 0
+      setLbImages(imgs)
+      setLbIndex(idx)
+      setLbOpen(true)
+    },
+    [editor, content],
+  )
+  useEffect(() => {
+    openLightboxRef.current = openLightbox
+  }, [openLightbox])
+
+  // Delegación DOM: click en <img> dentro de ProseMirror abre lightbox.
+  // Complementa handleClickOn: en jsdom handleClickOn no siempre dispara con fireEvent,
+  // y además cubre imágenes renderizadas fuera de la gestión de ProseMirror (fallback).
+  useEffect(() => {
+    const el = host.current
+    if (!el) return
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      const img = target?.closest("img") as HTMLImageElement | null
+      if (!img || !el.contains(img)) return
+      if (!img.closest(".ProseMirror")) return
+      const src = img.getAttribute("src")
+      if (!src) return
+      const alt = img.getAttribute("alt") ?? undefined
+      e.preventDefault()
+      openLightboxRef.current(src, alt)
+    }
+    el.addEventListener("click", handler)
+    return () => el.removeEventListener("click", handler)
+  }, [])
+
+  useEffect(() => {
+    if (editor && editor.isEditable !== editable) editor.setEditable(editable)
+  }, [editor, editable])
 
   // Modo lectura (Repaso): si cambia la nota mostrada, refrescar el contenido. setContent no
   // dispara onUpdate, así que el rescaneo del Outline se avisa a mano.
@@ -121,6 +197,13 @@ export function Editor({
     <div ref={host} className="relative">
       <Outline host={host} version={version} />
       <EditorContent editor={editor} className="tiptap-host" />
+      <EditorLightbox
+        images={lbImages}
+        index={lbIndex}
+        open={lbOpen}
+        onOpenChange={setLbOpen}
+        onIndexChange={setLbIndex}
+      />
     </div>
   )
 }
