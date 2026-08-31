@@ -390,9 +390,9 @@ test("handles tienen cursor ew-resize y están inset del borde", async () => {
   const rightBar = right.querySelector("div")!
   expect(leftBar.className).toMatch(/cursor-ew-resize/)
   expect(rightBar.className).toMatch(/cursor-ew-resize/)
-  // inset: left-2 / right-2 en vez de borde exacto left-0/right-0
-  expect(left.className).toMatch(/left-2/)
-  expect(right.className).toMatch(/right-2/)
+  // fuera del borde (-left-3/-right-3) para no solapar la imagen y evitar sticky ew-resize
+  expect(left.className).toMatch(/-left-3/)
+  expect(right.className).toMatch(/-right-3/)
   // pointer-events controlado por group-hover para no capturar cursor al pasar sobre imagen cuando está oculto
   expect(left.className).toMatch(/group-hover:pointer-events-auto/)
 })

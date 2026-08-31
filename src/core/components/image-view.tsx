@@ -83,15 +83,14 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
           )}
           draggable={false}
         />
-        {/* Handles visibles en ambos modos — cursor solo sobre la barra, no sobre la imagen.
-            pointer-events-none cuando oculto evita que el área invisible capture el cursor ew-resize
-            y lo mantenga al mover de la barra a la imagen (bug reportado). */}
+        {/* Handles fuera del borde de la imagen (no encima) para que hover sobre la imagen
+            no mantenga ew-resize; solo la barra tiene cursor. Aparecen en ambos modos. */}
         <div
           contentEditable={false}
           data-resize-handle="left"
           onMouseDown={onMouseDown("left")}
           className={cn(
-            "absolute top-1/2 left-2 flex -translate-y-1/2 items-center justify-center",
+            "absolute top-1/2 -left-3 flex -translate-y-1/2 items-center justify-center",
             "opacity-0 transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto pointer-events-none",
             selected && "opacity-100 pointer-events-auto",
           )}
@@ -104,7 +103,7 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
           data-resize-handle="right"
           onMouseDown={onMouseDown("right")}
           className={cn(
-            "absolute top-1/2 right-2 flex -translate-y-1/2 items-center justify-center",
+            "absolute top-1/2 -right-3 flex -translate-y-1/2 items-center justify-center",
             "opacity-0 transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto pointer-events-none",
             selected && "opacity-100 pointer-events-auto",
           )}
