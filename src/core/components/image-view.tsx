@@ -27,6 +27,13 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
       const rectW = img?.getBoundingClientRect().width ?? 0
       startW.current = width ?? Math.round(rectW) ?? 320
       setDragWidth(startW.current)
+      // Feedback de cursor mientras se arrastra: ew-resize global + evitar selección
+      const prevCursor = document.body.style.cursor
+      const prevSelect = document.body.style.userSelect
+      const prevHtmlCursor = document.documentElement.style.cursor
+      document.body.style.cursor = "ew-resize"
+      document.documentElement.style.cursor = "ew-resize"
+      document.body.style.userSelect = "none"
 
       const onMove = (ev: MouseEvent) => {
         const delta = ev.clientX - startX.current
@@ -39,6 +46,9 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
       const onUp = () => {
         window.removeEventListener("mousemove", onMove)
         window.removeEventListener("mouseup", onUp)
+        document.body.style.cursor = prevCursor
+        document.documentElement.style.cursor = prevHtmlCursor
+        document.body.style.userSelect = prevSelect
         // commit si hubo drag
         setDragWidth((cur) => {
           if (cur != null) updateAttributes({ width: cur })

@@ -454,3 +454,30 @@ test("drag handle izquierda aumenta al arrastrar a la izquierda", async () => {
   ) as { attrs: { width: number } }
   expect(imageNode.attrs.width).toBe(350)
 })
+
+test("cursor cambia a ew-resize mientras se arrastra y vuelve", async () => {
+  const { container } = render(<Editor content={docOneImage} editable />)
+  await getImgs(container)
+  const handle = container.querySelector<HTMLElement>('[data-resize-handle="right"]')!
+  const img = container.querySelector<HTMLImageElement>(".ProseMirror img")!
+  vi.spyOn(img, "getBoundingClientRect").mockReturnValue({
+    width: 300,
+    height: 200,
+    top: 0,
+    left: 0,
+    right: 300,
+    bottom: 200,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as unknown as DOMRect)
+
+  fireEvent.mouseDown(handle, { clientX: 100 })
+  expect(document.body.style.cursor).toBe("ew-resize")
+  expect(document.documentElement.style.cursor).toBe("ew-resize")
+  expect(document.body.style.userSelect).toBe("none")
+  fireEvent.mouseUp(window)
+  expect(document.body.style.cursor).toBe("")
+  expect(document.documentElement.style.cursor).toBe("")
+  expect(document.body.style.userSelect).toBe("")
+})
