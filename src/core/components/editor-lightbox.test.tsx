@@ -362,3 +362,83 @@ test("click en imagen no rompe handlePaste", async () => {
   // Simular que el editor sigue recibiendo paste (no testeamos markdownToDoc acá, solo que no throw)
   expect(pm).toBeInTheDocument()
 })
+
+test("resize handles visibles en editable", async () => {
+  const { container } = render(<Editor content={docOneImage} editable />)
+  await getImgs(container)
+  expect(container.querySelectorAll("[data-resize-handle]").length).toBe(2)
+})
+
+test("resize handles ocultos en modo lectura", async () => {
+  const { container } = render(<Editor content={docOneImage} editable={false} />)
+  await waitFor(() =>
+    expect(container.querySelector<HTMLElement>(".ProseMirror")).toBeInTheDocument(),
+  )
+  await waitFor(() =>
+    expect(container.querySelectorAll<HTMLImageElement>(".ProseMirror img").length).toBe(1),
+  )
+  expect(container.querySelectorAll("[data-resize-handle]").length).toBe(0)
+})
+
+test("drag handle derecha actualiza width y dispara onChange", async () => {
+  const onChange = vi.fn()
+  const { container } = render(<Editor content={docOneImage} editable onChange={onChange} />)
+  await getImgs(container)
+  onChange.mockClear()
+  const handle = container.querySelector<HTMLElement>('[data-resize-handle="right"]')!
+  // mock getBoundingClientRect para que startW sea determinístico (300)
+  const img = container.querySelector<HTMLImageElement>(".ProseMirror img")!
+  vi.spyOn(img, "getBoundingClientRect").mockReturnValue({
+    width: 300,
+    height: 200,
+    top: 0,
+    left: 0,
+    right: 300,
+    bottom: 200,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as unknown as DOMRect)
+
+  fireEvent.mouseDown(handle, { clientX: 100 })
+  fireEvent.mouseMove(window, { clientX: 150 })
+  fireEvent.mouseUp(window)
+
+  await waitFor(() => expect(onChange).toHaveBeenCalled())
+  const lastDoc = onChange.mock.calls.at(-1)![0] as TiptapDoc
+  const imageNode = (lastDoc.content as unknown[]).find(
+    (n: unknown) => (n as { type: string }).type === "image",
+  ) as { attrs: { width: number } }
+  expect(imageNode.attrs.width).toBeGreaterThan(300)
+})
+
+test("drag handle izquierda aumenta al arrastrar a la izquierda", async () => {
+  const onChange = vi.fn()
+  const { container } = render(<Editor content={docOneImage} editable onChange={onChange} />)
+  await getImgs(container)
+  onChange.mockClear()
+  const handle = container.querySelector<HTMLElement>('[data-resize-handle="left"]')!
+  const img = container.querySelector<HTMLImageElement>(".ProseMirror img")!
+  vi.spyOn(img, "getBoundingClientRect").mockReturnValue({
+    width: 300,
+    height: 200,
+    top: 0,
+    left: 0,
+    right: 300,
+    bottom: 200,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as unknown as DOMRect)
+
+  fireEvent.mouseDown(handle, { clientX: 200 })
+  fireEvent.mouseMove(window, { clientX: 150 }) // mover izquierda 50px → width +50
+  fireEvent.mouseUp(window)
+
+  await waitFor(() => expect(onChange).toHaveBeenCalled())
+  const lastDoc = onChange.mock.calls.at(-1)![0] as TiptapDoc
+  const imageNode = (lastDoc.content as unknown[]).find(
+    (n: unknown) => (n as { type: string }).type === "image",
+  ) as { attrs: { width: number } }
+  expect(imageNode.attrs.width).toBe(350)
+})

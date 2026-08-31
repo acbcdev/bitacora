@@ -10,6 +10,7 @@ import { Fragment, Slice } from "@tiptap/pm/model"
 import type { TiptapDoc } from "@/core/types/database"
 import { markdownToDoc } from "@/core/lib/tiptap-markdown"
 import { CodeBlockView } from "@/core/components/code-block"
+import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
 import { collectImages, EditorLightbox } from "@/core/components/editor-lightbox"
 import type { LightboxImage } from "@/core/components/editor-lightbox"
@@ -19,6 +20,31 @@ const lowlight = createLowlight(common)
 const CodeBlock = CodeBlockLowlight.extend({
   addNodeView: () => ReactNodeViewRenderer(CodeBlockView),
 }).configure({ lowlight })
+
+const ResizableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: null,
+        parseHTML: (element: HTMLElement) => {
+          const w = element.getAttribute("width")
+          if (w) return Number.parseInt(w, 10) || null
+          const styleW = element.style.width
+          if (styleW) return Number.parseInt(styleW, 10) || null
+          return null
+        },
+        renderHTML: (attributes: { width: number | null }) => {
+          if (!attributes.width) return {}
+          return { width: String(attributes.width), style: `width: ${attributes.width}px` }
+        },
+      },
+    }
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ImageView)
+  },
+})
 
 export type EditorHandle = {
   // Paste "smart" del título (notes/05): el resto del texto pegado entra al cuerpo, arriba de todo.
@@ -63,7 +89,7 @@ export function Editor({
   )
 
   const editor = useEditor({
-    extensions: [StarterKit.configure({ codeBlock: false }), CodeBlock, Image],
+    extensions: [StarterKit.configure({ codeBlock: false }), CodeBlock, ResizableImage],
     content: content as Content,
     editable,
     onUpdate: ({ editor: updated }) => {
