@@ -83,33 +83,34 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
           )}
           draggable={false}
         />
-        {/* Handles visibles en ambos modos (editable y lectura) — feedback con cursor ew-resize */}
-        {/* Inset 1.5 (6px) para no quedar pegado al borde exacto, más fácil de agarrar */}
+        {/* Handles visibles en ambos modos — cursor solo sobre la barra, no sobre la imagen.
+            pointer-events-none cuando oculto evita que el área invisible capture el cursor ew-resize
+            y lo mantenga al mover de la barra a la imagen (bug reportado). */}
         <div
           contentEditable={false}
           data-resize-handle="left"
           onMouseDown={onMouseDown("left")}
           className={cn(
-            "absolute top-1/2 left-1.5 flex -translate-y-1/2 cursor-ew-resize items-center justify-center p-1.5",
-            "opacity-0 transition-opacity group-hover:opacity-100",
-            selected && "opacity-100",
+            "absolute top-1/2 left-2 flex -translate-y-1/2 items-center justify-center",
+            "opacity-0 transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto pointer-events-none",
+            selected && "opacity-100 pointer-events-auto",
           )}
           aria-hidden
         >
-          <div className="h-12 w-[3px] rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10" />
+          <div className="h-12 w-[3px] cursor-ew-resize rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10" />
         </div>
         <div
           contentEditable={false}
           data-resize-handle="right"
           onMouseDown={onMouseDown("right")}
           className={cn(
-            "absolute top-1/2 right-1.5 flex -translate-y-1/2 cursor-ew-resize items-center justify-center p-1.5",
-            "opacity-0 transition-opacity group-hover:opacity-100",
-            selected && "opacity-100",
+            "absolute top-1/2 right-2 flex -translate-y-1/2 items-center justify-center",
+            "opacity-0 transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto pointer-events-none",
+            selected && "opacity-100 pointer-events-auto",
           )}
           aria-hidden
         >
-          <div className="h-12 w-[3px] rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10" />
+          <div className="h-12 w-[3px] cursor-ew-resize rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10" />
         </div>
       </div>
     </NodeViewWrapper>

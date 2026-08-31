@@ -385,11 +385,16 @@ test("handles tienen cursor ew-resize y están inset del borde", async () => {
   await getImgs(container)
   const left = container.querySelector<HTMLElement>('[data-resize-handle="left"]')!
   const right = container.querySelector<HTMLElement>('[data-resize-handle="right"]')!
-  expect(left.className).toMatch(/cursor-ew-resize/)
-  expect(right.className).toMatch(/cursor-ew-resize/)
-  // inset: left-1.5 / right-1.5 en vez de left-0/right-0 al borde exacto
-  expect(left.className).toMatch(/left-1\.5/)
-  expect(right.className).toMatch(/right-1\.5/)
+  // cursor ahora en la barra interna, no en el contenedor (evita sticky cuando está invisible)
+  const leftBar = left.querySelector("div")!
+  const rightBar = right.querySelector("div")!
+  expect(leftBar.className).toMatch(/cursor-ew-resize/)
+  expect(rightBar.className).toMatch(/cursor-ew-resize/)
+  // inset: left-2 / right-2 en vez de borde exacto left-0/right-0
+  expect(left.className).toMatch(/left-2/)
+  expect(right.className).toMatch(/right-2/)
+  // pointer-events controlado por group-hover para no capturar cursor al pasar sobre imagen cuando está oculto
+  expect(left.className).toMatch(/group-hover:pointer-events-auto/)
 })
 
 test("drag handle derecha actualiza width y dispara onChange", async () => {
