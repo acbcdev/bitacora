@@ -79,7 +79,9 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
           className={cn(
             "block max-w-full rounded-lg transition-opacity",
             "cursor-zoom-in hover:opacity-90",
-            selected && "ring-2 ring-ring ring-offset-2 ring-offset-background",
+            // Sin ring grueso en selected: las barras ya indican selección.
+            // Evitamos el doble borde blanco/negro de la screenshot.
+            selected && "opacity-95",
           )}
           draggable={false}
         />

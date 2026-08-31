@@ -346,6 +346,9 @@
 .tiptap-host .ProseMirror [data-image-wrapper] img {
   @apply my-0;
 }
+.tiptap-host .ProseMirror .ProseMirror-selectednode {
+  outline: none;
+}
 .tiptap-host .ProseMirror hr {
   @apply my-6 border-border;
 }
