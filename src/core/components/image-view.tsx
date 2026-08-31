@@ -3,7 +3,7 @@ import { NodeViewWrapper } from "@tiptap/react"
 import type { NodeViewProps } from "@tiptap/react"
 import { cn } from "@/core/lib/utils"
 
-export function ImageView({ node, selected, editor, updateAttributes }: NodeViewProps) {
+export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
   const src = node.attrs.src as string
   const alt = node.attrs.alt as string | null
   const width = node.attrs.width as number | null
@@ -18,7 +18,6 @@ export function ImageView({ node, selected, editor, updateAttributes }: NodeView
     return (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      if (!editor.isEditable) return
       side.current = s
       startX.current = e.clientX
       // Si no hay width guardado, usar el ancho actual del img
@@ -52,9 +51,6 @@ export function ImageView({ node, selected, editor, updateAttributes }: NodeView
     }
   }
 
-  // Bars solo en modo editable; ocultas por defecto, visibles en hover/selected
-  const showHandles = editor.isEditable
-
   return (
     <NodeViewWrapper
       className="my-6 flex justify-center"
@@ -72,43 +68,39 @@ export function ImageView({ node, selected, editor, updateAttributes }: NodeView
           style={displayWidth ? { width: `${displayWidth}px`, maxWidth: "100%" } : undefined}
           className={cn(
             "block max-w-full rounded-lg transition-opacity",
-            editor.isEditable ? "cursor-zoom-in hover:opacity-90" : "cursor-zoom-in",
+            "cursor-zoom-in hover:opacity-90",
             selected && "ring-2 ring-ring ring-offset-2 ring-offset-background",
           )}
           draggable={false}
         />
-        {showHandles && (
-          <>
-            {/* Handle izquierda */}
-            <div
-              contentEditable={false}
-              data-resize-handle="left"
-              onMouseDown={onMouseDown("left")}
-              className={cn(
-                "absolute top-1/2 left-0 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center",
-                "opacity-0 transition-opacity group-hover:opacity-100",
-                selected && "opacity-100",
-              )}
-              aria-hidden
-            >
-              <div className="h-12 w-[3px] rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10" />
-            </div>
-            {/* Handle derecha */}
-            <div
-              contentEditable={false}
-              data-resize-handle="right"
-              onMouseDown={onMouseDown("right")}
-              className={cn(
-                "absolute top-1/2 right-0 flex translate-x-1/2 -translate-y-1/2 items-center justify-center",
-                "opacity-0 transition-opacity group-hover:opacity-100",
-                selected && "opacity-100",
-              )}
-              aria-hidden
-            >
-              <div className="h-12 w-[3px] rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10" />
-            </div>
-          </>
-        )}
+        {/* Handles visibles en ambos modos (editable y lectura) — feedback con cursor ew-resize */}
+        {/* Inset 1.5 (6px) para no quedar pegado al borde exacto, más fácil de agarrar */}
+        <div
+          contentEditable={false}
+          data-resize-handle="left"
+          onMouseDown={onMouseDown("left")}
+          className={cn(
+            "absolute top-1/2 left-1.5 flex -translate-y-1/2 cursor-ew-resize items-center justify-center p-1.5",
+            "opacity-0 transition-opacity group-hover:opacity-100",
+            selected && "opacity-100",
+          )}
+          aria-hidden
+        >
+          <div className="h-12 w-[3px] rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10" />
+        </div>
+        <div
+          contentEditable={false}
+          data-resize-handle="right"
+          onMouseDown={onMouseDown("right")}
+          className={cn(
+            "absolute top-1/2 right-1.5 flex -translate-y-1/2 cursor-ew-resize items-center justify-center p-1.5",
+            "opacity-0 transition-opacity group-hover:opacity-100",
+            selected && "opacity-100",
+          )}
+          aria-hidden
+        >
+          <div className="h-12 w-[3px] rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10" />
+        </div>
       </div>
     </NodeViewWrapper>
   )

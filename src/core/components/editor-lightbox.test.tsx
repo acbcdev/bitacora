@@ -369,7 +369,7 @@ test("resize handles visibles en editable", async () => {
   expect(container.querySelectorAll("[data-resize-handle]").length).toBe(2)
 })
 
-test("resize handles ocultos en modo lectura", async () => {
+test("resize handles visibles también en modo lectura (ambos)", async () => {
   const { container } = render(<Editor content={docOneImage} editable={false} />)
   await waitFor(() =>
     expect(container.querySelector<HTMLElement>(".ProseMirror")).toBeInTheDocument(),
@@ -377,7 +377,19 @@ test("resize handles ocultos en modo lectura", async () => {
   await waitFor(() =>
     expect(container.querySelectorAll<HTMLImageElement>(".ProseMirror img").length).toBe(1),
   )
-  expect(container.querySelectorAll("[data-resize-handle]").length).toBe(0)
+  expect(container.querySelectorAll("[data-resize-handle]").length).toBe(2)
+})
+
+test("handles tienen cursor ew-resize y están inset del borde", async () => {
+  const { container } = render(<Editor content={docOneImage} editable />)
+  await getImgs(container)
+  const left = container.querySelector<HTMLElement>('[data-resize-handle="left"]')!
+  const right = container.querySelector<HTMLElement>('[data-resize-handle="right"]')!
+  expect(left.className).toMatch(/cursor-ew-resize/)
+  expect(right.className).toMatch(/cursor-ew-resize/)
+  // inset: left-1.5 / right-1.5 en vez de left-0/right-0 al borde exacto
+  expect(left.className).toMatch(/left-1\.5/)
+  expect(right.className).toMatch(/right-1\.5/)
 })
 
 test("drag handle derecha actualiza width y dispara onChange", async () => {
