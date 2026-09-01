@@ -137,16 +137,20 @@ export function Review() {
 
   // mod+enter: vista expandida de la nota (misma acción que el botón Maximize2 del dialog),
   // sin pasar primero por el dialog chico. Solo notas — flashcard no tiene vista expandida.
+  // Cuando el dialog está abierto, el hotkey vive en NoteDialog (raw useHotkeys) porque
+  // useSafeHotkeys se bloquea solo con cualquier dialog abierto (incluido el propio).
   const openExpanded = useCallback(() => {
     if (!note || note.kind !== "note") return
     setDialogOpen(false)
     navigate(note.course_id ? `/course/${note.course_id}/${note.id}` : `/note/${note.id}`)
   }, [note, navigate])
 
-  useSafeHotkeys("mod+enter", openExpanded, { preventDefault: true, enabled: !confirmingDelete }, [
+  useSafeHotkeys(
+    "mod+enter",
     openExpanded,
-    confirmingDelete,
-  ])
+    { preventDefault: true, enabled: !confirmingDelete && !dialogOpen },
+    [openExpanded, confirmingDelete, dialogOpen],
+  )
 
   // "Focus" del menú de acciones: misma navegación que expandir, pero entrando ya en focus mode.
   // `?focus=1` porque cambiar de ruta apaga el focus en App — el param se lo vuelve a prender.

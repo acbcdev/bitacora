@@ -63,6 +63,14 @@ export function NoteDialog({
     [onMarkRead, open, readyToMark, marked, confirming],
   )
 
+  // mod+enter expande la nota (misma acción que el botón Maximize2). Vive acá — no en Review —
+  // porque Review usa useSafeHotkeys y se bloquea solo cuando este dialog está abierto.
+  useHotkeys("mod+enter", onExpand, { preventDefault: true, enabled: open && !confirming }, [
+    onExpand,
+    open,
+    confirming,
+  ])
+
   return (
     <Drialog open={open} onOpenChange={onOpenChange}>
       <DrialogContent
