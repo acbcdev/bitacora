@@ -39,6 +39,20 @@ const ResizableImage = Image.extend({
           return { width: String(attributes.width), style: `width: ${attributes.width}px` }
         },
       },
+      // height solo para CLS: se persiste en onLoad y permite reservar aspect-ratio
+      // antes de que la imagen decodifique en la próxima visita.
+      height: {
+        default: null,
+        parseHTML: (element: HTMLElement) => {
+          const h = element.getAttribute("height")
+          if (h) return Number.parseInt(h, 10) || null
+          return null
+        },
+        renderHTML: (attributes: { height: number | null }) => {
+          if (!attributes.height) return {}
+          return { height: String(attributes.height) }
+        },
+      },
     }
   },
   addNodeView() {

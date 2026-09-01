@@ -385,16 +385,20 @@ test("handles tienen cursor ew-resize y están inset del borde", async () => {
   await getImgs(container)
   const left = container.querySelector<HTMLElement>('[data-resize-handle="left"]')!
   const right = container.querySelector<HTMLElement>('[data-resize-handle="right"]')!
-  // cursor ahora en la barra interna, no en el contenedor (evita sticky cuando está invisible)
-  const leftBar = left.querySelector("div")!
-  const rightBar = right.querySelector("div")!
-  expect(leftBar.className).toMatch(/cursor-ew-resize/)
-  expect(rightBar.className).toMatch(/cursor-ew-resize/)
-  // inset dentro del borde (left-2/right-2) — fuera desaparece al mover desde la imagen
+  // handle es ahora un solo pill de 3px × 48px con cursor-ew-resize directo (hit-area exacta, evita sticky)
+  expect(left.className).toMatch(/cursor-ew-resize/)
+  expect(right.className).toMatch(/cursor-ew-resize/)
+  expect(left.className).toMatch(/w-\[3px\]/)
+  expect(left.className).toMatch(/h-12/)
+  // inset dentro del borde (left-2/right-2)
   expect(left.className).toMatch(/left-2/)
   expect(right.className).toMatch(/right-2/)
-  // pointer-events controlado por group-hover para no capturar cursor al pasar sobre imagen cuando está oculto
-  expect(left.className).toMatch(/group-hover:pointer-events-auto/)
+  // pointer-events solo cuando visible — evita que el área invisible capture cursor sobre la imagen
+  // cuando está selected es pointer-events-auto directo, cuando no es group-hover:pointer-events-auto
+  expect(left.className).toMatch(/pointer-events-auto/)
+  expect(left.className).toMatch(/cursor-ew-resize/)
+  // hit-area exacta 3px × 48px, no flex wrapper que deje sticky
+  expect(left.className).not.toMatch(/flex/)
 })
 
 test("drag handle derecha actualiza width y dispara onChange", async () => {
