@@ -269,6 +269,7 @@ function HabitForm({ habit, onClose }: { habit: Habit | null; onClose: () => voi
         // Editar la meta no toca el log: cada fila lleva su target congelado (ADR 0009), así que
         // sólo el período actual se re-puntúa.
         target: goal.target,
+        period,
         // `days` salió del form: no entraba en `met`, ni en la racha, ni en los 14 días (ADR 0009),
         // así que era un control que no hacía nada y encima contradecía "cada día". Un lun/mié/vie
         // se modela como `3 por semana`. La columna sigue en la DB; el form la deja en null.
