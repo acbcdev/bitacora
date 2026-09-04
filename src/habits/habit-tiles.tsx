@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import { Check, Flame, Minus, Pause, Play, Plus, Target } from "lucide-react"
 import { Button } from "@/core/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { CourseIcon } from "@/courses/course-icon"
 import { todayKey } from "@/core/lib/day"
 import { cn } from "@/core/lib/utils"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { deriveHabit, goalText, meets, TRACKED_DAYS, type HabitState } from "@/habits/habits"
 import { useHabitLog, useHabits, useSetDay } from "@/habits/habits.api"
-import { HabitHistory, HabitPanel } from "@/habits/habit-panel"
+import { HabitPanel } from "@/habits/habit-panel"
 import { HabitsDialog } from "@/habits/habits-dialog"
 import {
   clearTimer,
@@ -75,14 +74,8 @@ const LABEL: Record<HabitMetric, (h: Habit, t: number, r: Run) => ReactNode> = {
     ),
 }
 
-// Piso de ancho del slot del dato, por métrica: un check no pasa de "hoy", un time va de "0/25 min"
-// a "230/120 min". Sin el piso, el número que sube con el cronómetro hace latir la tira entera
-// (es flex).
-const SLOT: Record<HabitMetric, string> = {
-  check: "min-w-8",
-  count: "min-w-10",
-  time: "min-w-16",
-}
+// SLOT ya no se usa: el dato vive en sub con dots debajo, no en un slot de ancho mínimo que late.
+// Se mantiene el tabular-nums en el sub para el cronómetro.
 
 // La barra no tiene color propio: se MEZCLA — rojo lo que falta, verde lo hecho. En un `bad` la
 // escala va al revés (llenarse es perder), y el rojo del techo pasado sale de la misma fórmula
@@ -215,10 +208,10 @@ export function HabitTiles() {
         </Button>
       </div>
 
-      {/* Tope duro de 2 filas: acá vive la nota, y en mobile entran 1–2 tiles por fila.
-          ponytail: el tope es un max-height, no una medición del overflow — "ver todos" está
-          siempre y abre el dialog, que muestra todos igual. */}
-      <div className="flex max-h-34 flex-wrap gap-2 overflow-hidden">
+      {/* Grid para no perder espacio: auto-fill 310px, 3 por fila en desktop, 1–2 en mobile.
+          Dots 7d siempre visibles (variant D ganador). Sin max-height fijo: ver todos sigue
+          existiendo para >6 hábitos. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-3">
         {entries.map((e) => (
           <HabitTile
             key={e.h.id}
@@ -272,23 +265,20 @@ function HabitTile({
   const over = h.kind === "bad" && !met
   const pct = Math.min(100, (total / Math.max(h.target, 1)) * 100)
   const r: Run = { running, clock, paused: h.metric === "time" && !running && total > 0 && !met }
+  const isActive = running || (h.metric === "check" && total > 0)
+  // Dots: últimos 7 días siempre visibles (variant D ganador), paleta app (brand/destructive sobre muted)
+  const dots = state.days.slice(-7)
 
   return (
     <div
       className={cn(
-        "group relative flex h-16 w-50 items-center gap-3 overflow-hidden rounded-lg border bg-card px-3",
-        // El tile entero se ilumina: el trigger no es el ▶, es toda la superficie.
-        "transition-colors hover:bg-muted",
-        // El punteado significa "todavía tenés margen". Pasado el techo el borde se cierra: ya no
-        // hay margen, y dejarlo punteado con el tile lleno contradice el dato.
+        "group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-card px-3.5 py-3",
+        // E ghost fuerte: 0.82 → 1 + borde, sin el lavado muted de antes
+        "opacity-[0.82] hover:opacity-100 hover:border-[#3a3a3a] hover:bg-[#252525] transition-[opacity,border-color,background-color] duration-200",
         h.kind === "bad" && !over && "border-dashed",
-        // Cumplido NO toca el borde: la barra de abajo ya lo dice, y dos señales para el mismo
-        // hecho gastan el verde. El borde sólo habla cuando hay alarma (techo pasado en un `bad`).
         over ? "border-destructive text-destructive" : "border-border",
       )}
     >
-      {/* El progreso vive acá abajo y no en el fondo del tile: 3px sólidos se leen, un fondo
-          rebajado no. El riel gris existe para que un 5% se entienda como "5% de algo". */}
       <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px] bg-muted">
         <span
           style={{ width: `${pct}%`, backgroundColor: barColor(h.kind, pct) }}
@@ -296,109 +286,114 @@ function HabitTile({
         />
       </span>
 
-      {/* Hover = MIRAR: los 14 días viven acá, no en el menú del `⌄`, que es para CORREGIR.
-          Tooltip y no popover: no hay nada que clickear adentro, así que no hace falta foco.
-          `delayDuration` propio — el provider de app.tsx está en 0 y una tarjeta de 14 cuadrados
-          saltando al primer píxel de hover es ruido. */}
-      <Tooltip delayDuration={400}>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={onQuick}
-            aria-pressed={h.metric === "check" ? total > 0 : undefined}
-            aria-label={quickLabel(h, r)}
-            className="group/quick flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
-          >
-            {/* El slot del ícono ES el botón: en reposo el ícono del hábito, en hover el ▶, y
-                corriendo el ‖ — que es lo que hace el click. El ■ de antes decía "parar/descartar"
-                y el click guarda. El grupo es el BOTÓN y no el tile: pasar por el `⌄` no debe
-                prometer un play que ese click no dispara. */}
-            <span
-              className={cn(
-                "relative flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-secondary transition-colors",
-                "group-hover/quick:text-foreground",
-                running && "bg-brand-soft text-brand-fg group-hover/quick:text-brand-fg",
-                // El anillo dice que hay algo empezado sin repetir el número.
-                r.paused && "ring-1 ring-input",
-              )}
-            >
-              {running ? (
-                <Pause size={16} fill="currentColor" strokeWidth={0} />
-              ) : (
-                <>
-                  <CourseIcon
-                    icon={h.icon}
-                    fallback={Target}
-                    className={cn(
-                      "size-5 transition-opacity",
-                      h.metric === "time" && "group-hover/quick:opacity-0",
-                    )}
-                  />
-                  {h.metric === "time" && (
-                    <Play
-                      aria-hidden
-                      size={14}
-                      fill="currentColor"
-                      strokeWidth={0}
-                      className="absolute opacity-0 transition-opacity group-hover/quick:opacity-100"
-                    />
-                  )}
-                </>
-              )}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span
-                className={cn(
-                  "block truncate text-sm font-medium",
-                  met && h.kind === "good" && "text-brand-fg",
-                )}
-              >
-                {h.name}
-              </span>
-              {/* Todo lo que cambia vive en un slot de ancho mínimo con tabular-nums: con el cronómetro
-              corriendo este número sube solo y sin ancho fijo el tile late. */}
-              <span
-                className={cn(
-                  "mono-dim flex items-center gap-1 text-xs tabular-nums transition-colors",
-                  SLOT[h.metric],
-                  "group-hover/quick:text-fg-secondary",
-                  r.paused && "text-fg-secondary",
-                )}
-              >
-                {LABEL[h.metric](h, total, r)}
-                {/* En un `bad` de tiempo el gesto ya lo dice el slot: dos íconos, lo mismo dos veces. */}
-                {h.kind === "bad" && h.metric !== "time" && (
-                  <Minus size={11} className="opacity-60" />
-                )}
-              </span>
-            </span>
-          </button>
-        </TooltipTrigger>
-
-        {/* Superficie de popover, no la invertida del tooltip: adentro van 14 cuadrados de color
-            que sobre un fondo casi blanco se leerían al revés. Por eso también va sin flecha. */}
-        <TooltipContent
-          side="top"
-          sideOffset={6}
-          showArrow={false}
-          className="flex-col items-stretch gap-2 rounded-lg border bg-popover p-2.5 text-popover-foreground"
-        >
-          <span className="mono-dim text-[11px]">
-            {h.name} · {goalText(h)}
-          </span>
-          <HabitHistory habit={h} state={state} />
-        </TooltipContent>
-      </Tooltip>
-
-      <span className="flex shrink-0 items-center gap-1">
-        {/* Sólo a partir de 2: un 🔥 0 es ruido y desmoraliza. */}
-        {state.streak >= 2 && (
-          <span className="mono-dim inline-flex items-center gap-0.5 text-[10px]">
-            <Flame size={10} />
-            {state.streak}
-          </span>
+      {/* Título E ícono disparan la acción primaria (igual que el botón brand); la línea de
+          meta/frecuencia y los dots siguen sin ser clickeables. */}
+      <button
+        type="button"
+        onClick={onQuick}
+        aria-label={quickLabel(h, r)}
+        aria-pressed={h.metric === "check" ? total > 0 : undefined}
+        className={cn(
+          "relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[10px] text-fg-secondary transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+          "bg-muted",
+          running && "bg-brand-soft text-brand-fg",
+          r.paused && "ring-1 ring-input",
         )}
+      >
+        {running ? (
+          <Pause size={18} fill="currentColor" strokeWidth={0} />
+        ) : (
+          <CourseIcon icon={h.icon} fallback={Target} className="size-6" />
+        )}
+      </button>
+
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <button
+          type="button"
+          onClick={onQuick}
+          aria-label={quickLabel(h, r)}
+          aria-pressed={h.metric === "check" ? total > 0 : undefined}
+          className={cn(
+            "block w-fit max-w-full cursor-pointer truncate rounded-sm text-left text-[14px] font-semibold leading-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+            met && h.kind === "good" && "text-brand-fg",
+          )}
+        >
+          {h.name}
+        </button>
+        <span className="flex items-center gap-1.5 font-mono text-[11px] leading-none text-muted-foreground">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 tabular-nums",
+              r.paused && "text-fg-secondary",
+            )}
+          >
+            {LABEL[h.metric](h, total, r)}
+            {h.kind === "bad" && h.metric !== "time" && <Minus size={11} className="opacity-60" />}
+          </span>
+          <span className="opacity-40">·</span>
+          <span className="truncate">{goalText(h)}</span>
+          {state.streak >= 2 && (
+            <span className="inline-flex items-center gap-1 text-[10px] tabular-nums">
+              <Flame size={10} />
+              {state.streak}
+            </span>
+          )}
+        </span>
+        {/* Dots 7d siempre visibles — sin tooltip escondido */}
+        <span className="flex gap-[3px] pt-0.5" aria-hidden>
+          {dots.map((cell, idx) => {
+            const isToday = idx === dots.length - 1
+            const on = cell.amount > 0
+            const bg = !on ? undefined : h.kind === "bad" ? "var(--destructive)" : "var(--brand)"
+            return (
+              <i
+                key={idx}
+                style={{
+                  backgroundColor: bg,
+                  boxShadow: isToday ? "0 0 0 1px var(--brand)" : undefined,
+                }}
+                className={cn(
+                  "h-[5px] flex-1 rounded-full",
+                  !on && "bg-muted",
+                  isToday && "ring-1 ring-brand",
+                )}
+              />
+            )
+          })}
+        </span>
+      </span>
+
+      <span className="flex shrink-0 items-center gap-1.5">
         <HabitPanel habit={h} state={state} />
+        <Button
+          type="button"
+          size="icon-lg"
+          onClick={onQuick}
+          aria-label={quickLabel(h, r)}
+          aria-pressed={h.metric === "check" ? total > 0 : undefined}
+          // ghost traía dark:hover:bg-muted/50 y hover:text-foreground: el hover le pisaba el
+          // color brand entero. Con default sólo queda hover:bg para pisar — el color nunca cambia.
+          className={cn(
+            "shrink-0",
+            isActive
+              ? "bg-brand text-brand-foreground hover:bg-brand"
+              : "bg-brand-soft text-brand-fg hover:bg-brand-soft hover:brightness-110",
+          )}
+        >
+          {h.metric === "time" ? (
+            running ? (
+              <Pause className="size-3.5" fill="currentColor" strokeWidth={0} />
+            ) : (
+              <Play className="size-3.5" fill="currentColor" strokeWidth={0} />
+            )
+          ) : h.metric === "count" ? (
+            <Plus className="size-3.5" strokeWidth={2.2} />
+          ) : total > 0 ? (
+            <Check className="size-3.5" strokeWidth={3} />
+          ) : (
+            <span className="size-2 rounded-full border-2 border-current opacity-60" />
+          )}
+        </Button>
       </span>
     </div>
   )

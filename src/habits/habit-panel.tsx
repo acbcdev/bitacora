@@ -104,69 +104,81 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
       }}
     >
       <DropoverTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           aria-label={`Corregir ${habit.name}`}
           // Nunca se desmonta (ni siquiera con el cronómetro corriendo): sacarlo encogería el tile
           // justo al arrancar el timer.
           // Se esconde al hover SÓLO de `md` para arriba: en Tailwind v4 `hover:` vive adentro de
           // `@media (hover: hover)`, así que en un celular un `opacity-0 group-hover:opacity-100`
-          // no se pinta NUNCA — y este botón es el único acceso a corregir desde el teléfono.
-          className="relative cursor-pointer rounded-full p-0.5 text-muted-foreground opacity-100 transition-opacity hover:text-foreground focus-visible:opacity-100 data-[state=open]:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+          // no se pinta NUNCA — y este botón es el único acceso a corregir desde el teléfono
+          // (el click en ícono/nombre dispara la acción rápida, no el panel).
+          className="relative opacity-100 transition-opacity focus-visible:opacity-100 data-[state=open]:opacity-100 md:opacity-0 md:group-hover:opacity-100"
         >
-          <ChevronDown size={14} />
-        </button>
+          <ChevronDown className="size-3.5" />
+        </Button>
       </DropoverTrigger>
 
       <DropoverContent
         title={habit.name}
-        className="flex flex-col gap-3 max-md:px-4 max-md:pb-8 md:w-72"
+        className="flex flex-col gap-5 rounded-2xl p-5 shadow-xl md:w-[368px] md:gap-5 md:p-6 max-md:rounded-t-[20px] max-md:px-5 max-md:pb-10 max-md:pt-3"
       >
-        <p className="eyebrow">
+        <p className="eyebrow leading-none">
           {habit.name} · {goalText(habit)}
         </p>
 
         {/* En un teléfono no hay hover: la historia sólo puede entrar acá. En desktop vive en el
             tile y meterla otra vez sería mostrarla dos veces a la vez. */}
-        <div className="md:hidden">
+        <div className="md:hidden rounded-xl bg-muted p-3">
           <HabitHistory habit={habit} state={state} />
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2 rounded-2xl bg-muted p-1.5">
           <Button
             type="button"
-            size="icon-sm"
+            size="icon"
             variant="ghost"
             aria-label="Día anterior"
             disabled={i === 0}
             onClick={() => setI(i - 1)}
+            className="size-10 shrink-0 md:size-10 max-md:size-11"
           >
-            <ChevronLeft />
+            <ChevronLeft className="size-4" />
           </Button>
-          <span className="flex-1 text-center text-sm">
-            {i === TODAY ? "hoy" : FMT.format(day)}
+          <span className="flex-1 text-center">
+            <span className="block text-[15px] font-semibold tracking-tight leading-none">
+              {i === TODAY ? "hoy" : FMT.format(day)}
+            </span>
+            {i !== TODAY && (
+              <span className="block text-[11px] font-normal text-muted-foreground leading-none mt-0.5">
+                {dayKey(day)}
+              </span>
+            )}
           </span>
           {/* No hay "siguiente" desde hoy: el futuro no se corrige. */}
           <Button
             type="button"
-            size="icon-sm"
+            size="icon"
             variant="ghost"
             aria-label="Día siguiente"
             disabled={i === TODAY}
             onClick={() => setI(i + 1)}
+            className="size-10 shrink-0 md:size-10 max-md:size-11"
           >
-            <ChevronRight />
+            <ChevronRight className="size-4" />
           </Button>
         </div>
 
         {/* Un solo control por métrica. `check` no lleva stepper: con dos valores posibles, un
             −/+ es un rodeo para decir sí o no. */}
         {habit.metric === "check" ? (
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <Button
               type="button"
               variant={shown ? "outline" : "default"}
-              className="flex-1"
+              className="h-12 flex-1 rounded-xl text-sm font-medium md:h-11 max-md:h-12"
               onClick={() => write(0)}
             >
               No lo hice
@@ -174,24 +186,25 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
             <Button
               type="button"
               variant={shown ? "default" : "outline"}
-              className="flex-1"
+              className="h-12 flex-1 rounded-xl text-sm font-medium md:h-11 max-md:h-12"
               onClick={() => write(1)}
             >
               Hecho
             </Button>
           </div>
         ) : (
-          // Un solo control, no tres cajas sueltas: −, número y + comparten borde y foco. El
-          // InputGroup ya lo resuelve, y el `−` se apaga en 0 porque no hay valores negativos.
-          <InputGroup className="h-10">
-            <InputGroupAddon align="inline-start">
+          // Ghost del DS: el InputGroup ya pone el borde exterior — un border propio por botón
+          // duplicaba la línea. Compact en desk (max-w 260 centrado), más alto en mobile para thumb.
+          <InputGroup className="h-[60px] w-full rounded-2xl border bg-card shadow-sm md:mx-auto md:h-14 md:max-w-[260px] max-md:h-[64px]">
+            <InputGroupAddon align="inline-start" className="pl-1.5">
               <InputGroupButton
                 size="icon-sm"
                 aria-label="Restar"
                 disabled={shown === 0}
                 onClick={() => write(Math.max(0, shown - step))}
+                className="size-11 md:size-10 max-md:size-11"
               >
-                <Minus />
+                <Minus className="size-5" />
               </InputGroupButton>
             </InputGroupAddon>
             <InputGroupInput
@@ -200,15 +213,17 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
               value={shown}
               onChange={(e) => write(Math.max(0, Number(e.target.value) || 0))}
               aria-label={`Cantidad de ${FMT.format(day)}`}
-              className="text-center text-base tabular-nums"
+              className="text-center text-xl font-semibold tabular-nums tracking-tight md:text-lg max-md:text-xl"
             />
-            <InputGroupAddon align="inline-end">
+            <InputGroupAddon align="inline-end" className="pr-1.5">
               <InputGroupButton
                 size="icon-sm"
+                variant="ghost"
                 aria-label="Sumar"
                 onClick={() => write(shown + step)}
+                className="size-11 md:size-10 max-md:size-11"
               >
-                <Plus />
+                <Plus className="size-5" />
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>
