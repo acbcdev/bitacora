@@ -11,6 +11,7 @@ import {
   deriveHabit,
   goalText,
   meets,
+  parseDay,
   streakText,
   type HabitState,
 } from "@/habits/habits"
@@ -112,30 +113,39 @@ export function HabitTiles() {
     [habits, log],
   )
 
-  // Pausar escribe en el día de HOY: el resto del período ya está en la DB. Es el mismo useSetDay
-  // que el click y el panel — el cronómetro no es un camino de escritura especial.
+  // Pausar escribe en el DÍA DE ATRIBUCIÓN (startedDay): todo el elapsed va al día en que el
+  // timer arrancó, aunque la pausa caiga pasada la medianoche (spec habit-timer-attribution).
+  // La base es la fila de startedDay — no la de hoy ni el total del período.
   const writePause = useCallback(
     (e: Entry, t: Timer) => {
-      const value = pausedValue(e.state.today, t)
-      if (value !== null) setDay.mutate({ habit: e.h, day: todayKey(), value })
+      const base = log.find((r) => r.habit_id === e.h.id && r.day === t.startedDay)?.amount ?? 0
+      const value = pausedValue(base, t)
+      if (value !== null) setDay.mutate({ habit: e.h, day: t.startedDay, value })
     },
-    [setDay],
+    [setDay, log],
   )
 
   const running = entries.find((e) => e.h.id === timer?.habitId)
-  const shown = running && timer ? shownSeconds(running.state.total, timer) : 0
-  const clock = running && timer ? shownClock(running.state.total, timer) : null
+  // El estado que importa es el del DÍA DE ATRIBUCIÓN: ahí cae la escritura y ahí corre el
+  // auto-finish — el período que contiene startedDay, no el de hoy.
+  const startedState = useMemo(
+    () => (running && timer ? deriveHabit(running.h, log, parseDay(timer.startedDay)) : null),
+    [running, timer, log],
+  )
+  const shown = startedState && timer ? shownSeconds(startedState.total, timer) : 0
+  const clock = startedState && timer ? shownClock(startedState.total, timer) : null
   // Termina solo únicamente si fue ESTE cronómetro el que cruzó la meta. Dos guardas:
   //  · sólo un `good` — en un `bad` el target es un TECHO, pasarlo no es "listo", y con techo 0 se
   //    apagaría antes de arrancar;
-  //  · sólo si venías por debajo — dar play cuando ya llegaste al target (estás haciendo de más)
-  //    corría hasta que lo cortás vos, no se auto-corta en el primer render.
-  // Con segundos (0011) no hay round: shown es segundos exactos, se compara directo.
+  //  · sólo si venías por debajo — dar play cuando ya llegaste al target del día de inicio
+  //    (estás haciendo de más) corría hasta que lo cortás vos, no se auto-corta en el primer
+  //    render. La comparación es contra el período de startedDay: 23:59→00:19 corta contra el
+  //    día de ayer, no contra hoy. Con segundos (0011) no hay round: se compara directo.
   const reached =
-    !!running &&
-    running.h.kind === "good" &&
-    running.state.total < running.h.target &&
-    shown >= running.h.target
+    !!startedState &&
+    running!.h.kind === "good" &&
+    startedState.total < running!.h.target &&
+    shown >= running!.h.target
 
   // Llegar a la meta guarda y apaga solo. Depende únicamente de `reached` a propósito: finishTimer
   // limpia el localStorage, así que el efecto se auto-desarma en el render siguiente.

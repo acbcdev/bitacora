@@ -289,7 +289,8 @@ export function dayAt(i: number, now = new Date()) {
 
 // habit_log.day ya es fecha local (ADR 0009): se parsea con las partes explícitas y NO con
 // new Date(day), que lo leería como UTC y a la noche devolvería el día anterior.
-function parseDay(day: string) {
+// Exportado: el Cronómetro necesita la fecha del startedDay para derivar su período.
+export function parseDay(day: string) {
   const [y, m, d] = day.split("-").map(Number)
   return new Date(y, m - 1, d)
 }

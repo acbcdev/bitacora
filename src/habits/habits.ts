@@ -14,6 +14,7 @@ export {
   meets,
   periodKey,
   dayAt,
+  parseDay,
   deriveHabit,
   habitState,
 } from "@/core/store/derive"
