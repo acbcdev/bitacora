@@ -1,3 +1,4 @@
+import { dayKey } from "@/core/lib/day"
 import {
   clearTimer,
   elapsedMinutes,
@@ -73,4 +74,19 @@ test("clearTimer borra la clave", () => {
   startTimer("h1")
   clearTimer()
   expect(readTimer()).toBe(null)
+})
+
+test("startTimer guarda startedDay: el día local en que arrancó", () => {
+  startTimer("h1")
+  // Día de atribución decidido AL ARRANCAR, no al pausar: si cruza medianoche, el atributo
+  // queda congelado al día de inicio.
+  expect(readTimer()!.startedDay).toBe(dayKey(new Date(NOW)))
+})
+
+test("timer viejo sin startedDay lo deriva de startedAt al leer", () => {
+  const startedAt = NOW - SECONDS(300)
+  localStorage.setItem(TIMER_KEY, JSON.stringify({ habitId: "h1", startedAt }))
+
+  const t = readTimer()!
+  expect(t.startedDay).toBe(dayKey(new Date(startedAt)))
 })

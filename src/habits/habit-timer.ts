@@ -1,13 +1,16 @@
 import { useMemo, useSyncExternalStore } from "react"
 import { toast } from "sonner"
+import { dayKey } from "@/core/lib/day"
 
 // Cronómetro de los hábitos `time`: cuenta para ARRIBA desde lo que ya llevás del período.
 // Play sobre 15 minutos sigue en 15 — la base sale de la DB, no de cero.
 //
-// Un solo timer a la vez, con dos campos en localStorage (mismo criterio que pinned-courses.ts:
+// Un solo timer a la vez, con tres campos en localStorage (mismo criterio que pinned-courses.ts:
 // estado de UI vivo, no dato de negocio — el dato entra en habit_log al pausar).
+// startedDay = Día de atribución (CONTEXT.md): TODO el elapsed se acredita al día en que arrancó,
+// aunque la pausa caiga pasada la medianoche. Se congela acá al start, no se recalcula al pausar.
 // ponytail: uno global. Timers paralelos por hábito el día que alguien lea y corra a la vez.
-export type Timer = { habitId: string; startedAt: number }
+export type Timer = { habitId: string; startedAt: number; startedDay: string }
 
 export const TIMER_KEY = "bita-timer"
 
@@ -17,6 +20,7 @@ let audioCtx: AudioContext | null = null
 
 function getAudioCtx(): AudioContext | null {
   if (typeof window === "undefined") return null
+  // SAFETY: browsers sin Web Audio no definen el constructor; webkitAudioContext cubre Safari viejo.
   const Ctx =
     (window as unknown as { AudioContext?: typeof AudioContext }).AudioContext ??
     (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
@@ -34,6 +38,7 @@ function getAudioCtx(): AudioContext | null {
 // en estado cerrado/suspended.
 function fallbackBeep() {
   try {
+    // SAFETY: idem getAudioCtx — mismo par de constructores de Web Audio.
     const Ctx =
       (window as unknown as { AudioContext?: typeof AudioContext }).AudioContext ??
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
@@ -45,7 +50,9 @@ function fallbackBeep() {
         .then(doBeep)
         .catch(() => {})
     else doBeep()
-  } catch {}
+  } catch {
+    // El beep es mejor-effort: si Web Audio no se puede crear no hay nada que loggear.
+  }
 }
 
 function beepWith(ctx: AudioContext) {
@@ -103,12 +110,18 @@ if (typeof document !== "undefined") {
 if (typeof window !== "undefined") {
   // Para QA manual: window.bitaPlaySound() sin esperar 25 min
   // oxlint-disable-next-line no-underscore-dangle -- helper de QA, no API pública
+  // SAFETY: augment de window para QA manual — no existe en ningún type de DOM.
   ;(window as unknown as { bitaPlaySound?: () => void }).bitaPlaySound = playDoneSound
 }
 
 function parse(raw: string | null): Timer | null {
   try {
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const t = JSON.parse(raw) as Timer
+    // Fallback de timers viejos sin startedDay (pre habit-timer-attribution): se deriva de
+    // startedAt en fecha local, igual que lo habría congelado startTimer.
+    t.startedDay ??= dayKey(new Date(t.startedAt))
+    return t
   } catch {
     return null
   }
@@ -141,7 +154,11 @@ export function startTimer(habitId: string) {
   // (que corre segundos/minutos después, fuera de la ventana de "transient activation")
   // quedaría silenciado por la autoplay policy.
   getAudioCtx()
-  localStorage.setItem(TIMER_KEY, JSON.stringify({ habitId, startedAt: Date.now() }))
+  const startedAt = Date.now()
+  localStorage.setItem(
+    TIMER_KEY,
+    JSON.stringify({ habitId, startedAt, startedDay: dayKey(new Date(startedAt)) }),
+  )
   listeners.forEach((l) => l())
 }
 

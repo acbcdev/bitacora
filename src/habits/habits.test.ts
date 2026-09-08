@@ -180,3 +180,47 @@ test("las filas de otros hábitos no entran en el cálculo", () => {
 
   expect(deriveHabit(habit(), rows, NOW).total).toBe(1)
 })
+
+// ── Cross-midnight (Día de atribución, spec habit-timer-attribution) ────────────
+// El Cronómetro acredita TODO el elapsed a startedDay (habit-timer.ts): la derivación sólo
+// tiene que responder bien a "la fila cayó en el día de inicio, no en el de la pausa".
+
+test("timer 23:59→00:19: la fila del día de inicio llena ayer y deja hoy en 0", () => {
+  const h = habit({ metric: "time", target: 20 * 60 })
+  // Arrancó el 19 a las 23:59, pausó el 20 a las 00:19: los 20 min son del 19.
+  const rows = [row("2026-08-19", 20 * 60, 20 * 60)]
+  const now = new Date(2026, 7, 20, 0, 19)
+
+  const s = deriveHabit(h, rows, now)
+  expect(s.today).toBe(0)
+  expect(s.total).toBe(0)
+  // El 19 quedó cumplido: la racha de ayer sigue viva (el 20 aún en curso no corta).
+  expect(s.streak).toBe(1)
+  expect(s.days[12]).toEqual({ amount: 20 * 60, target: 20 * 60 })
+})
+
+test("timer domingo→lunes: todo queda en la semana del domingo, nada se filtra a la nueva", () => {
+  // OJO: acá la semana arranca el LUNES (derive.monday), así que dom 23:59 → lun 00:19 cruza
+  // de semana. La regla del Día de atribución manda igual: todo el elapsed va a la fila del
+  // domingo — la semana del domingo lo suma completo, la del lunes no ve nada del timer.
+  const h = habit({ metric: "time", target: 150 * 60, period: "week" })
+  const rows = [row("2026-08-23", 20 * 60, 150 * 60)] // domingo 23, semana del lun 17
+  const now = new Date(2026, 7, 24, 0, 19) // lunes 00:19
+
+  const s = deriveHabit(h, rows, now)
+  // La semana NUEVA (lunes) empieza en 0: el timer no la toca…
+  expect(s.total).toBe(0)
+  expect(s.days[6]).toEqual({ amount: 0, target: 150 * 60 })
+  // …y la semana CERRADA del domingo se lleva los 20 min completos (sin partir a medianoche).
+  expect(s.days[5]).toEqual({ amount: 20 * 60, target: 150 * 60 })
+})
+
+test("timer dentro de la misma semana: el total semanal incluye el día de inicio y el de hoy", () => {
+  // Caso dom→lun con semanas lunes-primero es un split; el caso same-week real es p.ej.
+  // mié 23:59 → jue 00:19: ambos días en la misma semana, el total no se parte.
+  const h = habit({ metric: "time", target: 150 * 60, period: "week" })
+  const rows = [row("2026-08-19", 20 * 60, 150 * 60), row("2026-08-20", 30 * 60, 150 * 60)]
+  const now = new Date(2026, 7, 20, 0, 19)
+
+  expect(deriveHabit(h, rows, now).total).toBe(50 * 60)
+})
