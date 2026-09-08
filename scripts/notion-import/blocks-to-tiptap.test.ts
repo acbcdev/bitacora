@@ -1,5 +1,6 @@
 import type { RichTextItemResponse } from "@notionhq/client"
 import { blocksToTiptap, type ResolvedBlock } from "./blocks-to-tiptap"
+import type { TiptapNode } from "./tiptap-node"
 
 function rt(text: string): RichTextItemResponse[] {
   return [
@@ -262,9 +263,74 @@ test("columnas sin rich_text propio igual conservan el contenido anidado", () =>
 test("bloque sin equivalente y sin rich_text se descarta", () => {
   const doc = blocksToTiptap([
     block({
-      type: "table",
-      table: { table_width: 2, has_column_header: false, has_row_header: false },
+      type: "column_list",
+      column_list: {},
     }),
   ])
   expect(doc).toEqual([])
+})
+
+// Tablas (spec .scratch/editor-tables): table → nodos table/tableRow/tableHeader+tableCell.
+function cellNode(type: string, text: string): TiptapNode {
+  return {
+    type,
+    content: [{ type: "paragraph", content: text ? [{ type: "text", text }] : [] }],
+  }
+}
+
+test("table de Notion con header se convierte a nodos table", () => {
+  const doc = blocksToTiptap([
+    block(
+      {
+        type: "table",
+        table: { table_width: 2, has_column_header: true, has_row_header: false },
+      },
+      [
+        block({ type: "table_row", table_row: { cells: [rt("Nombre"), rt("Nota")] } }),
+        block({ type: "table_row", table_row: { cells: [rt("ana"), rt("9")] } }),
+      ],
+    ),
+  ])
+  expect(doc).toEqual([
+    {
+      type: "table",
+      content: [
+        {
+          type: "tableRow",
+          content: [cellNode("tableHeader", "Nombre"), cellNode("tableHeader", "Nota")],
+        },
+        { type: "tableRow", content: [cellNode("tableCell", "ana"), cellNode("tableCell", "9")] },
+      ],
+    },
+  ])
+})
+
+test("table sin has_column_header usa tableCell en todas las filas", () => {
+  const doc = blocksToTiptap([
+    block(
+      {
+        type: "table",
+        table: { table_width: 1, has_column_header: false, has_row_header: false },
+      },
+      [block({ type: "table_row", table_row: { cells: [rt("x")] } })],
+    ),
+  ])
+  expect((doc[0] as { content: { content: { type: string }[] }[] }).content[0].content[0].type).toBe(
+    "tableCell",
+  )
+})
+
+test("celda vacía produce paragraph vacío", () => {
+  const doc = blocksToTiptap([
+    block(
+      {
+        type: "table",
+        table: { table_width: 1, has_column_header: false, has_row_header: false },
+      },
+      [block({ type: "table_row", table_row: { cells: [[]] } })],
+    ),
+  ])
+  expect((doc[0] as TiptapNode).content![0].content![0].content).toEqual([
+    { type: "paragraph", content: [] },
+  ])
 })

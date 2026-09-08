@@ -58,6 +58,8 @@ function block(node: Node): string {
         .join("\n")
     case "horizontalRule":
       return "---"
+    case "table":
+      return tableToMarkdown(node)
     default:
       return inline(node.content) // fallback: nodo desconocido → su texto
   }
@@ -65,6 +67,28 @@ function block(node: Node): string {
 
 function blocks(nodes: Node[]): string {
   return nodes.map(block).join("\n\n")
+}
+
+// Texto de una celda (sus bloques, normalmente un paragraph) en una sola línea.
+function cellText(cell: Node, joiner: " " | ""): string {
+  return (cell.content ?? [])
+    .map((b) => (b.type === "paragraph" ? inline(b.content) : (b.text ?? "")))
+    .filter(Boolean)
+    .join(joiner)
+}
+
+// Serializa a GFM. La primera fila siempre sale como header — es como entran las tablas por
+// paste/import; una tabla sin header se pierde el matiz, no el contenido.
+function tableToMarkdown(table: Node): string {
+  const rows = (table.content ?? []).map((row) => (row.content ?? []).map((c) => cellText(c, " ")))
+  const cols = Math.max(...rows.map((r) => r.length), 1)
+  const line = (cells: string[]) => `| ${cells.map((c) => c.replace(/\|/g, "\\|")).join(" | ")} |`
+  const pad = (cells: string[]) => Array.from({ length: cols }, (_, i) => cells[i] ?? "")
+  return [
+    line(pad(rows[0] ?? [])),
+    `| ${Array(cols).fill("---").join(" | ")} |`,
+    ...rows.slice(1).map((r) => line(pad(r))),
+  ].join("\n")
 }
 
 export function docToMarkdown(doc: TiptapDoc): string {
@@ -84,6 +108,15 @@ function plainBlock(node: Node): string {
       return (node.content ?? []).map((item) => plainBlocks(item.content ?? [])).join(" ")
     case "blockquote":
       return plainBlocks(node.content ?? [])
+    case "table":
+      return (node.content ?? [])
+        .map((row) =>
+          (row.content ?? [])
+            .map((c) => plainBlocks(c.content ?? []))
+            .filter(Boolean)
+            .join(" "),
+        )
+        .join(" ")
     default:
       return plainInline(node.content)
   }
@@ -136,6 +169,41 @@ const ORDERED_RE = /^\d+\.\s+/
 const SPECIAL_LINE_RE = new RegExp(
   [FENCE_RE, HEADING_RE, HR_RE, QUOTE_RE, BULLET_RE, ORDERED_RE].map((r) => r.source).join("|"),
 )
+
+// Tabla GFM: fila de celdas con `|` seguida de una fila separadora (solo `-`, `:` y pipes).
+const DELIM_RE = /^[\s:|-]+$/
+
+function isDelimiter(line: string): boolean {
+  return line.includes("-") && DELIM_RE.test(line)
+}
+
+// Parte una fila en celdas: respeta pipes escapados (`\|`) y trims los bordes.
+function splitRow(line: string): string[] {
+  let s = line.trim()
+  if (s.startsWith("|")) s = s.slice(1)
+  if (s.endsWith("|") && !s.endsWith("\\|")) s = s.slice(0, -1)
+  return s.split(/(?<!\\)\|/).map((c) => c.trim().replaceAll("\\|", "|"))
+}
+
+function tableRow(cells: string[], cols: number, header: boolean): Node {
+  const padded = Array.from({ length: cols }, (_, i) => cells[i] ?? "")
+  return {
+    type: "tableRow",
+    content: padded.map((text) => ({
+      type: header ? "tableHeader" : "tableCell",
+      content: [{ type: "paragraph", content: parseInline(text) }],
+    })),
+  }
+}
+
+function parseTable(lines: string[], i: number): [Node, number] {
+  const cols = splitRow(lines[i + 1]).length // el separador define el ancho
+  const rows: Node[] = [tableRow(splitRow(lines[i]), cols, true)]
+  i += 2 // header + separador
+  while (i < lines.length && lines[i].includes("|"))
+    rows.push(tableRow(splitRow(lines[i++]), cols, false))
+  return [{ type: "table", content: rows }, i]
+}
 
 function listItems(lines: string[], start: number, itemRe: RegExp): [Node[], number] {
   const items: Node[] = []
@@ -213,6 +281,13 @@ function parseBlocks(text: string): Node[] {
     if (ORDERED_RE.test(line)) {
       const [items, next] = listItems(lines, i, ORDERED_RE)
       result.push({ type: "orderedList", content: items })
+      i = next
+      continue
+    }
+
+    if (line.includes("|") && i + 1 < lines.length && isDelimiter(lines[i + 1])) {
+      const [table, next] = parseTable(lines, i)
+      result.push(table)
       i = next
       continue
     }

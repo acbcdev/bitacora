@@ -5,6 +5,7 @@ import type { Content } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Image from "@tiptap/extension-image"
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
+import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table"
 import { createLowlight, common } from "lowlight"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import type { TiptapDoc } from "@/core/types/database"
@@ -86,7 +87,6 @@ export function Editor({
   onPaste?: (text: string) => string
   ref?: Ref<EditorHandle>
 }) {
-  const lastEscape = useRef(0)
   const host = useRef<HTMLDivElement>(null)
   // Señal de rescaneo para el Outline: sube en cada cambio de contenido.
   const [version, setVersion] = useState(0)
@@ -103,7 +103,25 @@ export function Editor({
   )
 
   const editor = useEditor({
-    extensions: [StarterKit.configure({ codeBlock: false }), CodeBlock, ResizableImage],
+    // Tablas (spec .scratch/editor-tables): solo render + edición de texto de celdas. resizable
+    // false = sin handles ni columnGroup attrs; no hay toolbar de tabla — el contenido entra por
+    // paste Markdown o import Notion.
+    extensions: [
+      StarterKit.configure({ codeBlock: false }),
+      CodeBlock,
+      ResizableImage,
+      // Scroll horizontal (story 3): la clase va en el tag table via HTMLAttributes — sin wrapper
+      // DOM extra. td/th/padding/borders viven en index.css (.tiptap-host .ProseMirror th/td).
+      Table.configure({
+        resizable: false,
+        HTMLAttributes: {
+          class: "my-4 block w-max max-w-full overflow-x-auto border-collapse text-sm",
+        },
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
+    ],
     content: content as Content,
     editable,
     onUpdate: ({ editor: updated }) => {
@@ -140,15 +158,10 @@ export function Editor({
         }
         return false
       },
-      // Doble Esc (dentro de 500ms) saca el foco del editor. El primero se deja pasar para que
-      // siga cerrando lo que haya abierto encima (select del code block, dialog, focus mode).
+      // Un solo Esc saca el foco del editor.
       handleKeyDown(view, event) {
         if (lbOpenRef.current) return false
         if (event.key !== "Escape") return false
-
-        const double = Date.now() - lastEscape.current < 500
-        lastEscape.current = double ? 0 : Date.now()
-        if (!double) return false
 
         view.dom.blur()
         return true

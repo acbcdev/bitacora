@@ -7,6 +7,8 @@ import type { TiptapNode } from "./tiptap-node"
 export type ResolvedBlock = BlockObjectResponse & { children: ResolvedBlock[] }
 
 function extractRichText(b: ResolvedBlock): RichTextItemResponse[] | null {
+  // SAFETY: el discriminante b.type no existe en el payload y todos los bloques con rich_text
+  // (paragraph, heading_*, code, to_do, callout...) lo exponen como b[type].rich_text.
   const payload = (b as unknown as Record<string, unknown>)[b.type]
   if (payload && typeof payload === "object" && "rich_text" in payload) {
     return (payload as { rich_text: RichTextItemResponse[] }).rich_text
@@ -90,6 +92,19 @@ function blockToNode(b: ResolvedBlock): TiptapNode | null {
     case "image": {
       const src = b.image.type === "external" ? b.image.external.url : b.image.file.url
       return { type: "image", attrs: { src } }
+    }
+    case "table": {
+      const rows = b.children
+        .filter((c) => c.type === "table_row")
+        .map((c, rowIndex) => ({
+          type: "tableRow",
+          content: c.table_row.cells.map((cell) => ({
+            // has_column_header: la primera fila se marca con th al renderizar.
+            type: rowIndex === 0 && b.table.has_column_header ? "tableHeader" : "tableCell",
+            content: [{ type: "paragraph", content: richTextToInline(cell) }],
+          })),
+        }))
+      return rows.length ? { type: "table", content: rows } : null
     }
     default:
       return null
