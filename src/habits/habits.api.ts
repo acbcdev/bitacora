@@ -40,6 +40,8 @@ export function useSetDay() {
       // El onMutate ya resolvió el delta contra el cache: la fila que persistimos es LA MISMA que
       // dejó el optimismo. Recalcular acá contaría el delta dos veces (mutate → onMutate → fn). Si
       // el cache estaba vacío, onMutate no escribió nada y se resuelve pelado.
+      // El target congelado lo resuelve `derive.frozenTarget`, una sola vez y del lado de acá:
+      // el adapter escribe lo que le dan (ADR 0009).
       const log = qc.getQueryData<Snapshot>(SNAPSHOT_KEY)?.habitLog ?? []
       const prev = log.find((r) => r.habit_id === habit.id && r.day === day)
       return store.save("habit_log", {
