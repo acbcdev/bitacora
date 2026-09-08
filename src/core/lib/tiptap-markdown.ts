@@ -70,24 +70,23 @@ function blocks(nodes: Node[]): string {
 }
 
 // Texto de una celda (sus bloques, normalmente un paragraph) en una sola línea.
-function cellText(cell: Node, joiner: " " | ""): string {
+function cellText(cell: Node): string {
   return (cell.content ?? [])
     .map((b) => (b.type === "paragraph" ? inline(b.content) : (b.text ?? "")))
     .filter(Boolean)
-    .join(joiner)
+    .join(" ")
 }
 
 // Serializa a GFM. La primera fila siempre sale como header — es como entran las tablas por
 // paste/import; una tabla sin header se pierde el matiz, no el contenido.
 function tableToMarkdown(table: Node): string {
-  const rows = (table.content ?? []).map((row) => (row.content ?? []).map((c) => cellText(c, " ")))
+  const rows = (table.content ?? []).map((row) => (row.content ?? []).map(cellText))
   const cols = Math.max(...rows.map((r) => r.length), 1)
   const line = (cells: string[]) => `| ${cells.map((c) => c.replace(/\|/g, "\\|")).join(" | ")} |`
-  const pad = (cells: string[]) => Array.from({ length: cols }, (_, i) => cells[i] ?? "")
   return [
-    line(pad(rows[0] ?? [])),
+    line(padRow(rows[0] ?? [], cols)),
     `| ${Array(cols).fill("---").join(" | ")} |`,
-    ...rows.slice(1).map((r) => line(pad(r))),
+    ...rows.slice(1).map((r) => line(padRow(r, cols))),
   ].join("\n")
 }
 
@@ -108,15 +107,12 @@ function plainBlock(node: Node): string {
       return (node.content ?? []).map((item) => plainBlocks(item.content ?? [])).join(" ")
     case "blockquote":
       return plainBlocks(node.content ?? [])
+    // table/tableRow/tableHeader/tableCell se aplanan igual: cada nivel delega a plainBlocks.
     case "table":
-      return (node.content ?? [])
-        .map((row) =>
-          (row.content ?? [])
-            .map((c) => plainBlocks(c.content ?? []))
-            .filter(Boolean)
-            .join(" "),
-        )
-        .join(" ")
+    case "tableRow":
+    case "tableHeader":
+    case "tableCell":
+      return plainBlocks(node.content ?? [])
     default:
       return plainInline(node.content)
   }
@@ -185,11 +181,15 @@ function splitRow(line: string): string[] {
   return s.split(/(?<!\\)\|/).map((c) => c.trim().replaceAll("\\|", "|"))
 }
 
+// Pad/trunca una fila al ancho de la tabla — la misma regla en parse y serialize (round-trip).
+function padRow(cells: string[], cols: number): string[] {
+  return Array.from({ length: cols }, (_, i) => cells[i] ?? "")
+}
+
 function tableRow(cells: string[], cols: number, header: boolean): Node {
-  const padded = Array.from({ length: cols }, (_, i) => cells[i] ?? "")
   return {
     type: "tableRow",
-    content: padded.map((text) => ({
+    content: padRow(cells, cols).map((text) => ({
       type: header ? "tableHeader" : "tableCell",
       content: [{ type: "paragraph", content: parseInline(text) }],
     })),
@@ -200,7 +200,9 @@ function parseTable(lines: string[], i: number): [Node, number] {
   const cols = splitRow(lines[i + 1]).length // el separador define el ancho
   const rows: Node[] = [tableRow(splitRow(lines[i]), cols, true)]
   i += 2 // header + separador
-  while (i < lines.length && lines[i].includes("|"))
+  // Como GFM: la tabla termina ante una línea en blanco o el arranque de otro bloque (heading,
+  // lista, quote, fence...) aunque traiga un pipe.
+  while (i < lines.length && lines[i].includes("|") && !SPECIAL_LINE_RE.test(lines[i]))
     rows.push(tableRow(splitRow(lines[i++]), cols, false))
   return [{ type: "table", content: rows }, i]
 }
@@ -285,7 +287,14 @@ function parseBlocks(text: string): Node[] {
       continue
     }
 
-    if (line.includes("|") && i + 1 < lines.length && isDelimiter(lines[i + 1])) {
+    // Tabla GFM: header con pipes + fila separadora con LA MISMA cantidad de celdas (sin el match
+    // de ancho, "Resumen | notas" seguido de un --- de HR se comería el texto como tabla).
+    if (
+      line.includes("|") &&
+      i + 1 < lines.length &&
+      isDelimiter(lines[i + 1]) &&
+      splitRow(lines[i]).length === splitRow(lines[i + 1]).length
+    ) {
       const [table, next] = parseTable(lines, i)
       result.push(table)
       i = next

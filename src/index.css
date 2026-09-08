@@ -343,8 +343,6 @@
 .tiptap-host .ProseMirror img {
   @apply mx-auto my-6 block max-w-full cursor-zoom-in rounded-lg transition-opacity hover:opacity-90;
 }
-/* Tablas (spec .scratch/editor-tables): display block + overflow-x auto en la tabla misma —
-   sin wrapper DOM extra. Una tabla más ancha que el contenedor hace scroll horizontal en mobile. */
 /* Tablas (spec .scratch/editor-tables): scroll horizontal + ancho van como clases Tailwind en el
    tag table (renderHTML en editor.tsx). Acá solo celdas. */
 .tiptap-host .ProseMirror th {

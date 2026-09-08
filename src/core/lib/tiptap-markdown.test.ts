@@ -223,6 +223,27 @@ test("párrafo con pipes sin línea separadora no es tabla", () => {
   })
 })
 
+// GFM exige que el separador tenga la misma cantidad de celdas que el header: "texto | con
+// pipes" seguido de un --- de horizontal rule no debe comerse el texto como tabla.
+test("texto con pipes + HR de un guion no es tabla", () => {
+  expect(markdownToDoc("Resumen | notas\n---\ncuerpo")).toEqual({
+    type: "doc",
+    content: [
+      { type: "paragraph", content: [{ type: "text", text: "Resumen | notas" }] },
+      { type: "horizontalRule" },
+      { type: "paragraph", content: [{ type: "text", text: "cuerpo" }] },
+    ],
+  })
+})
+
+// Como GFM: la tabla termina ante otro bloque (heading con pipe incluido), no lo consume.
+test("heading con pipe después de la tabla no se come como fila", () => {
+  const doc = markdownToDoc("| a | b |\n|---|---|\n|1|2|\n# Título | notas")
+  const nodes = doc.content as TestNode[]
+  expect(nodes.map((n) => n.type)).toEqual(["table", "heading"])
+  expect(nodes[1].content![0].text).toBe("Título | notas")
+})
+
 test("tabla sin filas de datos (solo header) se parsea igual", () => {
   const doc = markdownToDoc("| a |\n|---|")
   const table = doc.content![0] as { type: string; content?: unknown[] }
