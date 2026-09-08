@@ -137,7 +137,7 @@ test("habits.days es recordatorio: el mismo log da idéntico resultado con y sin
   expect(con).toEqual(sin)
 })
 
-test("days son 14 posiciones, de hace 13 días a hoy, con amount y target de cada fila", () => {
+test("la serie diaria son 14 celdas, de hace 13 días a hoy, con amount y target de cada fila", () => {
   const h = habit({ metric: "time", target: 25 * 60 })
   const rows = [
     row("2026-08-20", 10 * 60, 25 * 60),
@@ -145,12 +145,34 @@ test("days son 14 posiciones, de hace 13 días a hoy, con amount y target de cad
     row("2026-07-30", 99 * 60, 25 * 60),
   ]
 
-  const { days } = deriveHabit(h, rows, NOW)
+  const { days, today } = deriveHabit(h, rows, NOW)
   expect(days).toHaveLength(14)
   expect(days[13]).toEqual({ amount: 10 * 60, target: 25 * 60 })
   expect(days[0]).toEqual({ amount: 40 * 60, target: 15 * 60 }) // el target viejo, no el vivo
   // Un día sin fila no tiene target congelado: cae en el actual del hábito.
   expect(days[1]).toEqual({ amount: 0, target: 25 * 60 })
+  // `today` es el amount del DÍA, no el total del período: el toggle y el cronómetro escriben hoy.
+  expect(today).toBe(10 * 60)
+})
+
+test("la serie semanal son 7 celdas con el total y target congelado de cada semana (ADR 0013)", () => {
+  const h = habit({ target: 3, period: "week", created_at: "2026-06-01T12:00:00Z" })
+  const rows = [
+    row("2026-08-17", 1, 3), // semana actual: 1 de 3
+    row("2026-08-10", 2, 3), // semana pasada: 2, target viejo 5 (congelado en la fila)
+    row("2026-08-12", 1, 5),
+  ]
+
+  const { days } = deriveHabit(h, rows, NOW)
+  expect(days).toHaveLength(7)
+  expect(days[6]).toEqual({ amount: 1, target: 3 }) // actual, contra la meta viva
+  expect(days[5]).toEqual({ amount: 3, target: 5 }) // cerrada, contra el congelado
+  expect(days[0]).toEqual({ amount: 0, target: 3 }) // sin filas: 0 con el target vivo
+})
+
+test("la serie mensual son 6 celdas", () => {
+  const h = habit({ target: 3, period: "month", created_at: "2025-01-01T12:00:00Z" })
+  expect(deriveHabit(h, [], NOW).days).toHaveLength(6)
 })
 
 test("las filas de otros hábitos no entran en el cálculo", () => {

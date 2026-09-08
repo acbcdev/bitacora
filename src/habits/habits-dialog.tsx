@@ -24,7 +24,7 @@ import { Input } from "@/core/ui/input"
 import { cn } from "@/core/lib/utils"
 import { CourseIcon } from "@/courses/course-icon"
 import { IconPicker } from "@/courses/icon-picker"
-import { deriveHabit, goalText } from "@/habits/habits"
+import { deriveHabit, goalText, streakText } from "@/habits/habits"
 import { HabitHistory } from "@/habits/habit-panel"
 import { useArchiveHabit, useHabitLog, useHabits, useSaveHabit } from "@/habits/habits.api"
 import type { Habit, HabitMetric, HabitPeriod } from "@/core/types/database"
@@ -122,7 +122,7 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
                       {state.streak >= 2 && (
                         <span className="mono-dim inline-flex items-center gap-0.5 text-[10px]">
                           <Flame size={10} />
-                          {state.streak}
+                          {streakText(h, state.streak)}
                         </span>
                       )}
                     </div>

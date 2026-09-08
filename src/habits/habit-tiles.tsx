@@ -5,7 +5,15 @@ import { CourseIcon } from "@/courses/course-icon"
 import { todayKey } from "@/core/lib/day"
 import { cn } from "@/core/lib/utils"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
-import { deriveHabit, goalText, meets, TRACKED_DAYS, type HabitState } from "@/habits/habits"
+import {
+  cellColor,
+  cellPct,
+  deriveHabit,
+  goalText,
+  meets,
+  streakText,
+  type HabitState,
+} from "@/habits/habits"
 import { useHabitLog, useHabits, useSetDay } from "@/habits/habits.api"
 import { HabitPanel } from "@/habits/habit-panel"
 import { HabitsDialog } from "@/habits/habits-dialog"
@@ -23,8 +31,6 @@ import type { Habit, HabitMetric } from "@/core/types/database"
 
 // La tira de hábitos de la pantalla Hoy. Sin pantalla nueva (ui-principles): vive entre el card de
 // repaso y la lista de Cursos, que es donde el usuario ya entra 2–3 veces por día.
-
-const TODAY = TRACKED_DAYS - 1
 
 type Entry = { h: Habit; state: HabitState }
 
@@ -83,10 +89,7 @@ const LABEL: Record<HabitMetric, (h: Habit, t: number, r: Run) => ReactNode> = {
 // Va SÓLIDA. Antes esto era un relleno de fondo rebajado al 30% contra --card… en un tile que nunca
 // pintaba --card: se mezclaba contra un color que no estaba abajo y quedaba casi invisible. En 3px
 // no hay texto encima que proteger, así que no hay nada que rebajar.
-function barColor(kind: Habit["kind"], pct: number) {
-  const done = Math.round(kind === "good" ? pct : 100 - pct)
-  return `color-mix(in oklab, var(--brand) ${done}%, var(--destructive))`
-}
+// pct de la celda ya viene listo; la mezcla es la misma del dot (ADR 0013).
 
 export function HabitTiles() {
   const { data: habits = [] } = useHabits()
@@ -113,7 +116,7 @@ export function HabitTiles() {
   // que el click y el panel — el cronómetro no es un camino de escritura especial.
   const writePause = useCallback(
     (e: Entry, t: Timer) => {
-      const value = pausedValue(e.state.days[TODAY].amount, t)
+      const value = pausedValue(e.state.today, t)
       if (value !== null) setDay.mutate({ habit: e.h, day: todayKey(), value })
     },
     [setDay],
@@ -156,7 +159,7 @@ export function HabitTiles() {
         if (other && timer) writePause(other, timer)
         return startTimer(e.h.id)
       }
-      const today = e.state.days[TODAY].amount
+      const today = e.state.today
       // check = toggle, count = +1. Los dos son el mismo upsert, no mecanismos aparte.
       const value = e.h.metric === "check" ? (today ? 0 : 1) : today + 1
       setDay.mutate({ habit: e.h, day: todayKey(), value })
@@ -281,7 +284,7 @@ function HabitTile({
     >
       <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px] bg-muted">
         <span
-          style={{ width: `${pct}%`, backgroundColor: barColor(h.kind, pct) }}
+          style={{ width: `${pct}%`, backgroundColor: cellColor(h.kind, pct) }}
           className="block h-full transition-[width,background-color] duration-300"
         />
       </span>
@@ -335,28 +338,22 @@ function HabitTile({
           {state.streak >= 2 && (
             <span className="inline-flex items-center gap-1 text-[10px] tabular-nums">
               <Flame size={10} />
-              {state.streak}
+              {streakText(h, state.streak)}
             </span>
           )}
         </span>
-        {/* Dots 7d siempre visibles — sin tooltip escondido */}
+        {/* Dots 7d — color por pct de la celda, cero = rojo pleno (ADR 0013) */}
         <span className="flex gap-[3px] pt-0.5" aria-hidden>
           {dots.map((cell, idx) => {
             const isToday = idx === dots.length - 1
-            const on = cell.amount > 0
-            const bg = !on ? undefined : h.kind === "bad" ? "var(--destructive)" : "var(--brand)"
             return (
               <i
                 key={idx}
                 style={{
-                  backgroundColor: bg,
+                  backgroundColor: cellColor(h.kind, cellPct(cell)),
                   boxShadow: isToday ? "0 0 0 1px var(--brand)" : undefined,
                 }}
-                className={cn(
-                  "h-[5px] flex-1 rounded-full",
-                  !on && "bg-muted",
-                  isToday && "ring-1 ring-brand",
-                )}
+                className={cn("h-[5px] flex-1 rounded-full", isToday && "ring-1 ring-brand")}
               />
             )
           })}
@@ -364,7 +361,9 @@ function HabitTile({
       </span>
 
       <span className="flex shrink-0 items-center gap-1.5">
-        <HabitPanel habit={h} state={state} />
+        {/* Corregir días pasados sólo existe en hábitos diarios: la escritura es una fila por día,
+            y repartir un total semanal/mensual en días es lo que ADR 0009 no quiere (ADR 0013). */}
+        {h.period === "day" && <HabitPanel habit={h} state={state} />}
         <Button
           type="button"
           size="icon-lg"
@@ -391,7 +390,7 @@ function HabitTile({
           ) : total > 0 ? (
             <Check className="size-3.5" strokeWidth={3} />
           ) : (
-            <span className="size-2 rounded-full border-2 border-current opacity-60" />
+            <span className="size-3.5 rounded-full border-2 border-current opacity-60" />
           )}
         </Button>
       </span>

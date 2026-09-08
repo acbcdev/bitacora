@@ -263,19 +263,27 @@ export function frozenTarget(
 // ── Hábitos ──────────────────────────────────────────────────────────────
 
 export type DayCell = { amount: number; target: number }
-export type HabitState = { total: number; met: boolean; streak: number; days: DayCell[] }
+export type HabitState = {
+  total: number
+  today: number
+  met: boolean
+  streak: number
+  days: DayCell[]
+}
 
-// Ventana fija del panel. Más atrás es un calendario, que es otra UI (spec: Out of Scope).
-export const TRACKED_DAYS = 14
+// Ventana de la serie por período (dots del tile + panel): celdas del período del hábito
+// (ADR 0013). Más atrás es un calendario, que es otra UI (spec: Out of Scope).
+export const SERIES: Record<HabitPeriod, number> = { day: 14, week: 7, month: 6 }
 
 // good = piso (llegar al target), bad = techo (no pasarlo). Mismo cálculo, signo distinto.
 export const meets = (kind: HabitKind, total: number, target: number) =>
   kind === "good" ? total >= target : total <= target
 
-// La fecha del índice `i` de la serie de 14 (13 = hoy).
+// La fecha del índice `i` de la serie DIARIA (13 = hoy). Sólo la usa el panel de hábitos
+// diarios — la corrección de días pasados no existe para semana/mes (ADR 0013).
 export function dayAt(i: number, now = new Date()) {
   const d = new Date(now)
-  d.setDate(d.getDate() - (TRACKED_DAYS - 1 - i))
+  d.setDate(d.getDate() - (SERIES.day - 1 - i))
   return d
 }
 
@@ -367,18 +375,30 @@ export function deriveHabit(habit: Habit, rows: HabitLogRow[], now = new Date())
     stepBack[habit.period](cursor)
   }
 
-  // Serie de los últimos 14 días (0 = hace 13 días, 13 = hoy). Sale del mismo array de filas: cero
-  // queries extra. Un día sin fila no tiene target congelado — cae en el actual del hábito.
+  // Serie en el período del hábito (ADR 0013): N celdas caminando períodos hacia atrás con las
+  // mismas primitivas de la racha. Celda cerrada contra el target congelado de sus filas, la
+  // actual contra la meta viva. Un período sin filas es 0 con el target vivo — el pct manda.
   const days: DayCell[] = []
-  const cursorDay = new Date(now)
-  cursorDay.setDate(cursorDay.getDate() - (TRACKED_DAYS - 1))
-  for (let i = 0; i < TRACKED_DAYS; i++) {
-    const r = byDay.get(dayKey(cursorDay))
-    days.push({ amount: r?.amount ?? 0, target: r?.target ?? habit.target })
-    cursorDay.setDate(cursorDay.getDate() + 1)
+  const serieCursor = new Date(now)
+  for (let i = 0; i < SERIES[habit.period]; i++) {
+    const key = periodKey(serieCursor, habit.period)
+    const p = periods.get(key)
+    days.unshift({
+      amount: p?.total ?? 0,
+      target: key === currentKey ? habit.target : (p?.target ?? habit.target),
+    })
+    stepBack[habit.period](serieCursor)
   }
 
-  return { total: periods.get(currentKey)?.total ?? 0, met, streak, days }
+  return {
+    total: periods.get(currentKey)?.total ?? 0,
+    // amount de HOY (día), no del período: el toggle del tile y el cronómetro escriben la fila
+    // de hoy — sumarle el total de la semana le pisaría los días anteriores.
+    today: byDay.get(dayKey(now))?.amount ?? 0,
+    met,
+    streak,
+    days,
+  }
 }
 
 // Snapshot → HabitState. Un habit, un lugar: la firma es Snapshot como el resto de derive.

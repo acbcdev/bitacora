@@ -10,18 +10,20 @@ import {
 } from "@/core/ui/input-group"
 import { dayKey } from "@/core/lib/day"
 import { cn } from "@/core/lib/utils"
-import { dayAt, goalText, TRACKED_DAYS, type DayCell, type HabitState } from "@/habits/habits"
+import { SERIES, cellColor, cellPct, dayAt, goalText, type HabitState } from "@/habits/habits"
 import { useSetDay } from "@/habits/habits.api"
-import type { Habit, HabitMetric } from "@/core/types/database"
+import type { Habit, HabitMetric, HabitPeriod } from "@/core/types/database"
 
 // Dos gestos distintos, dos superficies distintas:
-//  · MIRAR los 14 días → hover del tile (HabitHistory, sólo lectura).
-//  · CORREGIR un día   → el `⌄` (HabitPanel).
+//  · MIRAR la serie   → hover/historia (HabitHistory, sólo lectura). En semana/mes la serie es de
+//    períodos (ADR 0013); la corrección de días pasados no existe ahí — sólo el botón + de hoy.
+//  · CORREGIR un día  → el `⌄` (HabitPanel). Sólo hábitos diarios: la escritura es una fila por
+//    día (ADR 0009) y repartir un total semanal/mensual en días es el algoritmo que mató.
 // Estaban juntos y por eso el popover tenía cuatro bloques y tres formas de escribir el mismo
 // número. La grilla clickeable era lo único que obligaba a un Dropover en vez de un Tooltip; ahora
 // que es de sólo lectura, el hover puede ser un Tooltip pelado.
 
-const TODAY = TRACKED_DAYS - 1
+const TODAY = SERIES.day - 1
 
 // Cuánto mueve el `+`. En `time` de a 5: nadie corrige minutos de a uno.
 // El STEP sigue en minutos de display; toStorage lo pasa a segundos.
@@ -29,27 +31,15 @@ const STEP: Record<HabitMetric, number> = { check: 1, count: 1, time: 5 }
 
 const FMT = new Intl.DateTimeFormat("es", { weekday: "short", day: "numeric", month: "short" })
 
-// Un día no es sí/no: el color sale de la fracción hecha. Meta 25 min y 10 hechos = verde flojo.
-// El target sale de LA CELDA (el congelado de esa fila), no de habits.target: un día viejo se
-// pinta contra la meta que regía entonces (ADR 0009).
-// ponytail: mezclar contra --muted (no transparent) hace que la escala se dé vuelta sola entre
-// tema claro y oscuro, sin una paleta por tema. El piso de 25% existe para que "hice algo" nunca
-// se vea igual que "no hice nada".
-function dayColor(h: Habit, cell: DayCell) {
-  if (cell.amount === 0) return undefined // el cero es el paso más apagado, lo pone la clase
-  const perDay =
-    h.period === "day" ? cell.target : h.period === "week" ? cell.target / 7 : cell.target / 30
-  const ratio = Math.min(1, cell.amount / Math.max(perDay, 1))
-  const color = h.kind === "good" ? "var(--brand)" : "var(--destructive)"
-  return `color-mix(in oklab, ${color} ${Math.round(25 + ratio * 75)}%, var(--muted))`
-}
+const PERIOD_NOUN: Record<HabitPeriod, string> = { day: "días", week: "semanas", month: "meses" }
 
-// Los 14 días, a lo GitHub. Sin clicks: es un resumen, no un control.
+// La serie de períodos, a lo GitHub. Sin clicks: es un resumen, no un control. Color por pct de
+// la celda — la misma mezcla del dot y la barra del tile (ADR 0013), cero = rojo pleno.
 export function HabitHistory({ habit, state }: { habit: Habit; state: HabitState }) {
   return (
     <div
       role="img"
-      aria-label={`Últimos ${TRACKED_DAYS} días de ${habit.name}: ${state.days
+      aria-label={`${habit.period === "week" ? "Últimas" : "Últimos"} ${state.days.length} ${PERIOD_NOUN[habit.period]} de ${habit.name}: ${state.days
         .map((c) => c.amount)
         .join(", ")}`}
       className="flex gap-1"
@@ -57,13 +47,10 @@ export function HabitHistory({ habit, state }: { habit: Habit; state: HabitState
       {state.days.map((cell, n) => (
         <span
           key={n}
-          style={{ backgroundColor: dayColor(habit, cell) }}
+          style={{ backgroundColor: cellColor(habit.kind, cellPct(cell)) }}
           className={cn(
             "h-7 w-3.5 rounded-[3px]",
-            // Sólo el día en cero usa clase: al resto lo pinta color-mix por fracción. En un
-            // `bad` la escala va al revés — el día limpio es el verde.
-            cell.amount === 0 && (habit.kind === "good" ? "bg-muted" : "bg-brand/40"),
-            n === TODAY && "ring-2 ring-brand ring-offset-2 ring-offset-background",
+            n === state.days.length - 1 && "ring-2 ring-brand ring-offset-2 ring-offset-background",
           )}
         />
       ))}
@@ -123,7 +110,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
 
       <DropoverContent
         title={habit.name}
-        className="flex flex-col gap-5 rounded-2xl p-5 shadow-xl md:w-[368px] md:gap-5 md:p-6 max-md:rounded-t-[20px] max-md:px-5 max-md:pb-10 max-md:pt-3"
+        className="flex flex-col gap-5 rounded-2xl p-5 shadow-xl md:w-92 md:gap-5 md:p-6 max-md:rounded-t-[20px] max-md:px-5 max-md:pb-10 max-md:pt-3"
       >
         <p className="eyebrow leading-none">
           {habit.name} · {goalText(habit)}
@@ -195,7 +182,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
         ) : (
           // Ghost del DS: el InputGroup ya pone el borde exterior — un border propio por botón
           // duplicaba la línea. Compact en desk (max-w 260 centrado), más alto en mobile para thumb.
-          <InputGroup className="h-[60px] w-full rounded-2xl border bg-card shadow-sm md:mx-auto md:h-14 md:max-w-[260px] max-md:h-[64px]">
+          <InputGroup className="h-15 w-full rounded-2xl border bg-card shadow-sm md:mx-auto md:h-14 md:max-w-[260px] max-md:h-[64px]">
             <InputGroupAddon align="inline-start" className="pl-1.5">
               <InputGroupButton
                 size="icon-sm"
