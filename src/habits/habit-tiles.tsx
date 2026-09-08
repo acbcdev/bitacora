@@ -160,9 +160,14 @@ export function HabitTiles() {
         return startTimer(e.h.id)
       }
       const today = e.state.today
-      // check = toggle, count = +1. Los dos son el mismo upsert, no mecanismos aparte.
-      const value = e.h.metric === "check" ? (today ? 0 : 1) : today + 1
-      setDay.mutate({ habit: e.h, day: todayKey(), value })
+      // check = toggle (set absoluto 0/1); count = +1 relativo: el onMutate lo aplica sobre el
+      // cache más fresco, así dos taps rápidos antes del repaint suman 2 aunque `today` (de la
+      // render) esté viejo. Un solo mecanismo de escritura, no dos.
+      if (e.h.metric === "check") {
+        setDay.mutate({ habit: e.h, day: todayKey(), value: today ? 0 : 1 })
+      } else {
+        setDay.mutate({ habit: e.h, day: todayKey(), delta: 1 })
+      }
     },
     [entries, timer, setDay, writePause],
   )
@@ -222,6 +227,7 @@ export function HabitTiles() {
             total={running?.h.id === e.h.id ? shown : e.state.total}
             running={running?.h.id === e.h.id}
             clock={running?.h.id === e.h.id ? clock : null}
+            pending={setDay.isPending}
             onQuick={() => quick(e)}
           />
         ))}
@@ -256,12 +262,14 @@ function HabitTile({
   total,
   running,
   clock,
+  pending,
   onQuick,
 }: {
   e: Entry
   total: number
   running: boolean
   clock: string | null
+  pending: boolean
   onQuick: () => void
 }) {
   const met = meets(h.kind, total, h.target)
@@ -377,6 +385,9 @@ function HabitTile({
             isActive
               ? "bg-brand text-brand-foreground hover:bg-brand"
               : "bg-brand-soft text-brand-fg hover:bg-brand-soft hover:brightness-110",
+            // Hint visual de guardado, NO guard duro: disabled bloquearía el tap siguiente y el
+            // onMutate ya serializa los taps encolados (ui-principles 4).
+            pending && "opacity-60",
           )}
         >
           {h.metric === "time" ? (

@@ -81,6 +81,9 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
   // acá — no volver al borrador.
   const write = (value: number) =>
     setDay.mutate({ habit, day: dayKey(day), value: toStorage(value) })
+  // +/− relativos al cache (mismo onMutate que el tile): taps rápidos del stepper no se pisan
+  // aunque la render esté vieja. El piso 0 lo pone el onMutate.
+  const nudge = (n: number) => setDay.mutate({ habit, day: dayKey(day), delta: toStorage(n) })
 
   return (
     <Dropover
@@ -188,7 +191,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
                 size="icon-sm"
                 aria-label="Restar"
                 disabled={shown === 0}
-                onClick={() => write(Math.max(0, shown - step))}
+                onClick={() => nudge(-step)}
                 className="size-11 md:size-10 max-md:size-11"
               >
                 <Minus className="size-5" />
@@ -207,7 +210,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
                 size="icon-sm"
                 variant="ghost"
                 aria-label="Sumar"
-                onClick={() => write(shown + step)}
+                onClick={() => nudge(step)}
                 className="size-11 md:size-10 max-md:size-11"
               >
                 <Plus className="size-5" />
