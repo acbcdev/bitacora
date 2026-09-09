@@ -9,7 +9,6 @@ import {
   InputGroupInput,
 } from "@/core/ui/input-group"
 import { dayKey } from "@/core/lib/day"
-import { cn } from "@/core/lib/utils"
 import { SERIES, cellColor, cellPct, dayAt, goalText, type HabitState } from "@/habits/habits"
 import { useSetDay } from "@/habits/habits.api"
 import type { Habit, HabitMetric, HabitPeriod } from "@/core/types/database"
@@ -44,16 +43,18 @@ export function HabitHistory({ habit, state }: { habit: Habit; state: HabitState
         .join(", ")}`}
       className="flex gap-1"
     >
-      {state.days.map((cell, n) => (
-        <span
-          key={n}
-          style={{ backgroundColor: cellColor(habit.kind, cellPct(cell)) }}
-          className={cn(
-            "h-7 w-3.5 rounded-[3px]",
-            n === state.days.length - 1 && "ring-2 ring-brand ring-offset-2 ring-offset-background",
-          )}
-        />
-      ))}
+      {state.days.map((cell, n) =>
+        // Hoy sin resaltado; gris mientras está vacío, color al registrar — igual que los dots.
+        n === state.days.length - 1 && cell.amount === 0 ? (
+          <span key={n} className="h-7 w-3.5 rounded-[3px] bg-muted" />
+        ) : (
+          <span
+            key={n}
+            style={{ backgroundColor: cellColor(habit.kind, cellPct(cell)) }}
+            className="h-7 w-3.5 rounded-[3px]"
+          />
+        ),
+      )}
     </div>
   )
 }
