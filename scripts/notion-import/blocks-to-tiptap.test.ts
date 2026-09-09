@@ -315,9 +315,9 @@ test("table sin has_column_header usa tableCell en todas las filas", () => {
       [block({ type: "table_row", table_row: { cells: [rt("x")] } })],
     ),
   ])
-  expect((doc[0] as { content: { content: { type: string }[] }[] }).content[0].content[0].type).toBe(
-    "tableCell",
-  )
+  expect(
+    (doc[0] as { content: { content: { type: string }[] }[] }).content[0].content[0].type,
+  ).toBe("tableCell")
 })
 
 test("celda vacía produce paragraph vacío", () => {
