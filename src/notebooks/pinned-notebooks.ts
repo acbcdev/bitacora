@@ -4,17 +4,21 @@ import { useSyncExternalStore } from "react"
 // localStorage alcanza, sin tabla ni migración. useSyncExternalStore para que el sidebar y el
 // menú de acciones de Notebooks (dos árboles de componentes distintos) vean el mismo estado sin
 // prop drilling ni Context.
-const KEY = "bita-pinned-notebooks"
-// Renombre Course → Notebook (0012): los pins viejos viven bajo la clave anterior. 2 líneas y
-// no se pierden — no vale la pena un flag para una preferencia de UI.
-const OLD_KEY = "bita-pinned-courses"
+// Versión en la clave: si la forma cambia, se cambia la clave y lo viejo se ignora sin crashear.
+const KEY = "bita-pinned-notebooks:v1"
+const LEGACY_KEYS = ["bita-pinned-notebooks", "bita-pinned-courses"] // la segunda: pre-renombre 0012
 const listeners = new Set<() => void>()
 
 function read(): string[] {
   try {
-    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(OLD_KEY)
-    if (raw && !localStorage.getItem(KEY)) localStorage.setItem(KEY, raw)
-    return JSON.parse(raw ?? "[]")
+    const raw =
+      localStorage.getItem(KEY) ??
+      LEGACY_KEYS.map((k) => localStorage.getItem(k)).find(Boolean) ??
+      null
+    const ids = JSON.parse(raw ?? "[]") as string[]
+    if (!Array.isArray(ids)) return []
+    if (raw && !localStorage.getItem(KEY)) localStorage.setItem(KEY, JSON.stringify(ids))
+    return ids
   } catch {
     return []
   }
