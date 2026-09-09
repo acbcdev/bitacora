@@ -113,7 +113,7 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
         )}
 
         {error && (
-          <div className="flex min-h-[180px] w-full flex-col items-center justify-center gap-2 rounded-lg border bg-muted p-6 text-muted-foreground">
+          <div className="flex min-h-45 w-full flex-col items-center justify-center gap-2 rounded-lg border bg-muted p-6 text-muted-foreground">
             <ImageOff className="size-6" />
             <span className="text-sm">{alt || "Imagen no disponible"}</span>
           </div>
