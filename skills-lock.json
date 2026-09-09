@@ -87,6 +87,12 @@
       "sourceType": "autoskills-registry",
       "computedHash": "502eb06700e2c3cb1bd7f710860528f72281320bd5171a2087b05a090b573dc1"
     },
+    "react-doctor": {
+      "source": "millionco/react-doctor",
+      "sourceType": "github",
+      "skillPath": "skills/react-doctor/SKILL.md",
+      "computedHash": "2a003f397a4a94fc032019bc7fd97e938b4e2fae995c96df8603790db168dcc7"
+    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "autoskills-registry",
