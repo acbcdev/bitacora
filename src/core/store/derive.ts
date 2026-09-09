@@ -110,21 +110,21 @@ export function notebooksPage(
   }
 
   const q = query.q.toLowerCase()
+  // flatMap: un solo pasaje en vez de .filter().map() (dos vueltas a la lista).
   const rows: NotebookRow[] = snap.notebooks
-    .filter(
-      (c) =>
-        (query.status === "todos" || c.status === query.status) &&
-        (q === "" || c.name.toLowerCase().includes(q)),
-    )
-    .map((c) => {
+    .flatMap((c) => {
+      if (query.status !== "todos" && c.status !== query.status) return []
+      if (q !== "" && !c.name.toLowerCase().includes(q)) return []
       const s = stats.get(c.id)
-      return {
-        ...c,
-        notes: s?.notes ?? 0,
-        rounds: s?.rounds ?? 0,
-        last_read: s?.last_read ?? null,
-        total_count: 0, // se completa abajo con el total real
-      }
+      return [
+        {
+          ...c,
+          notes: s?.notes ?? 0,
+          rounds: s?.rounds ?? 0,
+          last_read: s?.last_read ?? null,
+          total_count: 0, // se completa abajo con el total real
+        },
+      ]
     })
     // `created_at desc` es el desempate final, igual que en la RPC.
     .toSorted((a, b) => SORTS[query.sort](a, b) || b.created_at.localeCompare(a.created_at))

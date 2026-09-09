@@ -139,7 +139,8 @@ function maybeMigrateTimeToSeconds() {
   if (localStorage.getItem("bita-migrated-0011")) return
   try {
     const habits = read("habits") as Habit[]
-    const timeIds = new Set(habits.filter((h) => h.metric === "time").map((h) => h.id))
+    const timeIds = new Set<string>()
+    for (const h of habits) if (h.metric === "time") timeIds.add(h.id)
     if (timeIds.size === 0) {
       localStorage.setItem("bita-migrated-0011", "1")
       return

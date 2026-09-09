@@ -58,13 +58,14 @@ const EXPANDED_ONLY = "group-data-[collapsible=icon]:hidden"
 // el mismo notebook aparecería duplicado en dos secciones.
 // Vive acá afuera porque App usa el mismo orden para numerar el atajo G>1..9.
 export function sidebarNotebookGroups(notebooks: Notebook[], pinnedIds: string[]) {
+  const pinned = new Set(pinnedIds)
   return {
-    pinned: notebooks.filter((c) => pinnedIds.includes(c.id)),
-    active: notebooks.filter((c) => c.status === "active" && !pinnedIds.includes(c.id)),
+    pinned: notebooks.filter((c) => pinned.has(c.id)),
+    active: notebooks.filter((c) => c.status === "active" && !pinned.has(c.id)),
     // Mismo criterio que el sort "Recientes" de /notebooks (started_at desc, ver migración 0009),
     // acá recortado a un puñado.
     recent: notebooks
-      .filter((c) => c.status !== "active" && !pinnedIds.includes(c.id))
+      .filter((c) => c.status !== "active" && !pinned.has(c.id))
       .toSorted((a, b) => (b.started_at ?? "").localeCompare(a.started_at ?? ""))
       .slice(0, 5),
   }
