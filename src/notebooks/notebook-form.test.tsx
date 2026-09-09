@@ -1,17 +1,17 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { CourseForm } from "@/courses/course-form"
-import type { Course } from "@/core/types/database"
+import { NotebookForm } from "@/notebooks/notebook-form"
+import type { Notebook } from "@/core/types/database"
 
 const { insert, update } = vi.hoisted(() => ({
   insert: vi.fn((_input: unknown) => Promise.resolve({ error: null })),
   update: vi.fn((_input: unknown) => Promise.resolve({ error: null })),
 }))
 
-const courses = [
+const notebooks = [
   {
     id: "c1",
-    name: "Curso 1",
+    name: "Notebook 1",
     status: "active",
     source: "Platzi",
     area: "Programación",
@@ -19,7 +19,7 @@ const courses = [
   },
   {
     id: "c2",
-    name: "Curso 2",
+    name: "Notebook 2",
     status: "active",
     source: "Platzi",
     area: "Marketing",
@@ -27,7 +27,7 @@ const courses = [
   },
   {
     id: "c3",
-    name: "Curso 3",
+    name: "Notebook 3",
     status: "active",
     source: null,
     area: null,
@@ -39,7 +39,7 @@ const courses = [
 // lo que estos tests afirman.
 vi.mock("@/core/store", () => ({
   store: {
-    snapshot: async () => ({ courses, notes: [], reads: [], habits: [], habitLog: [] }),
+    snapshot: async () => ({ notebooks, notes: [], reads: [], habits: [], habitLog: [] }),
     save: (_entity: string, input: { id?: string }) => {
       const { id, ...values } = input
       return (id ? update : insert)(values)
@@ -47,10 +47,10 @@ vi.mock("@/core/store", () => ({
   },
 }))
 
-const course2: Course = {
+const notebook2: Notebook = {
   id: "c2",
   user_id: "u1",
-  name: "Curso 2",
+  name: "Notebook 2",
   status: "active",
   started_at: null,
   finished_at: null,
@@ -62,11 +62,11 @@ const course2: Course = {
   created_at: "2026-01-01T00:00:00Z",
 }
 
-function renderForm(course: Course | null, onClose = vi.fn()) {
+function renderForm(notebook: Notebook | null, onClose = vi.fn()) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={qc}>
-      <CourseForm course={course} onClose={onClose} />
+      <NotebookForm notebook={notebook} onClose={onClose} />
     </QueryClientProvider>,
   )
   return { onClose }
@@ -92,7 +92,7 @@ test("el combobox sugiere los valores de source/area ya usados, sin duplicados",
   renderForm(null)
 
   openCombobox(screen.getByLabelText("Fuente"))
-  // Dos cursos comparten source "Platzi" — debe aparecer una sola vez sugerido, no duplicado.
+  // Dos notebooks comparten source "Platzi" — debe aparecer una sola vez sugerido, no duplicado.
   await waitFor(() => expect(screen.getAllByRole("option", { name: "Platzi" })).toHaveLength(1))
 
   fireEvent.blur(screen.getByLabelText("Fuente"))
@@ -103,13 +103,13 @@ test("el combobox sugiere los valores de source/area ya usados, sin duplicados",
   })
 })
 
-test("crear un curso manda source/area tipeados en el payload", async () => {
+test("crear un notebook manda source/area tipeados en el payload", async () => {
   renderForm(null)
 
-  fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Curso nuevo" } })
+  fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Notebook nuevo" } })
   fireEvent.change(screen.getByLabelText("Fuente"), { target: { value: "web.dev" } })
   fireEvent.change(screen.getByLabelText("Área"), { target: { value: "Inglés" } })
-  fireEvent.click(screen.getByRole("button", { name: "Crear curso" }))
+  fireEvent.click(screen.getByRole("button", { name: "Crear notebook" }))
 
   await waitFor(() =>
     expect(insert).toHaveBeenCalledWith(
@@ -118,8 +118,8 @@ test("crear un curso manda source/area tipeados en el payload", async () => {
   )
 })
 
-test("editar un curso manda source/area tipeados en el payload", async () => {
-  renderForm(course2)
+test("editar un notebook manda source/area tipeados en el payload", async () => {
+  renderForm(notebook2)
 
   fireEvent.change(screen.getByLabelText("Fuente"), { target: { value: "Udemy" } })
   fireEvent.change(screen.getByLabelText("Área"), { target: { value: "Marketing digital" } })
@@ -135,8 +135,8 @@ test("editar un curso manda source/area tipeados en el payload", async () => {
 test("source/area vacíos no rompen el submit y mandan null", async () => {
   renderForm(null)
 
-  fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Curso sin fuente" } })
-  fireEvent.click(screen.getByRole("button", { name: "Crear curso" }))
+  fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Notebook sin fuente" } })
+  fireEvent.click(screen.getByRole("button", { name: "Crear notebook" }))
 
   await waitFor(() =>
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({ source: null, area: null })),

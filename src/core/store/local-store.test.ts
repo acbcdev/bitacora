@@ -4,32 +4,32 @@ import { localStore } from "@/core/store/local-store"
 // diferencia con el adapter de Supabase, que sólo se puede testear imitando su cliente.
 //
 // Acá se prueba lo único que el adapter decide: qué filas salen en el snapshot y qué pasa al
-// escribir. Todo lo derivado (cola, página de cursos, retención) es de `derive.ts` y se prueba
+// escribir. Todo lo derivado (cola, página de notebooks, retención) es de `derive.ts` y se prueba
 // aparte, una sola vez para los dos adapters.
 
 const store = localStore()
 
 beforeEach(() => localStorage.clear())
 
-async function seedCourse() {
-  await store.save("courses", { name: "React" })
+async function seedNotebook() {
+  await store.save("notebooks", { name: "React" })
   const snap = await store.snapshot()
-  return snap.courses[0]
+  return snap.notebooks[0]
 }
 
 test("una nota creada se lee de vuelta, y editarla persiste", async () => {
-  const curso = await seedCourse()
-  const nota = await store.save("notes", { course_id: curso.id, position: 0 })
+  const notebook = await seedNotebook()
+  const nota = await store.save("notes", { notebook_id: notebook.id, position: 0 })
 
-  expect(await store.note(nota.id)).toMatchObject({ course_id: curso.id, title: "" })
+  expect(await store.note(nota.id)).toMatchObject({ notebook_id: notebook.id, title: "" })
 
   await store.save("notes", { id: nota.id, title: "Hooks" })
   expect((await store.note(nota.id)).title).toBe("Hooks")
 })
 
 test("el snapshot trae las notas SIN content; el cuerpo se pide por id", async () => {
-  const curso = await seedCourse()
-  await store.save("notes", { course_id: curso.id, position: 0, title: "Con cuerpo" })
+  const notebook = await seedNotebook()
+  await store.save("notes", { notebook_id: notebook.id, position: 0, title: "Con cuerpo" })
 
   const [ref] = (await store.snapshot()).notes
   expect(ref).not.toHaveProperty("content")
@@ -38,8 +38,8 @@ test("el snapshot trae las notas SIN content; el cuerpo se pide por id", async (
 })
 
 test("borrar es soft delete: sale del snapshot pero la fila sigue en localStorage", async () => {
-  const curso = await seedCourse()
-  const nota = await store.save("notes", { course_id: curso.id, position: 0 })
+  const notebook = await seedNotebook()
+  const nota = await store.save("notes", { notebook_id: notebook.id, position: 0 })
 
   await store.softDelete("notes", nota.id)
 
@@ -50,25 +50,30 @@ test("borrar es soft delete: sale del snapshot pero la fila sigue en localStorag
   expect(raw[0].deleted_at).toEqual(expect.any(String))
 })
 
-test("archivar un curso no toca sus notas", async () => {
-  const curso = await seedCourse()
-  await store.save("notes", { course_id: curso.id, position: 0 })
+test("archivar un notebook no toca sus notas", async () => {
+  const notebook = await seedNotebook()
+  await store.save("notes", { notebook_id: notebook.id, position: 0 })
 
-  await store.softDelete("courses", curso.id)
+  await store.softDelete("notebooks", notebook.id)
 
   const snap = await store.snapshot()
-  expect(snap.courses).toEqual([])
+  expect(snap.notebooks).toEqual([])
   expect(snap.notes).toHaveLength(1)
 })
 
 test("los defaults de la tabla los pone el adapter, igual que Postgres", async () => {
-  const curso = await seedCourse()
-  expect(curso).toMatchObject({ status: "active", imported: false, icon: null, deleted_at: null })
+  const notebook = await seedNotebook()
+  expect(notebook).toMatchObject({
+    status: "active",
+    imported: false,
+    icon: null,
+    deleted_at: null,
+  })
 })
 
 test("read_log es append-only y guarda el grade de la flashcard", async () => {
-  const curso = await seedCourse()
-  const nota = await store.save("notes", { course_id: curso.id, position: 0 })
+  const notebook = await seedNotebook()
+  const nota = await store.save("notes", { notebook_id: notebook.id, position: 0 })
 
   await store.save("read_log", { note_id: nota.id })
   await store.save("read_log", { note_id: nota.id, grade: "correcto" })
@@ -126,6 +131,6 @@ test("sin env de Supabase, salir del modo local avisa que no hay a dónde ir", a
 })
 
 test("un localStorage corrupto no rompe la app: se lee como vacío", async () => {
-  localStorage.setItem("bita-local:courses", "{ esto no es JSON")
-  expect((await store.snapshot()).courses).toEqual([])
+  localStorage.setItem("bita-local:notebooks", "{ esto no es JSON")
+  expect((await store.snapshot()).notebooks).toEqual([])
 })

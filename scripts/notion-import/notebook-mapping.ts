@@ -3,9 +3,9 @@ import type { PageObjectResponse } from "@notionhq/client"
 type PageProperties = PageObjectResponse["properties"]
 type PropertyValue = PageProperties[string]
 
-// Lectura genérica de propiedades: distintos cursos pueden tener columnas de distinto tipo para
+// Lectura genérica de propiedades: distintos notebooks pueden tener columnas de distinto tipo para
 // el mismo concepto (schema drift entre DBs inline de notas — spec, mismo espíritu aplica acá
-// por las dudas). Cubre los tipos vistos en "Curso Data": title, rich_text, select, url.
+// por las dudas). Cubre los tipos vistos en "Notebook Data": title, rich_text, select, url.
 function propertyText(prop: PropertyValue | undefined): string | null {
   if (!prop) return null
   switch (prop.type) {
@@ -30,7 +30,7 @@ function propertyDate(prop: PropertyValue | undefined): string | null {
   return prop?.type === "date" ? (prop.date?.start ?? null) : null
 }
 
-export type CourseMapResult =
+export type NotebookMapResult =
   | {
       skip: false
       name: string
@@ -43,7 +43,7 @@ export type CourseMapResult =
 
 // Política de filas incompletas/vacías (spec): sin Nombre, o con Nombre pero sin Área/Donde →
 // skip + reportar. No se inventan valores para campos faltantes.
-export function mapCourseProperties(props: PageProperties): CourseMapResult {
+export function mapNotebookProperties(props: PageProperties): NotebookMapResult {
   const name = propertyText(props["Nombre"])
   if (!name) return { skip: true, reason: "fila vacía (sin Nombre)" }
 
@@ -71,7 +71,7 @@ export function mapCourseProperties(props: PageProperties): CourseMapResult {
 // como aproximación.
 //
 // `estimated` NO es la columna `imported`. CONTEXT.md define `imported` como "fechas estimadas",
-// pero la idempotencia del spec borra por `imported = true` antes de reinsertar: si los ~12 cursos
+// pero la idempotencia del spec borra por `imported = true` antes de reinsertar: si los ~12 notebooks
 // con fecha real quedaran en false, el DELETE no los alcanzaría y la segunda corrida los
 // duplicaría. Así que `imported = true` va en TODO lo que viene de Notion, y el matiz de fecha
 // estimada se reporta con este flag.

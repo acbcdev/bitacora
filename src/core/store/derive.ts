@@ -1,8 +1,8 @@
 import { dayKey } from "@/core/lib/day"
 import type {
-  Course,
-  CourseRow,
-  CourseStatus,
+  Notebook,
+  NotebookRow,
+  NotebookStatus,
   Habit,
   HabitKind,
   HabitPeriod,
@@ -12,7 +12,7 @@ import type { HabitLogRow, NoteRef, ReadRow, Snapshot } from "@/core/store/types
 // Todo lo derivado vive acá: funciones puras `Snapshot → hecho del dominio`. Sin React, sin
 // adapter, sin red.
 //
-// Antes esto estaba repartido en tres estrategias incompatibles (la RPC `courses_page` en SQL,
+// Antes esto estaba repartido en tres estrategias incompatibles (la RPC `notebooks_page` en SQL,
 // `useReadStats` en JS, `useRetention` con un join + JS). Ahora hay un solo hogar y lo usan los
 // dos adapters — que es lo que hace que "modo local" y "modo Supabase" signifiquen lo mismo en
 // vez de parecerse.
@@ -20,34 +20,34 @@ import type { HabitLogRow, NoteRef, ReadRow, Snapshot } from "@/core/store/types
 // El snapshot ya trae sólo filas vivas (el adapter filtró `deleted_at`), así que acá NO se vuelve
 // a chequear: la regla vive en un lado solo.
 
-export type CoursesQuery = {
+export type NotebooksQuery = {
   q: string
-  status: CourseStatus | "todos"
+  status: NotebookStatus | "todos"
   sort: "recientes" | "nombre" | "rondas" | "inicio"
   page: number
   pageSize: number
 }
 
-const STATUS_ORDER: Record<CourseStatus, number> = { active: 0, paused: 1, done: 2 }
+const STATUS_ORDER: Record<NotebookStatus, number> = { active: 0, paused: 1, done: 2 }
 
 // Orden estable de la app: active → paused → done, después más nuevo primero. Lo usan el sidebar,
-// la command palette y el form de curso.
-export function liveCourses(snap: Snapshot): Course[] {
-  return snap.courses.toSorted(
+// la command palette y el form de notebook.
+export function liveNotebooks(snap: Snapshot): Notebook[] {
+  return snap.notebooks.toSorted(
     (a, b) =>
       STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || b.created_at.localeCompare(a.created_at),
   )
 }
 
-// Las notas de un curso, en orden de `position`. Las flashcards no entran: no se listan en el
-// curso (ADR 0010).
-export function courseNotes(snap: Snapshot, courseId: string): NoteRef[] {
+// Las notas de un notebook, en orden de `position`. Las flashcards no entran: no se listan en el
+// notebook (ADR 0010).
+export function notebookNotes(snap: Snapshot, notebookId: string): NoteRef[] {
   return snap.notes
-    .filter((n) => n.course_id === courseId && n.kind === "note")
+    .filter((n) => n.notebook_id === notebookId && n.kind === "note")
     .toSorted((a, b) => a.position - b.position)
 }
 
-// Índice de todas las notas para la command palette y el "últ. repaso" por curso.
+// Índice de todas las notas para la command palette y el "últ. repaso" por notebook.
 export function noteRefs(snap: Snapshot): NoteRef[] {
   return snap.notes.filter((n) => n.kind === "note").toSorted((a, b) => a.position - b.position)
 }
@@ -65,43 +65,43 @@ function readsByNote(reads: ReadRow[]) {
   return map
 }
 
-const SORTS: Record<CoursesQuery["sort"], (a: CourseRow, b: CourseRow) => number> = {
+const SORTS: Record<NotebooksQuery["sort"], (a: NotebookRow, b: NotebookRow) => number> = {
   nombre: (a, b) => a.name.localeCompare(b.name),
   rondas: (a, b) => b.rounds - a.rounds,
-  // 'recientes' e 'inicio' son el mismo criterio desde la migración 0009: para los 57 cursos
+  // 'recientes' e 'inicio' son el mismo criterio desde la migración 0009: para los 57 notebooks
   // importados `created_at` es sólo la hora del batch, y `started_at` la fecha real.
   inicio: byStartedAt,
   recientes: byStartedAt,
 }
 
-function byStartedAt(a: CourseRow, b: CourseRow) {
+function byStartedAt(a: NotebookRow, b: NotebookRow) {
   if (a.started_at === b.started_at) return 0
   if (!a.started_at) return 1 // nulls last
   if (!b.started_at) return -1
   return b.started_at.localeCompare(a.started_at)
 }
 
-// La página de la pantalla Cursos. Reemplaza a la RPC `courses_page` (migraciones 0006-0009), que
+// La página de la pantalla Notebooks. Reemplaza a la RPC `notebooks_page` (migraciones 0006-0009), que
 // queda en la DB sin que nadie la llame.
 //
-// `rounds` es el MÍNIMO de repasos entre las notas del curso — "cuántas vueltas completas le
-// diste", no el total. Un curso con una nota sin leer tiene 0 rondas por más que las otras 24
+// `rounds` es el MÍNIMO de repasos entre las notas del notebook — "cuántas vueltas completas le
+// diste", no el total. Un notebook con una nota sin leer tiene 0 rondas por más que las otras 24
 // estén leídas 5 veces. Sale así de la RPC (`min(coalesce(rd.cnt, 0))`) y se mantiene.
-export function coursesPage(
+export function notebooksPage(
   snap: Snapshot,
-  query: CoursesQuery,
-): { rows: CourseRow[]; total: number } {
+  query: NotebooksQuery,
+): { rows: NotebookRow[]; total: number } {
   const perNote = readsByNote(snap.reads)
 
-  // Sólo notas `kind = 'note'` con curso: las flashcards no cuentan para el progreso del curso
+  // Sólo notas `kind = 'note'` con notebook: las flashcards no cuentan para el progreso del notebook
   // (ADR 0010) y una nota huérfana no tiene a quién sumarle.
   const stats = new Map<string, { notes: number; rounds: number; last_read: string | null }>()
   for (const n of snap.notes) {
-    if (n.kind !== "note" || !n.course_id) continue
+    if (n.kind !== "note" || !n.notebook_id) continue
     const r = perNote.get(n.id)
-    const s = stats.get(n.course_id)
+    const s = stats.get(n.notebook_id)
     if (!s) {
-      stats.set(n.course_id, { notes: 1, rounds: r?.count ?? 0, last_read: r?.last ?? null })
+      stats.set(n.notebook_id, { notes: 1, rounds: r?.count ?? 0, last_read: r?.last ?? null })
       continue
     }
     s.notes++
@@ -110,7 +110,7 @@ export function coursesPage(
   }
 
   const q = query.q.toLowerCase()
-  const rows: CourseRow[] = snap.courses
+  const rows: NotebookRow[] = snap.notebooks
     .filter(
       (c) =>
         (query.status === "todos" || c.status === query.status) &&
@@ -144,8 +144,8 @@ export function coursesPage(
 // Devuelve refs, no notas completas: el `content` de la nota servida lo pide Repaso aparte con
 // `store.note(id)`, y sólo de la que está mirando.
 //
-// El `join courses` de la RPC dejaba afuera las notas sin curso (`course_id` null, curso borrado
-// con FK set null — ADR 0002). Se replica. El `status` del curso NO filtra: active, paused y done
+// El `join notebooks` de la RPC dejaba afuera las notas sin notebook (`notebook_id` null, notebook borrado
+// con FK set null — ADR 0002). Se replica. El `status` del notebook NO filtra: active, paused y done
 // entran igual (CONTEXT.md).
 //
 // Diferencia consciente con la RPC: ante empate de fecha, acá desempata `created_at` y después
@@ -153,10 +153,10 @@ export function coursesPage(
 // fiel a un no-determinismo.
 export function reviewQueue(snap: Snapshot, limit: number): NoteRef[] {
   const perNote = readsByNote(snap.reads)
-  const live = new Set(snap.courses.map((c) => c.id))
+  const live = new Set(snap.notebooks.map((c) => c.id))
 
   return snap.notes
-    .filter((n) => n.course_id && live.has(n.course_id))
+    .filter((n) => n.notebook_id && live.has(n.notebook_id))
     .toSorted((a, b) => {
       const la = perNote.get(a.id)?.last ?? null
       const lb = perNote.get(b.id)?.last ?? null
@@ -171,19 +171,19 @@ export function reviewQueue(snap: Snapshot, limit: number): NoteRef[] {
     .slice(0, limit)
 }
 
-// % de retención por curso: correctos / autoevaluaciones (ADR 0003, nada denormalizado).
-// El join read_log → notes(course_id) que antes hacía PostgREST, acá es un Map.
+// % de retención por notebook: correctos / autoevaluaciones (ADR 0003, nada denormalizado).
+// El join read_log → notes(notebook_id) que antes hacía PostgREST, acá es un Map.
 export function retention(snap: Snapshot): Map<string, number> {
-  const courseOf = new Map(snap.notes.map((n) => [n.id, n.course_id]))
+  const notebookOf = new Map(snap.notes.map((n) => [n.id, n.notebook_id]))
   const totals = new Map<string, { correct: number; total: number }>()
   for (const r of snap.reads) {
     if (!r.grade) continue
-    const courseId = courseOf.get(r.note_id)
-    if (!courseId) continue
-    const t = totals.get(courseId) ?? { correct: 0, total: 0 }
+    const notebookId = notebookOf.get(r.note_id)
+    if (!notebookId) continue
+    const t = totals.get(notebookId) ?? { correct: 0, total: 0 }
     t.total++
     if (r.grade === "correcto") t.correct++
-    totals.set(courseId, t)
+    totals.set(notebookId, t)
   }
   return new Map([...totals].map(([id, t]) => [id, Math.round((t.correct / t.total) * 100)]))
 }
@@ -232,7 +232,7 @@ export function readStats(snap: Snapshot, now = new Date()): ReadStats {
 
 // Granular para tests: misma lógica sin necesidad de armar un Snapshot.
 export function deriveReadStats(rows: ReadRow[], now = new Date()): ReadStats {
-  return readStats({ courses: [], notes: [], reads: rows, habits: [], habitLog: [] }, now)
+  return readStats({ notebooks: [], notes: [], reads: rows, habits: [], habitLog: [] }, now)
 }
 
 // Los últimos HISTORY_DAYS días en orden, con los huecos en cero: la grilla necesita las celdas

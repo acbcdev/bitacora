@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import { Check, Flame, Minus, Pause, Play, Plus, Target } from "lucide-react"
 import { Button } from "@/core/ui/button"
-import { CourseIcon } from "@/courses/course-icon"
+import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { todayKey } from "@/core/lib/day"
 import { cn } from "@/core/lib/utils"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
@@ -31,7 +31,7 @@ import {
 import type { Habit, HabitMetric } from "@/core/types/database"
 
 // La tira de hábitos de la pantalla Hoy. Sin pantalla nueva (ui-principles): vive entre el card de
-// repaso y la lista de Cursos, que es donde el usuario ya entra 2–3 veces por día.
+// repaso y la lista de Notebooks, que es donde el usuario ya entra 2–3 veces por día.
 
 type Entry = { h: Habit; state: HabitState }
 
@@ -192,8 +192,8 @@ export function HabitTiles() {
 
   return (
     <div className="mb-8">
-      {/* Misma cabecera que Cursos — mismo `text-xl` + contador `mono-dim`. Antes la tira aparecía
-          sin nombre entre el card de repaso y Cursos, y la única acción era un botón primario que
+      {/* Misma cabecera que Notebooks — mismo `text-xl` + contador `mono-dim`. Antes la tira aparecía
+          sin nombre entre el card de repaso y Notebooks, y la única acción era un botón primario que
           pesaba más que los hábitos: crear más competía con lo que ya tenías. */}
       <div className="mb-3 flex items-center gap-3">
         <div className="flex items-baseline gap-3">
@@ -250,7 +250,7 @@ export function HabitTiles() {
         <HabitHotkey key={e.h.id} n={i + 1} onHit={() => quick(e)} />
       ))}
 
-      {/* Se monta abierto y se desmonta al cerrar, igual que CourseForm: así el `+` entra derecho
+      {/* Se monta abierto y se desmonta al cerrar, igual que NotebookForm: así el `+` entra derecho
           al form y "ver todos" a la lista, sin que el estado del anterior sobreviva. */}
       {open && <HabitsDialog startNew={open === "new"} onClose={() => setOpen(null)} />}
     </div>
@@ -325,7 +325,7 @@ function HabitTile({
         {running ? (
           <Pause size={18} fill="currentColor" strokeWidth={0} />
         ) : (
-          <CourseIcon icon={h.icon} fallback={Target} className="size-6" />
+          <NotebookIcon icon={h.icon} fallback={Target} className="size-6" />
         )}
       </button>
 
@@ -430,7 +430,7 @@ function HabitTile({
 
 // Un componente = un hook por dígito, no un solo useHotkeys con los 9: la lib comparte el buffer
 // de secuencia entre los atajos de una misma llamada, así que "h>1","h>2",… se pisarían y sólo
-// dispararía el primero (mismo motivo que CourseHotkey en app.tsx).
+// dispararía el primero (mismo motivo que NotebookHotkey en app.tsx).
 function HabitHotkey({ n, onHit }: { n: number; onHit: () => void }) {
   useSafeHotkeys(`h>${n}`, onHit, { sequenceTimeoutMs: 900, preventDefault: true }, [onHit])
   return null

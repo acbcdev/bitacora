@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
 import { Image as ImageIcon, Loader2, Smile } from "lucide-react"
 import { toast } from "sonner"
-import { CourseIcon, PRESET_ICONS } from "@/courses/course-icon"
+import { NotebookIcon, PRESET_ICONS } from "@/notebooks/notebook-icon"
 import { store } from "@/core/store"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
@@ -40,7 +40,7 @@ export function IconPicker({
     try {
       // ponytail: sube al elegir, así que cancelar el diálogo deja el archivo huérfano.
       // Limpiarlos en batch si algún día molesta.
-      set(await store.uploadCourseIcon(f))
+      set(await store.uploadNotebookIcon(f))
     } catch {
       toast.error("No se pudo subir la imagen")
     } finally {
@@ -61,17 +61,17 @@ export function IconPicker({
           type="button"
           variant="outline"
           size="icon"
-          aria-label="Icono del curso"
+          aria-label="Icono del notebook"
           className={cn("size-10 text-muted-foreground", className)}
         >
-          {icon ? <CourseIcon icon={icon} className="size-4.5" /> : <Smile />}
+          {icon ? <NotebookIcon icon={icon} className="size-4.5" /> : <Smile />}
         </Button>
       </DropoverTrigger>
 
       {/* Pegar cuelga del popover/drawer entero, no del tab: se enfoca el content al abrir, así
           que ⌘V funciona desde cualquier pestaña sin tener que ir hasta el dropzone. */}
       <DropoverContent
-        title="Ícono del curso"
+        title="Ícono del notebook"
         className="md:w-64 gap-0 p-0 max-md:min-h-[300px]"
         onPaste={(e) => upload(e.clipboardData.files[0])}
       >
@@ -121,7 +121,7 @@ export function IconPicker({
                 )}
                 onClick={() => set(`lucide:${n}`)}
               >
-                <CourseIcon icon={`lucide:${n}`} className="max-md:size-6" />
+                <NotebookIcon icon={`lucide:${n}`} className="max-md:size-6" />
               </Button>
             ))}
           </TabsContent>

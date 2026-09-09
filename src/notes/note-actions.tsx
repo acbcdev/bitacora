@@ -16,7 +16,7 @@ import { docToMarkdown, downloadMarkdown } from "@/core/lib/tiptap-markdown"
 import type { Note, TiptapDoc } from "@/core/types/database"
 
 // Menú "···" de una nota, compartido por el dialog de Repaso y la pantalla Nota — mismo patrón
-// que el menú de curso (course.tsx). Ninguna acción de acá lleva atajo: son de baja frecuencia
+// que el menú de notebook (notebook.tsx). Ninguna acción de acá lleva atajo: son de baja frecuencia
 // y la convención de teclas (docs/ui-principles.md) reserva las teclas para el loop diario.
 //
 // `content` es un getter, no el doc: en la pantalla Nota lo que vale es el borrador en vivo
@@ -48,7 +48,7 @@ export function NoteActions({
   }
 
   const title = note.title || "(sin título)"
-  const href = `${location.origin}${note.course_id ? `/course/${note.course_id}/${note.id}` : `/note/${note.id}`}`
+  const href = `${location.origin}${note.notebook_id ? `/notebook/${note.notebook_id}/${note.id}` : `/note/${note.id}`}`
 
   return (
     <>
@@ -69,11 +69,11 @@ export function NoteActions({
             Focus
           </DropdownMenuItem>
           <DropdownMenuItem
-            disabled={!note.course_id}
-            onSelect={() => navigate(`/course/${note.course_id}`)}
+            disabled={!note.notebook_id}
+            onSelect={() => navigate(`/notebook/${note.notebook_id}`)}
           >
             <BookOpen />
-            Ir al curso
+            Ir al notebook
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => copy(docToMarkdown(content()), "Nota copiada")}>

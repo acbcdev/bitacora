@@ -16,20 +16,20 @@ import {
 } from "lucide-react"
 import { CommandPalette, type Action } from "@/core/components/command-palette"
 import { Cheatsheet } from "@/core/components/cheatsheet"
-import { courseJumps, Sidebar, sidebarCourseGroups } from "@/core/components/sidebar"
+import { notebookJumps, Sidebar, sidebarNotebookGroups } from "@/core/components/sidebar"
 import { SidebarProvider, SidebarTrigger } from "@/core/ui/sidebar"
 import { Toaster } from "@/core/ui/sonner"
 import { TooltipProvider } from "@/core/ui/tooltip"
-import { CourseIcon } from "@/courses/course-icon"
-import { useCourses } from "@/courses/courses.api"
-import { usePinnedCourseIds } from "@/courses/pinned-courses"
+import { NotebookIcon } from "@/notebooks/notebook-icon"
+import { useNotebooks } from "@/notebooks/notebooks.api"
+import { usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
 import { useAllNoteRefs } from "@/notes/notes.api"
 import { Settings } from "@/settings/settings"
 import { store } from "@/core/store"
 import type { AuthUser } from "@/core/store/types"
 import { mod } from "@/core/lib/utils"
-import { Course } from "@/courses/course"
-import { Courses } from "@/courses/courses"
+import { Notebook } from "@/notebooks/notebook"
+import { Notebooks } from "@/notebooks/notebooks"
 import { ErrorBoundary } from "@/core/components/error-boundary"
 import { Login } from "@/login/login"
 import { Note } from "@/notes/note"
@@ -59,9 +59,9 @@ export function App() {
 function Shell({ user }: { user: AuthUser }) {
   const navigate = useNavigate()
   const { pathname, search } = useLocation()
-  const { data: courses = [] } = useCourses()
+  const { data: notebooks = [] } = useNotebooks()
   const { data: notes = [] } = useAllNoteRefs()
-  const pinnedIds = usePinnedCourseIds()
+  const pinnedIds = usePinnedNotebookIds()
 
   const [palette, setPalette] = useState(false)
   const [cheat, setCheat] = useState(false)
@@ -116,7 +116,7 @@ function Shell({ user }: { user: AuthUser }) {
     preventDefault: true,
   })
   useHotkeys("g>h", () => navigate("/"), { sequenceTimeoutMs: 900, preventDefault: true })
-  useHotkeys("g>c", () => navigate("/courses"), { sequenceTimeoutMs: 900, preventDefault: true })
+  useHotkeys("g>c", () => navigate("/notebooks"), { sequenceTimeoutMs: 900, preventDefault: true })
   // ⌘, es la tecla de "preferencias" en macOS y la que todo el mundo prueba primero.
   useHotkeys("mod+comma", () => setSettings((s) => !s), {
     enableOnFormTags: true,
@@ -124,13 +124,13 @@ function Shell({ user }: { user: AuthUser }) {
     preventDefault: true,
   })
 
-  // G luego 1..9 salta a un curso del sidebar, en el mismo orden que se ve ahí.
-  const { pinned, active, recent } = sidebarCourseGroups(courses, pinnedIds)
-  const jumps = courseJumps([...pinned, ...active, ...recent])
+  // G luego 1..9 salta a un notebook del sidebar, en el mismo orden que se ve ahí.
+  const { pinned, active, recent } = sidebarNotebookGroups(notebooks, pinnedIds)
+  const jumps = notebookJumps([...pinned, ...active, ...recent])
 
   // Se arma sólo cuando la palette abre — mapear ~1.500 notas en cada render no tiene sentido.
   function actions(): Action[] {
-    const courseName = new Map(courses.map((c) => [c.id, c.name]))
+    const notebookName = new Map(notebooks.map((c) => [c.id, c.name]))
     return [
       {
         group: "Navegar",
@@ -141,28 +141,28 @@ function Shell({ user }: { user: AuthUser }) {
       },
       {
         group: "Navegar",
-        label: "Ir a Cursos",
+        label: "Ir a Notebooks",
         kbd: "G C",
         icon: <BookOpen />,
-        run: () => navigate("/courses"),
+        run: () => navigate("/notebooks"),
       },
       {
         group: "Acciones",
-        label: "Nuevo curso",
+        label: "Nuevo notebook",
         icon: <Plus />,
-        run: () => navigate("/courses?new=1"),
+        run: () => navigate("/notebooks?new=1"),
       },
-      ...courses.map((c) => ({
-        group: "Cursos",
+      ...notebooks.map((c) => ({
+        group: "Notebooks",
         label: c.name,
-        icon: <CourseIcon icon={c.icon} />,
-        run: () => navigate(`/course/${c.id}`),
+        icon: <NotebookIcon icon={c.icon} />,
+        run: () => navigate(`/notebook/${c.id}`),
       })),
       ...notes.map((n) => ({
         group: "Notas",
-        label: `${n.title || "(sin título)"}${n.course_id ? ` — ${courseName.get(n.course_id) ?? ""}` : ""}`,
+        label: `${n.title || "(sin título)"}${n.notebook_id ? ` — ${notebookName.get(n.notebook_id) ?? ""}` : ""}`,
         icon: <StickyNote />,
-        run: () => navigate(n.course_id ? `/course/${n.course_id}/${n.id}` : `/note/${n.id}`),
+        run: () => navigate(n.notebook_id ? `/notebook/${n.notebook_id}/${n.id}` : `/note/${n.id}`),
       })),
       {
         group: "Vista",
@@ -223,7 +223,7 @@ function Shell({ user }: { user: AuthUser }) {
       >
         {!focus && (
           <Sidebar
-            courses={courses}
+            notebooks={notebooks}
             email={user.email}
             dark={dark}
             onToggleTheme={() => setDark((d) => !d)}
@@ -236,26 +236,29 @@ function Shell({ user }: { user: AuthUser }) {
               hasta abrirlo. Este de acá afuera es el único modo de abrirlo. En flujo normal, no
               fixed: así no se pisa con el h1 de cada pantalla. */}
           <SidebarTrigger className="mt-2 ml-2 md:hidden" />
-          {/* ErrorBoundary por sección: un crash en Review/Course/Note no mata el sidebar.
+          {/* ErrorBoundary por sección: un crash en Review/Notebook/Note no mata el sidebar.
               key=pathname resetea al navegar — sin esto, el error quedaría pegado al cambiar de ruta. */}
           <ErrorBoundary key={pathname}>
             <Routes>
               <Route path="/" element={<Review />} />
-              <Route path="/courses" element={<Courses />} />
-              <Route path="/course/:id" element={<Course focus={focus} setFocus={setFocus} />} />
+              <Route path="/notebooks" element={<Notebooks />} />
               <Route
-                path="/course/:id/:noteId"
-                element={<Course focus={focus} setFocus={setFocus} />}
+                path="/notebook/:id"
+                element={<Notebook focus={focus} setFocus={setFocus} />}
               />
-              {/* Solo para notas sin curso (note.course_id null) — con curso, la ruta principal
-                  es /course/:id/:noteId de arriba. */}
+              <Route
+                path="/notebook/:id/:noteId"
+                element={<Notebook focus={focus} setFocus={setFocus} />}
+              />
+              {/* Solo para notas sin notebook (note.notebook_id null) — con notebook, la ruta principal
+                  es /notebook/:id/:noteId de arriba. */}
               <Route path="/note/:id" element={<Note focus={focus} setFocus={setFocus} />} />
             </Routes>
           </ErrorBoundary>
         </main>
 
         {jumps.map(([n, c]) => (
-          <CourseHotkey key={n} n={n} id={c.id} />
+          <NotebookHotkey key={n} n={n} id={c.id} />
         ))}
         {palette && <CommandPalette onClose={() => setPalette(false)} actions={actions()} />}
         {cheat && <Cheatsheet onClose={() => setCheat(false)} />}
@@ -275,9 +278,9 @@ function Shell({ user }: { user: AuthUser }) {
 // Un componente (= un hook) por dígito, no un solo useHotkeys con los 9: la lib comparte el
 // buffer de secuencia entre todos los atajos de una misma llamada, así que "g>1","g>2",... se
 // pisan entre sí y sólo llega a disparar el primero.
-function CourseHotkey({ n, id }: { n: number; id: string }) {
+function NotebookHotkey({ n, id }: { n: number; id: string }) {
   const navigate = useNavigate()
-  useHotkeys(`g>${n}`, () => navigate(`/course/${id}`), {
+  useHotkeys(`g>${n}`, () => navigate(`/notebook/${id}`), {
     sequenceTimeoutMs: 900,
     preventDefault: true,
   })

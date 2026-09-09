@@ -5,7 +5,7 @@ import { dayKey } from "@/core/lib/day"
 // Cronómetro de los hábitos `time`: cuenta para ARRIBA desde lo que ya llevás del período.
 // Play sobre 15 minutos sigue en 15 — la base sale de la DB, no de cero.
 //
-// Un solo timer a la vez, con tres campos en localStorage (mismo criterio que pinned-courses.ts:
+// Un solo timer a la vez, con tres campos en localStorage (mismo criterio que pinned-notebooks.ts:
 // estado de UI vivo, no dato de negocio — el dato entra en habit_log al pausar).
 // startedDay = Día de atribución (CONTEXT.md): TODO el elapsed se acredita al día en que arrancó,
 // aunque la pausa caiga pasada la medianoche. Se congela acá al start, no se recalcula al pausar.

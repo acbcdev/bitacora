@@ -3,13 +3,13 @@ import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { Editor } from "@/core/components/editor"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
-import type { Course, Note } from "@/core/types/database"
+import type { Notebook, Note } from "@/core/types/database"
 import type { NoteRef } from "@/core/store/types"
 import type { Grade } from "@/core/types/database"
 
 type Props = {
   item: NoteRef
-  course?: Course
+  notebook?: Notebook
   openNote?: Note
   position: string
   revealed: boolean
@@ -25,7 +25,7 @@ type Props = {
 
 export function FlashcardCard({
   item,
-  course,
+  notebook,
   openNote,
   position,
   revealed,
@@ -43,7 +43,7 @@ export function FlashcardCard({
   return (
     <>
       <div className="mb-6 flex min-h-[2lh] items-start justify-between gap-3">
-        <p className="eyebrow">{course?.name ?? "Sin curso"}</p>
+        <p className="eyebrow">{notebook?.name ?? "Sin notebook"}</p>
         <span className="mono-dim shrink-0 whitespace-nowrap">{position}</span>
       </div>
 

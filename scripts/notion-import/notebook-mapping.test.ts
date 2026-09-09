@@ -1,5 +1,5 @@
 import type { PageObjectResponse } from "@notionhq/client"
-import { computeStartedAt, mapCourseProperties } from "./course-mapping"
+import { computeStartedAt, mapNotebookProperties } from "./notebook-mapping"
 
 type Props = PageObjectResponse["properties"]
 
@@ -45,7 +45,7 @@ function props(overrides: Partial<Record<string, unknown>>): Props {
 }
 
 test("mapea Nombre, Tema+Área concatenados, y Donde", () => {
-  const result = mapCourseProperties(props({}))
+  const result = mapNotebookProperties(props({}))
   expect(result).toEqual({
     skip: false,
     name: "Historia de JavaScript",
@@ -58,22 +58,22 @@ test("mapea Nombre, Tema+Área concatenados, y Donde", () => {
 
 // 'Fecha End' es el nombre real de la columna en la DB (el spec decía "Fecha de finalización").
 test("toma Fecha End como fecha de fin", () => {
-  const result = mapCourseProperties(props({ "Fecha End": date("2025-06-01") }))
+  const result = mapNotebookProperties(props({ "Fecha End": date("2025-06-01") }))
   expect(result).toMatchObject({ skip: false, finishedAt: "2025-06-01" })
 })
 
 test("toma Fecha de inicio si la columna existe", () => {
-  const result = mapCourseProperties(props({ "Fecha de inicio": date("2025-05-01") }))
+  const result = mapNotebookProperties(props({ "Fecha de inicio": date("2025-05-01") }))
   expect(result).toMatchObject({ skip: false, startedAtRaw: "2025-05-01" })
 })
 
 test("fila sin Nombre se saltea", () => {
-  const result = mapCourseProperties(props({ Nombre: title("") }))
+  const result = mapNotebookProperties(props({ Nombre: title("") }))
   expect(result.skip).toBe(true)
 })
 
 test("con Tema pero sin Área no se saltea: el area concatenado solo lleva Tema", () => {
-  const result = mapCourseProperties(props({ Área: select(null) }))
+  const result = mapNotebookProperties(props({ Área: select(null) }))
   expect(result).toMatchObject({ skip: false, area: "Programación" })
 })
 
@@ -87,25 +87,25 @@ test("Tema multi_select junta sus valores", () => {
       { id: "b", name: "Frontend", color: "default" as const, description: null },
     ],
   }
-  const result = mapCourseProperties(props({ Tema: multi }))
+  const result = mapNotebookProperties(props({ Tema: multi }))
   expect(result).toMatchObject({ skip: false, area: "Programación, Frontend / JavaScript" })
 })
 
 test("Tema multi_select vacío no aporta al area", () => {
   const empty = { id: "id", type: "multi_select" as const, multi_select: [] }
-  const result = mapCourseProperties(props({ Tema: empty }))
+  const result = mapNotebookProperties(props({ Tema: empty }))
   expect(result).toMatchObject({ skip: false, area: "JavaScript" })
 })
 
 // "todo, no parcial" (spec) manda: solo se saltea si Área queda TOTALMENTE vacía (Tema y Área
 // ausentes), no por tener uno de los dos nada más.
 test("sin Tema ni Área (área totalmente vacía) se saltea", () => {
-  const result = mapCourseProperties(props({ Tema: select(null), Área: select(null) }))
+  const result = mapNotebookProperties(props({ Tema: select(null), Área: select(null) }))
   expect(result).toEqual({ skip: true, reason: expect.stringContaining("Historia de JavaScript") })
 })
 
 test("fila con Nombre pero sin Donde se saltea", () => {
-  const result = mapCourseProperties(props({ Donde: select(null) }))
+  const result = mapNotebookProperties(props({ Donde: select(null) }))
   expect(result.skip).toBe(true)
 })
 

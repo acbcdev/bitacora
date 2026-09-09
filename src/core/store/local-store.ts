@@ -1,6 +1,6 @@
 import { hasSupabaseEnv } from "@/core/lib/supabase"
 import { setStorageMode } from "@/core/store/mode"
-import type { Course, Habit, HabitLog, Note, ReadLog } from "@/core/types/database"
+import type { Notebook, Habit, HabitLog, Note, ReadLog } from "@/core/types/database"
 import type {
   AuthUser,
   Snapshot,
@@ -31,7 +31,7 @@ const LOCAL_USER: AuthUser = { email: "local" }
 const MAX_ICON_BYTES = 100_000
 
 type Tables = {
-  courses: Course
+  notebooks: Notebook
   notes: Note
   read_log: ReadLog
   habits: Habit
@@ -79,7 +79,7 @@ function fileToDataUrl(file: File) {
 
 // Los defaults de migrations/0001, replicados: en Supabase los pone Postgres.
 const DEFAULTS = {
-  courses: {
+  notebooks: {
     status: "active",
     started_at: null,
     finished_at: null,
@@ -89,7 +89,7 @@ const DEFAULTS = {
     imported: false,
   },
   notes: {
-    course_id: null,
+    notebook_id: null,
     title: "",
     content: { type: "doc", content: [] },
     kind: "note",
@@ -98,6 +98,42 @@ const DEFAULTS = {
   },
   habits: { icon: null, kind: "good", metric: "check", target: 1, period: "day", days: null },
 } as const
+
+// Renombre Course → Notebook (migración 0012, ADR 0014): la clave de localStorage y el campo
+// de las notas guardadas siguen el nombre nuevo. Copia y borra el viejo. Los dos pasos son
+// idempotentes por presencia de clave, así que el flag va al FINAL del try: si algo falla,
+// la próxima corrida reintenta.
+function maybeMigrateNotebookRename() {
+  if (localStorage.getItem("bita-migrated-0012")) return
+  try {
+    const old = localStorage.getItem(PREFIX + "courses")
+    if (old !== null) {
+      localStorage.setItem(PREFIX + "notebooks", old)
+      localStorage.removeItem(PREFIX + "courses")
+    }
+    const raw = localStorage.getItem(PREFIX + "notes")
+    if (raw) {
+      // Filas crudas de localStorage: las pre-0012 traen `course_id`. Sólo se tocan esas —
+      // re-corridas (el flag vive en localStorage y un clear lo borra) no deben alterar filas
+      // ya migradas.
+      const notes = JSON.parse(raw) as Record<string, unknown>[]
+      if (notes.some((n) => "course_id" in n)) {
+        localStorage.setItem(
+          PREFIX + "notes",
+          JSON.stringify(
+            notes.map((n) =>
+              "course_id" in n ? { ...n, notebook_id: n.course_id, course_id: undefined } : n,
+            ),
+          ),
+        )
+      }
+    }
+    localStorage.setItem("bita-migrated-0012", "1")
+  } catch (err) {
+    // Sin flag: la próxima corrida reintenta (los dos pasos son idempotentes por presencia de clave).
+    console.error("migración 0012 (local) falló — se reintenta en el próximo arranque", err)
+  }
+}
 
 function maybeMigrateTimeToSeconds() {
   if (localStorage.getItem("bita-migrated-0011")) return
@@ -130,11 +166,15 @@ function maybeMigrateTimeToSeconds() {
       }
     }
     if (logTouched) write("habit_log", logs as never)
-  } catch {}
+  } catch (err) {
+    // Sin flag: la próxima corrida reintenta. Corrompido no bloquea el arranque (ADR 0011).
+    console.error("migración 0011 (local) falló — se reintenta en el próximo arranque", err)
+  }
   localStorage.setItem("bita-migrated-0011", "1")
 }
 
 export function localStore(): Store {
+  maybeMigrateNotebookRename()
   maybeMigrateTimeToSeconds()
   return {
     mode: "local",
@@ -167,15 +207,17 @@ export function localStore(): Store {
     // universal de CONTEXT.md y vive de este lado del seam en los dos.
     async snapshot(): Promise<Snapshot> {
       return {
-        courses: live(read("courses")),
-        notes: live(read("notes")).map(({ id, title, course_id, position, kind, created_at }) => ({
-          id,
-          title,
-          course_id,
-          position,
-          kind,
-          created_at,
-        })),
+        notebooks: live(read("notebooks")),
+        notes: live(read("notes")).map(
+          ({ id, title, notebook_id, position, kind, created_at }) => ({
+            id,
+            title,
+            notebook_id,
+            position,
+            kind,
+            created_at,
+          }),
+        ),
         reads: read("read_log").map(({ note_id, read_at, grade }) => ({ note_id, read_at, grade })),
         habits: live(read("habits")),
         habitLog: read("habit_log").map(({ habit_id, day, amount, target }) => ({
@@ -201,6 +243,8 @@ export function localStore(): Store {
       // migración 0010. La fila llega completa, con el `target` ya congelado por quien llama.
       if (entity === "habit_log") {
         const rows = read("habit_log")
+        // SAFETY: el llamador (frozenTarget / HabitDayInput) garantiza habit_id+day+amount+target
+        // completos; TS no lo ve porque WriteInput[E] se resuelve en runtime.
         const v = values as unknown as Omit<HabitLog, "id" | "user_id">
         const i = rows.findIndex((r) => r.habit_id === v.habit_id && r.day === v.day)
         const row = { ...v, id: rows[i]?.id ?? crypto.randomUUID(), user_id: LOCAL_USER_ID }
@@ -223,7 +267,7 @@ export function localStore(): Store {
         return undefined as WriteResult[E]
       }
 
-      const table = entity as "courses" | "notes" | "habits"
+      const table = entity as "notebooks" | "notes" | "habits"
       const rows = read(table)
 
       if (id) {
@@ -256,14 +300,14 @@ export function localStore(): Store {
       )
     },
 
-    async uploadCourseIcon(file) {
+    async uploadNotebookIcon(file) {
       if (file.size > MAX_ICON_BYTES) {
         throw new Error(
           `En modo local el icono se guarda en el navegador: máximo ${MAX_ICON_BYTES / 1000} KB.`,
         )
       }
       // Data URL y no un bucket: es la única forma de que la imagen sobreviva a un reload sin
-      // servidor. `course-icon.tsx` ya trata cualquier cosa que no empiece con 'lucide:' como
+      // servidor. `notebook-icon.tsx` ya trata cualquier cosa que no empiece con 'lucide:' como
       // imagen, así que una data URL entra por esa rama sin cambios.
       return fileToDataUrl(file)
     },

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-// Los iconos `external` apuntan al CDN del curso original (static.platzi.com y cía), que devuelve
+// Los iconos `external` apuntan al CDN del notebook original (static.platzi.com y cía), que devuelve
 // 403 + HTML al User-Agent por defecto de undici. Con UA de browser: 200.
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"

@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { Review } from "@/review/review"
-import { course, habit, note, renderApp } from "@/test/harness"
+import { notebook, habit, note, renderApp } from "@/test/harness"
 import type { Snapshot } from "@/core/store/types"
 
 vi.mock("@/core/store", async () => {
@@ -26,12 +26,14 @@ function markReadButtonVisible(visible: boolean) {
 
 function baseSeed(over: Partial<Snapshot> = {}): Snapshot {
   return {
-    courses: [course({ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" })],
+    notebooks: [
+      notebook({ id: "c1", name: "Notebook", status: "active", created_at: "2026-01-01" }),
+    ],
     notes: [
       note({
         id: "n1",
         title: "Nota uno",
-        course_id: "c1",
+        notebook_id: "c1",
         position: 0,
         kind: "note",
         created_at: "2026-01-01T00:00:01Z",
@@ -39,7 +41,7 @@ function baseSeed(over: Partial<Snapshot> = {}): Snapshot {
       note({
         id: "n2",
         title: "Nota dos",
-        course_id: "c1",
+        notebook_id: "c1",
         position: 0,
         kind: "note",
         created_at: "2026-01-01T00:00:02Z",
@@ -47,7 +49,7 @@ function baseSeed(over: Partial<Snapshot> = {}): Snapshot {
       note({
         id: "f1",
         title: "Pregunta uno",
-        course_id: "c1",
+        notebook_id: "c1",
         position: 0,
         kind: "flashcard",
         created_at: "2026-01-01T00:00:03Z",
@@ -111,7 +113,7 @@ test("Cargar más descongela: trae el 4to tras marcar", async () => {
       note({
         id: "n1",
         title: "Nota uno",
-        course_id: "c1",
+        notebook_id: "c1",
         position: 0,
         kind: "note",
         created_at: "2026-01-01T00:00:01Z",
@@ -119,7 +121,7 @@ test("Cargar más descongela: trae el 4to tras marcar", async () => {
       note({
         id: "n2",
         title: "Nota dos",
-        course_id: "c1",
+        notebook_id: "c1",
         position: 0,
         kind: "note",
         created_at: "2026-01-01T00:00:02Z",
@@ -127,7 +129,7 @@ test("Cargar más descongela: trae el 4to tras marcar", async () => {
       note({
         id: "n3",
         title: "Nota tres",
-        course_id: "c1",
+        notebook_id: "c1",
         position: 0,
         kind: "note",
         created_at: "2026-01-01T00:00:03Z",
@@ -135,7 +137,7 @@ test("Cargar más descongela: trae el 4to tras marcar", async () => {
       note({
         id: "n4",
         title: "Nota cuatro",
-        course_id: "c1",
+        notebook_id: "c1",
         position: 0,
         kind: "note",
         created_at: "2026-01-01T00:00:04Z",

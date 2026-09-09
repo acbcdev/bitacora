@@ -22,7 +22,7 @@ export function NoteSkeleton() {
   )
 }
 
-// Tabla de cursos: nombre, estado, barra de progreso y contador por fila.
+// Tabla de notebooks: nombre, estado, barra de progreso y contador por fila.
 export function TableSkeleton() {
   return (
     <Card className="p-0">

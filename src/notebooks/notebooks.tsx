@@ -15,9 +15,9 @@ import {
   Trash2,
 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
-import { CourseIcon } from "@/courses/course-icon"
-import { CourseForm } from "@/courses/course-form"
-import { togglePinnedCourse, usePinnedCourseIds } from "@/courses/pinned-courses"
+import { NotebookIcon } from "@/notebooks/notebook-icon"
+import { NotebookForm } from "@/notebooks/notebook-form"
+import { togglePinnedNotebook, usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
 import { TableSkeleton } from "@/core/components/skeletons"
 import { Badge } from "@/core/ui/badge"
 import { Button } from "@/core/ui/button"
@@ -44,17 +44,17 @@ import { ToggleGroup, ToggleGroupItem } from "@/core/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
-import { PAGE_SIZE, useCoursesPage, useDeleteCourse } from "@/courses/courses.api"
+import { PAGE_SIZE, useNotebooksPage, useDeleteNotebook } from "@/notebooks/notebooks.api"
 import { dayOf, relativeDay } from "@/core/lib/day"
-import type { Course, CourseStatus } from "@/core/types/database"
+import type { Notebook, NotebookStatus } from "@/core/types/database"
 
-const STATUS: Record<CourseStatus, [string, "brand" | "warning" | "outline"]> = {
+const STATUS: Record<NotebookStatus, [string, "brand" | "warning" | "outline"]> = {
   active: ["activo", "brand"],
   paused: ["pausado", "warning"],
   done: ["hecho", "outline"],
 }
 
-const STATUS_DOT: Record<CourseStatus, string> = {
+const STATUS_DOT: Record<NotebookStatus, string> = {
   active: "bg-brand",
   paused: "bg-warning",
   done: "bg-muted-foreground",
@@ -67,7 +67,7 @@ const SEARCH_DEBOUNCE = 300
 
 // La vacía es la columna de acciones; el chevron va pegado al nombre en la misma celda.
 const HEADERS = [
-  "Curso",
+  "Notebook",
   "Fuente",
   "Área",
   "Estado",
@@ -82,24 +82,24 @@ function fmt(d: string | null | undefined) {
   return d ? d.slice(0, 10) : "—"
 }
 
-// Pantalla Cursos (screen 2) como database view del diseño: buscar, filtrar por estado, ordenar,
+// Pantalla Notebooks (screen 2) como database view del diseño: buscar, filtrar por estado, ordenar,
 // y alternar tabla / tarjetas. Búsqueda, filtro, orden y paginado los resuelve la RPC
-// `courses_page` (migración 0006) — el cliente sólo guarda el estado de los controles.
-export function Courses({ embed }: { embed?: boolean }) {
+// `notebooks_page` (migración 0006) — el cliente sólo guarda el estado de los controles.
+export function Notebooks({ embed }: { embed?: boolean }) {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const del = useDeleteCourse()
+  const del = useDeleteNotebook()
   const isMobile = useIsMobile()
 
   const [view, setView] = useState<"tabla" | "tarjetas">("tarjetas")
   const [q, setQ] = useState("")
   const [debouncedQ, setDebouncedQ] = useState("")
-  const [status, setStatus] = useState<CourseStatus | "todos">("todos")
+  const [status, setStatus] = useState<NotebookStatus | "todos">("todos")
   const [sort, setSort] = useState<Sort>("recientes")
   const [page, setPage] = useState(1)
-  const [editing, setEditing] = useState<Course | null | "new">(params.get("new") ? "new" : null)
+  const [editing, setEditing] = useState<Notebook | null | "new">(params.get("new") ? "new" : null)
   const [selected, setSelected] = useState(0)
-  const [confirmingDelete, setConfirmingDelete] = useState<Course | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState<Notebook | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -107,11 +107,11 @@ export function Courses({ embed }: { embed?: boolean }) {
     return () => clearTimeout(t)
   }, [q])
 
-  const { data, isLoading } = useCoursesPage({ q: debouncedQ, status, sort, page })
+  const { data, isLoading } = useNotebooksPage({ q: debouncedQ, status, sort, page })
   const rows = data?.rows ?? []
   const total = data?.total ?? 0
   const pages = Math.max(Math.ceil(total / PAGE_SIZE), 1)
-  // Distingue "todavía no creaste ningún curso" de "los filtros no matchean nada": con paginado
+  // Distingue "todavía no creaste ningún notebook" de "los filtros no matchean nada": con paginado
   // en server no hay una lista completa en cliente contra la cual comparar.
   const filtering = !!debouncedQ || status !== "todos"
 
@@ -123,14 +123,14 @@ export function Courses({ embed }: { embed?: boolean }) {
   })
 
   // Cambiar filtro/orden vuelve a la página 1: la 3 puede no existir en el resultado filtrado.
-  // La selección de teclado también se resetea — apuntaría a un curso que ya no está en la lista.
+  // La selección de teclado también se resetea — apuntaría a un notebook que ya no está en la lista.
   useEffect(() => {
     setSelected(0)
     setPage(1)
   }, [debouncedQ, status, sort])
   useEffect(() => setSelected(0), [page])
 
-  // Borrar el último curso de la última página la deja vacía: retroceder en vez de mostrar nada.
+  // Borrar el último notebook de la última página la deja vacía: retroceder en vez de mostrar nada.
   useEffect(() => {
     if (page > pages) setPage(pages)
   }, [page, pages])
@@ -159,7 +159,7 @@ export function Courses({ embed }: { embed?: boolean }) {
   )
   useSafeHotkeys(
     "enter",
-    () => rows[selected] && navigate(`/course/${rows[selected].id}`),
+    () => rows[selected] && navigate(`/notebook/${rows[selected].id}`),
     { preventDefault: true, enabled: !embed },
     [rows, selected, navigate],
   )
@@ -189,10 +189,10 @@ export function Courses({ embed }: { embed?: boolean }) {
             embed ? "text-xl font-semibold tracking-tight" : "text-2xl font-semibold tracking-tight"
           }
         >
-          Cursos
+          Notebooks
         </h1>
         <span className="mono-dim">
-          {total} {total === 1 ? "curso" : "cursos"}
+          {total} {total === 1 ? "notebook" : "notebooks"}
         </span>
       </div>
 
@@ -213,7 +213,7 @@ export function Courses({ embed }: { embed?: boolean }) {
               if (q) setQ("")
               searchRef.current?.blur()
             }}
-            placeholder="Buscar curso…"
+            placeholder="Buscar notebook…"
           />
         </InputGroup>
 
@@ -260,11 +260,11 @@ export function Courses({ embed }: { embed?: boolean }) {
         </ToggleGroup>
         <Button
           onClick={() => setEditing("new")}
-          aria-label="Nuevo curso"
+          aria-label="Nuevo notebook"
           className="max-md:ml-auto max-md:size-8 max-md:p-0"
         >
           <Plus />
-          <span className="max-md:hidden">Nuevo curso</span>
+          <span className="max-md:hidden">Nuevo notebook</span>
         </Button>
       </div>
 
@@ -293,12 +293,15 @@ export function Courses({ embed }: { embed?: boolean }) {
                   key={c.id}
                   data-active={i === selected}
                   className="group cursor-pointer data-[active=true]:bg-muted"
-                  onClick={() => navigate(`/course/${c.id}`)}
+                  onClick={() => navigate(`/notebook/${c.id}`)}
                 >
                   <TableCell className="sticky left-0 z-10 max-w-80 bg-card px-3 py-3 font-medium whitespace-normal group-hover:bg-muted/50 group-data-[active=true]:bg-muted/50">
                     <span className="flex items-start gap-2">
                       <ChevronRight size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
-                      <CourseIcon icon={c.icon} className="mt-0.5 shrink-0 text-muted-foreground" />
+                      <NotebookIcon
+                        icon={c.icon}
+                        className="mt-0.5 shrink-0 text-muted-foreground"
+                      />
                       {c.name}
                     </span>
                   </TableCell>
@@ -327,7 +330,7 @@ export function Courses({ embed }: { embed?: boolean }) {
                   </TableCell>
                   <TableCell className="px-3 py-3 text-right">
                     <RowActions
-                      course={c}
+                      notebook={c}
                       onEdit={() => setEditing(c)}
                       onDelete={() => del.mutate(c.id)}
                     />
@@ -340,7 +343,7 @@ export function Courses({ embed }: { embed?: boolean }) {
                     <Empty className="px-3 py-7">
                       <EmptyHeader>
                         <EmptyTitle>
-                          {filtering ? "Sin cursos que coincidan." : "Sin cursos."}
+                          {filtering ? "Sin notebooks que coincidan." : "Sin notebooks."}
                         </EmptyTitle>
                         <EmptyDescription>
                           {filtering ? "Ajustá los filtros." : "Creá el primero."}
@@ -359,12 +362,12 @@ export function Courses({ embed }: { embed?: boolean }) {
             <Card
               key={c.id}
               data-active={i === selected}
-              onClick={() => navigate(`/course/${c.id}`)}
+              onClick={() => navigate(`/notebook/${c.id}`)}
               className="group cursor-pointer gap-0 p-6 transition-colors hover:bg-muted data-[active=true]:bg-muted"
             >
               <div className="mb-3 flex items-start justify-between gap-2">
                 <span className="flex min-h-12 items-center gap-2 text-base leading-6 font-medium text-pretty">
-                  <CourseIcon icon={c.icon} className="size-7 shrink-0 text-muted-foreground" />
+                  <NotebookIcon icon={c.icon} className="size-7 shrink-0 text-muted-foreground" />
                   <span className="line-clamp-2">{c.name}</span>
                 </span>
                 <Tooltip>
@@ -388,7 +391,7 @@ export function Courses({ embed }: { embed?: boolean }) {
               <div className="flex items-center justify-between">
                 <span className="mono-dim">{relativeDay(c.started_at)}</span>
                 <RowActions
-                  course={c}
+                  notebook={c}
                   onEdit={() => setEditing(c)}
                   onDelete={() => del.mutate(c.id)}
                 />
@@ -398,7 +401,9 @@ export function Courses({ embed }: { embed?: boolean }) {
           {rows.length === 0 && (
             <Empty className="col-span-full py-7">
               <EmptyHeader>
-                <EmptyTitle>{filtering ? "Sin cursos que coincidan." : "Sin cursos."}</EmptyTitle>
+                <EmptyTitle>
+                  {filtering ? "Sin notebooks que coincidan." : "Sin notebooks."}
+                </EmptyTitle>
                 <EmptyDescription>
                   {filtering ? "Ajustá los filtros." : "Creá el primero."}
                 </EmptyDescription>
@@ -408,7 +413,7 @@ export function Courses({ embed }: { embed?: boolean }) {
         </div>
       )}
 
-      {/* ponytail: sin elipsis — a 59 cursos son 3 páginas y entran todas. Si `pages` crece,
+      {/* ponytail: sin elipsis — a 59 notebooks son 3 páginas y entran todas. Si `pages` crece,
           `PaginationEllipsis` ya está importable desde el mismo módulo. */}
       {pages > 1 && (
         <Pagination className="mt-8">
@@ -455,7 +460,7 @@ export function Courses({ embed }: { embed?: boolean }) {
         </Pagination>
       )}
 
-      {editing && <CourseForm course={editing === "new" ? null : editing} onClose={close} />}
+      {editing && <NotebookForm notebook={editing === "new" ? null : editing} onClose={close} />}
 
       {/* Borrar por teclado (Delete/Backspace sobre la fila seleccionada) — separado del
           ConfirmDelete de RowActions, que ya cubre el flujo de mouse. */}
@@ -471,27 +476,27 @@ export function Courses({ embed }: { embed?: boolean }) {
   )
 }
 
-// Editar / borrar en un menú — la fila entera navega al curso.
+// Editar / borrar en un menú — la fila entera navega al notebook.
 function RowActions({
-  course,
+  notebook,
   onEdit,
   onDelete,
 }: {
-  course: Course
+  notebook: Notebook
   onEdit: () => void
   onDelete: () => void
 }) {
   const [confirming, setConfirming] = useState(false)
-  const pinned = usePinnedCourseIds().includes(course.id)
+  const pinned = usePinnedNotebookIds().includes(notebook.id)
 
   return (
     // El menú se portalea pero React igual propaga el click por el árbol, así que el
-    // stopPropagation va en los dos lados: si no, elegir una acción navega al curso.
+    // stopPropagation va en los dos lados: si no, elegir una acción navega al notebook.
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon-sm" aria-label={`Acciones de ${course.name}`}>
+            <Button variant="ghost" size="icon-sm" aria-label={`Acciones de ${notebook.name}`}>
               <MoreHorizontal className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
@@ -499,7 +504,7 @@ function RowActions({
         <TooltipContent>Acciones</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-        <DropdownMenuItem onSelect={() => togglePinnedCourse(course.id)}>
+        <DropdownMenuItem onSelect={() => togglePinnedNotebook(notebook.id)}>
           {pinned ? <PinOff /> : <Pin />}
           {pinned ? "Desfijar" : "Fijar"}
         </DropdownMenuItem>
@@ -516,7 +521,7 @@ function RowActions({
       <ConfirmDelete
         open={confirming}
         onOpenChange={setConfirming}
-        what={course.name}
+        what={notebook.name}
         onConfirm={onDelete}
       />
     </DropdownMenu>

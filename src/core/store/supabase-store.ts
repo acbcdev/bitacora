@@ -4,7 +4,7 @@ import type { Snapshot, Store, WriteInput, WriteResult, Writable } from "@/core/
 
 // Adapter contra Supabase — el default (CONTEXT.md, "Stack cerrado").
 //
-// Ya no llama a las RPC `courses_page` ni `review_queue`: la derivación vive en `derive.ts` y la
+// Ya no llama a las RPC `notebooks_page` ni `review_queue`: la derivación vive en `derive.ts` y la
 // comparten los dos adapters (ADR 0011). Las funciones siguen en la DB, sin llamador — retirarlas
 // es una migración, y una migración es un cambio de DB.
 //
@@ -49,21 +49,21 @@ export function supabaseStore(): Store {
     // propio waterfall de React Query.
     async snapshot(): Promise<Snapshot> {
       const supabase = getSupabase()
-      const [courses, notes, reads, habits, habitLog] = await Promise.all([
-        supabase.from("courses").select("*").is("deleted_at", null),
+      const [notebooks, notes, reads, habits, habitLog] = await Promise.all([
+        supabase.from("notebooks").select("*").is("deleted_at", null),
         // Sin `content`: es el 99% del peso y sólo lo necesita la nota abierta.
         supabase
           .from("notes")
-          .select("id, title, course_id, position, kind, created_at")
+          .select("id, title, notebook_id, position, kind, created_at")
           .is("deleted_at", null),
         supabase.from("read_log").select("note_id, read_at, grade"),
         supabase.from("habits").select("*").is("deleted_at", null),
         supabase.from("habit_log").select("habit_id, day, amount, target"),
       ])
-      const failed = [courses, notes, reads, habits, habitLog].find((r) => r.error)
+      const failed = [notebooks, notes, reads, habits, habitLog].find((r) => r.error)
       if (failed?.error) throw failed.error
       return {
-        courses: courses.data ?? [],
+        notebooks: notebooks.data ?? [],
         notes: notes.data ?? [],
         reads: reads.data ?? [],
         habits: habits.data ?? [],
@@ -112,7 +112,7 @@ export function supabaseStore(): Store {
       // El cast de la tabla: en tiempo de tipos `entity` es una unión y el cliente no resuelve
       // `.eq("id", …)` contra una unión de Row. Las cuatro tablas tienen `id` y el runtime es
       // idéntico — acotarlo acá evita cuatro ramas que harían exactamente lo mismo.
-      const table = supabase.from(entity as "courses")
+      const table = supabase.from(entity as "notebooks")
       const { error } = id
         ? await table.update(row as never).eq("id", id)
         : await table.insert(row as never)
@@ -120,7 +120,7 @@ export function supabaseStore(): Store {
       return undefined as WriteResult[E]
     },
 
-    // Borrado lógico: nunca DELETE (ADR 0002). Borrar un curso no toca sus notas.
+    // Borrado lógico: nunca DELETE (ADR 0002). Borrar un notebook no toca sus notas.
     async softDelete(entity, id) {
       const { error } = await getSupabase()
         .from(entity)
@@ -130,7 +130,7 @@ export function supabaseStore(): Store {
     },
 
     // La carpeta tiene que ser el user_id: es lo que exige la policy de storage (migración 0004).
-    async uploadCourseIcon(file) {
+    async uploadNotebookIcon(file) {
       const supabase = getSupabase()
       const { data, error: authError } = await supabase.auth.getUser()
       if (authError || !data.user) throw authError ?? new Error("Sin sesión")
@@ -143,17 +143,17 @@ export function supabaseStore(): Store {
 
     // Edge Function + insert de cada par como nota `kind: 'flashcard'` — mismo shape que una nota
     // normal, sin tabla nueva (ADR 0010).
-    async generateFlashcards(courseId) {
+    async generateFlashcards(notebookId) {
       const supabase = getSupabase()
       const { data, error } = await supabase.functions.invoke<{
         flashcards: { question: string; answer: string }[]
-      }>("generate-flashcards", { body: { course_id: courseId } })
+      }>("generate-flashcards", { body: { notebook_id: notebookId } })
       if (error) throw error
       const pairs = data?.flashcards ?? []
       if (pairs.length === 0) return
       const { error: insertError } = await supabase.from("notes").insert(
         pairs.map((p) => ({
-          course_id: courseId,
+          notebook_id: notebookId,
           kind: "flashcard" as const,
           title: p.question,
           content: answerDoc(p.answer),

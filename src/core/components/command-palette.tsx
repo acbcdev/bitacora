@@ -29,7 +29,7 @@ const PREVIEW = 5 // items por grupo cuando no hay query
 export function filterActions(actions: Action[], q: string): Action[] {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean)
 
-  // Sin query: solo los últimos de cada grupo. Notas y cursos vienen ordenados por `position`
+  // Sin query: solo los últimos de cada grupo. Notas y notebooks vienen ordenados por `position`
   // ascendente y `position` se appendea al crear, así que el final = lo más nuevo.
   // Los grupos fijos (Navegar, Vista…) tienen ≤ PREVIEW items, así que salen enteros.
   if (!words.length) {
@@ -46,7 +46,7 @@ export function filterActions(actions: Action[], q: string): Action[] {
   return hits
 }
 
-// ⌘K: navegar, acciones y salto directo a cualquier curso o nota. Es la búsqueda del MVP —
+// ⌘K: navegar, acciones y salto directo a cualquier notebook o nota. Es la búsqueda del MVP —
 // filtra sobre lo que ya está en caché de TanStack Query, sin FTS ni scoring (CONTEXT: datos chicos).
 export function CommandPalette({ onClose, actions }: { onClose: () => void; actions: Action[] }) {
   const [q, setQ] = useState("")
@@ -64,7 +64,11 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
     >
       {/* El `CommandDialog` del registry no monta el root de cmdk, solo el diálogo. */}
       <Command shouldFilter={false}>
-        <CommandInput value={q} onValueChange={setQ} placeholder="Buscar acción, curso o nota…" />
+        <CommandInput
+          value={q}
+          onValueChange={setQ}
+          placeholder="Buscar acción, notebook o nota…"
+        />
         <CommandList className="max-h-[440px]">
           <CommandEmpty>Sin resultados para “{q}”.</CommandEmpty>
           {[...groups].map(([group, items]) => (

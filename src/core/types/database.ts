@@ -3,7 +3,7 @@
 //   supabase gen types typescript --project-id <id> > src/types/database.ts
 // Mientras no exista el proyecto, van a mano — el schema está cerrado, no se inventa nada.
 
-export type CourseStatus = "active" | "paused" | "done"
+export type NotebookStatus = "active" | "paused" | "done"
 export type NoteKind = "note" | "flashcard"
 export type Grade = "correcto" | "parcial" | "incorrecto"
 export type HabitKind = "good" | "bad"
@@ -21,24 +21,24 @@ type Timestamps = {
 export type Database = {
   public: {
     Tables: {
-      courses: {
+      notebooks: {
         Row: {
           id: string
           user_id: string
           name: string
-          status: CourseStatus
+          status: NotebookStatus
           started_at: string | null
           finished_at: string | null
           icon: string | null // 'lucide:Book' o URL de imagen subida
           source: string | null // dónde se estudió (ej. 'Platzi')
-          area: string | null // tema/categoría del curso
+          area: string | null // tema/categoría del notebook
           imported: boolean
         } & Timestamps
         Insert: {
           id?: string
           user_id?: string // DB default auth.uid()
           name: string
-          status?: CourseStatus
+          status?: NotebookStatus
           started_at?: string | null
           finished_at?: string | null
           icon?: string | null
@@ -48,14 +48,14 @@ export type Database = {
           deleted_at?: string | null
           created_at?: string
         }
-        Update: Partial<Database["public"]["Tables"]["courses"]["Insert"]>
+        Update: Partial<Database["public"]["Tables"]["notebooks"]["Insert"]>
         Relationships: []
       }
       notes: {
         Row: {
           id: string
           user_id: string
-          course_id: string | null
+          notebook_id: string | null
           title: string
           content: TiptapDoc
           kind: NoteKind
@@ -65,7 +65,7 @@ export type Database = {
         Insert: {
           id?: string
           user_id?: string // DB default auth.uid()
-          course_id?: string | null
+          notebook_id?: string | null
           title?: string
           content?: TiptapDoc
           kind?: NoteKind
@@ -152,19 +152,19 @@ export type Database = {
         Args: Record<string, never>
         Returns: Database["public"]["Tables"]["notes"]["Row"][]
       }
-      course_progress: {
+      notebook_progress: {
         Args: Record<string, never>
-        Returns: { course_id: string; total: number; read: number }[]
+        Returns: { notebook_id: string; total: number; read: number }[]
       }
-      courses_page: {
+      notebooks_page: {
         Args: {
           q?: string
-          status_filter?: CourseStatus | null
+          status_filter?: NotebookStatus | null
           sort?: string
           page_size?: number
           page_offset?: number
         }
-        Returns: (Database["public"]["Tables"]["courses"]["Row"] & {
+        Returns: (Database["public"]["Tables"]["notebooks"]["Row"] & {
           notes: number
           rounds: number
           last_read: string | null
@@ -178,10 +178,11 @@ export type Database = {
 }
 
 // Alias cómodos para el resto de la app.
-export type Course = Database["public"]["Tables"]["courses"]["Row"]
+export type Notebook = Database["public"]["Tables"]["notebooks"]["Row"]
 export type Note = Database["public"]["Tables"]["notes"]["Row"]
 export type ReadLog = Database["public"]["Tables"]["read_log"]["Row"]
 export type Habit = Database["public"]["Tables"]["habits"]["Row"]
 export type HabitLog = Database["public"]["Tables"]["habit_log"]["Row"]
-export type CourseProgress = Database["public"]["Functions"]["course_progress"]["Returns"][number]
-export type CourseRow = Database["public"]["Functions"]["courses_page"]["Returns"][number]
+export type NotebookProgress =
+  Database["public"]["Functions"]["notebook_progress"]["Returns"][number]
+export type NotebookRow = Database["public"]["Functions"]["notebooks_page"]["Returns"][number]

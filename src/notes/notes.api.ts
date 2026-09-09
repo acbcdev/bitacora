@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { store } from "@/core/store"
-import { courseNotes, noteRefs } from "@/core/store/derive"
+import { notebookNotes, noteRefs } from "@/core/store/derive"
 import { SNAPSHOT_KEY, useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
 import type { Note, TiptapDoc } from "@/core/types/database"
 import type { NoteRef, Snapshot } from "@/core/store/types"
@@ -11,13 +11,13 @@ const EMPTY_DOC: TiptapDoc = { type: "doc", content: [] }
 
 export type { NoteRef } from "@/core/store/types"
 
-// Notas vivas de un curso, en orden de position. Son refs (sin `content`): la lista muestra
+// Notas vivas de un notebook, en orden de position. Son refs (sin `content`): la lista muestra
 // títulos, y el cuerpo lo trae `useNote` sólo de la nota abierta.
-export function useNotes(courseId: string) {
-  return useSnapshot((snap) => courseNotes(snap, courseId))
+export function useNotes(notebookId: string) {
+  return useSnapshot((snap) => notebookNotes(snap, notebookId))
 }
 
-// Índice de todas las notas para la command palette y el "últ. repaso" por curso.
+// Índice de todas las notas para la command palette y el "últ. repaso" por notebook.
 export function useAllNoteRefs() {
   return useSnapshot(noteRefs)
 }
@@ -32,24 +32,24 @@ export function useNote(id: string | undefined) {
   })
 }
 
-// Crea nota al final del curso (position = max+1) y devuelve la fila entera para navegar al editor
+// Crea nota al final del notebook (position = max+1) y devuelve la fila entera para navegar al editor
 // sin volver a pedirla — un solo roundtrip en todo el flujo (ADR 0008).
 export function useCreateNote() {
   const qc = useQueryClient()
   return useSnapshotMutation(
-    async (courseId: string): Promise<Note> => {
+    async (notebookId: string): Promise<Note> => {
       // El position sale del snapshot que ya está en cache; sin él, 0. Colisión de position =
       // orden ambiguo entre dos notas, no error (no hay unique constraint).
       const snap = qc.getQueryData<Snapshot>(SNAPSHOT_KEY)
-      const cached = snap ? courseNotes(snap, courseId) : []
+      const cached = snap ? notebookNotes(snap, notebookId) : []
       const position = Math.max(-1, ...cached.map((n) => n.position)) + 1
-      return store.save("notes", { course_id: courseId, position, content: EMPTY_DOC })
+      return store.save("notes", { notebook_id: notebookId, position, content: EMPTY_DOC })
     },
     {
       onSuccess: (note) => {
         // Sembrar, no invalidar (ADR 0008): la fila la acaba de mandar el server. Sin esto el
-        // editor monta con NoteSkeleton y —peor— el efecto de auto-corrección de URL de Course no
-        // encuentra la nota en el snapshot viejo y rebota a la primera del curso.
+        // editor monta con NoteSkeleton y —peor— el efecto de auto-corrección de URL de Notebook no
+        // encuentra la nota en el snapshot viejo y rebota a la primera del notebook.
         // El refetch del snapshot lo dispara `useSnapshotMutation` sin que nadie lo espere.
         qc.setQueryData(["note", note.id], note)
         qc.setQueryData<Snapshot>(SNAPSHOT_KEY, (snap) =>
@@ -60,10 +60,10 @@ export function useCreateNote() {
   )
 }
 
-const toRef = ({ id, title, course_id, position, kind, created_at }: Note): NoteRef => ({
+const toRef = ({ id, title, notebook_id, position, kind, created_at }: Note): NoteRef => ({
   id,
   title,
-  course_id,
+  notebook_id,
   position,
   kind,
   created_at,
@@ -81,7 +81,7 @@ export function useUpdateNote() {
 // Agregar move-up/down si el orden manual se vuelve necesario — hoy el append alcanza.
 
 // Borrador editable de una nota: título + doc + autosave debounced. Lo comparten la pantalla Nota
-// y el panel de edición de la pantalla Curso — sin botón guardar (keyboard-first).
+// y el panel de edición de la pantalla Notebook — sin botón guardar (keyboard-first).
 export function useNoteDraft(id: string | undefined) {
   const { data: note, isLoading } = useNote(id)
   const update = useUpdateNote()

@@ -10,9 +10,9 @@ import type { Snapshot } from "@/core/store/types"
 // Una sola query para todo el estado del servidor. Las pantallas no piden tablas: piden hechos
 // derivados del mismo snapshot (`derive.ts`), y TanStack memoiza cada `select`.
 //
-// Antes había seis queryKeys (`courses`, `notes`, `note_refs`, `read_stats`, `habits`,
+// Antes había seis queryKeys (`notebooks`, `notes`, `note_refs`, `read_stats`, `habits`,
 // `habit_log`) y cada mutation tenía que acordarse de invalidar las correctas — la de hábitos
-// invalidaba `habit_log` pero no `courses`, la de notas invalidaba `notes` y `note_refs`… Con una
+// invalidaba `habit_log` pero no `notebooks`, la de notas invalidaba `notes` y `note_refs`… Con una
 // sola key eso deja de ser una decisión.
 //
 // El costo, dicho: cualquier escritura refetchea todo. A la escala de CONTEXT.md ("los datos son

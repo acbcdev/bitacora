@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom"
 import { TooltipProvider } from "@/core/ui/tooltip"
 import { localStore } from "@/core/store/local-store"
 import type { Snapshot } from "@/core/store/types"
-import type { Course, Habit, Note, TiptapDoc } from "@/core/types/database"
+import type { Notebook, Habit, Note, TiptapDoc } from "@/core/types/database"
 
 const PREFIX = "bita-local:"
 const LOCAL_USER_ID = "00000000-0000-0000-0000-000000000000"
@@ -15,11 +15,11 @@ function nowIso() {
   return new Date().toISOString()
 }
 
-export function course(over: Partial<Course> = {}): Course {
+export function notebook(over: Partial<Notebook> = {}): Notebook {
   return {
     id: crypto.randomUUID(),
     user_id: LOCAL_USER_ID,
-    name: "Curso",
+    name: "Notebook",
     status: "active",
     started_at: null,
     finished_at: null,
@@ -37,7 +37,7 @@ export function note(over: Partial<Note> & { id?: string } = {}): Note {
   const base: Note = {
     id: crypto.randomUUID(),
     user_id: LOCAL_USER_ID,
-    course_id: "c1",
+    notebook_id: "c1",
     title: "Nota",
     content: { type: "doc", content: [] } as TiptapDoc,
     kind: "note",
@@ -106,8 +106,8 @@ export function habitLogRow(
 export function seedSnapshot(seed: Partial<Snapshot> = {}) {
   // force local mode (hasSupabaseEnv is false in tests, but be explicit)
   localStorage.setItem("bita-storage", "local")
-  if (seed.courses !== undefined) {
-    localStorage.setItem(PREFIX + "courses", JSON.stringify(seed.courses))
+  if (seed.notebooks !== undefined) {
+    localStorage.setItem(PREFIX + "notebooks", JSON.stringify(seed.notebooks))
   }
   if (seed.notes !== undefined) {
     // Snapshot notes are NoteRef, but storage expects full Note with content.

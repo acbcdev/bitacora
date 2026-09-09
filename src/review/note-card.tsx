@@ -1,16 +1,16 @@
-import { CourseIcon } from "@/courses/course-icon"
+import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { Button } from "@/core/ui/button"
 import { Kbd, KbdGroup } from "@/core/ui/kbd"
 import { docToPlainText } from "@/core/lib/tiptap-markdown"
 import { cn, MOD } from "@/core/lib/utils"
-import type { Course, Note } from "@/core/types/database"
+import type { Notebook, Note } from "@/core/types/database"
 import type { NoteRef } from "@/core/store/types"
 
 const FOOTER_BTN = "hover:bg-input dark:hover:bg-input"
 
 type Props = {
   item: NoteRef
-  course?: Course
+  notebook?: Notebook
   openNote?: Note
   position: string
   onOpen: () => void
@@ -22,7 +22,7 @@ type Props = {
 
 export function NoteCard({
   item,
-  course,
+  notebook,
   openNote,
   position,
   onOpen,
@@ -41,8 +41,8 @@ export function NoteCard({
       />
       <div className="mb-2 flex min-h-[2lh] items-start justify-between gap-3">
         <p className="eyebrow flex items-center gap-1.5">
-          <CourseIcon icon={course?.icon ?? null} />
-          {course?.name ?? "Sin curso"}
+          <NotebookIcon icon={notebook?.icon ?? null} />
+          {notebook?.name ?? "Sin notebook"}
         </p>
         <span className="mono-dim shrink-0 whitespace-nowrap">{position}</span>
       </div>

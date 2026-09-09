@@ -1,21 +1,21 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react"
-import { IconPicker } from "@/courses/icon-picker"
+import { IconPicker } from "@/notebooks/icon-picker"
 import { renderApp } from "@/test/harness"
 
 const { upload } = vi.hoisted(() => ({
   upload: vi.fn(() => Promise.resolve("https://cdn/icono.png")),
 }))
 
-// uploadCourseIcon es el único método que IconPicker toca — no necesita snapshot,
+// uploadNotebookIcon es el único método que IconPicker toca — no necesita snapshot,
 // así que el fake sigue siendo un vi.fn puntual. Lo que sí migra al harness es
 // el wrapper (antes render() pelado, ahora QueryClient+Router+Tooltip via renderApp).
-vi.mock("@/core/store", () => ({ store: { uploadCourseIcon: upload } }))
+vi.mock("@/core/store", () => ({ store: { uploadNotebookIcon: upload } }))
 
 beforeEach(() => upload.mockClear())
 
 function open(onChange = vi.fn()) {
   renderApp(<IconPicker icon={null} onChange={onChange} />)
-  fireEvent.click(screen.getByLabelText("Icono del curso"))
+  fireEvent.click(screen.getByLabelText("Icono del notebook"))
   return { onChange, popover: screen.getByRole("dialog") }
 }
 

@@ -6,8 +6,8 @@ import { NoteActions } from "@/notes/note-actions"
 import { Button } from "@/core/ui/button"
 import { Drialog, DrialogContent, DrialogTitle } from "@/core/ui/drialog"
 import { Kbd } from "@/core/ui/kbd"
-import { CourseIcon } from "@/courses/course-icon"
-import type { Course, Note } from "@/core/types/database"
+import { NotebookIcon } from "@/notebooks/notebook-icon"
+import type { Notebook, Note } from "@/core/types/database"
 
 // La nota de Repaso en grande, estilo "página" (Notion-like): todo en flujo normal dentro de una
 // columna centrada, sin header/footer fijos — solo el expand flota arriba a la izquierda.
@@ -15,7 +15,7 @@ import type { Course, Note } from "@/core/types/database"
 // este componente (Review desactiva el suyo con `enabled: !dialogOpen`).
 export function NoteDialog({
   note,
-  course,
+  notebook,
   open,
   marked,
   reads,
@@ -26,7 +26,7 @@ export function NoteDialog({
   onDeleted,
 }: {
   note: Note
-  course: Course | undefined
+  notebook: Notebook | undefined
   open: boolean
   marked: boolean
   reads: number
@@ -112,8 +112,8 @@ export function NoteDialog({
         >
           <div className="mx-auto max-w-2xl">
             <p className="eyebrow mb-4 flex items-center gap-1.5">
-              <CourseIcon icon={course?.icon ?? null} />
-              {course?.name ?? "Sin curso"}
+              <NotebookIcon icon={notebook?.icon ?? null} />
+              {notebook?.name ?? "Sin notebook"}
               {/* Cuántas veces se leyó esta nota (filas en read_log): contexto de "¿ya la vi?" */}
               <span className="mono-dim normal-case">
                 · {reads === 0 ? "sin repasos" : `${reads} ${reads === 1 ? "repaso" : "repasos"}`}

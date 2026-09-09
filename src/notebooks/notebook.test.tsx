@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { TooltipProvider } from "@/core/ui/tooltip"
-import { Course } from "@/courses/course"
+import { Notebook } from "@/notebooks/notebook"
 
 const { generateFlashcards, softDelete, state } = vi.hoisted(() => ({
   generateFlashcards: vi.fn(() => Promise.resolve()),
@@ -13,7 +13,7 @@ const { generateFlashcards, softDelete, state } = vi.hoisted(() => ({
         id: "n1",
         title: "Nota 1",
         content: { type: "doc" },
-        course_id: "c1",
+        notebook_id: "c1",
         kind: "note",
         position: 0,
         created_at: "2026-01-01",
@@ -22,13 +22,13 @@ const { generateFlashcards, softDelete, state } = vi.hoisted(() => ({
   },
 }))
 
-// Store falso: un curso con (o sin, según el test) notas. Con el seam angosto es un snapshot y
+// Store falso: un notebook con (o sin, según el test) notas. Con el seam angosto es un snapshot y
 // tres escrituras — antes era un builder de supabase-js imitado a mano.
 vi.mock("@/core/store", () => ({
   store: {
     canGenerateFlashcards: true,
     snapshot: async () => ({
-      courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
+      notebooks: [{ id: "c1", name: "Notebook", status: "active", created_at: "2026-01-01" }],
       notes: state.notes,
       reads: [],
       habits: [],
@@ -43,17 +43,17 @@ vi.mock("@/core/store", () => ({
 
 vi.mock("@/core/components/editor", () => ({ Editor: () => <div data-testid="editor" /> }))
 
-function renderCourse() {
+function renderNotebook() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={["/course/c1"]}>
+      <MemoryRouter initialEntries={["/notebook/c1"]}>
         <TooltipProvider>
           <Routes>
-            <Route path="/course/:id" element={<Course focus={false} setFocus={() => {}} />} />
+            <Route path="/notebook/:id" element={<Notebook focus={false} setFocus={() => {}} />} />
             <Route
-              path="/course/:id/:noteId"
-              element={<Course focus={false} setFocus={() => {}} />}
+              path="/notebook/:id/:noteId"
+              element={<Notebook focus={false} setFocus={() => {}} />}
             />
           </Routes>
         </TooltipProvider>
@@ -70,7 +70,7 @@ beforeEach(() => {
       id: "n1",
       title: "Nota 1",
       content: { type: "doc" },
-      course_id: "c1",
+      notebook_id: "c1",
       kind: "note",
       created_at: "2026-01-01",
       position: 0,
@@ -80,18 +80,18 @@ beforeEach(() => {
 
 // Radix abre el menú con pointerdown, no con click; en jsdom es más estable dispararlo por
 // teclado (Enter en el trigger), que es el mismo camino que usa alguien navegando con tab.
-function openCourseMenu() {
-  fireEvent.keyDown(screen.getByRole("button", { name: "Acciones del curso" }), { key: "Enter" })
+function openNotebookMenu() {
+  fireEvent.keyDown(screen.getByRole("button", { name: "Acciones del notebook" }), { key: "Enter" })
 }
 
 // Qué se afirma acá cambió con el seam: que el menú dispara la operación del dominio para ESTE
-// curso. Que un par pregunta/respuesta se guarde como `kind: 'flashcard'` (ADR 0010) es interno
+// notebook. Que un par pregunta/respuesta se guarde como `kind: 'flashcard'` (ADR 0010) es interno
 // del adapter de Supabase — la Edge Function no existe del lado local.
-test("Generar flashcards dispara la generación para el curso abierto", async () => {
-  renderCourse()
-  await screen.findByText("Curso")
+test("Generar flashcards dispara la generación para el notebook abierto", async () => {
+  renderNotebook()
+  await screen.findByText("Notebook")
 
-  openCourseMenu()
+  openNotebookMenu()
   fireEvent.click(await screen.findByRole("menuitem", { name: /Generar flashcards/ }))
 
   await waitFor(() => expect(generateFlashcards).toHaveBeenCalledWith("c1"))
@@ -99,28 +99,28 @@ test("Generar flashcards dispara la generación para el curso abierto", async ()
 
 // Borrar es soft delete (deleted_at, ADR 0002) y va detrás de una confirmación: el menú se
 // desmonta al elegir el item, así que el AlertDialog vive fuera del DropdownMenu.
-test("Borrar curso pide confirmación antes de tocar la DB", async () => {
-  renderCourse()
-  await screen.findByText("Curso")
+test("Borrar notebook pide confirmación antes de tocar la DB", async () => {
+  renderNotebook()
+  await screen.findByText("Notebook")
 
-  openCourseMenu()
-  fireEvent.click(await screen.findByRole("menuitem", { name: /Borrar curso/ }))
+  openNotebookMenu()
+  fireEvent.click(await screen.findByRole("menuitem", { name: /Borrar notebook/ }))
   await screen.findByRole("alertdialog")
   expect(softDelete).not.toHaveBeenCalled()
 
   fireEvent.click(screen.getByRole("button", { name: "Borrar" }))
-  await waitFor(() => expect(softDelete).toHaveBeenCalledWith("courses", "c1"))
+  await waitFor(() => expect(softDelete).toHaveBeenCalledWith("notebooks", "c1"))
 })
 
-test("Editar curso abre el form con los datos del curso", async () => {
-  renderCourse()
-  await screen.findByText("Curso")
+test("Editar notebook abre el form con los datos del notebook", async () => {
+  renderNotebook()
+  await screen.findByText("Notebook")
 
-  openCourseMenu()
-  fireEvent.click(await screen.findByRole("menuitem", { name: /Editar curso/ }))
+  openNotebookMenu()
+  fireEvent.click(await screen.findByRole("menuitem", { name: /Editar notebook/ }))
 
   await screen.findByRole("dialog")
-  expect(screen.getByLabelText("Nombre")).toHaveValue("Curso")
+  expect(screen.getByLabelText("Nombre")).toHaveValue("Notebook")
 })
 
 // En mobile los dos paneles se apilan (índice arriba, nota abajo): elegir del índice tiene que
@@ -131,7 +131,7 @@ test("en mobile, elegir una nota del índice scrollea al panel de la nota", asyn
       id: "n1",
       title: "Nota 1",
       content: { type: "doc" },
-      course_id: "c1",
+      notebook_id: "c1",
       kind: "note",
       created_at: "2026-01-01",
       position: 0,
@@ -140,7 +140,7 @@ test("en mobile, elegir una nota del índice scrollea al panel de la nota", asyn
       id: "n2",
       title: "Nota 2",
       content: { type: "doc" },
-      course_id: "c1",
+      notebook_id: "c1",
       kind: "note",
       created_at: "2026-01-01",
       position: 1,
@@ -150,19 +150,19 @@ test("en mobile, elegir una nota del índice scrollea al panel de la nota", asyn
   const scrollIntoView = vi.fn()
   Element.prototype.scrollIntoView = scrollIntoView
 
-  renderCourse()
+  renderNotebook()
   fireEvent.click(await screen.findByRole("button", { name: /Nota 2/ }))
 
   expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth" })
   Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 1024 })
 })
 
-test("el botón queda deshabilitado si el curso no tiene notas", async () => {
+test("el botón queda deshabilitado si el notebook no tiene notas", async () => {
   state.notes = []
-  renderCourse()
-  await screen.findByText("Curso")
+  renderNotebook()
+  await screen.findByText("Notebook")
 
-  openCourseMenu()
+  openNotebookMenu()
   expect(await screen.findByRole("menuitem", { name: /Generar flashcards/ })).toHaveAttribute(
     "aria-disabled",
     "true",
@@ -172,13 +172,13 @@ test("el botón queda deshabilitado si el curso no tiene notas", async () => {
 // mod+j / mod+k: alias forzado (enableOnContentEditable) para navegar entre notas con el foco
 // adentro del editor — j,k solos se desactivan ahí por default de la lib. ctrlKey: true porque
 // jsdom reporta un userAgent sin "mac", así que "mod" resuelve a ctrlKey acá, no metaKey.
-test("mod+k / mod+j mueven entre notas del curso", async () => {
+test("mod+k / mod+j mueven entre notas del notebook", async () => {
   state.notes = [
     {
       id: "n1",
       title: "Nota 1",
       content: { type: "doc" },
-      course_id: "c1",
+      notebook_id: "c1",
       kind: "note",
       created_at: "2026-01-01",
       position: 0,
@@ -187,13 +187,13 @@ test("mod+k / mod+j mueven entre notas del curso", async () => {
       id: "n2",
       title: "Nota 2",
       content: { type: "doc" },
-      course_id: "c1",
+      notebook_id: "c1",
       kind: "note",
       created_at: "2026-01-01",
       position: 1,
     },
   ]
-  const { container } = renderCourse()
+  const { container } = renderNotebook()
   await screen.findByText("Nota 1")
 
   fireEvent.keyDown(document, { code: "KeyK", ctrlKey: true })

@@ -9,21 +9,21 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { blocksToTiptap } from "./blocks-to-tiptap"
 import { cached, OUT_DIR } from "./cache"
-import { computeStartedAt, mapCourseProperties, type CourseMapResult } from "./course-mapping"
+import { computeStartedAt, mapNotebookProperties, type NotebookMapResult } from "./notebook-mapping"
 import { toCsv, type CsvRow } from "./csv"
 import { fetchBlockTree } from "./fetch-block-tree"
 import { uploadImage } from "./images"
 import { createNotionClient } from "./notion-client"
 import { createAdminClient, resolveSingleUserId } from "./supabase-admin"
 
-const COURSES_DATA_SOURCE = "Curso Data"
+const NOTEBOOKS_DATA_SOURCE = "Curso Data"
 const skipped: string[] = []
 // Una imagen caída (CDN de terceros con hotlink protection, archivo borrado) no puede tirar abajo
-// una corrida de una hora: se degrada y se reporta al final. OJO: el curso igual se cachea con la
+// una corrida de una hora: se degrada y se reporta al final. OJO: el notebook igual se cachea con la
 // degradación adentro — para reintentarlo hay que borrar su json de .out/cache.
 const warnings: string[] = []
 
-type CourseBundle = { course: CsvRow; notes: CsvRow[]; estimatedDate: boolean }
+type NotebookBundle = { notebook: CsvRow; notes: CsvRow[]; estimatedDate: boolean }
 
 function env(name: string): string {
   const value = process.env[name]
@@ -31,26 +31,26 @@ function env(name: string): string {
   return value
 }
 
-// La DB de cursos se ubica por nombre en vez de pedir un ID a mano: la integración ve solo lo que
+// La DB de notebooks se ubica por nombre en vez de pedir un ID a mano: la integración ve solo lo que
 // se le compartió, así que el search no es ambiguo en la práctica.
-async function findCoursesDataSource(notion: Client): Promise<string> {
+async function findNotebooksDataSource(notion: Client): Promise<string> {
   const res = await notion.search({
-    query: COURSES_DATA_SOURCE,
+    query: NOTEBOOKS_DATA_SOURCE,
     filter: { property: "object", value: "data_source" },
   })
   const match = res.results.find((r) => r.object === "data_source")
   if (!match)
     throw new Error(
-      `no se encontró la data source "${COURSES_DATA_SOURCE}" — ¿está compartida con la integración?`,
+      `no se encontró la data source "${NOTEBOOKS_DATA_SOURCE}" — ¿está compartida con la integración?`,
     )
   return match.id
 }
 
-// Cada curso tiene su propia DB inline de notas (spec): es un bloque child_database entre los
-// hijos de la página del curso.
-async function findNotesDataSource(notion: Client, coursePageId: string): Promise<string | null> {
+// Cada notebook tiene su propia DB inline de notas (spec): es un bloque child_database entre los
+// hijos de la página del notebook.
+async function findNotesDataSource(notion: Client, notebookPageId: string): Promise<string | null> {
   const children = await collectPaginatedAPI(notion.blocks.children.list, {
-    block_id: coursePageId,
+    block_id: notebookPageId,
   })
   const inline = children.find((b) => "type" in b && b.type === "child_database")
   if (!inline) return null
@@ -63,7 +63,7 @@ function noteTitle(page: PageObjectResponse): string {
   return titleProp?.type === "title" ? titleProp.title.map((t) => t.plain_text).join("") : ""
 }
 
-// courses.icon acepta 'lucide:<Nombre>' o una URL pública (migración 0004); CourseIcon además
+// notebooks.icon acepta 'lucide:<Nombre>' o una URL pública (migración 0004); NotebookIcon además
 // renderiza emoji tal cual. Los íconos tipo file/external se resubn porque las URLs de Notion expiran.
 async function resolveIcon(
   notion: Client,
@@ -78,8 +78,8 @@ async function resolveIcon(
     return uploadImage(supabase, "course-icons", userId, icon.external.url)
   if (icon.type !== "file") return null
 
-  // La URL firmada de un archivo de Notion dura 1h (icon.file.expiry_time). La lista de cursos se
-  // pide una sola vez al arranque y la corrida entera lleva más que eso, así que para el curso N la
+  // La URL firmada de un archivo de Notion dura 1h (icon.file.expiry_time). La lista de notebooks se
+  // pide una sola vez al arranque y la corrida entera lleva más que eso, así que para el notebook N la
   // URL que vino en la lista ya venció (403 de S3). Se vuelve a pedir la página para tener una fresca.
   const fresh = await notion.pages.retrieve({ page_id: page.id })
   const url = isFullPage(fresh) && fresh.icon?.type === "file" ? fresh.icon.file.url : icon.file.url
@@ -90,9 +90,9 @@ async function noteRows(
   notion: Client,
   supabase: SupabaseClient,
   userId: string,
-  coursePageId: string,
+  notebookPageId: string,
 ): Promise<CsvRow[]> {
-  const dataSourceId = await findNotesDataSource(notion, coursePageId)
+  const dataSourceId = await findNotesDataSource(notion, notebookPageId)
   if (!dataSourceId) return []
 
   const pages = (
@@ -114,10 +114,10 @@ async function noteRows(
     )
     rows.push({
       // El id de página de Notion ya es un uuid: se usa tal cual como PK para que el CSV sea
-      // estable entre corridas y notes.course_id apunte al curso sin tabla de equivalencias.
+      // estable entre corridas y notes.notebook_id apunte al notebook sin tabla de equivalencias.
       id: page.id,
       user_id: userId,
-      course_id: coursePageId,
+      notebook_id: notebookPageId,
       title: noteTitle(page),
       content: JSON.stringify({ type: "doc", content: blocksToTiptap(blocks) }),
       kind: "note",
@@ -129,16 +129,16 @@ async function noteRows(
   return rows
 }
 
-async function buildCourse(
+async function buildNotebook(
   notion: Client,
   supabase: SupabaseClient,
   userId: string,
   page: PageObjectResponse,
-  mapped: Extract<CourseMapResult, { skip: false }>,
-): Promise<CourseBundle> {
+  mapped: Extract<NotebookMapResult, { skip: false }>,
+): Promise<NotebookBundle> {
   const { startedAt, estimated } = computeStartedAt(mapped.startedAtRaw, page.created_time)
   return {
-    course: {
+    notebook: {
       id: page.id,
       user_id: userId,
       name: mapped.name,
@@ -169,40 +169,40 @@ async function main() {
   const userId = await resolveSingleUserId(supabase)
 
   // Sin cachear a propósito: son 2 requests y las páginas traen URLs de icono firmadas que se
-  // pudren en 1h. Lo que se cachea es el resultado por curso, ya con las URLs de Storage resueltas.
-  const coursePages = (
+  // pudren en 1h. Lo que se cachea es el resultado por notebook, ya con las URLs de Storage resueltas.
+  const notebookPages = (
     await collectPaginatedAPI(notion.dataSources.query, {
-      data_source_id: await findCoursesDataSource(notion),
+      data_source_id: await findNotebooksDataSource(notion),
     })
   ).filter(isFullPage)
 
-  const courseRows: CsvRow[] = []
+  const notebookRows: CsvRow[] = []
   const allNoteRows: CsvRow[] = []
   let estimatedDates = 0
 
-  const width = String(coursePages.length).length
+  const width = String(notebookPages.length).length
 
-  for (const [index, page] of coursePages.entries()) {
-    const at = `[${String(index + 1).padStart(width)}/${coursePages.length}]`
-    const mapped = mapCourseProperties(page.properties)
+  for (const [index, page] of notebookPages.entries()) {
+    const at = `[${String(index + 1).padStart(width)}/${notebookPages.length}]`
+    const mapped = mapNotebookProperties(page.properties)
     if (mapped.skip) {
       skipped.push(mapped.reason)
       continue
     }
 
-    const bundle = await cached(page.id, () => buildCourse(notion, supabase, userId, page, mapped))
-    courseRows.push(bundle.course)
+    const bundle = await cached(page.id, () => buildNotebook(notion, supabase, userId, page, mapped))
+    notebookRows.push(bundle.notebook)
     allNoteRows.push(...bundle.notes)
     if (bundle.estimatedDate) estimatedDates++
     console.log(`${at} ${mapped.name} — ${bundle.notes.length} notas`)
   }
 
   mkdirSync(OUT_DIR, { recursive: true })
-  writeFileSync(join(OUT_DIR, "courses.csv"), toCsv(courseRows))
+  writeFileSync(join(OUT_DIR, "notebooks.csv"), toCsv(notebookRows))
   writeFileSync(join(OUT_DIR, "notes.csv"), toCsv(allNoteRows))
 
-  console.log(`\n${courseRows.length} cursos, ${allNoteRows.length} notas → ${OUT_DIR}/`)
-  console.log(`${estimatedDates} cursos con started_at estimado desde created_time.`)
+  console.log(`\n${notebookRows.length} notebooks, ${allNoteRows.length} notas → ${OUT_DIR}/`)
+  console.log(`${estimatedDates} notebooks con started_at estimado desde created_time.`)
   if (skipped.length) {
     console.log(`\n${skipped.length} filas salteadas para revisión manual:`)
     for (const reason of skipped) console.log(`  - ${reason}`)

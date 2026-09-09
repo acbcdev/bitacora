@@ -6,7 +6,7 @@ function setup() {
   const onClose = vi.fn()
   const actions: Action[] = [
     { group: "Navegar", label: "Ir a Hoy", run: () => ran.push("hoy") },
-    { group: "Navegar", label: "Ir a Cursos", run: () => ran.push("cursos") },
+    { group: "Navegar", label: "Ir a Notebooks", run: () => ran.push("notebooks") },
     { group: "Notas", label: "Lexer: de texto a tokens", run: () => ran.push("nota") },
   ]
   render(<CommandPalette onClose={onClose} actions={actions} />)
@@ -15,8 +15,8 @@ function setup() {
 
 test("filtra por label y por grupo", () => {
   const { input } = setup()
-  fireEvent.change(input, { target: { value: "cursos" } })
-  expect(screen.getByText("Ir a Cursos")).toBeInTheDocument()
+  fireEvent.change(input, { target: { value: "notebooks" } })
+  expect(screen.getByText("Ir a Notebooks")).toBeInTheDocument()
   expect(screen.queryByText("Ir a Hoy")).not.toBeInTheDocument()
 
   // "Notas" no está en ningún label — matchea por grupo.
@@ -28,7 +28,7 @@ test("flechas + Enter corren la acción seleccionada y cierran", () => {
   const { ran, onClose, input } = setup()
   fireEvent.keyDown(input, { key: "ArrowDown" })
   fireEvent.keyDown(input, { key: "Enter" })
-  expect(ran).toEqual(["cursos"])
+  expect(ran).toEqual(["notebooks"])
   expect(onClose).toHaveBeenCalled()
 })
 

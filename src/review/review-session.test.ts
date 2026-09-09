@@ -8,7 +8,7 @@ function ref(id: string, over: Partial<NoteRef> = {}): NoteRef {
   return {
     id,
     title: id,
-    course_id: "c1",
+    notebook_id: "c1",
     position: 0,
     kind: "note",
     created_at: "2026-01-01T00:00:00Z",

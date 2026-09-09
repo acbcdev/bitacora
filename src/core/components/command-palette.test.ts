@@ -3,7 +3,7 @@ import { filterActions, type Action } from "@/core/components/command-palette"
 const a = (group: string, label: string): Action => ({ group, label, run: () => {} })
 
 test("matchea por palabras sueltas (grupo incluido) y corta en 50", () => {
-  const actions = [a("Notas", "Hooks en React"), a("Cursos", "React"), a("Navegar", "Ir a Hoy")]
+  const actions = [a("Notas", "Hooks en React"), a("Notebooks", "React"), a("Navegar", "Ir a Hoy")]
 
   // Orden invertido respecto del label: matchea igual porque son palabras, no substring del todo.
   expect(filterActions(actions, "react hooks").map((x) => x.label)).toEqual(["Hooks en React"])

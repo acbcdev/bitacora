@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter, Route, Routes, useParams } from "react-router-dom"
 import { TooltipProvider } from "@/core/ui/tooltip"
-import { Course } from "@/courses/course"
+import { Notebook } from "@/notebooks/notebook"
 
 // Latencia de cada SELECT. Alta a propósito y muy por encima del polling de waitFor (50ms): es lo
 // que distingue "navegó con lo que ya tenía" de "esperó un roundtrip más" (ADR 0008).
@@ -11,7 +11,7 @@ const SELECT_MS = 400
 const note = (over: Record<string, unknown>) => ({
   title: "",
   content: { type: "doc" },
-  course_id: "c1",
+  notebook_id: "c1",
   kind: "note",
   position: 0,
   created_at: "2026-01-01",
@@ -25,7 +25,7 @@ const { state } = vi.hoisted(() => ({
         id: "n1",
         title: "Nota 1",
         content: { type: "doc" },
-        course_id: "c1",
+        notebook_id: "c1",
         kind: "note",
         position: 0,
         created_at: "2026-01-01",
@@ -44,7 +44,7 @@ vi.mock("@/core/store", () => ({
     canGenerateFlashcards: true,
     snapshot: () =>
       slow({
-        courses: [{ id: "c1", name: "Curso", status: "active", created_at: "2026-01-01" }],
+        notebooks: [{ id: "c1", name: "Notebook", status: "active", created_at: "2026-01-01" }],
         notes: state.notes.map((n) => ({ ...n })),
         reads: [],
         habits: [],
@@ -67,21 +67,21 @@ function NoteIdProbe() {
   return <div data-testid="note-id">{noteId}</div>
 }
 
-function renderCourse() {
+function renderNotebook() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={["/course/c1"]}>
+      <MemoryRouter initialEntries={["/notebook/c1"]}>
         <TooltipProvider>
           <Routes>
-            {["/course/:id", "/course/:id/:noteId"].map((path) => (
+            {["/notebook/:id", "/notebook/:id/:noteId"].map((path) => (
               <Route
                 key={path}
                 path={path}
                 element={
                   <>
                     <NoteIdProbe />
-                    <Course focus={false} setFocus={() => {}} />
+                    <Notebook focus={false} setFocus={() => {}} />
                   </>
                 }
               />
@@ -94,7 +94,7 @@ function renderCourse() {
 }
 
 test("`n` abre la nota nueva sin esperar ningún SELECT, y no rebota a la primera", async () => {
-  renderCourse()
+  renderNotebook()
   await waitFor(() => expect(screen.getByTestId("note-id")).toHaveTextContent("n1"))
 
   const t0 = Date.now()
@@ -108,7 +108,7 @@ test("`n` abre la nota nueva sin esperar ningún SELECT, y no rebota a la primer
   expect(screen.getByTestId("editor")).toBeInTheDocument()
 
   // Cuando aterriza el refetch de fondo, la URL sigue en la nota nueva: sin sembrar la lista, el
-  // efecto de auto-corrección de Course rebota a la primera nota del curso.
+  // efecto de auto-corrección de Notebook rebota a la primera nota del notebook.
   await new Promise((r) => setTimeout(r, SELECT_MS * 2))
   expect(screen.getByTestId("note-id")).toHaveTextContent("n2")
 })

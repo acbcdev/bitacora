@@ -1,5 +1,5 @@
 import type {
-  Course,
+  Notebook,
   Grade,
   Habit,
   HabitLog,
@@ -10,13 +10,13 @@ import type {
 
 // El seam de datos. Seis métodos, no veintidós.
 //
-// La primera versión tenía un método por query (`coursesPage`, `listNotes`, `readLog`,
+// La primera versión tenía un método por query (`notebooksPage`, `listNotes`, `readLog`,
 // `gradedReads`, …): 22 métodos con 22 call sites, uno a uno. Eso no era una abstracción sino
 // una transliteración — el ancho de la interfaz era igual a la superficie de implementación, que
 // es la definición de módulo shallow.
 //
 // Ahora el adapter hace UNA sola cosa: traer las filas vivas y escribirlas. Todo lo derivado
-// —página de cursos, cola de repaso, retención, racha— son funciones puras sobre el `Snapshot`
+// —página de notebooks, cola de repaso, retención, racha— son funciones puras sobre el `Snapshot`
 // (`derive.ts`), y las comparten los dos adapters. Agregar una pantalla nueva ya no agranda el
 // seam: agrega una función pura.
 
@@ -29,7 +29,10 @@ export type AuthUser = { email: string }
 // Una nota SIN `content`. El documento Tiptap es el 99% del peso de la fila y no se necesita para
 // listar, ordenar ni armar la cola — sólo para renderizar la nota abierta, que se pide aparte con
 // `note(id)`. A ~1.500 notas, mandar el content en el snapshot serían megas por cada arranque.
-export type NoteRef = Pick<Note, "id" | "title" | "course_id" | "position" | "kind" | "created_at">
+export type NoteRef = Pick<
+  Note,
+  "id" | "title" | "notebook_id" | "position" | "kind" | "created_at"
+>
 
 // Una fila cruda de read_log. `grade` sólo viene completo en flashcards.
 export type ReadRow = { note_id: string; read_at: string; grade: Grade | null }
@@ -42,11 +45,11 @@ export type HabitLogRow = Pick<HabitLog, "habit_id" | "day" | "amount" | "target
 // CONTEXT.md ("Toda query filtra deleted_at is null"). Por eso ninguna función de `derive.ts`
 // vuelve a chequear `deleted_at` — si tuviera que hacerlo, la regla estaría en dos lados.
 //
-// Cabe de sobra en el cliente: CONTEXT.md, "los datos son CHICOS" — 59 cursos, ~1.500 títulos,
+// Cabe de sobra en el cliente: CONTEXT.md, "los datos son CHICOS" — 59 notebooks, ~1.500 títulos,
 // ~1k filas de read_log al año. `useReadStats` y `useHabitLog` ya se bajaban su tabla entera y
 // agregaban en JS; esto es esa decisión, aplicada parejo.
 export type Snapshot = {
-  courses: Course[]
+  notebooks: Notebook[]
   notes: NoteRef[]
   reads: ReadRow[]
   habits: Habit[]
@@ -54,7 +57,7 @@ export type Snapshot = {
 }
 
 export const EMPTY_SNAPSHOT: Snapshot = {
-  courses: [],
+  notebooks: [],
   notes: [],
   reads: [],
   habits: [],
@@ -64,13 +67,13 @@ export const EMPTY_SNAPSHOT: Snapshot = {
 // Las tablas a las que se escribe. `read_log` no está en `SoftDeletable` a propósito: es
 // append-only, un repaso es un hecho absoluto (CONTEXT.md). `habit_log` tampoco: desmarcar es
 // `amount = 0`, no borrar (ADR 0009).
-export type Writable = "courses" | "notes" | "read_log" | "habits" | "habit_log"
-export type SoftDeletable = "courses" | "notes" | "habits"
+export type Writable = "notebooks" | "notes" | "read_log" | "habits" | "habit_log"
+export type SoftDeletable = "notebooks" | "notes" | "habits"
 
-export type CourseInput = {
+export type NotebookInput = {
   id?: string
   name?: string
-  status?: Course["status"]
+  status?: Notebook["status"]
   started_at?: string | null
   finished_at?: string | null
   icon?: string | null
@@ -80,7 +83,7 @@ export type CourseInput = {
 
 export type NoteInput = {
   id?: string
-  course_id?: string | null
+  notebook_id?: string | null
   title?: string
   content?: TiptapDoc
   kind?: NoteKind
@@ -104,7 +107,7 @@ export type HabitInput = {
 export type HabitDayInput = { habit_id: string; day: string; amount: number; target: number }
 
 export type WriteInput = {
-  courses: CourseInput
+  notebooks: NotebookInput
   notes: NoteInput
   read_log: { note_id: string; grade?: Grade | null }
   habits: HabitInput
@@ -114,7 +117,7 @@ export type WriteInput = {
 // Sólo `notes` devuelve la fila: el editor navega a la nota recién creada sin volver a pedirla
 // (ADR 0008). El resto no la necesita y devolverla sería trabajo de más.
 export type WriteResult = {
-  courses: void
+  notebooks: void
   notes: Note
   read_log: void
   habits: void
@@ -141,6 +144,6 @@ export type Store = {
   save<E extends Writable>(entity: E, input: WriteInput[E]): Promise<WriteResult[E]>
   softDelete(entity: SoftDeletable, id: string): Promise<void>
 
-  uploadCourseIcon(file: File): Promise<string>
-  generateFlashcards(courseId: string): Promise<void>
+  uploadNotebookIcon(file: File): Promise<string>
+  generateFlashcards(notebookId: string): Promise<void>
 }

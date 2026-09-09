@@ -4,7 +4,7 @@ import { useHotkeys, type Options } from "react-hotkeys-hook"
 // Wrapper sobre react-hotkeys-hook que bloquea el atajo cuando el foco está
 // dentro de un overlay modal (Dialog/AlertDialog/Drawer) o cuando cualquier
 // dialog está abierto (Radix porteado). Es el fix al leak de Enter de Repaso
-// dentro de HabitsDialog/CourseForm sin MutationObserver pesado.
+// dentro de HabitsDialog/NotebookForm sin MutationObserver pesado.
 function useIsBlocked(): boolean {
   const [blocked, setBlocked] = useState(false)
   useEffect(() => {

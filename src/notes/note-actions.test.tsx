@@ -12,7 +12,7 @@ const { softDelete } = vi.hoisted(() => ({ softDelete: vi.fn(() => Promise.resol
 vi.mock("@/core/store", () => ({
   store: {
     softDelete,
-    snapshot: async () => ({ courses: [], notes: [], reads: [], habits: [], habitLog: [] }),
+    snapshot: async () => ({ notebooks: [], notes: [], reads: [], habits: [], habitLog: [] }),
   },
 }))
 
@@ -20,7 +20,7 @@ const doc: TiptapDoc = {
   type: "doc",
   content: [{ type: "paragraph", content: [{ type: "text", text: "hola" }] }],
 }
-const note = { id: "n1", title: "Mi nota", course_id: "c1", content: doc } as Note
+const note = { id: "n1", title: "Mi nota", notebook_id: "c1", content: doc } as Note
 
 function renderActions(props: Partial<React.ComponentProps<typeof NoteActions>> = {}) {
   const onDeleted = vi.fn()
@@ -48,7 +48,7 @@ function renderActions(props: Partial<React.ComponentProps<typeof NoteActions>> 
   return { onDeleted, onConfirmingChange, onFocus }
 }
 
-// Radix abre el menú con pointerdown; en jsdom es más estable por teclado (ver course.test.tsx).
+// Radix abre el menú con pointerdown; en jsdom es más estable por teclado (ver notebook.test.tsx).
 function openMenu() {
   fireEvent.keyDown(screen.getByRole("button", { name: "Acciones de la nota" }), { key: "Enter" })
 }

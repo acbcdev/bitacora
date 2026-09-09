@@ -1,28 +1,28 @@
 import {
-  courseNotes,
-  coursesPage,
+  notebookNotes,
+  notebooksPage,
   frozenTarget,
-  liveCourses,
+  liveNotebooks,
   noteRefs,
   retention,
   reviewQueue,
-  type CoursesQuery,
+  type NotebooksQuery,
 } from "@/core/store/derive"
-import type { Course } from "@/core/types/database"
+import type { Notebook } from "@/core/types/database"
 import type { NoteRef, ReadRow, Snapshot } from "@/core/store/types"
 
 // `derive.ts` es donde vive TODA la derivación del dominio, y la comparten los dos adapters. Es
-// además la versión en JS de lo que hacían las RPC `courses_page` (0006-0009) y `review_queue`
+// además la versión en JS de lo que hacían las RPC `notebooks_page` (0006-0009) y `review_queue`
 // (0003), que quedaron sin llamador. Sin estos tests, "modo local" y "modo Supabase" sólo se
 // parecen.
 //
 // Nota: el snapshot ya viene filtrado por el adapter (sólo filas vivas), así que acá no hay casos
 // de `deleted_at` — esa regla se testea del lado del adapter (local-store.test.ts).
 
-const course = (over: Partial<Course> = {}): Course => ({
+const notebook = (over: Partial<Notebook> = {}): Notebook => ({
   id: "c1",
   user_id: "u1",
-  name: "Curso",
+  name: "Notebook",
   status: "active",
   started_at: null,
   finished_at: null,
@@ -38,7 +38,7 @@ const course = (over: Partial<Course> = {}): Course => ({
 const note = (over: Partial<NoteRef> = {}): NoteRef => ({
   id: "n1",
   title: "Nota",
-  course_id: "c1",
+  notebook_id: "c1",
   position: 0,
   kind: "note",
   created_at: "2026-01-01T00:00:00Z",
@@ -52,7 +52,7 @@ const read = (note_id: string, read_at: string, grade: ReadRow["grade"] = null):
 })
 
 const snapshot = (over: Partial<Snapshot> = {}): Snapshot => ({
-  courses: [course()],
+  notebooks: [notebook()],
   notes: [],
   reads: [],
   habits: [],
@@ -60,7 +60,7 @@ const snapshot = (over: Partial<Snapshot> = {}): Snapshot => ({
   ...over,
 })
 
-const query = (over: Partial<CoursesQuery> = {}): CoursesQuery => ({
+const query = (over: Partial<NotebooksQuery> = {}): NotebooksQuery => ({
   q: "",
   status: "todos",
   sort: "recientes",
@@ -69,92 +69,95 @@ const query = (over: Partial<CoursesQuery> = {}): CoursesQuery => ({
   ...over,
 })
 
-describe("liveCourses", () => {
+describe("liveNotebooks", () => {
   test("ordena active → paused → done, y dentro de cada grupo el más nuevo primero", () => {
     const snap = snapshot({
-      courses: [
-        course({ id: "done", status: "done" }),
-        course({ id: "viejo", created_at: "2026-01-01T00:00:00Z" }),
-        course({ id: "paused", status: "paused" }),
-        course({ id: "nuevo", created_at: "2026-05-01T00:00:00Z" }),
+      notebooks: [
+        notebook({ id: "done", status: "done" }),
+        notebook({ id: "viejo", created_at: "2026-01-01T00:00:00Z" }),
+        notebook({ id: "paused", status: "paused" }),
+        notebook({ id: "nuevo", created_at: "2026-05-01T00:00:00Z" }),
       ],
     })
-    expect(liveCourses(snap).map((c) => c.id)).toEqual(["nuevo", "viejo", "paused", "done"])
+    expect(liveNotebooks(snap).map((c) => c.id)).toEqual(["nuevo", "viejo", "paused", "done"])
   })
 })
 
-describe("courseNotes / noteRefs", () => {
-  test("las del curso, por position, y sin flashcards (no se listan en el curso)", () => {
+describe("notebookNotes / noteRefs", () => {
+  test("las del notebook, por position, y sin flashcards (no se listan en el notebook)", () => {
     const snap = snapshot({
       notes: [
         note({ id: "b", position: 1 }),
         note({ id: "a", position: 0 }),
         note({ id: "f", kind: "flashcard", position: 2 }),
-        note({ id: "otra", course_id: "c2" }),
+        note({ id: "otra", notebook_id: "c2" }),
       ],
     })
-    expect(courseNotes(snap, "c1").map((n) => n.id)).toEqual(["a", "b"])
+    expect(notebookNotes(snap, "c1").map((n) => n.id)).toEqual(["a", "b"])
     expect(noteRefs(snap).map((n) => n.id)).toEqual(["a", "otra", "b"])
   })
 })
 
-describe("coursesPage", () => {
+describe("notebooksPage", () => {
   test("cuenta notas y `rondas` es el MÍNIMO de repasos entre ellas", () => {
     // Dos notas: una leída dos veces, otra ninguna. La vuelta completa que diste es 0.
     const snap = snapshot({
       notes: [note({ id: "n1" }), note({ id: "n2" })],
       reads: [read("n1", "2026-02-01T10:00:00Z"), read("n1", "2026-02-02T10:00:00Z")],
     })
-    const { rows } = coursesPage(snap, query())
+    const { rows } = notebooksPage(snap, query())
     expect(rows[0].notes).toBe(2)
     expect(rows[0].rounds).toBe(0)
     expect(rows[0].last_read).toBe("2026-02-02T10:00:00Z")
   })
 
-  test("las flashcards no cuentan para el progreso del curso", () => {
+  test("las flashcards no cuentan para el progreso del notebook", () => {
     const snap = snapshot({ notes: [note({ id: "n1" }), note({ id: "f1", kind: "flashcard" })] })
-    expect(coursesPage(snap, query()).rows[0].notes).toBe(1)
+    expect(notebooksPage(snap, query()).rows[0].notes).toBe(1)
   })
 
   test("filtra por nombre sin distinguir mayúsculas y por estado", () => {
     const snap = snapshot({
-      courses: [
-        course({ id: "c1", name: "React Avanzado" }),
-        course({ id: "c2", name: "Postgres", status: "done" }),
+      notebooks: [
+        notebook({ id: "c1", name: "React Avanzado" }),
+        notebook({ id: "c2", name: "Postgres", status: "done" }),
       ],
     })
-    expect(coursesPage(snap, query({ q: "react" })).rows).toHaveLength(1)
-    expect(coursesPage(snap, query({ q: "REACT" })).rows[0].id).toBe("c1")
-    expect(coursesPage(snap, query({ status: "done" })).rows[0].id).toBe("c2")
+    expect(notebooksPage(snap, query({ q: "react" })).rows).toHaveLength(1)
+    expect(notebooksPage(snap, query({ q: "REACT" })).rows[0].id).toBe("c1")
+    expect(notebooksPage(snap, query({ status: "done" })).rows[0].id).toBe("c2")
   })
 
   test("`recientes` ordena por started_at desc con los nulos al final", () => {
     const snap = snapshot({
-      courses: [
-        course({ id: "sin", started_at: null }),
-        course({ id: "viejo", started_at: "2026-01-01T00:00:00Z" }),
-        course({ id: "nuevo", started_at: "2026-06-01T00:00:00Z" }),
+      notebooks: [
+        notebook({ id: "sin", started_at: null }),
+        notebook({ id: "viejo", started_at: "2026-01-01T00:00:00Z" }),
+        notebook({ id: "nuevo", started_at: "2026-06-01T00:00:00Z" }),
       ],
     })
-    expect(coursesPage(snap, query()).rows.map((r) => r.id)).toEqual(["nuevo", "viejo", "sin"])
+    expect(notebooksPage(snap, query()).rows.map((r) => r.id)).toEqual(["nuevo", "viejo", "sin"])
   })
 
   test("`rondas` ordena de más a menos vueltas completas", () => {
     const snap = snapshot({
-      courses: [course({ id: "c1" }), course({ id: "c2" })],
-      notes: [note({ id: "n1", course_id: "c1" }), note({ id: "n2", course_id: "c2" })],
+      notebooks: [notebook({ id: "c1" }), notebook({ id: "c2" })],
+      notes: [note({ id: "n1", notebook_id: "c1" }), note({ id: "n2", notebook_id: "c2" })],
       reads: [read("n2", "2026-02-01T10:00:00Z")],
     })
-    expect(coursesPage(snap, query({ sort: "rondas" })).rows.map((r) => r.id)).toEqual(["c2", "c1"])
+    expect(notebooksPage(snap, query({ sort: "rondas" })).rows.map((r) => r.id)).toEqual([
+      "c2",
+      "c1",
+    ])
   })
 
   test("pagina y el total es el de TODO el filtro, repetido en cada fila", () => {
     const snap = snapshot({
-      courses: Array.from({ length: 5 }, (_, i) =>
-        course({ id: `c${i}`, created_at: `2026-01-0${i + 1}T00:00:00Z` }),
+      notebooks: Array.from({ length: 5 }, (_, i) =>
+        notebook({ id: `c${i}`, created_at: `2026-01-0${i + 1}T00:00:00Z` }),
       ),
     })
-    const page2 = coursesPage(snap, query({ page: 2, pageSize: 2 }))
+    const page2 = notebooksPage(snap, query({ page: 2, pageSize: 2 }))
     expect(page2.total).toBe(5)
     expect(page2.rows.map((r) => r.id)).toEqual(["c2", "c1"]) // created_at desc: c4,c3 | c2,c1 | c0
     expect(page2.rows.every((r) => r.total_count === 5)).toBe(true)
@@ -162,8 +165,8 @@ describe("coursesPage", () => {
 
   test("una página fuera de rango sigue informando el total real", () => {
     // La RPC devolvía `total_count` leyéndolo de la primera fila, así que sin filas informaba 0.
-    const snap = snapshot({ courses: [course()] })
-    expect(coursesPage(snap, query({ page: 9 }))).toEqual({ rows: [], total: 1 })
+    const snap = snapshot({ notebooks: [notebook()] })
+    expect(notebooksPage(snap, query({ page: 9 }))).toEqual({ rows: [], total: 1 })
   })
 })
 
@@ -191,22 +194,22 @@ describe("reviewQueue", () => {
     expect(reviewQueue(snap, 3).map((n) => n.id)).toEqual(["b", "a"])
   })
 
-  test("deja afuera las notas sin curso y las de un curso que ya no está", () => {
+  test("deja afuera las notas sin notebook y las de un notebook que ya no está", () => {
     const snap = snapshot({
-      courses: [course({ id: "vivo" })],
+      notebooks: [notebook({ id: "vivo" })],
       notes: [
-        note({ id: "ok", course_id: "vivo" }),
-        note({ id: "huerfana", course_id: null }),
-        note({ id: "de-curso-muerto", course_id: "otro" }),
+        note({ id: "ok", notebook_id: "vivo" }),
+        note({ id: "huerfana", notebook_id: null }),
+        note({ id: "de-notebook-muerto", notebook_id: "otro" }),
       ],
     })
     expect(reviewQueue(snap, 9).map((n) => n.id)).toEqual(["ok"])
   })
 
-  test("el status del curso NO filtra: paused y done entran igual", () => {
+  test("el status del notebook NO filtra: paused y done entran igual", () => {
     const snap = snapshot({
-      courses: [course({ id: "a", status: "paused" }), course({ id: "b", status: "done" })],
-      notes: [note({ id: "n1", course_id: "a" }), note({ id: "n2", course_id: "b" })],
+      notebooks: [notebook({ id: "a", status: "paused" }), notebook({ id: "b", status: "done" })],
+      notes: [note({ id: "n1", notebook_id: "a" }), note({ id: "n2", notebook_id: "b" })],
     })
     expect(reviewQueue(snap, 9)).toHaveLength(2)
   })
@@ -223,9 +226,9 @@ describe("reviewQueue", () => {
 })
 
 describe("retention", () => {
-  test("es correctos sobre el total de autoevaluaciones, redondeado, por curso", () => {
+  test("es correctos sobre el total de autoevaluaciones, redondeado, por notebook", () => {
     const snap = snapshot({
-      notes: [note({ id: "n1", course_id: "c1" }), note({ id: "n2", course_id: "c2" })],
+      notes: [note({ id: "n1", notebook_id: "c1" }), note({ id: "n2", notebook_id: "c2" })],
       reads: [
         read("n1", "2026-02-01T10:00:00Z", "correcto"),
         read("n1", "2026-02-02T10:00:00Z", "parcial"),

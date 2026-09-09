@@ -1,11 +1,11 @@
 import { expect, test } from "vitest"
-import { courseJumps } from "@/core/components/sidebar"
-import type { Course } from "@/core/types/database"
+import { notebookJumps } from "@/core/components/sidebar"
+import type { Notebook } from "@/core/types/database"
 
-const list = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `c${i + 1}` }) as Course)
+const list = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `c${i + 1}` }) as Notebook)
 
 test("1-8 son posición y 9 es el último", () => {
-  const jumps = courseJumps(list(12))
+  const jumps = notebookJumps(list(12))
   expect(jumps.map(([n, c]) => [n, c.id])).toEqual([
     [1, "c1"],
     [2, "c2"],
@@ -19,8 +19,8 @@ test("1-8 son posición y 9 es el último", () => {
   ])
 })
 
-test("con menos de 8 cursos el 9 sigue siendo el último", () => {
-  expect(courseJumps(list(3)).map(([n, c]) => [n, c.id])).toEqual([
+test("con menos de 8 notebooks el 9 sigue siendo el último", () => {
+  expect(notebookJumps(list(3)).map(([n, c]) => [n, c.id])).toEqual([
     [1, "c1"],
     [2, "c2"],
     [3, "c3"],
@@ -28,6 +28,6 @@ test("con menos de 8 cursos el 9 sigue siendo el último", () => {
   ])
 })
 
-test("sin cursos no hay atajos", () => {
-  expect(courseJumps([])).toEqual([])
+test("sin notebooks no hay atajos", () => {
+  expect(notebookJumps([])).toEqual([])
 })

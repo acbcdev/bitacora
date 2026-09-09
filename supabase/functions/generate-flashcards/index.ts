@@ -1,5 +1,5 @@
 // Edge Function: genera hasta FLASHCARD_LIMIT flashcards (pregunta/respuesta) desde las notas
-// vivas de un curso, vía Claude. La API key vive server-side (nunca en el cliente — CONTEXT.md).
+// vivas de un notebook, vía Claude. La API key vive server-side (nunca en el cliente — CONTEXT.md).
 // Esta función solo lee y genera; el cliente inserta cada par como fila en `notes`
 // (src/flashcards/flashcards.api.ts) — no hay tabla nueva.
 import Anthropic from "npm:@anthropic-ai/sdk@0.70.0"
@@ -33,8 +33,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS })
 
   try {
-    const { course_id } = await req.json()
-    if (!course_id) return json({ error: "course_id requerido" }, 400)
+    const { notebook_id } = await req.json()
+    if (!notebook_id) return json({ error: "notebook_id requerido" }, 400)
 
     // Cliente con el JWT del usuario (no service_role): RLS filtra las notas por dueño.
     const supabase = createClient(
@@ -46,11 +46,11 @@ Deno.serve(async (req) => {
     const { data: notes, error: notesError } = await supabase
       .from("notes")
       .select("title, content")
-      .eq("course_id", course_id)
+      .eq("notebook_id", notebook_id)
       .eq("kind", "note")
       .is("deleted_at", null)
     if (notesError) throw notesError
-    if (!notes || notes.length === 0) return json({ error: "El curso no tiene notas" }, 400)
+    if (!notes || notes.length === 0) return json({ error: "El notebook no tiene notas" }, 400)
 
     const notesText = (notes as { title: string; content: TiptapNode }[])
       .map((n) => `## ${n.title}\n${extractText(n.content)}`)

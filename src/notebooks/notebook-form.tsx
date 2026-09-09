@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react"
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
 import { Globe, Layers } from "lucide-react"
-import { IconPicker } from "@/courses/icon-picker"
-import { useCourses, useCreateCourse, useUpdateCourse } from "@/courses/courses.api"
+import { IconPicker } from "@/notebooks/icon-picker"
+import { useNotebooks, useCreateNotebook, useUpdateNotebook } from "@/notebooks/notebooks.api"
 import { Button } from "@/core/ui/button"
 import {
   Combobox,
@@ -18,16 +18,16 @@ import { Input } from "@/core/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/core/ui/input-group"
 import { NativeSelect } from "@/core/ui/native-select"
 import { cn } from "@/core/lib/utils"
-import type { Course, CourseStatus } from "@/core/types/database"
+import type { Notebook, NotebookStatus } from "@/core/types/database"
 
-function useCourseFieldSuggestions() {
-  const { data: courses = [] } = useCourses()
+function useNotebookFieldSuggestions() {
+  const { data: notebooks = [] } = useNotebooks()
   return useMemo(() => {
     const uniq = (field: "source" | "area") => [
-      ...new Set(courses.map((c) => c[field]).filter((v): v is string => !!v)),
+      ...new Set(notebooks.map((c) => c[field]).filter((v): v is string => !!v)),
     ]
     return { sourceOptions: uniq("source"), areaOptions: uniq("area") }
-  }, [courses])
+  }, [notebooks])
 }
 
 const DOT_COLORS = [
@@ -132,23 +132,29 @@ function PillCombobox({
   )
 }
 
-export function CourseForm({ course, onClose }: { course: Course | null; onClose: () => void }) {
-  const create = useCreateCourse()
-  const update = useUpdateCourse()
-  const { sourceOptions, areaOptions } = useCourseFieldSuggestions()
+export function NotebookForm({
+  notebook,
+  onClose,
+}: {
+  notebook: Notebook | null
+  onClose: () => void
+}) {
+  const create = useCreateNotebook()
+  const update = useUpdateNotebook()
+  const { sourceOptions, areaOptions } = useNotebookFieldSuggestions()
 
-  const [name, setName] = useState(course?.name ?? "")
-  const [icon, setIcon] = useState(course?.icon ?? null)
-  const [source, setSource] = useState(course?.source ?? "")
-  const [area, setArea] = useState(course?.area ?? "")
-  const [status, setStatus] = useState<CourseStatus>(course?.status ?? "active")
-  const [startedAt, setStartedAt] = useState(course?.started_at?.slice(0, 10) ?? "")
-  const [finishedAt, setFinishedAt] = useState(course?.finished_at?.slice(0, 10) ?? "")
+  const [name, setName] = useState(notebook?.name ?? "")
+  const [icon, setIcon] = useState(notebook?.icon ?? null)
+  const [source, setSource] = useState(notebook?.source ?? "")
+  const [area, setArea] = useState(notebook?.area ?? "")
+  const [status, setStatus] = useState<NotebookStatus>(notebook?.status ?? "active")
+  const [startedAt, setStartedAt] = useState(notebook?.started_at?.slice(0, 10) ?? "")
+  const [finishedAt, setFinishedAt] = useState(notebook?.finished_at?.slice(0, 10) ?? "")
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     const done = { onSuccess: onClose }
-    if (!course)
+    if (!notebook)
       return create.mutate(
         {
           name,
@@ -163,7 +169,7 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
       status === "done" && !finishedAt ? new Date().toISOString().slice(0, 10) : finishedAt
     update.mutate(
       {
-        id: course.id,
+        id: notebook.id,
         name,
         icon,
         source: source || null,
@@ -184,7 +190,9 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
       >
         <form onSubmit={submit}>
           {/* a11y title — visualmente es el placeholder grande */}
-          <DrialogTitle className="sr-only">{course ? "Editar curso" : "Nuevo curso"}</DrialogTitle>
+          <DrialogTitle className="sr-only">
+            {notebook ? "Editar notebook" : "Nuevo notebook"}
+          </DrialogTitle>
 
           <div className="flex flex-col gap-4 px-[22px] pt-[22px] pb-[18px]">
             <div className="flex items-center gap-3">
@@ -193,28 +201,28 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
                 onChange={setIcon}
                 className="size-9 rounded-[10px] bg-secondary border-border hover:bg-accent shrink-0"
               />
-              <label htmlFor="course-name" className="sr-only">
+              <label htmlFor="notebook-name" className="sr-only">
                 Nombre
               </label>
               <Input
-                id="course-name"
+                id="notebook-name"
                 autoFocus
                 required
                 autoComplete="off"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Nombre del curso"
+                placeholder="Nombre del notebook"
                 className="h-auto flex-1 border-0 bg-transparent px-0 py-1 text-[21px] font-semibold tracking-tight shadow-none placeholder:text-muted-foreground/60 focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
               />
             </div>
 
             <div className="flex gap-2 flex-nowrap justify-center">
               <div>
-                <label htmlFor="course-source" className="sr-only">
+                <label htmlFor="notebook-source" className="sr-only">
                   Fuente
                 </label>
                 <PillCombobox
-                  id="course-source"
+                  id="notebook-source"
                   value={source}
                   onChange={setSource}
                   options={sourceOptions}
@@ -224,11 +232,11 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
                 />
               </div>
               <div>
-                <label htmlFor="course-area" className="sr-only">
+                <label htmlFor="notebook-area" className="sr-only">
                   Área
                 </label>
                 <PillCombobox
-                  id="course-area"
+                  id="notebook-area"
                   value={area}
                   onChange={setArea}
                   options={areaOptions}
@@ -241,16 +249,16 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
           </div>
 
           {/* Estado y fechas solo al editar */}
-          {course && (
+          {notebook && (
             <div className="border-t px-[22px] py-4 flex flex-col gap-4">
               <Field>
-                <FieldLabel htmlFor="course-status" className="eyebrow">
+                <FieldLabel htmlFor="notebook-status" className="eyebrow">
                   Estado
                 </FieldLabel>
                 <NativeSelect
-                  id="course-status"
+                  id="notebook-status"
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as CourseStatus)}
+                  onChange={(e) => setStatus(e.target.value as NotebookStatus)}
                   className="w-full [&>select]:h-10 [&>select]:text-base"
                 >
                   <option value="active">activo</option>
@@ -260,11 +268,11 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
               </Field>
               <FieldGroup className="flex-row">
                 <Field>
-                  <FieldLabel htmlFor="course-started" className="eyebrow">
+                  <FieldLabel htmlFor="notebook-started" className="eyebrow">
                     Inicio
                   </FieldLabel>
                   <Input
-                    id="course-started"
+                    id="notebook-started"
                     type="date"
                     value={startedAt}
                     onChange={(e) => setStartedAt(e.target.value)}
@@ -272,11 +280,11 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
                   />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="course-finished" className="eyebrow">
+                  <FieldLabel htmlFor="notebook-finished" className="eyebrow">
                     Fin
                   </FieldLabel>
                   <Input
-                    id="course-finished"
+                    id="notebook-finished"
                     type="date"
                     value={finishedAt}
                     onChange={(e) => setFinishedAt(e.target.value)}
@@ -331,7 +339,7 @@ export function CourseForm({ course, onClose }: { course: Course | null; onClose
               <Button type="button" variant="ghost" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="submit">{course ? "Guardar" : "Crear curso"}</Button>
+              <Button type="submit">{notebook ? "Guardar" : "Crear notebook"}</Button>
             </div>
           </div>
         </form>

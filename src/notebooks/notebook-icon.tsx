@@ -94,10 +94,10 @@ export const PRESET_ICONS = {
 
 export type PresetIcon = keyof typeof PRESET_ICONS
 
-// `courses.icon` es 'lucide:<Nombre>' o la URL pública de una imagen subida (ver migración 0004).
-// `fallback` es el icono de "sin icono": BookOpen para un curso, otro para un hábito (donde un
+// `notebooks.icon` es 'lucide:<Nombre>' o la URL pública de una imagen subida (ver migración 0004).
+// `fallback` es el icono de "sin icono": BookOpen para un notebook, otro para un hábito (donde un
 // libro no significa nada).
-export function CourseIcon({
+export function NotebookIcon({
   icon,
   className,
   fallback: Fallback = BookOpen,

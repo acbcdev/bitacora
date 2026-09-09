@@ -22,8 +22,8 @@ import {
 } from "@/core/ui/dropdown-menu"
 import { Input } from "@/core/ui/input"
 import { cn } from "@/core/lib/utils"
-import { CourseIcon } from "@/courses/course-icon"
-import { IconPicker } from "@/courses/icon-picker"
+import { NotebookIcon } from "@/notebooks/notebook-icon"
+import { IconPicker } from "@/notebooks/icon-picker"
 import { deriveHabit, goalText, streakText } from "@/habits/habits"
 import { HabitHistory } from "@/habits/habit-panel"
 import { useArchiveHabit, useHabitLog, useHabits, useSaveHabit } from "@/habits/habits.api"
@@ -90,7 +90,7 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
                   className="group flex flex-col gap-3 rounded-lg border bg-card p-3.5 transition-colors hover:border-input"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <CourseIcon icon={h.icon} fallback={Target} className="size-4.5" />
+                    <NotebookIcon icon={h.icon} fallback={Target} className="size-4.5" />
                     {/* Un menú y no dos íconos sueltos: en la lista vieja el lápiz y el archivar
                         estaban SIEMPRE encendidos en cada fila y eran lo más ruidoso del dialog.
                         En mobile no hay hover donde esconderlo, así que ahí queda visible. */}

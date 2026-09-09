@@ -8,7 +8,7 @@ import { Button } from "@/core/ui/button"
 import { Card } from "@/core/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
 import { Progress } from "@/core/ui/progress"
-import { useCourses } from "@/courses/courses.api"
+import { useNotebooks } from "@/notebooks/notebooks.api"
 import { useDeleteNote, useNote } from "@/notes/notes.api"
 import { useReviewQueue } from "@/review/review.api"
 import { useReviewSession } from "@/review/review-session"
@@ -26,7 +26,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { cn } from "@/core/lib/utils"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
-import { Courses } from "@/courses/courses"
+import { Notebooks } from "@/notebooks/notebooks"
 import { HabitTiles } from "@/habits/habit-tiles"
 
 // Los últimos 14 días de lectura, a lo GitHub. Sin clicks: es un resumen, no un control.
@@ -67,11 +67,11 @@ function ReadHistory({ byDay }: { byDay?: Map<string, number> }) {
 // Desde la card de una nota NO se marca leído: ahí solo se ve el preview. Eso vive en el dialog,
 // gateado a haber llegado al final (CONTEXT.md), y desde ahí sí avanza. El footer de la card es
 // navegación y nada más — los mismos J/K como botones, que sin teclado son la única salida.
-// Debajo del repaso va la tira de hábitos y después la lista de cursos embebida, como en el diseño.
+// Debajo del repaso va la tira de hábitos y después la lista de notebooks embebida, como en el diseño.
 export function Review() {
   const { isLoading } = useReviewQueue()
   const session = useReviewSession()
-  const { data: courses = [] } = useCourses()
+  const { data: notebooks = [] } = useNotebooks()
   const { data: stats = EMPTY_READ_STATS } = useSnapshot((s) => readStats(s))
   const delFlashcard = useDeleteNote()
   const navigate = useNavigate()
@@ -82,7 +82,7 @@ export function Review() {
   // aparte, y sólo de esa. Abrir Repaso ya no baja tres docs Tiptap para mostrar uno.
   const { data: openNote } = useNote(note?.id)
   const marked = session.marked
-  const course = courses.find((c) => c.id === note?.course_id)
+  const notebook = notebooks.find((c) => c.id === note?.notebook_id)
   const readToday = stats?.today ?? 0
   const streak = stats?.streak ?? 0
   const donePct = Math.min(100, (readToday / DAILY_GOAL) * 100)
@@ -127,7 +127,7 @@ export function Review() {
   // es suyo (gateado a haber scrolleado hasta el final); con el ConfirmDelete de una flashcard
   // abierto es del botón enfocado —Cancelar/Borrar— vía el default del navegador.
   // useSafeHotkeys ya bloquea si el foco está en un overlay de otro contexto (Hábitos,
-  // CourseForm, IconPicker) o si hay un dialog porteado abierto.
+  // NotebookForm, IconPicker) o si hay un dialog porteado abierto.
   useSafeHotkeys(
     "enter",
     onEnter,
@@ -142,7 +142,7 @@ export function Review() {
   const openExpanded = useCallback(() => {
     if (!note || note.kind !== "note") return
     setDialogOpen(false)
-    navigate(note.course_id ? `/course/${note.course_id}/${note.id}` : `/note/${note.id}`)
+    navigate(note.notebook_id ? `/notebook/${note.notebook_id}/${note.id}` : `/note/${note.id}`)
   }, [note, navigate])
 
   useSafeHotkeys(
@@ -157,7 +157,7 @@ export function Review() {
   const openFocused = useCallback(() => {
     if (!note) return
     setDialogOpen(false)
-    const to = note.course_id ? `/course/${note.course_id}/${note.id}` : `/note/${note.id}`
+    const to = note.notebook_id ? `/notebook/${note.notebook_id}/${note.id}` : `/note/${note.id}`
     navigate(`${to}?focus=1`)
   }, [note, navigate])
 
@@ -228,7 +228,7 @@ export function Review() {
       <Card
         className={cn(
           "relative mb-8 py-6",
-          // Mismo hover que las cards de Cursos (courses.tsx), un poco más suave: sobre 1120px de
+          // Mismo hover que las cards de Notebooks (notebooks.tsx), un poco más suave: sobre 1120px de
           // superficie el --muted sólido pesa demasiado.
           note?.kind === "note" && !done && "transition-colors hover:bg-muted/55",
         )}
@@ -259,7 +259,7 @@ export function Review() {
             {note.kind === "note" ? (
               <NoteCard
                 item={note}
-                course={course}
+                notebook={notebook}
                 openNote={openNote}
                 position={session.position}
                 onOpen={() => setDialogOpen(true)}
@@ -271,7 +271,7 @@ export function Review() {
             ) : (
               <FlashcardCard
                 item={note}
-                course={course}
+                notebook={notebook}
                 openNote={openNote}
                 position={session.position}
                 revealed={revealed}
@@ -292,7 +292,7 @@ export function Review() {
       {note && note.kind === "note" && openNote && (
         <NoteDialog
           note={openNote}
-          course={course}
+          notebook={notebook}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           marked={marked}
@@ -307,11 +307,11 @@ export function Review() {
         />
       )}
 
-      {/* Los hábitos van entre el repaso y Cursos: a la vista en la pantalla que ya se abre
+      {/* Los hábitos van entre el repaso y Notebooks: a la vista en la pantalla que ya se abre
           2–3×/día, sin competirle el lugar a la nota. */}
       <HabitTiles />
 
-      <Courses embed />
+      <Notebooks embed />
     </div>
   )
 }

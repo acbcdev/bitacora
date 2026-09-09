@@ -9,16 +9,16 @@ import { NoteActions } from "@/notes/note-actions"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
-import { useCourses } from "@/courses/courses.api"
+import { useNotebooks } from "@/notebooks/notebooks.api"
 import { useNoteDraft } from "@/notes/notes.api"
 import { dayOf } from "@/core/lib/day"
 import { useSnapshot } from "@/core/lib/snapshot"
 import { EMPTY_READ_STATS, readStats } from "@/core/store/derive"
 
-// Editor de nota: usado standalone en /note/:id (notas sin curso) y embebido en Course.tsx
-// (notes/06, /course/:id/:noteId). F entra/sale de focus mode: se va todo el chrome (el
-// sidebar de App y, si embedded, el aside del curso) y la nota crece. Autosave debounced.
-// embedded=true: sin botón Volver ni nombre de curso (ya están en el aside del curso).
+// Editor de nota: usado standalone en /note/:id (notas sin notebook) y embebido en Notebook.tsx
+// (notes/06, /notebook/:id/:noteId). F entra/sale de focus mode: se va todo el chrome (el
+// sidebar de App y, si embedded, el aside del notebook) y la nota crece. Autosave debounced.
+// embedded=true: sin botón Volver ni nombre de notebook (ya están en el aside del notebook).
 export function NoteEditor({
   id,
   focus,
@@ -33,7 +33,7 @@ export function NoteEditor({
   const navigate = useNavigate()
   const { note, isLoading, title, savedAt, onTitleChange, onDocChange, save, getDoc } =
     useNoteDraft(id)
-  const { data: courses = [] } = useCourses()
+  const { data: notebooks = [] } = useNotebooks()
   const { data: stats = EMPTY_READ_STATS } = useSnapshot((s) => readStats(s))
   const [confirming, setConfirming] = useState(false)
   const editorRef = useRef<EditorHandle>(null)
@@ -95,7 +95,7 @@ export function NoteEditor({
   // Esc y mod+, porque el foco está siempre en el título o el editor — pero `f` bare NO se
   // fuerza: escribir la letra "f" en la nota disparaba el toggle de focus por error. `f` queda
   // con el default (solo dispara con el foco afuera del editable) y `mod+f` cubre el caso de
-  // adentro, mismo patrón que mod+j/mod+k en Course.
+  // adentro, mismo patrón que mod+j/mod+k en Notebook.
   const globalScope = { enableOnFormTags: true, enableOnContentEditable: true }
   useHotkeys("f", () => setFocus(!focus), { preventDefault: true }, [focus, setFocus])
   useHotkeys("mod+f", () => setFocus(!focus), { ...globalScope, preventDefault: true }, [
@@ -107,7 +107,7 @@ export function NoteEditor({
   if (isLoading) return <NoteSkeleton />
   if (!note) return <p className="p-8 text-muted-foreground">Nota no encontrada.</p>
 
-  const course = courses.find((c) => c.id === note.course_id)
+  const notebook = notebooks.find((c) => c.id === note.notebook_id)
   const reads = stats?.byNote.get(note.id)
   const count = reads?.count ?? 0
 
@@ -131,7 +131,7 @@ export function NoteEditor({
                     variant="ghost"
                     size="icon-sm"
                     onClick={() =>
-                      navigate(note.course_id ? `/course/${note.course_id}` : "/courses")
+                      navigate(note.notebook_id ? `/notebook/${note.notebook_id}` : "/notebooks")
                     }
                     aria-label="Volver"
                   >
@@ -140,7 +140,7 @@ export function NoteEditor({
                 </TooltipTrigger>
                 <TooltipContent>Volver</TooltipContent>
               </Tooltip>
-              <span className="eyebrow truncate">{course?.name ?? "Sin curso"}</span>
+              <span className="eyebrow truncate">{notebook?.name ?? "Sin notebook"}</span>
             </>
           )}
           <span className="mono-dim hidden whitespace-nowrap sm:inline">
@@ -154,9 +154,11 @@ export function NoteEditor({
               confirming={confirming}
               onConfirmingChange={setConfirming}
               onFocus={() => setFocus(true)}
-              // embedded: vuelve al curso (sin noteId) -> Course.tsx auto-selecciona la próxima
-              // nota. standalone: al curso si tenía uno, si no a /courses.
-              onDeleted={() => navigate(note.course_id ? `/course/${note.course_id}` : "/courses")}
+              // embedded: vuelve al notebook (sin noteId) -> Notebook.tsx auto-selecciona la próxima
+              // nota. standalone: al notebook si tenía uno, si no a /notebooks.
+              onDeleted={() =>
+                navigate(note.notebook_id ? `/notebook/${note.notebook_id}` : "/notebooks")
+              }
             />
           </div>
         </div>
@@ -205,8 +207,8 @@ export function NoteEditor({
   )
 }
 
-// Pantalla Nota standalone (screen 3): /note/:id, para notas sin curso (note.course_id null).
-// Con curso, la ruta principal es /course/:id/:noteId (Course.tsx renderiza NoteEditor inline).
+// Pantalla Nota standalone (screen 3): /note/:id, para notas sin notebook (note.notebook_id null).
+// Con notebook, la ruta principal es /notebook/:id/:noteId (Notebook.tsx renderiza NoteEditor inline).
 export function Note({ focus, setFocus }: { focus: boolean; setFocus: (v: boolean) => void }) {
   const { id } = useParams()
   if (!id) return null

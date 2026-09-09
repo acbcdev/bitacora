@@ -8,7 +8,7 @@ const { save } = vi.hoisted(() => ({
 
 vi.mock("@/core/store", () => ({
   store: {
-    snapshot: async () => ({ courses: [], notes: [], reads: [], habits: [], habitLog: [] }),
+    snapshot: async () => ({ notebooks: [], notes: [], reads: [], habits: [], habitLog: [] }),
     save,
   },
 }))
