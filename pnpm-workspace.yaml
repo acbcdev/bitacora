@@ -1,2 +1,16 @@
 allowBuilds:
   esbuild: true
+# Supply-chain hardening: don't install packages published in the last 24 h
+# (malware often gets caught and unpublished within hours).
+# ponytail: 24 h, no 7 días (10080) — la lockfile actual tiene
+# @tiptap/extension-table@3.31.3 con 4 días; 10080 rompe el install hasta
+# que envejezca. Revisar en ~una semana.
+minimumReleaseAge: 1440
+# Política de confianza estricta: rechaza paquetes cuyas señales de confianza
+# (provenance, firmas) empeoran entre versiones. trustPolicyIgnoreAfter deja
+# pasar los paquetes legacy pre-provenance (ej. semver@6.3.1, de 2023) por edad.
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 1576800
+# Excepción puntual: transitiva pre-release (fork) marcada como downgrade.
+trustPolicyExclude:
+  - "@trickfilm400/rollup-plugin-off-main-thread@3.0.0-pre1"
