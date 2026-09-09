@@ -50,7 +50,8 @@ test("llegar a la meta avisa y apaga el cronómetro", () => {
   const done = NOW + SECONDS(60 * 25)
   expect(shownMinutes(0, t, done) >= 25).toBe(true)
 
-  finishTimer("Leer", 25)
+  // finishTimer recibe SEGUNDOS y anuncia minutos (spec: "minutos derivados de segundos").
+  finishTimer("Leer", 25 * 60)
   expect(success).toHaveBeenCalledWith("Leer — 25 min listos")
   expect(localStorage.getItem(TIMER_KEY)).toBe(null)
 })

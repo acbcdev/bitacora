@@ -109,8 +109,8 @@ if (typeof document !== "undefined") {
 }
 if (typeof window !== "undefined") {
   // Para QA manual: window.bitaPlaySound() sin esperar 25 min
-  // oxlint-disable-next-line no-underscore-dangle -- helper de QA, no API pública
   // SAFETY: augment de window para QA manual — no existe en ningún type de DOM.
+  // oxlint-disable-next-line no-underscore-dangle
   ;(window as unknown as { bitaPlaySound?: () => void }).bitaPlaySound = playDoneSound
 }
 
@@ -210,11 +210,12 @@ export function pausedValue(amountSec: number, t: Timer, now = Date.now()): numb
 // la app cerrada necesita service worker + servidor que lo dispare — rompe el "$0, sin servidores
 // propios" de CONTEXT.md. Está en Out of Scope del spec.
 // El toast va siempre: es el fallback si el permiso está denegado.
-export function finishTimer(name: string, minutesOrSec: number) {
+// Recibe SEGUNDOS (0011) y muestra minutos: sin heurística de compat — un valor chico
+// ("45 segundos") no puede colarse como "45 min".
+export function finishTimer(name: string, seconds: number) {
   clearTimer()
   playDoneSound()
-  // Compat: si viene en segundos (>=60) lo mostramos en minutos; si ya viene en minutos, igual.
-  const mins = minutesOrSec >= 60 ? Math.round(minutesOrSec / 60) : minutesOrSec
+  const mins = Math.round(seconds / 60)
   toast.success(`${name} — ${mins} min listos`)
   if (typeof Notification !== "undefined" && Notification.permission === "granted") {
     // oxlint-disable-next-line no-new -- la notificación es puro efecto, no hay nada que guardar

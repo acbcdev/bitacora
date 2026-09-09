@@ -142,10 +142,11 @@ export function HabitTiles() {
   //    render. La comparación es contra el período de startedDay: 23:59→00:19 corta contra el
   //    día de ayer, no contra hoy. Con segundos (0011) no hay round: se compara directo.
   const reached =
+    !!running &&
     !!startedState &&
-    running!.h.kind === "good" &&
-    startedState.total < running!.h.target &&
-    shown >= running!.h.target
+    running.h.kind === "good" &&
+    startedState.total < running.h.target &&
+    shown >= running.h.target
 
   // Llegar a la meta guarda y apaga solo. Depende únicamente de `reached` a propósito: finishTimer
   // limpia el localStorage, así que el efecto se auto-desarma en el render siguiente.

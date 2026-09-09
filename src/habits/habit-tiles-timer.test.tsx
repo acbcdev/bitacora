@@ -87,6 +87,32 @@ test("pausa cross-midnight: un solo upsert sobre startedDay con amount_prev + el
   expect(localStorage.getItem("bita-timer")).toBe(null)
 })
 
+test("pausa cross-midnight: el cache optimista ya tiene la fila de startedDay antes del round-trip", async () => {
+  const seed: Partial<Snapshot> = {
+    habits: [timeHabit()],
+    habitLog: [habitLogRow({ habit_id: "h1", day: DAY_START, amount: 12 * MIN, target: 60 * MIN })],
+  }
+  const { qc, store } = mountWithTimer(seed)
+  const pause = (await screen.findAllByRole("button", { name: "Pausar Leer" }))[0]
+  fireEvent.click(pause)
+
+  // El onMutate escribe el cache ANTES del round-trip (ui-principles 4): la fila correcta de
+  // startedDay tiene que estar visible sin esperar la persistencia.
+  await waitFor(() => {
+    const snap = qc.getQueryData<Snapshot>(["snapshot"])
+    expect(snap?.habitLog).toEqual([
+      { habit_id: "h1", day: DAY_START, amount: 32 * MIN, target: 60 * MIN },
+    ])
+  })
+  // Y el round-trip lo confirma.
+  await waitFor(async () => {
+    expect((await store.snapshot()).habitLog).toEqual([
+      { habit_id: "h1", day: DAY_START, amount: 32 * MIN, target: 60 * MIN },
+    ])
+  })
+})
+
+// auto-finish acredita amount_startedDay + elapsed y corta con toast
 test("auto-finish acredita amount_startedDay + elapsed y corta con toast", async () => {
   // Historia 4: 18 min ya registrados ayer, arrancó 23:59 y a los 3 min (00:02) cruza la meta
   // de 20: corta solo, escribe 21 a AYER y no espera a que HOY llegue a 20.
