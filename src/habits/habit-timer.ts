@@ -12,7 +12,16 @@ import { dayKey } from "@/core/lib/day"
 // ponytail: uno global. Timers paralelos por hábito el día que alguien lea y corra a la vez.
 export type Timer = { habitId: string; startedAt: number; startedDay: string }
 
-export const TIMER_KEY = "bita-timer"
+declare global {
+  // SAFETY: augment de window para QA manual — bitaPlaySound no existe en ningún type de DOM.
+  interface Window {
+    bitaPlaySound?: () => void
+  }
+}
+
+// Versión en la clave: si la forma cambia, cambiar la clave descarta lo viejo sin crashear.
+export const TIMER_KEY = "bita-timer:v1"
+const LEGACY_TIMER_KEY = "bita-timer"
 
 const listeners = new Set<() => void>()
 
@@ -108,10 +117,9 @@ if (typeof document !== "undefined") {
   document.addEventListener("click", () => getAudioCtx(), { once: true, capture: true })
 }
 if (typeof window !== "undefined") {
-  // Para QA manual: window.bitaPlaySound() sin esperar 25 min
-  // SAFETY: augment de window para QA manual — no existe en ningún type de DOM.
-  // oxlint-disable-next-line no-underscore-dangle
-  ;(window as unknown as { bitaPlaySound?: () => void }).bitaPlaySound = playDoneSound
+  // Para QA manual: window.bitaPlaySound() sin esperar 25 min. Augment de window (no existe en
+  // ningún type de DOM) en vez de un cast a unknown.
+  window.bitaPlaySound = playDoneSound
 }
 
 function parse(raw: string | null): Timer | null {
@@ -127,8 +135,12 @@ function parse(raw: string | null): Timer | null {
   }
 }
 
+function readTimerRaw() {
+  return localStorage.getItem(TIMER_KEY) ?? localStorage.getItem(LEGACY_TIMER_KEY)
+}
+
 export function readTimer() {
-  return parse(localStorage.getItem(TIMER_KEY))
+  return parse(readTimerRaw())
 }
 
 // El snapshot es el STRING crudo, no el objeto parseado: useSyncExternalStore compara por
@@ -139,7 +151,7 @@ export function useTimer(): Timer | null {
       listeners.add(cb)
       return () => listeners.delete(cb)
     },
-    () => localStorage.getItem(TIMER_KEY),
+    () => readTimerRaw(),
   )
   return useMemo(() => parse(raw), [raw])
 }
@@ -164,6 +176,8 @@ export function startTimer(habitId: string) {
 
 export function clearTimer() {
   localStorage.removeItem(TIMER_KEY)
+  // También el legacy: un timer en curso que sobrevivió a la subida de versión no debe quedar colgado.
+  localStorage.removeItem(LEGACY_TIMER_KEY)
   listeners.forEach((l) => l())
 }
 
