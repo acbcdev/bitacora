@@ -90,7 +90,12 @@ export function useNoteDraft(id: string | undefined) {
   const doc = useRef<TiptapDoc>(EMPTY_DOC)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const latest = useRef({ id, title })
-  latest.current = { id, title }
+
+  // El ref no se muta durante el render (React puede descartar ese trabajo): se sincroniza
+  // post-commit. save() solo corre desde timers/eventos, siempre después del effect.
+  useEffect(() => {
+    latest.current = { id, title }
+  })
 
   useEffect(() => {
     if (!note) return

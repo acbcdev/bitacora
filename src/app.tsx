@@ -95,11 +95,14 @@ function Shell({ user }: { user: AuthUser }) {
     return () => document.removeEventListener("fullscreenchange", sync)
   }, [focus])
 
+  // Persistir fuera de los updaters (React puede invocarlos más de una vez). El effect es el
+  // único escritor: cubre toggleSidebar, onOpenChange y cualquier otro camino a setCollapsed.
+  useEffect(() => {
+    localStorage.setItem("bita-sb", collapsed ? "1" : "0")
+  }, [collapsed])
+
   function toggleSidebar() {
-    setCollapsed((c) => {
-      localStorage.setItem("bita-sb", c ? "0" : "1")
-      return !c
-    })
+    setCollapsed((c) => !c)
   }
 
   // Teclado global: ⌘K, ? y la secuencia G+H / G+C. Space/J/K son de cada pantalla.
@@ -212,10 +215,7 @@ function Shell({ user }: { user: AuthUser }) {
     <TooltipProvider>
       <SidebarProvider
         open={!collapsed}
-        onOpenChange={(open) => {
-          localStorage.setItem("bita-sb", open ? "0" : "1")
-          setCollapsed(!open)
-        }}
+        onOpenChange={(open) => setCollapsed(!open)}
         className="h-screen min-h-0 overflow-hidden"
         style={
           { "--sidebar-width": "260px", "--sidebar-width-icon": "56px" } as React.CSSProperties
