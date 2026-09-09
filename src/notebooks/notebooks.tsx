@@ -277,7 +277,7 @@ export function Notebooks({ embed }: { embed?: boolean }) {
               <TableRow className="hover:bg-transparent">
                 {HEADERS.map((h, i) => (
                   <TableHead
-                    key={i}
+                    key={h}
                     className={`eyebrow px-3 py-3 ${i >= 5 ? "text-right" : ""} ${
                       i === 0 ? "sticky left-0 z-10 bg-card" : ""
                     }`}

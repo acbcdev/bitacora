@@ -148,8 +148,8 @@ export function NotebookForm({
   const [source, setSource] = useState(notebook?.source ?? "")
   const [area, setArea] = useState(notebook?.area ?? "")
   const [status, setStatus] = useState<NotebookStatus>(notebook?.status ?? "active")
-  const [startedAt, setStartedAt] = useState(notebook?.started_at?.slice(0, 10) ?? "")
-  const [finishedAt, setFinishedAt] = useState(notebook?.finished_at?.slice(0, 10) ?? "")
+  const [startedAt, setStartedAt] = useState(() => notebook?.started_at?.slice(0, 10) ?? "")
+  const [finishedAt, setFinishedAt] = useState(() => notebook?.finished_at?.slice(0, 10) ?? "")
 
   function submit(e: React.FormEvent) {
     e.preventDefault()

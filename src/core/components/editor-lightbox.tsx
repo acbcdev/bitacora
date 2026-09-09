@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 import { Dialog as DialogPrimitive } from "radix-ui" // misma primitive que shadcn/ui Dialog; se usa directo para fullscreen sin card/ring de DialogContent
 import { ChevronLeft, ChevronRight, ImageOff, XIcon } from "lucide-react"
 import type { TiptapDoc } from "@/core/types/database"
@@ -38,15 +38,13 @@ export function EditorLightbox({
   onOpenChange: (open: boolean) => void
   onIndexChange: (next: number) => void
 }) {
-  const [broken, setBroken] = useState(false)
+  const [brokenSrc, setBrokenSrc] = useState<string | null>(null)
   const touchStartX = useRef<number | null>(null)
-
-  // Reset broken when image changes
-  useEffect(() => {
-    setBroken(false)
-  }, [index, images])
-
+  // Roto es por-src, no un booleano que se resetea con un effect: al cambiar de imagen, la
+  // pregunta es si ESTA imagen falló. El <img> ya se remonta por key={src}.
+  // ponytail: una imagen rota no reintenta al reabrirse salvo que el src cambie.
   const current = images[index]
+  const broken = brokenSrc != null && brokenSrc === current?.src
   const count = images.length
 
   const goPrev = useCallback(() => {
@@ -59,36 +57,35 @@ export function EditorLightbox({
     onIndexChange((index + 1) % count)
   }, [count, index, onIndexChange])
 
+  // useEffectEvent: la suscripción depende solo de `open` — goPrev/goNext/onOpenChange se leen
+  // con los valores frescos en cada evento, sin re-subscribir por cada flecha.
+  const onKey = useEffectEvent((e: KeyboardEvent) => {
+    if (e.key === "ArrowLeft") {
+      e.preventDefault()
+      goPrev()
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault()
+      goNext()
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      onOpenChange(false)
+    }
+  })
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") {
-        e.preventDefault()
-        goPrev()
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault()
-        goNext()
-      } else if (e.key === "Escape") {
-        e.preventDefault()
-        onOpenChange(false)
-      }
-    }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [open, goPrev, goNext, onOpenChange])
+  }, [open])
 
   const onTouchStart = (e: React.TouchEvent) => {
-    const x = (e.touches?.[0] ??
-      (e as unknown as { changedTouches?: TouchList })?.changedTouches?.[0] ??
-      null) as unknown as { clientX?: number } | null
+    // SAFETY: React.TouchEvent ya tipa touches/changedTouches (TouchList de DOM); clientX sale
+    // del primer touch que exista y puede venir undefined en mocks de test.
+    const x = e.touches[0] ?? e.changedTouches[0] ?? null
     touchStartX.current = x?.clientX ?? null
   }
   const onTouchEnd = (e: React.TouchEvent) => {
     const start = touchStartX.current
-    const endTouch = (e.changedTouches?.[0] ?? e.touches?.[0] ?? null) as unknown as {
-      clientX?: number
-    } | null
-    const end = endTouch?.clientX
+    const end = (e.changedTouches[0] ?? e.touches[0] ?? null)?.clientX
     touchStartX.current = null
     if (start == null || end == null) return
     const delta = end - start
@@ -152,7 +149,7 @@ export function EditorLightbox({
                 key={current.src}
                 src={current.src}
                 alt={current.alt ?? ""}
-                onError={() => setBroken(true)}
+                onError={() => setBrokenSrc(current.src)}
                 className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-xl"
               />
             )}
