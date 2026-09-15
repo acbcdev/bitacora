@@ -12,6 +12,13 @@ export function dayOf(iso: string | null | undefined) {
   return iso ? dayKey(new Date(iso)) : "—"
 }
 
+// Días desde ese instante (⩽ 0 clamp a 0: un read_at a futuro es clock skew, no "hace -2d").
+// Injectable `now` para tests. La usa la frescura del sidebar del notebook.
+export function daysSince(iso: string | null | undefined, now = new Date()) {
+  if (!iso) return null
+  return Math.max(0, Math.floor((now.getTime() - new Date(iso).getTime()) / 86_400_000))
+}
+
 const RTF = new Intl.RelativeTimeFormat("es", { numeric: "auto" })
 
 // "hace 2 semanas" — para tarjetas, donde la fecha exacta importa menos que la sensación de tiempo.

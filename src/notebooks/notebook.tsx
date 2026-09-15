@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
@@ -10,14 +10,17 @@ import {
   PinOff,
   Plus,
   RotateCcw,
+  Search,
   Sparkles,
   Trash2,
 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { NotebookForm } from "@/notebooks/notebook-form"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
+import { NoteActions } from "@/notes/note-actions"
 import { NoteEditor } from "@/notes/note"
 import { NoteSkeleton } from "@/core/components/skeletons"
+import { Badge } from "@/core/ui/badge"
 import { Button } from "@/core/ui/button"
 import {
   DropdownMenu,
@@ -27,24 +30,39 @@ import {
   DropdownMenuTrigger,
 } from "@/core/ui/dropdown-menu"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
-import { Item } from "@/core/ui/item"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/core/ui/input-group"
 import { Kbd } from "@/core/ui/kbd"
-import { Progress } from "@/core/ui/progress"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useNotebooks, useDeleteNotebook, useUpdateNotebook } from "@/notebooks/notebooks.api"
 import { togglePinnedNotebook, usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
-import { useGenerateFlashcards, useRetention } from "@/flashcards/flashcards.api"
+import { useGenerateFlashcards } from "@/flashcards/flashcards.api"
 import { useCreateNote, useNotes } from "@/notes/notes.api"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
+import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
+import { daysSince } from "@/core/lib/day"
 import { useSnapshot } from "@/core/lib/snapshot"
 import { EMPTY_READ_STATS, readStats } from "@/core/store/derive"
+import { cn } from "@/core/lib/utils"
 import { store } from "@/core/store"
 import type { NotebookStatus } from "@/core/types/database"
 
-// `Item` solo trae hover para `<a>`; acá el nodo es un `<button>`, así que hover y selección van
-// explícitos. `data-active` lo sigue poniendo el call site, igual que con `.nav-item`.
-const NOTE_ITEM =
-  "cursor-pointer items-start text-left text-fg-secondary hover:bg-muted data-[active=true]:bg-muted data-[active=true]:font-medium data-[active=true]:text-foreground"
+// Variant E ("UI Bitácora", .scratch/sidebar-redesign): la celda derecha de cada fila tiene ancho
+// y alto fijos — frescura y menú comparten la misma celda y se intercambian sin reflow, el título
+// (1fr) nunca cambia de ancho.
+const NOTE_ROW =
+  "group/note relative grid h-8 grid-cols-[20px_1fr_56px] items-center gap-2.5 rounded-lg px-2.5 text-[13px] text-fg-secondary hover:bg-muted data-[active=true]:bg-muted data-[active=true]:text-foreground"
+
+// Frescura por nota: el rótulo y su color. ≤7d verde (recién repasada), ≥30d amarillo (se está
+// enfriando), null = nunca repasada → celda vacía (sin ruido). El repaso vive en Home/Repaso:
+// el sidebar sólo diagnostica.
+function freshness(last: string | null | undefined, now = new Date()) {
+  const d = daysSince(last, now)
+  if (d === null) return null
+  return {
+    label: `hace ${d}d`,
+    cls: d <= 7 ? "text-brand-fg" : d >= 30 ? "text-warning" : "text-muted-foreground",
+  }
+}
 
 const STATUS: Record<NotebookStatus, string> = {
   active: "activo",
@@ -66,15 +84,28 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
   const createNote = useCreateNote()
   const updateNotebook = useUpdateNotebook()
   const generateFlashcards = useGenerateFlashcards(id!)
-  const { data: retention } = useRetention()
   const isMobile = useIsMobile()
   const deleteNotebook = useDeleteNotebook()
   const pinned = usePinnedNotebookIds().includes(id!)
   const [editing, setEditing] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [q, setQ] = useState("")
+  const searchRef = useRef<HTMLInputElement>(null)
+  const [confirmingNote, setConfirmingNote] = useState<string | null>(null)
 
   const notebook = notebooks.find((c) => c.id === id)
   const selected = notes.find((n) => n.id === noteId) ?? notes[0]
+
+  // Filtro de búsqueda del índice: por título, en cliente (el snapshot ya trae los títulos).
+  const visible = q
+    ? notes.filter((n) => (n.title || "(sin título)").toLowerCase().includes(q.toLowerCase()))
+    : notes
+  useSafeHotkeys(
+    // "slash", no "/": la lib matchea por e.code (ver comentario en notebooks.tsx).
+    "slash",
+    () => searchRef.current?.focus(),
+    { preventDefault: true },
+  )
 
   function select(target: { id: string }) {
     navigate(`/notebook/${id}/${target.id}`)
@@ -89,28 +120,31 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
     }
   }, [id, noteId, selected, isLoading, navigate])
 
-  // J/K y flechas entre notas del notebook. J/left = atras, K/right = adelante. Además de la versión
+  // J/K y flechas entre notas del notebook. J/left = atrás, K/right = adelante. Además de la versión
   // bare (default de la lib: se desactiva sola con el foco en el editor embebido), se agrega el
   // alias mod+ forzado para cuando el foco SÍ está adentro del editor — misma acción, dos formas
   // de dispararla según dónde esté el foco.
+  // Se mueven sobre las notas VISIBLES (el filtro de búsqueda): saltar a una fila escondida
+  // se sentiría como un bug.
   function step(dir: "back" | "forward") {
-    const i = notes.findIndex((n) => n.id === selected?.id)
-    const target = notes[dir === "forward" ? Math.min(i + 1, notes.length - 1) : Math.max(i - 1, 0)]
+    const i = visible.findIndex((n) => n.id === selected?.id)
+    const target =
+      visible[dir === "forward" ? Math.min(i + 1, visible.length - 1) : Math.max(i - 1, 0)]
     if (target) select(target)
   }
-  useHotkeys("j,left", () => step("back"), { preventDefault: true }, [notes, selected])
-  useHotkeys("k,right", () => step("forward"), { preventDefault: true }, [notes, selected])
+  useHotkeys("j,left", () => step("back"), { preventDefault: true }, [visible, selected])
+  useHotkeys("k,right", () => step("forward"), { preventDefault: true }, [visible, selected])
   useHotkeys(
     "mod+j,mod+left",
     () => step("back"),
     { enableOnContentEditable: true, preventDefault: true },
-    [notes, selected],
+    [visible, selected],
   )
   useHotkeys(
     "mod+k,mod+right",
     () => step("forward"),
     { enableOnContentEditable: true, preventDefault: true },
-    [notes, selected],
+    [visible, selected],
   )
   useHotkeys(
     "n",
@@ -121,7 +155,6 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
 
   const read = notes.filter((n) => (stats?.byNote.get(n.id)?.count ?? 0) > 0).length
   const pct = notes.length ? Math.round((read / notes.length) * 100) : 0
-  const retentionPct = retention?.get(id!)
 
   if (!notebook) return <p className="p-8 text-muted-foreground">Notebook no encontrado.</p>
 
@@ -167,19 +200,24 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
       </div>
 
       {/* Desktop: solo la lista de notas scrollea — cabecera y acciones quedan fijas. Mobile: alto
-          auto, scrollea `main`, así que el overflow va con `md:`. */}
+          auto, scrollea `main`, así que el overflow va con `md:`. Variant E ("UI Bitácora",
+          .scratch/sidebar-redesign): header compacto + chips, búsqueda con /, filas con frescura
+          y footer con Nueva nota. */}
       {!focus && (
         <aside className="flex shrink-0 flex-col border-b max-md:order-first md:w-68 md:min-h-0 md:overflow-hidden md:border-b-0 md:border-l">
-          <div className="shrink-0 px-5 pt-6">
-            {/* Fuente/estado/área como eyebrow y no como badges: en 272px tres badges bajan a dos
-                filas y le compiten al nombre del notebook, que es lo único que hay que leer rápido. */}
-            <div className="eyebrow flex items-center gap-2">
-              <NotebookIcon icon={notebook.icon} className="size-5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">
-                {[notebook.source, STATUS[notebook.status], notebook.area]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
+          <div className="shrink-0 px-4 pt-4 pb-2">
+            <div className="flex items-center gap-2.5">
+              <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-card">
+                <NotebookIcon icon={notebook.icon} className="size-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="eyebrow truncate">
+                  {[notebook.source, notebook.area].filter(Boolean).join(" · ")}
+                </div>
+                <h1 className="truncate text-[15px] font-semibold tracking-tight">
+                  {notebook.name}
+                </h1>
+              </div>
               {/* Generar flashcards y cerrar el notebook son de una vez por notebook: acá, no compitiendo
                   con "Nueva nota" al pie. Además las flashcards no se ven en esta lista (kind
                   'flashcard', `useNotes` filtra 'note') — el resultado vive en /review. */}
@@ -245,52 +283,87 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <h1 className="mt-2 text-lg font-semibold tracking-tight text-pretty">
-              {notebook.name}
-            </h1>
-            <div className="mt-4 mb-1.5 flex justify-between">
-              <span className="mono-dim">
-                {notes.length} notas
-                {retentionPct !== undefined && ` · ${retentionPct}% retención`}
-              </span>
-              <span className="mono">{pct}%</span>
+            <div className="mt-2.5 flex items-center gap-1.5">
+              {/* Chips: estado (verde si activo), cantidad, y % repasado a la derecha en muted. */}
+              <Badge
+                variant={notebook.status === "active" ? "brand" : "default"}
+                className="rounded-full normal-case"
+              >
+                ● {STATUS[notebook.status]}
+              </Badge>
+              <Badge className="rounded-full normal-case">{notes.length} notas</Badge>
+              <span className="mono-dim ml-auto text-[10px]">{pct}% repasado</span>
             </div>
-            <Progress
-              value={pct}
-              className="h-0.75"
-              aria-label={`Progreso del notebook: ${pct}%`}
-            />
           </div>
 
-          <p className="eyebrow shrink-0 px-5 pt-5 pb-2">Notas</p>
-          <div className="flex flex-col gap-0.5 px-3 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-2">
-            {notes.map((n) => {
-              const count = stats?.byNote.get(n.id)?.count ?? 0
+          <div className="shrink-0 px-4 pb-1">
+            <InputGroup className="h-7 bg-card">
+              <InputGroupAddon>
+                <Search className="size-3" />
+              </InputGroupAddon>
+              <InputGroupInput
+                ref={searchRef}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    if (q) setQ("")
+                    searchRef.current?.blur()
+                  }
+                }}
+                placeholder="Buscar nota…"
+              />
+              <InputGroupAddon align="inline-end">
+                <Kbd>/</Kbd>
+              </InputGroupAddon>
+            </InputGroup>
+          </div>
+
+          <div className="flex flex-col gap-px px-2 py-1.5 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-2">
+            {visible.map((n, i) => {
+              const f = freshness(stats?.byNote.get(n.id)?.last)
               return (
-                <Item
-                  key={n.id}
-                  asChild
-                  size="xs"
-                  data-active={n.id === selected?.id}
-                  className={NOTE_ITEM}
-                >
-                  <button onClick={() => select(n)}>
-                    <span
-                      className={`mt-1.75 size-1.25 shrink-0 rounded-full ${count > 0 ? "bg-brand" : "bg-input"}`}
-                    />
-                    {/* Sin `ItemTitle`: viene con `line-clamp-1` y los títulos largos tienen que
-                        envolver, no cortarse. */}
-                    <span className="flex-1">{n.title || "(sin título)"}</span>
-                    <span className="mono-dim mt-0.5">{count}</span>
+                <div key={n.id} data-active={n.id === selected?.id} className={NOTE_ROW}>
+                  <button
+                    onClick={() => select(n)}
+                    className="col-span-2 flex min-w-0 items-center gap-2.5 rounded-lg text-left"
+                  >
+                    <span className="mono-dim text-[10px]">{String(i + 1).padStart(2, "0")}</span>
+                    <span className="truncate">{n.title || "(sin título)"}</span>
                   </button>
-                </Item>
+                  {/* Celda fija (56×22): frescura y menú comparten celda y se intercambian sin
+                      reflow — ni la fila ni el título (1fr) cambian de tamaño con el hover. */}
+                  <div className="col-start-3 row-start-1 grid h-[22px] w-14 place-items-center justify-self-end">
+                    <span
+                      className={cn(
+                        "mono text-[10px]",
+                        f?.cls,
+                        f && "group-hover/note:hidden group-has-[[aria-expanded=true]]/note:hidden",
+                      )}
+                    >
+                      {f?.label}
+                    </span>
+                    <span className="hidden group-focus-within/note:grid group-has-[[aria-expanded=true]]/note:grid group-hover/note:grid">
+                      <NoteActions
+                        note={n}
+                        // El índice lista refs sin content: se pide la nota entera recién al
+                        // copiar/exportar — igual que el editor, que es el único que la necesita.
+                        content={() => store.note(n.id).then((full) => full.content)}
+                        hideNotebook
+                        confirming={confirmingNote === n.id}
+                        onConfirmingChange={(open) => setConfirmingNote(open ? n.id : null)}
+                        onFocus={() => setFocus(true)}
+                        onDeleted={() => navigate(`/notebook/${id}`)}
+                      />
+                    </span>
+                  </div>
+                </div>
               )
             })}
           </div>
 
-          <div className="mt-auto shrink-0 border-t p-5 md:mt-0">
+          <div className="mt-auto shrink-0 border-t p-4 md:mt-0">
             <Button
-              variant="secondary"
               size="lg"
               className="w-full"
               onClick={() =>

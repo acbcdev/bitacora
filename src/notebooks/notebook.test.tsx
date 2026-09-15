@@ -19,6 +19,7 @@ const { generateFlashcards, softDelete, state } = vi.hoisted(() => ({
         created_at: "2026-01-01",
       },
     ] as Record<string, unknown>[],
+    reads: [] as { note_id: string; read_at: string; grade: string | null }[],
   },
 }))
 
@@ -30,7 +31,7 @@ vi.mock("@/core/store", () => ({
     snapshot: async () => ({
       notebooks: [{ id: "c1", name: "Notebook", status: "active", created_at: "2026-01-01" }],
       notes: state.notes,
-      reads: [],
+      reads: state.reads,
       habits: [],
       habitLog: [],
     }),
@@ -65,6 +66,7 @@ function renderNotebook() {
 beforeEach(() => {
   generateFlashcards.mockClear()
   softDelete.mockClear()
+  state.reads = []
   state.notes = [
     {
       id: "n1",
@@ -198,11 +200,86 @@ test("mod+k / mod+j mueven entre notas del notebook", async () => {
 
   fireEvent.keyDown(document, { code: "KeyK", ctrlKey: true })
   await waitFor(() =>
-    expect(container.querySelector('button[data-active="true"]')?.textContent).toContain("Nota 2"),
+    expect(container.querySelector('[data-active="true"]')?.textContent).toContain("Nota 2"),
   )
 
   fireEvent.keyDown(document, { code: "KeyJ", ctrlKey: true })
   await waitFor(() =>
-    expect(container.querySelector('button[data-active="true"]')?.textContent).toContain("Nota 1"),
+    expect(container.querySelector('[data-active="true"]')?.textContent).toContain("Nota 1"),
   )
+})
+
+// Variant E: la celda derecha de cada fila muestra frescura (días desde el último repaso) y queda
+// vacía para las nunca repasadas — el diagnóstico de "¿qué hace cuánto que no repaso?" es el
+// trabajo del sidebar, el repaso en sí vive en Home/Repaso.
+test("el índice muestra frescura por nota y celda vacía para las nunca repasadas", async () => {
+  state.notes = [
+    {
+      id: "n1",
+      title: "Recién",
+      content: { type: "doc" },
+      notebook_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      position: 0,
+    },
+    {
+      id: "n2",
+      title: "Nunca",
+      content: { type: "doc" },
+      notebook_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      position: 1,
+    },
+  ]
+  // Relativo al now real: la frescura se calcula contra Date.now(), no contra un now inyectado.
+  state.reads = [
+    { note_id: "n1", read_at: new Date(Date.now() - 2 * 86_400_000).toISOString(), grade: null },
+  ]
+  renderNotebook()
+  expect(await screen.findByText("hace 2d")).toBeInTheDocument()
+  // Sin repaso no hay rótulo: la celda existe pero vacía, no "sin leer".
+  expect(screen.queryByText(/sin leer/)).not.toBeInTheDocument()
+})
+
+test("la búsqueda filtra el índice por título", async () => {
+  state.notes = [
+    {
+      id: "n1",
+      title: "Sesgo cognitivo",
+      content: { type: "doc" },
+      notebook_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      position: 0,
+    },
+    {
+      id: "n2",
+      title: "Falacia naturalista",
+      content: { type: "doc" },
+      notebook_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      position: 1,
+    },
+  ]
+  renderNotebook()
+  await screen.findByText("Falacia naturalista")
+
+  fireEvent.change(screen.getByPlaceholderText("Buscar nota…"), { target: { value: "sesgo" } })
+  expect(screen.getAllByText("Sesgo cognitivo").length).toBeGreaterThan(0)
+  await waitFor(() => expect(screen.queryByText("Falacia naturalista")).not.toBeInTheDocument())
+})
+
+// El menú por nota (NoteActions) vive en la fila: el trigger abre, las acciones ya se testean en
+// note-actions.test.tsx.
+test("el menú ⋯ de la fila abre las acciones de la nota", async () => {
+  renderNotebook()
+  await screen.findByText("Nota 1")
+
+  fireEvent.keyDown(screen.getAllByRole("button", { name: "Acciones de la nota" })[0], {
+    key: "Enter",
+  })
+  expect(await screen.findByRole("menuitem", { name: "Focus" })).toBeInTheDocument()
 })

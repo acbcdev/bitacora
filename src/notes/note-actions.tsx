@@ -20,10 +20,14 @@ import type { Note, TiptapDoc } from "@/core/types/database"
 // y la convención de teclas (docs/ui-principles.md) reserva las teclas para el loop diario.
 //
 // `content` es un getter, no el doc: en la pantalla Nota lo que vale es el borrador en vivo
-// (autosave debounced 800ms), no el `note.content` que devolvió la query.
+// (autosave debounced 800ms), no el `note.content` que devolvió la query. Puede ser async: el
+// sidebar del notebook lista refs sin content (los pide `store.note` recién al copiar/exportar).
 //
 // `confirming` vive afuera porque el dialog de Repaso tiene que apagar su hotkey de Enter
 // mientras el confirm está arriba (si no, Enter marca leído Y cancela a la vez).
+//
+// `hideNotebook`: el sidebar del cuaderno ya está en ese notebook — el ítem "Ir al notebook"
+// sólo tiene sentido fuera de él (dialog de Repaso, nota standalone).
 export function NoteActions({
   note,
   content,
@@ -31,13 +35,15 @@ export function NoteActions({
   onConfirmingChange,
   onFocus,
   onDeleted,
+  hideNotebook,
 }: {
-  note: Note
-  content: () => TiptapDoc
+  note: Pick<Note, "id" | "title" | "notebook_id">
+  content: () => TiptapDoc | Promise<TiptapDoc>
   confirming: boolean
   onConfirmingChange: (open: boolean) => void
   onFocus: () => void
   onDeleted: () => void
+  hideNotebook?: boolean
 }) {
   const navigate = useNavigate()
   const del = useDeleteNote()
@@ -68,15 +74,19 @@ export function NoteActions({
             <Maximize2 />
             Focus
           </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!note.notebook_id}
-            onSelect={() => navigate(`/notebook/${note.notebook_id}`)}
-          >
-            <BookOpen />
-            Ir al notebook
-          </DropdownMenuItem>
+          {!hideNotebook && (
+            <DropdownMenuItem
+              disabled={!note.notebook_id}
+              onSelect={() => navigate(`/notebook/${note.notebook_id}`)}
+            >
+              <BookOpen />
+              Ir al notebook
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => copy(docToMarkdown(content()), "Nota copiada")}>
+          <DropdownMenuItem
+            onSelect={async () => copy(docToMarkdown(await content()), "Nota copiada")}
+          >
             <Copy />
             Copiar
           </DropdownMenuItem>
@@ -84,7 +94,7 @@ export function NoteActions({
             <Link2 />
             Copiar link
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => downloadMarkdown(note.title, content())}>
+          <DropdownMenuItem onSelect={async () => downloadMarkdown(note.title, await content())}>
             <Download />
             Export .md
           </DropdownMenuItem>
