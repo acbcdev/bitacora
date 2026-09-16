@@ -125,3 +125,165 @@ test("la tabla tiene overflow-x auto para scroll horizontal", async () => {
   await waitFor(() => expect(container.querySelector("table")).toBeInTheDocument())
   expect(container.querySelector("table")?.className).toContain("overflow-x-auto")
 })
+
+// ── Paste de imagen (upload via store.uploadNoteImage) ──────────────────────────────
+
+const { uploadNoteImage } = vi.hoisted(() => ({ uploadNoteImage: vi.fn() }))
+vi.mock("@/core/store", () => ({ store: { uploadNoteImage } }))
+
+beforeEach(() => {
+  uploadNoteImage.mockReset()
+  uploadNoteImage.mockResolvedValue("https://cdn/img.png")
+})
+
+function pasteFile(container: HTMLElement, file: File) {
+  const pm = container.querySelector<HTMLElement>(".ProseMirror")!
+  fireEvent.paste(pm, {
+    clipboardData: {
+      items: [{ type: file.type, getAsFile: () => file }],
+      getData: () => "",
+    },
+  })
+}
+
+test("pegar una imagen la sube y la inserta en el doc", async () => {
+  const onChange = vi.fn()
+  const { container } = render(<Editor content={doc} onChange={onChange} />)
+  await waitFor(() => expect(container.querySelector(".ProseMirror")).toBeInTheDocument())
+
+  pasteFile(container, new File(["x"], "foto.png", { type: "image/png" }))
+
+  await waitFor(() => expect(uploadNoteImage).toHaveBeenCalledWith(expect.any(File)))
+  await waitFor(() => {
+    const last = onChange.mock.lastCall?.[0] as TiptapDoc | undefined
+    expect(JSON.stringify(last)).toContain("https://cdn/img.png")
+  })
+  expect(container.querySelector("img")).toBeInTheDocument()
+})
+
+test("si falla el upload no inserta nada (el error va por toast)", async () => {
+  uploadNoteImage.mockRejectedValue(new Error("máximo 500 KB"))
+  const onChange = vi.fn()
+  const { container } = render(<Editor content={doc} onChange={onChange} />)
+  await waitFor(() => expect(container.querySelector(".ProseMirror")).toBeInTheDocument())
+
+  pasteFile(container, new File(["x"], "foto.png", { type: "image/png" }))
+
+  await waitFor(() => expect(uploadNoteImage).toHaveBeenCalled())
+  expect(onChange).not.toHaveBeenCalled()
+  expect(container.querySelector("img")).not.toBeInTheDocument()
+})
+
+test("pegar un archivo que no es imagen no sube nada", async () => {
+  const { container } = render(<Editor content={doc} />)
+  await waitFor(() => expect(container.querySelector(".ProseMirror")).toBeInTheDocument())
+
+  pasteFile(container, new File(["x"], "apunte.pdf", { type: "application/pdf" }))
+
+  expect(uploadNoteImage).not.toHaveBeenCalled()
+})
+
+// ── Tab: anidar ítems de lista (hijo del anterior) sin perder el foco ───────────
+
+const listDoc = {
+  type: "doc",
+  content: [
+    {
+      type: "bulletList",
+      content: [
+        {
+          type: "listItem",
+          content: [{ type: "paragraph", content: [{ type: "text", text: "uno" }] }],
+        },
+        {
+          type: "listItem",
+          content: [{ type: "paragraph", content: [{ type: "text", text: "dos" }] }],
+        },
+      ],
+    },
+  ],
+} as TiptapDoc
+
+function focusText(container: HTMLElement, text: string) {
+  const pmEl = container.querySelector(".ProseMirror") as HTMLElement & {
+    editor: {
+      view: { state: PMEditorState; dispatch: (tr: PMTransaction) => void; dom: HTMLElement }
+    }
+  }
+  const view = pmEl.editor.view
+  let pos = 0
+  view.state.doc.descendants((node, p) => {
+    if (node.isText && node.text === text) {
+      pos = p
+      return false
+    }
+    return true
+  })
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)))
+  return view
+}
+
+test("Tab dentro de un ítem lo anida como hijo del anterior", async () => {
+  const { container } = render(<Editor content={listDoc} />)
+  const view = await waitFor(() => {
+    expect(container.querySelector(".ProseMirror")).toBeInTheDocument()
+    return focusText(container, "dos")
+  })
+
+  fireEvent.keyDown(view.dom, { key: "Tab" })
+
+  await waitFor(() => expect(container.querySelector("li ul li")).toBeInTheDocument())
+})
+
+test("Shift+Tab desanida", async () => {
+  const nestedDoc = {
+    type: "doc",
+    content: [
+      {
+        type: "bulletList",
+        content: [
+          {
+            type: "listItem",
+            content: [
+              { type: "paragraph", content: [{ type: "text", text: "uno" }] },
+              {
+                type: "bulletList",
+                content: [
+                  {
+                    type: "listItem",
+                    content: [{ type: "paragraph", content: [{ type: "text", text: "dos" }] }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  } as TiptapDoc
+  const { container } = render(<Editor content={nestedDoc} />)
+  const view = await waitFor(() => {
+    expect(container.querySelector("li ul li")).toBeInTheDocument()
+    return focusText(container, "dos")
+  })
+
+  fireEvent.keyDown(view.dom, { key: "Tab", shiftKey: true })
+
+  await waitFor(() => expect(container.querySelector("li ul li")).not.toBeInTheDocument())
+})
+
+test("Tab fuera de lista inserta 4 espacios y no saca el foco", async () => {
+  const { container } = render(<Editor content={doc} />)
+  const pm = await waitFor(() => container.querySelector<HTMLElement>(".ProseMirror")!)
+  pm.focus()
+  const view = focusText(container, "hola")
+
+  fireEvent.keyDown(view.dom, { key: "Tab" })
+
+  expect(pm.textContent).toContain("    hola")
+  expect(document.activeElement).toBe(pm)
+
+  // Shift+Tab borra el indent que insertó Tab
+  fireEvent.keyDown(view.dom, { key: "Tab", shiftKey: true })
+  expect(pm.textContent).not.toContain("    hola")
+})

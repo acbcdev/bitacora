@@ -211,11 +211,29 @@ function listItems(lines: string[], start: number, itemRe: RegExp): [Node[], num
   const items: Node[] = []
   let i = start
   while (i < lines.length && itemRe.test(lines[i])) {
-    items.push({
-      type: "listItem",
-      content: [{ type: "paragraph", content: parseInline(lines[i].replace(itemRe, "")) }],
-    })
+    const content = [{ type: "paragraph", content: parseInline(lines[i].replace(itemRe, "")) }]
     i++
+    // Líneas de continuación indentadas (paste de ChatGPT/Claude: `1. ítem` + `   más texto`)
+    // y los blanks intermedios entran al MISMO listItem — cortar acá partía la lista en un
+    // <ol> por ítem y todos volvían a numerar desde 1.
+    while (i < lines.length) {
+      if (lines[i].trim() === "") {
+        // Blank dentro de la lista: sólo se traga si sigue otra línea del mismo bloque
+        // (ítem o continuación indentada). Si viene texto de otro nivel, corta la lista.
+        const next = lines[i + 1]
+        if (next === undefined || !(itemRe.test(next) || /^	| {2,}/.test(next))) break
+        i++
+        continue
+      }
+      if (itemRe.test(lines[i])) break
+      if (!/^(	| {2,})/.test(lines[i])) break
+      content.push({
+        type: "paragraph",
+        content: parseInline(lines[i].replace(/^(	| {2,})/, "")),
+      })
+      i++
+    }
+    items.push({ type: "listItem", content })
   }
   return [items, i]
 }

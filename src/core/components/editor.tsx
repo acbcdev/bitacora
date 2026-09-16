@@ -8,13 +8,16 @@ import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table"
 import { createLowlight, common } from "lowlight"
 import { Fragment, Slice } from "@tiptap/pm/model"
+import { sinkListItem, liftListItem } from "@tiptap/pm/schema-list"
+import { toast } from "sonner"
+import { store } from "@/core/store"
 import type { TiptapDoc } from "@/core/types/database"
 import { markdownToDoc } from "@/core/lib/tiptap-markdown"
 import { CodeBlockView } from "@/core/components/code-block"
 import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
-import { collectImages, EditorLightbox } from "@/core/components/editor-lightbox"
-import type { LightboxImage } from "@/core/components/editor-lightbox"
+import { EditorLightbox } from "@/core/components/editor-lightbox"
+import { collectImages, type LightboxImage } from "@/core/components/editor-lightbox-utils"
 
 const lowlight = createLowlight(common)
 
@@ -132,6 +135,35 @@ export function Editor({
       // Pega texto plano con sintaxis Markdown (**bold**, # heading, - lista...) como nodos
       // formateados en vez de texto literal. Si el portapapeles trae HTML (paste rico), no toca nada.
       handlePaste(view, event) {
+        // Imagen en el portapapeles (screenshot copiado, o archivo copiado del finder):
+        // sube al store y lo inserta. Sin esto, pegar imagen era un silencio total —
+        // `raw` venía vacío y caía al default de ProseMirror, que no hace nada.
+        const image = event.clipboardData?.items
+          ? [...event.clipboardData.items].find((i) => i.type.startsWith("image/"))
+          : null
+        if (image) {
+          const file = image.getAsFile()
+          if (file) {
+            event.preventDefault()
+            const node = view.state.schema.nodes.image
+            toast.promise(
+              store.uploadNoteImage(file).then((src) => {
+                view.dispatch(
+                  view.state.tr.replaceSelection(
+                    new Slice(Fragment.from(node.create({ src })), 0, 0),
+                  ),
+                )
+              }),
+              {
+                loading: "Subiendo imagen…",
+                success: "Imagen insertada",
+                error: (e) => (e instanceof Error ? e.message : "No se pudo subir la imagen"),
+              },
+            )
+            return true
+          }
+        }
+
         const raw = event.clipboardData?.getData("text/plain")
         const html = event.clipboardData?.getData("text/html")
         if (!raw || html) return false
@@ -165,6 +197,36 @@ export function Editor({
 
         view.dom.blur()
         return true
+      },
+      // Tab/Shift-Tab siempre capturados: hunden/suben el ítem de lista y fuera de una lista
+      // no hacen nada — pero NUNCA dejan que el browser mueva el foco fuera del editor.
+      handleDOMEvents: {
+        keydown(view, event) {
+          if (event.key !== "Tab") return false
+          event.preventDefault()
+          // En lista: anida/saca el ítem. Si no aplica (primer ítem, fuera de lista), Tab
+          // inserta indentación — antes era un no-op total.
+          const itemType = view.state.schema.nodes.listItem
+          if (itemType) {
+            const sunk = event.shiftKey
+              ? liftListItem(itemType)(view.state, view.dispatch)
+              : sinkListItem(itemType)(view.state, view.dispatch)
+            if (sunk) return true
+          }
+          const { $from } = view.state.selection
+          if (event.shiftKey) {
+            // Borra hasta 4 espacios pegados al cursor (el indent que insertó Tab).
+            const before = $from.parent.textBetween(
+              Math.max(0, $from.parentOffset - 4),
+              $from.parentOffset,
+            )
+            const n = / +$/.exec(before)?.[0].length ?? 0
+            if (n) view.dispatch(view.state.tr.delete($from.pos - n, $from.pos))
+          } else {
+            view.dispatch(view.state.tr.insertText("    "))
+          }
+          return true
+        },
       },
     },
   })

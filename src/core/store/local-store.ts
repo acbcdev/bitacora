@@ -29,6 +29,9 @@ const LOCAL_USER: AuthUser = { email: "local" }
 // las notas. Sin este techo, una foto de 3 MB se come la app entera y el error aparece después,
 // al guardar una nota.
 const MAX_ICON_BYTES = 100_000
+// Imagen pegada en una nota (modo local). Más chico que el bucket de Supabase (5MB): una data
+// URL es ~4/3 del binario y comparte el presupuesto de ~5 MB con TODO el localStorage.
+const MAX_NOTE_IMAGE_BYTES = 500_000
 
 type Tables = {
   notebooks: Notebook
@@ -310,6 +313,19 @@ export function localStore(): Store {
       // Data URL y no un bucket: es la única forma de que la imagen sobreviva a un reload sin
       // servidor. `notebook-icon.tsx` ya trata cualquier cosa que no empiece con 'lucide:' como
       // imagen, así que una data URL entra por esa rama sin cambios.
+      return fileToDataUrl(file)
+    },
+
+    // Imagen de nota en localStorage como data URL — mismo tradeoff que los iconos
+    // (MAX_ICON_BYTES): una data URL es ~4/3 del binario y usa el mismo presupuesto de
+    // ~5 MB que TODO el localStorage. 1 MB por imagen lo rompe igual.
+    // ponytail: sync porque fileToDataUrl ya devuelve la Promise — envolverla de nuevo no agrega nada.
+    uploadNoteImage(file: File) {
+      if (file.size > MAX_NOTE_IMAGE_BYTES) {
+        throw new Error(
+          `En modo local la imagen se guarda en el navegador: máximo ${MAX_NOTE_IMAGE_BYTES / 1000} KB. Usá Supabase en Ajustes para imágenes grandes.`,
+        )
+      }
       return fileToDataUrl(file)
     },
 

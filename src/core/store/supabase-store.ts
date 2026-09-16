@@ -143,6 +143,19 @@ export function supabaseStore(): Store {
 
     // Edge Function + insert de cada par como nota `kind: 'flashcard'` — mismo shape que una nota
     // normal, sin tabla nueva (ADR 0010).
+    // Bucket 'notes-images' (migración 0005, creado para el import de Notion): mismo patrón
+    // que uploadNotebookIcon. La carpeta tiene que ser el user_id: lo exige la policy.
+    async uploadNoteImage(file) {
+      const supabase = getSupabase()
+      const { data, error: authError } = await supabase.auth.getUser()
+      if (authError || !data.user) throw authError ?? new Error("Sin sesión")
+      // Sin extensión: el content-type lo guarda storage, y así no hay que sanear `file.name`.
+      const path = `${data.user.id}/${crypto.randomUUID()}`
+      const { error } = await supabase.storage.from("notes-images").upload(path, file)
+      if (error) throw error
+      return supabase.storage.from("notes-images").getPublicUrl(path).data.publicUrl
+    },
+
     async generateFlashcards(notebookId) {
       const supabase = getSupabase()
       const { data, error } = await supabase.functions.invoke<{

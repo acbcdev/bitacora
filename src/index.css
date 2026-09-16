@@ -255,7 +255,7 @@
   @apply scroll-mt-4;
 }
 .tiptap-host .ProseMirror p {
-  @apply my-4;
+  @apply my-3;
 }
 .tiptap-host .ProseMirror ul {
   @apply my-4 list-disc pl-5;
@@ -266,8 +266,22 @@
 .tiptap-host .ProseMirror li {
   @apply my-1.5;
 }
+/* Párrafos de continuación dentro de un li (paste con líneas indentadas, y Shift+Enter):
+   mismo margen que entre ítems, así TODAS las líneas del ítem quedan parejas — sin esto
+   cada p traía su my-3 global y el espaciado interno no coincidía con el de la lista. */
+.tiptap-host .ProseMirror li > p {
+  @apply my-1.5;
+}
 .tiptap-host .ProseMirror blockquote {
   @apply border-l-2 border-input pl-4 text-fg-secondary italic;
+}
+/* Links (extensión Link de StarterKit, autolink): preflight les saca color/subrayado — sin esto
+   una URL detectada se ve igual que el texto. */
+.tiptap-host .ProseMirror a {
+  @apply text-brand underline decoration-brand/40 underline-offset-2;
+}
+.tiptap-host .ProseMirror a:hover {
+  @apply decoration-brand;
 }
 .tiptap-host .ProseMirror code {
   @apply rounded bg-muted px-1 py-0.5 font-mono text-sm;

@@ -145,5 +145,8 @@ export type Store = {
   softDelete(entity: SoftDeletable, id: string): Promise<void>
 
   uploadNotebookIcon(file: File): Promise<string>
+  // Imagen pegada en el editor de notas: URL pública (Supabase, bucket 'notes-images') o data
+  // URL (local). Tira Error con mensaje en español — el editor lo muestra con toast.
+  uploadNoteImage(file: File): Promise<string>
   generateFlashcards(notebookId: string): Promise<void>
 }
