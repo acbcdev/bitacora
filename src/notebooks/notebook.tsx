@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { useHotkeys } from "react-hotkeys-hook"
 import {
   ArrowLeft,
   Check,
@@ -46,11 +45,11 @@ import { cn } from "@/core/lib/utils"
 import { store } from "@/core/store"
 import type { NotebookStatus } from "@/core/types/database"
 
-// Variant E ("UI Bitácora", .scratch/sidebar-redesign): la celda derecha de cada fila tiene ancho
-// y alto fijos — frescura y menú comparten la misma celda y se intercambian sin reflow, el título
-// (1fr) nunca cambia de ancho.
+// Variant E ("UI Bitácora", .scratch/sidebar-redesign): el título usa todo el ancho de la fila;
+// frescura y menú viven en una pastilla absoluta al pie derecho que los tapa (bg-inherit: siempre
+// matchea el bg de la fila, transparente/muted/activo) — el título gana ancho cuando no hay rótulo.
 const NOTE_ROW =
-  "group/note relative grid h-8 grid-cols-[20px_1fr_56px] items-center gap-2.5 rounded-lg px-2.5 text-[13px] text-fg-secondary hover:bg-muted data-[active=true]:bg-muted data-[active=true]:text-foreground"
+  "group/note relative flex h-8 items-center rounded-lg px-2.5 text-[13px] text-fg-secondary hover:bg-muted data-[active=true]:bg-muted data-[active=true]:text-foreground"
 
 // Frescura por nota: el rótulo y su color. ≤7d verde (recién repasada), ≥30d amarillo (se está
 // enfriando), null = nunca repasada → celda vacía (sin ruido). El repaso vive en Home/Repaso:
@@ -132,21 +131,23 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
       visible[dir === "forward" ? Math.min(i + 1, visible.length - 1) : Math.max(i - 1, 0)]
     if (target) select(target)
   }
-  useHotkeys("j,left", () => step("back"), { preventDefault: true }, [visible, selected])
-  useHotkeys("k,right", () => step("forward"), { preventDefault: true }, [visible, selected])
-  useHotkeys(
+  // useSafeHotkeys (no bare): con el NotebookForm o el confirm de borrado abiertos, j/k/n no
+  // deben mover nada detrás del diálogo — mismo leak que ya cubren las otras pantallas.
+  useSafeHotkeys("j,left", () => step("back"), { preventDefault: true }, [visible, selected])
+  useSafeHotkeys("k,right", () => step("forward"), { preventDefault: true }, [visible, selected])
+  useSafeHotkeys(
     "mod+j,mod+left",
     () => step("back"),
     { enableOnContentEditable: true, preventDefault: true },
     [visible, selected],
   )
-  useHotkeys(
+  useSafeHotkeys(
     "mod+k,mod+right",
     () => step("forward"),
     { enableOnContentEditable: true, preventDefault: true },
     [visible, selected],
   )
-  useHotkeys(
+  useSafeHotkeys(
     "n",
     () => createNote.mutate(id!, { onSuccess: (note) => navigate(`/notebook/${id}/${note.id}`) }),
     { preventDefault: true },
@@ -326,14 +327,15 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
                 <div key={n.id} data-active={n.id === selected?.id} className={NOTE_ROW}>
                   <button
                     onClick={() => select(n)}
-                    className="col-span-2 flex min-w-0 items-center gap-2.5 rounded-lg text-left"
+                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg text-left"
                   >
                     <span className="mono-dim text-[10px]">{String(i + 1).padStart(2, "0")}</span>
                     <span className="truncate">{n.title || "(sin título)"}</span>
                   </button>
-                  {/* Celda fija (56×22): frescura y menú comparten celda y se intercambian sin
-                      reflow — ni la fila ni el título (1fr) cambian de tamaño con el hover. */}
-                  <div className="col-start-3 row-start-1 grid h-[22px] w-14 place-items-center justify-self-end">
+                  {/* Pastilla absoluta al pie derecho: frescura a la vista, menú ⋯ al hover. Sin
+                      título tapado que robe clics: pointer-events-none en la pastilla, auto en el
+                      menú. El `pr-2.5` alinea el ⋯ con el padding de la fila. */}
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center bg-inherit pr-2.5 pl-5">
                     <span
                       className={cn(
                         "mono text-[10px]",
@@ -343,7 +345,7 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
                     >
                       {f?.label}
                     </span>
-                    <span className="hidden group-focus-within/note:grid group-has-[[aria-expanded=true]]/note:grid group-hover/note:grid">
+                    <span className="pointer-events-auto hidden group-focus-within/note:grid group-has-[[aria-expanded=true]]/note:grid group-hover/note:grid">
                       <NoteActions
                         note={n}
                         // El índice lista refs sin content: se pide la nota entera recién al
