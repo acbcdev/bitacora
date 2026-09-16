@@ -39,3 +39,10 @@ create table read_log (
 -- Datos chicos (~1.500 notas). Solo los índices de FK que las queries de la app usan de verdad.
 create index notes_course_id_idx on notes (course_id);
 create index read_log_note_id_idx on read_log (note_id);
+
+-- RLS se habilita con la creación (las policies llegan en 0002_rls.sql): sin policies, RLS es
+-- deny-by-default, así que entre 0001 y 0002 ninguna fila es accesible. Antes quedaba una
+-- ventana donde las tablas nacían abiertas hasta que 0002 las cerraba.
+alter table courses  enable row level security;
+alter table notes    enable row level security;
+alter table read_log enable row level security;

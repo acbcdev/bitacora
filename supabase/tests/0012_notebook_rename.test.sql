@@ -30,10 +30,12 @@ create table read_log (
   note_id uuid not null references notes (id), read_at timestamptz not null default now()
 );
 create index notes_course_id_idx on notes (course_id);  -- 0001, 0012 lo renombra
--- Sin auth/RLS reales (no hay auth.uid()), pero la policy de 0002 existe con este nombre y
--- 0012 la renombra — la recreamos tal cual para que el rename aplique.
+-- Sin auth/RLS reales (no hay auth.uid()): el test corre como superuser, que bypasea RLS, así
+-- que el cuerpo de la policy es irrelevante acá — solo tiene que existir con este nombre porque
+-- 0012 la renombra (courses_owner → notebooks_owner). FOR SELECT y no FOR ALL USING (true):
+-- es un fixture, no una puerta abierta a escrituras.
 alter table courses enable row level security;
-create policy courses_owner on courses for all using (true) with check (true);
+create policy courses_owner on courses for select using (true);
 
 -- \ir = relativo a este archivo, no al cwd del que corre psql.
 -- review_queue + course_progress (0003), que 0012 también toca.
