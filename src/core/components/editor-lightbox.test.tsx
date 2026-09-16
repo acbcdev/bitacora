@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { Editor } from "@/core/components/editor"
-import { collectImages, EditorLightbox } from "@/core/components/editor-lightbox"
+import { collectImages } from "@/core/components/editor-lightbox-utils"
+import { EditorLightbox } from "@/core/components/editor-lightbox"
 import type { TiptapDoc } from "@/core/types/database"
 
 // Helper para swipe que evita el bug de react-remove-scroll en jsdom (touches vacío -> getTouchXY)

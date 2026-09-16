@@ -1,5 +1,5 @@
 import { expect, test } from "vitest"
-import { notebookJumps } from "@/core/components/sidebar"
+import { notebookJumps } from "@/core/components/sidebar-groups"
 import type { Notebook } from "@/core/types/database"
 
 const list = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `c${i + 1}` }) as Notebook)

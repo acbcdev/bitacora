@@ -1,4 +1,4 @@
-import { filterActions, type Action } from "@/core/components/command-palette"
+import { filterActions, type Action } from "@/core/components/command-palette-utils"
 
 const a = (group: string, label: string): Action => ({ group, label, run: () => {} })
 

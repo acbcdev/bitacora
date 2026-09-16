@@ -1,29 +1,10 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 import { Dialog as DialogPrimitive } from "radix-ui" // misma primitive que shadcn/ui Dialog; se usa directo para fullscreen sin card/ring de DialogContent
 import { ChevronLeft, ChevronRight, ImageOff, XIcon } from "lucide-react"
-import type { TiptapDoc } from "@/core/types/database"
+import type { LightboxImage } from "./editor-lightbox-utils"
 import { Button } from "@/core/ui/button"
 
-export type LightboxImage = { src: string; alt?: string }
-
-export function collectImages(doc: TiptapDoc): LightboxImage[] {
-  const out: LightboxImage[] = []
-  const walk = (nodes: unknown[]) => {
-    for (const n of nodes) {
-      if (!n || typeof n !== "object") continue
-      const node = n as { type?: string; attrs?: Record<string, unknown>; content?: unknown[] }
-      if (node.type === "image" && typeof node.attrs?.src === "string") {
-        out.push({
-          src: node.attrs.src,
-          alt: typeof node.attrs.alt === "string" ? node.attrs.alt : undefined,
-        })
-      }
-      if (Array.isArray(node.content)) walk(node.content)
-    }
-  }
-  walk((doc.content as unknown[]) ?? [])
-  return out
-}
+export type { LightboxImage }
 
 export function EditorLightbox({
   images,
@@ -115,7 +96,9 @@ export function EditorLightbox({
           }}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-transparent p-4 outline-none duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+          // animation-duration y no duration-*: duration-* también setea transition-duration,
+          // y con el transition-property default (all) eso anima cualquier propiedad que cambie.
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-transparent p-4 outline-none animation-duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
         >
           <DialogPrimitive.Title className="sr-only">Imagen ampliada</DialogPrimitive.Title>
           {/* Índice */}
