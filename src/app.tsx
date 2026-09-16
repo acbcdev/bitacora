@@ -16,7 +16,8 @@ import {
 } from "lucide-react"
 import { CommandPalette, type Action } from "@/core/components/command-palette"
 import { Cheatsheet } from "@/core/components/cheatsheet"
-import { notebookJumps, Sidebar, sidebarNotebookGroups } from "@/core/components/sidebar"
+import { Sidebar } from "@/core/components/sidebar"
+import { notebookJumps, sidebarNotebookGroups } from "@/core/components/sidebar-groups"
 import { SidebarProvider, SidebarTrigger } from "@/core/ui/sidebar"
 import { Toaster } from "@/core/ui/sonner"
 import { TooltipProvider } from "@/core/ui/tooltip"
@@ -237,8 +238,10 @@ function Shell({ user }: { user: AuthUser }) {
               fixed: así no se pisa con el h1 de cada pantalla. */}
           <SidebarTrigger className="mt-2 ml-2 md:hidden" />
           {/* ErrorBoundary por sección: un crash en Review/Notebook/Note no mata el sidebar.
-              key=pathname resetea al navegar — sin esto, el error quedaría pegado al cambiar de ruta. */}
-          <ErrorBoundary key={pathname}>
+              key con sólo los 2 primeros segmentos resetea al navegar a otra pantalla o notebook,
+              pero NO al cambiar de nota dentro del notebook (/notebook/:id/:noteId) — con pathname
+              completo el Notebook entero (lista de notas incluida) se remontaba en cada J/K. */}
+          <ErrorBoundary key={pathname.split("/").slice(1, 3).join("/")}>
             <Routes>
               <Route path="/" element={<Review />} />
               <Route path="/notebooks" element={<Notebooks />} />

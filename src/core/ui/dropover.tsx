@@ -27,7 +27,11 @@ function Dropover({ children, ...props }: React.ComponentProps<typeof Popover>) 
   const Root = isMobile ? Drawer : Popover
   return (
     <DropoverContext value={isMobile}>
-      <Root {...props}>{children}</Root>
+      {/* modal: con el popover abierto desde un dialog, su RemoveScroll habilita el wheel
+          adentro — sin eso el scroll-lock del dialog bloquea el wheel del portal. */}
+      <Root modal={!isMobile} {...props}>
+        {children}
+      </Root>
     </DropoverContext>
   )
 }

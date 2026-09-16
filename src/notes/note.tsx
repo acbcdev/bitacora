@@ -115,13 +115,7 @@ export function NoteEditor({
     <div
       className={`fade-in mx-auto flex min-h-full max-w-read flex-col px-4 sm:px-8 ${focus ? "py-16" : "pt-9 pb-16"}`}
     >
-      {focus ? (
-        <div className="fixed top-4 right-5 z-10">
-          <Button variant="ghost" onClick={() => setFocus(false)}>
-            Salir de focus <Kbd>esc</Kbd>
-          </Button>
-        </div>
-      ) : (
+      {focus ? null : (
         <div className="mb-8 flex items-center gap-2.5">
           {!embedded && (
             <>

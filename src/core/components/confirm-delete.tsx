@@ -31,7 +31,10 @@ export function ConfirmDelete({
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      {/* stopPropagation: React propaga los clicks del portal por el árbol de componentes, y
+          varios call sites viven adentro de una fila/card con onClick que navega — sin esto,
+          confirmar (o cancelar) el borrado también navega al notebook. */}
+      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
         <AlertDialogHeader>
           <AlertDialogTitle>
             ¿{verb} “{what}”?
