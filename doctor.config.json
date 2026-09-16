@@ -1,0 +1,18 @@
+{
+  // false positive documentado (2026-09-08): el match de artifact-baas-authority-surface en
+  // dist/assets/*.js es el campo `providerId` DENTRO del SDK de supabase-js (GoTrue/SSO), no del
+  // modelo de la app. Las tablas de la app (notebooks, notes, read_log, habits, habit_log) no
+  // están en la lista sensible de la regla y ya tienen RLS owner-only en Postgres
+  // (supabase/migrations 0002_rls.sql, 0010_habits.sql + policies de storage 0004/0005),
+  // así que los nombres que viajan en el bundle no dan ningún acceso (key publishable pública
+  // por diseño). Cualquier bundle con supabase-js dispara la regla; se acota al artifact.
+  "$schema": "https://react.doctor/schema/config.json",
+  "ignore": {
+    "overrides": [
+      {
+        "files": ["dist/assets/*.js"],
+        "rules": ["react-doctor/artifact-baas-authority-surface"]
+      }
+    ]
+  }
+}

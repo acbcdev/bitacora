@@ -6,18 +6,34 @@ rejectiones con evidencia: resumen en la conversación del 2026-09-08.
 
 Status: open
 
+## Resueltos (2026-09-08, segunda pasada)
+
+- **`only-export-components` ×9** — utils a archivos hermanos `.ts`: `command-palette-utils.ts`,
+  `editor-lightbox-utils.ts`, `sidebar-groups.ts`, `toggle-variants.ts`, `preset-icons.ts`.
+  `badgeVariants`/`buttonVariants`/`tabsListVariants` no se usaban fuera de su archivo → sin export.
+- **`no-transition-all` en `editor-lightbox.tsx`** — no era falso positivo: `duration-100` setea
+  `transition-duration` y el `transition-property` default de CSS es `all`. Fix: `animation-duration-100`
+  (tw-animate-css), que solo setea el timing del keyframe; el fade del lightbox queda idéntico.
+- **`artifact-baas-authority-surface`** — falso positivo documentado y acotado en `doctor.config.json`
+  (ignore.overrides solo para `dist/assets/*.js`, la regla sigue corriendo en el resto): el campo
+  matcheado es `providerId` dentro del SDK de supabase-js (GoTrue/SSO), no del modelo de la app;
+  las 5 tablas + storage ya tienen RLS owner-only (migraciones 0002/0010/0004/0005). Cualquier bundle con
+  supabase-js dispara la regla; la key publishable es pública por diseño.
+
+- **`supabase-table-missing-rls` ×3** — 0001 ahora habilita RLS al crear las tablas (deny-by-default
+  hasta que 0002 agrega las policies); el estado final del schema no cambia.
+- **`supabase-rls-policy-risk`** — el fixture del test recreaba `courses_owner` con `for all using (true)`
+  solo para que 0012 pudiera renombrarla; corre como superuser (bypasea RLS), así que el cuerpo es
+  irrelevante. Ahora es `for select using (true)` (shape permitido explícitamente por la regla).
+  Verificado: el test SQL pasa ("OK — todas las asserts pasaron").
+
 ## Pendientes con decisión humana
 
-1. **`only-export-components` ×9** — `src/core/ui/*` (badge, button, tabs, toggle,
-   toggle-group, notebook-icon) + `src/core/components/*` (command-palette, editor-lightbox,
-   sidebar). Es el patrón shadcn estándar (exportar cva variants junto a componentes). Costo:
-   solo Fast Refresh en dev. Decisión: ¿divergimos del patrón shadcn o lo dejamos?
-
-2. **`trustPolicyExclude` puntual** — `@trickfilm400/rollup-plugin-off-main-thread@3.0.0-pre1`
+1. **`trustPolicyExclude` puntual** — `@trickfilm400/rollup-plugin-off-main-thread@3.0.0-pre1`
    en `pnpm-workspace.yaml` está excluido a mano (transitiva, pre-release, fork). Revisar si
    hay versión estable upstream o si podemos cortar la dependencia que lo arrastra.
 
-3. **`minimumReleaseAge` a 7 días (10080)** — hoy en 1440 (24 h) porque
+2. **`minimumReleaseAge` a 7 días (10080)** — hoy en 1440 (24 h) porque
    `@tiptap/extension-table@3.31.3` tenía 4 días de publicado y 10080 rompía el install.
    Revisar en ~una semana: subir a 10080 y ver si la lockfile pasa.
 
@@ -45,13 +61,13 @@ Status: open
    `<ul>`. Sacar el role.
 
 2. **`src/core/ui/pagination.tsx:10`** — `no-redundant-roles`: `role="navigation"` sobre
-    `<nav>`. Sacar el role.
+   `<nav>`. Sacar el role.
 
 3. **`src/notes/note.tsx:171`** — `no-placeholder-only-field`: el título usa placeholder
-    "Título" sin label visible. Decisión de diseño: ¿aria-label alcanza o label flotante?
+   "Título" sin label visible. Decisión de diseño: ¿aria-label alcanza o label flotante?
 
 4. **`src/notes/note.tsx:184`** — `no-static-element-interactions`: el `<div className="cursor-text">`
-    con onClick para focusear el editor. Fix: `role="button"` + keyboard, o re-think del patrón.
+   con onClick para focusear el editor. Fix: `role="button"` + keyboard, o re-think del patrón.
 
 ## Observaciones documentadas (no exigir fix)
 
