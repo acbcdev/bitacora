@@ -74,7 +74,13 @@ function PillCombobox({
     <Combobox<string>
       items={options}
       inputValue={value}
-      onInputValueChange={onChange}
+      // Ignorar el reset ('input-clear') que Base UI hace al cerrar el popup: sincroniza el
+      // input al valor seleccionado y borra lo tipeado. Sin esto, escribir una fuente/área
+      // nueva y cambiar de campo la pierde — no se puede crear un valor libre.
+      onInputValueChange={(v, details) => {
+        if (details.reason === "input-clear") return
+        onChange(v)
+      }}
       onValueChange={(v) => onChange(v ?? "")}
     >
       <InputGroup
@@ -153,33 +159,22 @@ export function NotebookForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
+    // 'sv' da fecha local como YYYY-MM-DD (toISOString usaría UTC y a partir de las 22:00
+    // guardaría la fecha de ayer).
+    const today = new Date().toLocaleDateString("sv")
+    const finished = status === "done" && !finishedAt ? today : finishedAt
+    const input = {
+      name,
+      icon,
+      source: source || null,
+      area: area || null,
+      status,
+      started_at: startedAt || null,
+      finished_at: finished || null,
+    }
     const done = { onSuccess: onClose }
-    if (!notebook)
-      return create.mutate(
-        {
-          name,
-          icon,
-          source: source || null,
-          area: area || null,
-          started_at: new Date().toISOString(),
-        },
-        done,
-      )
-    const finished =
-      status === "done" && !finishedAt ? new Date().toISOString().slice(0, 10) : finishedAt
-    update.mutate(
-      {
-        id: notebook.id,
-        name,
-        icon,
-        source: source || null,
-        area: area || null,
-        status,
-        started_at: startedAt || null,
-        finished_at: finished || null,
-      },
-      done,
-    )
+    if (!notebook) create.mutate(input, done)
+    else update.mutate({ ...input, id: notebook.id }, done)
   }
 
   return (
@@ -248,52 +243,49 @@ export function NotebookForm({
             </div>
           </div>
 
-          {/* Estado y fechas solo al editar */}
-          {notebook && (
-            <div className="border-t px-[22px] py-4 flex flex-col gap-4">
+          <div className="border-t px-[22px] py-4 flex flex-col gap-4">
+            <Field>
+              <FieldLabel htmlFor="notebook-status" className="eyebrow">
+                Estado
+              </FieldLabel>
+              <NativeSelect
+                id="notebook-status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as NotebookStatus)}
+                className="w-full [&>select]:h-10 [&>select]:text-base"
+              >
+                <option value="active">activo</option>
+                <option value="paused">pausado</option>
+                <option value="done">hecho</option>
+              </NativeSelect>
+            </Field>
+            <FieldGroup className="flex-row">
               <Field>
-                <FieldLabel htmlFor="notebook-status" className="eyebrow">
-                  Estado
+                <FieldLabel htmlFor="notebook-started" className="eyebrow">
+                  Inicio
                 </FieldLabel>
-                <NativeSelect
-                  id="notebook-status"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as NotebookStatus)}
-                  className="w-full [&>select]:h-10 [&>select]:text-base"
-                >
-                  <option value="active">activo</option>
-                  <option value="paused">pausado</option>
-                  <option value="done">hecho</option>
-                </NativeSelect>
+                <Input
+                  id="notebook-started"
+                  type="date"
+                  value={startedAt}
+                  onChange={(e) => setStartedAt(e.target.value)}
+                  className="h-10"
+                />
               </Field>
-              <FieldGroup className="flex-row">
-                <Field>
-                  <FieldLabel htmlFor="notebook-started" className="eyebrow">
-                    Inicio
-                  </FieldLabel>
-                  <Input
-                    id="notebook-started"
-                    type="date"
-                    value={startedAt}
-                    onChange={(e) => setStartedAt(e.target.value)}
-                    className="h-10"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="notebook-finished" className="eyebrow">
-                    Fin
-                  </FieldLabel>
-                  <Input
-                    id="notebook-finished"
-                    type="date"
-                    value={finishedAt}
-                    onChange={(e) => setFinishedAt(e.target.value)}
-                    className="h-10"
-                  />
-                </Field>
-              </FieldGroup>
-            </div>
-          )}
+              <Field>
+                <FieldLabel htmlFor="notebook-finished" className="eyebrow">
+                  Fin
+                </FieldLabel>
+                <Input
+                  id="notebook-finished"
+                  type="date"
+                  value={finishedAt}
+                  onChange={(e) => setFinishedAt(e.target.value)}
+                  className="h-10"
+                />
+              </Field>
+            </FieldGroup>
+          </div>
 
           <div className="flex items-center justify-between gap-2 border-t px-[18px] py-3.5">
             {(() => {
