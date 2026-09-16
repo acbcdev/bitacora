@@ -48,3 +48,33 @@ test("elegir un preset lo setea y cierra el popover", async () => {
   expect(onChange).toHaveBeenCalledWith("lucide:Terminal")
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
 })
+
+test("elegir un emoji lo guarda crudo y cierra el popover", async () => {
+  const { onChange } = open()
+
+  // Radix activa la pestaña en mousedown, no en click.
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Emojis" }))
+  fireEvent.click(screen.getByLabelText("🚀"))
+
+  expect(onChange).toHaveBeenCalledWith("🚀")
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+})
+
+test("el buscador filtra presets por nombre", () => {
+  open()
+
+  fireEvent.change(screen.getByLabelText("Buscar icono o emoji"), { target: { value: "term" } })
+
+  expect(screen.getByLabelText("Terminal")).toBeInTheDocument()
+  expect(screen.queryByLabelText("Book")).not.toBeInTheDocument()
+})
+
+test("el buscador encuentra emojis por su nombre en español", () => {
+  open()
+
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Emojis" }))
+  fireEvent.change(screen.getByLabelText("Buscar icono o emoji"), { target: { value: "cohe" } })
+
+  expect(screen.getByLabelText("🚀")).toBeInTheDocument()
+  expect(screen.queryByLabelText("🍕")).not.toBeInTheDocument()
+})

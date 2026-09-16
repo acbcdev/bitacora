@@ -1,100 +1,35 @@
-import {
-  Atom,
-  Book,
-  BookOpen,
-  Brain,
-  Briefcase,
-  Calculator,
-  Camera,
-  Code,
-  Compass,
-  Cpu,
-  Database,
-  Dna,
-  Dumbbell,
-  Film,
-  FlaskConical,
-  Gamepad2,
-  Globe,
-  GraduationCap,
-  Headphones,
-  Landmark,
-  Languages,
-  Leaf,
-  Lightbulb,
-  Mic,
-  Microscope,
-  Music,
-  Newspaper,
-  Palette,
-  Pencil,
-  PenTool,
-  Plane,
-  Presentation,
-  Puzzle,
-  Rocket,
-  Scale,
-  Shield,
-  Stethoscope,
-  Terminal,
-  TrendingUp,
-  Trophy,
-  Users,
-  Video,
-  Wrench,
-  type LucideIcon,
-} from "lucide-react"
+import { BookOpen, type LucideIcon } from "lucide-react"
 import { cn } from "@/core/lib/utils"
+import { PRESET_ICONS, type PresetIcon } from "./preset-icons"
 
-// El mapa acota qué presets existen: lo que no está acá no se puede elegir ni dibujar.
-export const PRESET_ICONS = {
-  Book,
-  Code,
-  Terminal,
-  Database,
-  Brain,
-  Cpu,
-  Globe,
-  Palette,
-  Shield,
-  FlaskConical,
-  Calculator,
-  Languages,
-  Music,
-  Headphones,
-  Camera,
-  Atom,
-  Dna,
-  PenTool,
-  GraduationCap,
-  Rocket,
-  Wrench,
-  Dumbbell,
-  Film,
-  Gamepad2,
-  Scale,
-  Microscope,
-  Stethoscope,
-  Landmark,
-  TrendingUp,
-  Briefcase,
-  Leaf,
-  Mic,
-  Puzzle,
-  Compass,
-  Users,
-  Pencil,
-  Video,
-  Newspaper,
-  Plane,
-  Trophy,
-  Lightbulb,
-  Presentation,
-}
+// Tintes preset para los íconos lucide (IconPicker): pocos, no custom — así la clase queda
+// explícita en el código y Tailwind la genera siempre. El ícono lo guarda como
+// 'lucide:<Nombre>|<clase>' (NotebookIcon la valida antes de aplicar).
+export const ICON_TINTS = [
+  "text-red-500",
+  "text-orange-500",
+  "text-amber-500",
+  "text-green-500",
+  "text-sky-500",
+  "text-violet-500",
+  "text-pink-500",
+] as const
 
-export type PresetIcon = keyof typeof PRESET_ICONS
+// Mismo orden que ICON_TINTS: bg-* para mostrar el color como dot en el picker.
+export const TINT_DOTS = [
+  "bg-red-500",
+  "bg-orange-500",
+  "bg-amber-500",
+  "bg-green-500",
+  "bg-sky-500",
+  "bg-violet-500",
+  "bg-pink-500",
+] as const
 
-// `notebooks.icon` es 'lucide:<Nombre>' o la URL pública de una imagen subida (ver migración 0004).
+const TINT_SET = new Set<string>(ICON_TINTS)
+
+// `notebooks.icon` es 'lucide:<Nombre>' con tinte opcional ('lucide:<Nombre>|text-red-500'),
+// la URL pública de una imagen subida, o un emoji (ver migración 0004).
 // `fallback` es el icono de "sin icono": BookOpen para un notebook, otro para un hábito (donde un
 // libro no significa nada).
 export function NotebookIcon({
@@ -108,10 +43,10 @@ export function NotebookIcon({
 }) {
   if (icon?.startsWith("lucide:")) {
     // `hasOwn` y no un lookup pelado: 'lucide:constructor' devolvería Object.prototype.constructor.
-    const name = icon.slice(7)
+    const [name, tint] = icon.slice(7).split("|")
     if (!Object.hasOwn(PRESET_ICONS, name)) return null
     const Preset = PRESET_ICONS[name as PresetIcon]
-    return <Preset className={cn("size-4 shrink-0", className)} />
+    return <Preset className={cn("size-4 shrink-0", TINT_SET.has(tint) && tint, className)} />
   }
   if (icon?.startsWith("http")) {
     return (

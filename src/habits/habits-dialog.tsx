@@ -288,7 +288,7 @@ function HabitForm({ habit, onClose }: { habit: Habit | null; onClose: () => voi
           <IconPicker
             icon={icon}
             onChange={setIcon}
-            className="size-9 rounded-lg border-0 bg-transparent hover:bg-accent dark:bg-transparent [&_svg]:size-4.5"
+            className="rounded-lg border-0 bg-transparent hover:bg-accent dark:bg-transparent"
           />
           <Input
             id="habit-name"
