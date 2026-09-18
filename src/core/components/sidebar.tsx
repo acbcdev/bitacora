@@ -1,10 +1,8 @@
 import { useState } from "react"
 import {
-  BookOpen,
   Check,
   ChevronRight,
   ChevronsUpDown,
-  Flame,
   LogOut,
   Settings as SettingsIcon,
   Moon,
@@ -88,27 +86,6 @@ export function Sidebar({
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Hoy" className={`${ROW} ${ACTIVE}`}>
-                <NavLink to="/" end>
-                  <Flame />
-                  <span>Hoy</span>
-                </NavLink>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Notebooks" className={`${ROW} ${ACTIVE}`}>
-                <NavLink to="/notebooks">
-                  <BookOpen />
-                  <span>Notebooks</span>
-                </NavLink>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-
         {/* `min-h-0` para que este bloque sea el que se achica y scrollea: sin eso el footer
             (menú de cuenta) se va abajo del viewport cuando hay muchos notebooks. */}
         <div className="flex min-h-0 flex-col overflow-y-auto">

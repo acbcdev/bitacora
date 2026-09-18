@@ -69,7 +69,7 @@ const now = () => new Date().toISOString()
 const live = <T extends { deleted_at: string | null }>(rows: T[]) =>
   rows.filter((r) => !r.deleted_at)
 
-function fileToDataUrl(file: File) {
+function fileToDataUrl(file: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.addEventListener("load", () => resolve(reader.result as string))

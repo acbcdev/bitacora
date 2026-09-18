@@ -2,9 +2,9 @@ import { useEffect, useState } from "react"
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
-  BookOpen,
+  Notebook as LucideNotebook,
   Command,
-  Flame,
+  CalendarDays,
   LogOut,
   Maximize2,
   Moon,
@@ -140,14 +140,14 @@ function Shell({ user }: { user: AuthUser }) {
         group: "Navegar",
         label: "Ir a Hoy",
         kbd: "G H",
-        icon: <Flame />,
+        icon: <CalendarDays />,
         run: () => navigate("/"),
       },
       {
         group: "Navegar",
         label: "Ir a Notebooks",
         kbd: "G C",
-        icon: <BookOpen />,
+        icon: <LucideNotebook />,
         run: () => navigate("/notebooks"),
       },
       {

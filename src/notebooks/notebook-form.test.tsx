@@ -77,17 +77,13 @@ beforeEach(() => {
   update.mockClear()
 })
 
-// El combobox (Base UI) abre al click real del input, no con un solo evento sintético: hace
-// falta la secuencia completa (pointerdown+mousedown+click+focus) para que dispare.
+// FieldPill (custom) abre el dropdown al enfocar el input: con focus basta.
 function openCombobox(input: HTMLElement) {
-  fireEvent.pointerDown(input)
-  fireEvent.mouseDown(input)
-  fireEvent.click(input)
   fireEvent.focus(input)
 }
 
-// Dialog (Radix) y el popup del combobox (Base UI) portealan a document.body, así que las
-// opciones se buscan con `screen` (que ya mira todo el body) y no en el `container` de RTL.
+// El dropdown de FieldPill es `absolute` (no portaleado), así que las opciones se buscan
+// con `screen` igual que antes.
 test("el combobox sugiere los valores de source/area ya usados, sin duplicados", async () => {
   renderForm(null)
 
@@ -101,6 +97,18 @@ test("el combobox sugiere los valores de source/area ya usados, sin duplicados",
     expect(screen.getByRole("option", { name: "Marketing" })).toBeInTheDocument()
     expect(screen.getByRole("option", { name: "Programación" })).toBeInTheDocument()
   })
+})
+
+test("Enter sobre una opción la selecciona y no submittea el form", async () => {
+  renderForm(null)
+
+  const input = screen.getByLabelText("Fuente")
+  openCombobox(input)
+  await waitFor(() => expect(screen.getByRole("option", { name: "Platzi" })).toBeInTheDocument())
+
+  fireEvent.keyDown(input, { key: "Enter" })
+  expect(input).toHaveValue("Platzi")
+  expect(insert).not.toHaveBeenCalled()
 })
 
 test("crear un notebook manda source/area tipeados en el payload", async () => {

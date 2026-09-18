@@ -253,11 +253,29 @@ export function IconPicker({
     try {
       // ponytail: sube al elegir, así que cancelar el diálogo deja el archivo huérfano.
       // Limpiarlos en batch si algún día molesta.
-      set(await store.uploadNotebookIcon(f))
+      set(await store.uploadNotebookIcon(await optimize(f)))
     } catch {
       toast.error("No se pudo subir la imagen")
     } finally {
       setUploading(false)
+    }
+  }
+
+  // Reescala a máx 256px y re-encodea a webp (un ícono nunca necesita más). Si el canvas
+  // falla (gif animado, memoria) sube el original y listo.
+  async function optimize(f: File): Promise<File | Blob> {
+    try {
+      const bitmap = await createImageBitmap(f)
+      const scale = Math.min(1, 256 / Math.max(bitmap.width, bitmap.height))
+      const canvas = document.createElement("canvas")
+      canvas.width = Math.round(bitmap.width * scale)
+      canvas.height = Math.round(bitmap.height * scale)
+      canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/webp", 0.85))
+      bitmap.close()
+      return blob && blob.size < f.size ? blob : f
+    } catch {
+      return f
     }
   }
 
@@ -415,7 +433,7 @@ export function IconPicker({
               variant="ghost"
               disabled={uploading}
               className={cn(
-                "w-full gap-2 border border-dashed transition-colors md:h-16 max-md:flex-1",
+                "w-full gap-2 border border-dashed text-base transition-colors md:h-32 max-md:flex-1",
                 dragging
                   ? "border-ring bg-muted text-foreground"
                   : "border-border bg-muted/40 text-muted-foreground",

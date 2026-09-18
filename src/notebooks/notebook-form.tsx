@@ -1,24 +1,12 @@
-import { useMemo, useState } from "react"
-import { Combobox as ComboboxPrimitive } from "@base-ui/react"
+import { Fragment, useMemo, useState } from "react"
 import { Globe, Layers } from "lucide-react"
 import { IconPicker } from "@/notebooks/icon-picker"
+import { FieldPill, dotColor } from "@/notebooks/field-pill"
 import { useNotebooks, useCreateNotebook, useUpdateNotebook } from "@/notebooks/notebooks.api"
 import { Button } from "@/core/ui/button"
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxItem,
-  ComboboxList,
-  ComboboxTrigger,
-} from "@/core/ui/combobox"
 import { Drialog, DrialogContent, DrialogTitle } from "@/core/ui/drialog"
-import { Field, FieldGroup, FieldLabel } from "@/core/ui/field"
 import { Input } from "@/core/ui/input"
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/core/ui/input-group"
-import { NativeSelect } from "@/core/ui/native-select"
-import { cn } from "@/core/lib/utils"
-import type { Notebook, NotebookStatus } from "@/core/types/database"
+import type { Notebook } from "@/core/types/database"
 
 function useNotebookFieldSuggestions() {
   const { data: notebooks = [] } = useNotebooks()
@@ -28,114 +16,6 @@ function useNotebookFieldSuggestions() {
     ]
     return { sourceOptions: uniq("source"), areaOptions: uniq("area") }
   }, [notebooks])
-}
-
-const DOT_COLORS = [
-  "#60a5fa",
-  "#a78bfa",
-  "#f472b6",
-  "#fbbf24",
-  "#34d399",
-  "#38bdf8",
-  "#fb923c",
-  "#ef4444",
-  "#7ed321",
-  "#f43f5e",
-  "#9ca3af",
-  "#14b8a6",
-]
-function dotColor(value: string) {
-  let h = 0
-  for (let i = 0; i < value.length; i++) h = (h * 31 + value.charCodeAt(i)) >>> 0
-  return DOT_COLORS[h % DOT_COLORS.length]
-}
-
-function PillCombobox({
-  id,
-  value,
-  onChange,
-  options,
-  placeholder,
-  icon,
-  showDot,
-}: {
-  id: string
-  value: string
-  onChange: (value: string) => void
-  options: string[]
-  placeholder: string
-  icon: React.ReactNode
-  showDot: boolean
-}) {
-  const trimmed = value.trim()
-  const dc = showDot && trimmed ? dotColor(trimmed) : null
-
-  return (
-    <Combobox<string>
-      items={options}
-      inputValue={value}
-      // Ignorar el reset ('input-clear') que Base UI hace al cerrar el popup: sincroniza el
-      // input al valor seleccionado y borra lo tipeado. Sin esto, escribir una fuente/área
-      // nueva y cambiar de campo la pierde — no se puede crear un valor libre.
-      onInputValueChange={(v, details) => {
-        if (details.reason === "input-clear") return
-        onChange(v)
-      }}
-      onValueChange={(v) => onChange(v ?? "")}
-    >
-      <InputGroup
-        className={cn(
-          "h-[34px] w-auto min-w-0 max-w-[180px] shrink-0 rounded-full border bg-transparent transition-colors hover:border-border-strong hover:bg-accent focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/10",
-          trimmed && "border-border-strong bg-secondary hover:bg-secondary",
-        )}
-      >
-        <InputGroupAddon
-          align="inline-start"
-          className="pl-2.5 pr-1 text-muted-foreground [&_svg]:size-3.5"
-        >
-          {dc ? (
-            <span
-              aria-hidden
-              className="pointer-events-none size-[7px] shrink-0 rounded-full"
-              style={{ background: dc }}
-            />
-          ) : (
-            icon
-          )}
-        </InputGroupAddon>
-        <ComboboxPrimitive.Input
-          id={id}
-          placeholder={placeholder}
-          aria-label={placeholder}
-          render={
-            <InputGroupInput className="px-0 text-[13.5px] font-medium placeholder:font-normal" />
-          }
-        />
-        <InputGroupAddon align="inline-end" className="pr-1 pl-0">
-          <ComboboxTrigger className="size-6 rounded-full data-[pressed]:bg-transparent [&_svg]:size-3.5 opacity-60 hover:opacity-100" />
-        </InputGroupAddon>
-      </InputGroup>
-      <ComboboxContent
-        align="center"
-        collisionAvoidance={{ side: "none" }}
-        className="min-w-[220px] rounded-xl p-1"
-      >
-        <ComboboxEmpty>Sin resultados</ComboboxEmpty>
-        <ComboboxList>
-          {(item: string) => (
-            <ComboboxItem key={item} value={item} className="gap-2">
-              <span
-                aria-hidden
-                className="pointer-events-none size-[7px] shrink-0 rounded-full"
-                style={{ background: dotColor(item) }}
-              />
-              {item}
-            </ComboboxItem>
-          )}
-        </ComboboxList>
-      </ComboboxContent>
-    </Combobox>
-  )
 }
 
 export function NotebookForm({
@@ -153,9 +33,11 @@ export function NotebookForm({
   const [icon, setIcon] = useState(notebook?.icon ?? null)
   const [source, setSource] = useState(notebook?.source ?? "")
   const [area, setArea] = useState(notebook?.area ?? "")
-  const [status, setStatus] = useState<NotebookStatus>(notebook?.status ?? "active")
-  const [startedAt, setStartedAt] = useState(() => notebook?.started_at?.slice(0, 10) ?? "")
-  const [finishedAt, setFinishedAt] = useState(() => notebook?.finished_at?.slice(0, 10) ?? "")
+  // Solo lectura: fechas y estado no se editan en el form (el estado se cambia desde la vista
+  // del notebook). Se reenvían tal cual para no pisar started_at/finished_at/status al editar.
+  const status = notebook?.status ?? "active"
+  const startedAt = notebook?.started_at?.slice(0, 10) ?? ""
+  const finishedAt = notebook?.finished_at?.slice(0, 10) ?? ""
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -211,128 +93,61 @@ export function NotebookForm({
               />
             </div>
 
-            <div className="flex gap-2 flex-nowrap justify-center">
-              <div>
-                <label htmlFor="notebook-source" className="sr-only">
-                  Fuente
-                </label>
-                <PillCombobox
-                  id="notebook-source"
-                  value={source}
-                  onChange={setSource}
-                  options={sourceOptions}
-                  placeholder="Fuente"
-                  icon={<Globe />}
-                  showDot={!!source.trim() && !!area.trim()}
-                />
-              </div>
-              <div>
-                <label htmlFor="notebook-area" className="sr-only">
-                  Área
-                </label>
-                <PillCombobox
-                  id="notebook-area"
-                  value={area}
-                  onChange={setArea}
-                  options={areaOptions}
-                  placeholder="Área"
-                  icon={<Layers />}
-                  showDot={!!source.trim() && !!area.trim()}
-                />
-              </div>
+            <div className="flex gap-2 flex-nowrap">
+              <FieldPill
+                id="notebook-source"
+                className="flex-1"
+                value={source}
+                onChange={setSource}
+                options={sourceOptions}
+                placeholder="Fuente"
+                icon={<Globe />}
+                showDot={!!source.trim() && !!area.trim()}
+              />
+              <FieldPill
+                id="notebook-area"
+                className="flex-1"
+                value={area}
+                onChange={setArea}
+                options={areaOptions}
+                placeholder="Área"
+                icon={<Layers />}
+                showDot={!!source.trim() && !!area.trim()}
+              />
             </div>
           </div>
 
-          <div className="border-t px-[22px] py-4 flex flex-col gap-4">
-            <Field>
-              <FieldLabel htmlFor="notebook-status" className="eyebrow">
-                Estado
-              </FieldLabel>
-              <NativeSelect
-                id="notebook-status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as NotebookStatus)}
-                className="w-full [&>select]:h-10 [&>select]:text-base"
-              >
-                <option value="active">activo</option>
-                <option value="paused">pausado</option>
-                <option value="done">hecho</option>
-              </NativeSelect>
-            </Field>
-            <FieldGroup className="flex-row">
-              <Field>
-                <FieldLabel htmlFor="notebook-started" className="eyebrow">
-                  Inicio
-                </FieldLabel>
-                <Input
-                  id="notebook-started"
-                  type="date"
-                  value={startedAt}
-                  onChange={(e) => setStartedAt(e.target.value)}
-                  className="h-10"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="notebook-finished" className="eyebrow">
-                  Fin
-                </FieldLabel>
-                <Input
-                  id="notebook-finished"
-                  type="date"
-                  value={finishedAt}
-                  onChange={(e) => setFinishedAt(e.target.value)}
-                  className="h-10"
-                />
-              </Field>
-            </FieldGroup>
-          </div>
-
+          {/* Acciones a la izquierda, resumen fuente/área a la derecha. */}
           <div className="flex items-center justify-between gap-2 border-t px-[18px] py-3.5">
-            {(() => {
-              const s = source.trim()
-              const a = area.trim()
-              if (!s && !a) {
-                return (
-                  <span className="font-mono text-xs text-muted-foreground/50 truncate min-w-0">
-                    Fuente · Área
-                  </span>
-                )
-              }
-              if (s && a) {
-                return (
-                  <span className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground truncate min-w-0">
-                    <span className="inline-flex items-center gap-1">
-                      <span
-                        aria-hidden
-                        className="size-[7px] shrink-0 rounded-full"
-                        style={{ background: dotColor(s) }}
-                      />
-                      {s}
-                    </span>
-                    <span>·</span>
-                    <span className="inline-flex items-center gap-1">
-                      <span
-                        aria-hidden
-                        className="size-[7px] shrink-0 rounded-full"
-                        style={{ background: dotColor(a) }}
-                      />
-                      {a}
-                    </span>
-                  </span>
-                )
-              }
-              return (
-                <span className="font-mono text-xs text-muted-foreground truncate min-w-0">
-                  {`${s || "—"} · ${a || "—"}`}
-                </span>
-              )
-            })()}
             <div className="flex gap-2 shrink-0">
               <Button type="button" variant="ghost" onClick={onClose}>
                 Cancelar
               </Button>
               <Button type="submit">{notebook ? "Guardar" : "Crear notebook"}</Button>
             </div>
+            {(() => {
+              // Vacío si no hay nada; separador solo entre valores. Cada valor trunca
+              // individualmente (con min-w-0 en toda la cadena) para no desbordar el modal.
+              const vals = [source.trim(), area.trim()].filter(Boolean)
+              if (vals.length === 0) return null
+              return (
+                <span className="flex min-w-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
+                  {vals.map((v, i) => (
+                    <Fragment key={v}>
+                      {i > 0 && <span>·</span>}
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <span
+                          aria-hidden
+                          className="size-[7px] shrink-0 rounded-full"
+                          style={{ background: dotColor(v) }}
+                        />
+                        <span className="min-w-0 truncate">{v}</span>
+                      </span>
+                    </Fragment>
+                  ))}
+                </span>
+              )
+            })()}
           </div>
         </form>
       </DrialogContent>

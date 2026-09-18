@@ -144,7 +144,7 @@ export type Store = {
   save<E extends Writable>(entity: E, input: WriteInput[E]): Promise<WriteResult[E]>
   softDelete(entity: SoftDeletable, id: string): Promise<void>
 
-  uploadNotebookIcon(file: File): Promise<string>
+  uploadNotebookIcon(file: Blob): Promise<string>
   // Imagen pegada en el editor de notas: URL pública (Supabase, bucket 'notes-images') o data
   // URL (local). Tira Error con mensaje en español — el editor lo muestra con toast.
   uploadNoteImage(file: File): Promise<string>

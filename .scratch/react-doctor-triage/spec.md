@@ -4,7 +4,8 @@ Triage completo de react-doctor 0.9.13 (score 42 → 45, errores 9 → 7, warnin
 Lo que quedó pendiente está acá para grilling/refactor posterior. Contexto del scan y
 rejectiones con evidencia: resumen en la conversación del 2026-09-08.
 
-Status: open
+Status: decided (grilling 2026-09-17) — ejecución pendiente, a cargo de otro agente.
+Las decisiones de acá ya están tomadas; no re-grillear. ADR nueva: `docs/adr/0015-draft-de-nota-resetea-por-id.md`.
 
 ## Resueltos (2026-09-08, segunda pasada)
 
@@ -27,17 +28,79 @@ Status: open
   irrelevante. Ahora es `for select using (true)` (shape permitido explícitamente por la regla).
   Verificado: el test SQL pasa ("OK — todas las asserts pasaron").
 
-## Pendientes con decisión humana
+## Decisiones del grilling (2026-09-17) — plan de ejecución
+
+Resueltas una por una en sesión `/grill-with-docs`. Lo que sigue es la spec para el agente que
+implementa: mismo orden, mismo alcance, sin re-decidir nada.
+
+1. **`pnpm-workspace.yaml` — `minimumReleaseAge: 1440 → 4320` (3 días).** El bloqueo original
+   era `@tiptap/extension-table@3.31.3` con 4 días de publicado; hoy tiene 13 y es la última
+   versión. Verificar con `pnpm install` que la lockfile pasa. No subir a 10080 (decisión:
+   margen de 7 días innecesario para este repo).
+
+2. **`trustPolicyExclude` del fork — cerrado como documentado.** Verificado en grilling:
+   `@trickfilm400/rollup-plugin-off-main-thread@3.0.0-pre1` es dependencia dura de
+   `workbox-build` (vía `vite-plugin-pwa`) y NO existe versión estable del upstream — la
+   pre-release del fork es la única 3.x que existe. Bajar el ítem a observación; no hay acción.
+
+3. **`notebooks.tsx` — split mecánico + setters (sin rediseño).**
+   - Matar los 2 effects marcados (131/134) moviendo los resets a los setters: los tres
+     filtros (`q`/`debouncedQ`, `status`, `sort`) pasan por un wrapper que hace
+     `setStatus(v); setPage(1); setSelected(0)`; el paginado por un `goToPage(p)` que además
+     resetea la selección. El clamp `page > pages` queda como effect.
+   - Partir el archivo: tabla y cards a hermanos (`notebook-row`/`notebook-card` o como el
+     agente prefiera llamarlos), mismo patrón que los utils del triage
+     (`command-palette-utils.ts`, etc.). Misma conducta exacta, cero decisiones de diseño.
+
+4. **`image-view.tsx` — extraer el drag-resize a `image-resize.ts`** (hermano `.ts`). La lógica
+   de `onMouseDown` (listeners de window, onMove/onUp, restauración de cursor/userSelect) se
+   corta y pega con firma `(startX, startW, side, setDragWidth, updateAttributes)`. Los estilos
+   condicionales del `<img>` NO se tocan (decisión: helpers de style/cn oscurecen más de lo que
+   ayudan en un componente visual). Sin tests que lo cubran hoy — mismo estado que antes.
+
+5. **`habit-tiles.tsx:271` y `review.tsx:71` — split mecánico en los dos.** El trozo de JSX más
+   gordo de cada uno a archivo hermano (candidatos: los dots/paleta de `HabitTile`; la tira de
+   hábitos de `Review`) hasta bajar del umbral de `no-high-complexity`. review.tsx es la
+   pantalla crítica: tocar sólo lo necesario para bajar el número, sin re-pensar nada (la
+   Sesión de repaso ya es deep module, ADR 0012).
+
+6. **`notes.api.ts:104` — el effect pasa de `[note]` a `[note?.id]`.** Ver ADR 0015 completo
+   (por qué, trade-offs, qué no cambia). Diff de una línea + comentario en el hook citando el
+   ADR. Los tres bugs que mata: tipeo pisado por refetch post-autosave, indicador "Guardado
+   HH:MM" que se borra solo, y la regla `no-adjust-state-on-prop-change`.
+
+7. **`toggle-group.tsx:49` — `React.useMemo`** para el value del Provider (una línea). El
+   archivo ya está vendido-modificado, el drift ya se paga.
+
+8. **A11y mecánico:** sacar `role="list"` de `item.tsx:11` y `role="navigation"` de
+   `pagination.tsx:10` (ambos sobre elementos que ya son semánticamente eso). Y
+   `aria-label="Título"` en el textarea de `note.tsx:171`.
+
+9. **A11y 4 (`note.tsx:184`, div `cursor-text`) — suprimir con comentario en
+   `doctor.config.json`.** Decisión de semántica: NO es un control, es la zona muerta clickeable
+   para poner el cursor (patrón Notion/Docs); un usuario de teclado ya llega al editor con Tab,
+   y `role="button"` le anunciaría a un lector de pantalla un botón que no lleva a nada que el
+   Tab no alcance. Mismo formato que el override de `artifact-baas-authority-surface`
+   (ignore.overrides acotado al archivo, con comentario).
+
+10. **Al terminar:** correr react-doctor y registrar el score nuevo en este spec; todo lo de la
+    sección "Observaciones documentadas" de abajo queda como está.
+
+## Pendientes con decisión humana — RESUELTOS (grilling 2026-09-17, ver plan arriba: puntos 1 y 2)
 
 1. **`trustPolicyExclude` puntual** — `@trickfilm400/rollup-plugin-off-main-thread@3.0.0-pre1`
-   en `pnpm-workspace.yaml` está excluido a mano (transitiva, pre-release, fork). Revisar si
-   hay versión estable upstream o si podemos cortar la dependencia que lo arrastra.
+   en `pnpm-workspace.yaml` está excluido a mano (transitiva, pre-release, fork). ~~Revisar si
+   hay versión estable upstream o si podemos cortar la dependencia que lo arrastra.~~
+   **Resuelto:** es dependencia dura de `workbox-build` y el upstream no tiene 3.x estable —
+   cerrado como observación documentada (punto 2 del plan).
 
 2. **`minimumReleaseAge` a 7 días (10080)** — hoy en 1440 (24 h) porque
    `@tiptap/extension-table@3.31.3` tenía 4 días de publicado y 10080 rompía el install.
-   Revisar en ~una semana: subir a 10080 y ver si la lockfile pasa.
+   ~~Revisar en ~una semana: subir a 10080 y ver si la lockfile pasa.~~
+   **Resuelto:** subir a **4320** (3 días), no 10080 — decisión del usuario, margen de 7 días
+   innecesario para este repo (punto 1 del plan).
 
-## Refactors reales (requieren sesión de diseño, no son mecánicos)
+## Refactors reales (decididos en el grilling 2026-09-17, ver plan arriba: puntos 3 a 7)
 
 1. **`src/notebooks/notebooks.tsx`** — `no-giant-component` (300+ líneas) + `no-effect-chain`
    ×2 (131, 134: un effect setea `page` que dispara otro effect) + `no-high-complexity` (88).
@@ -55,7 +118,7 @@ Status: open
 5. **`src/core/ui/toggle-group.tsx:49`** — `jsx-no-constructed-context-values`: value del
    Context se construye inline. `useMemo` de una línea, pero es archivo vendido de shadcn.
 
-## A11y chicos (vendidos de shadcn o con decisión de UX)
+## A11y chicos (decididos en el grilling 2026-09-17, ver plan arriba: puntos 8 y 9)
 
 1. **`src/core/ui/item.tsx:11`** — `prefer-tag-over-role`: `role="list"` sobre lo que ya es
    `<ul>`. Sacar el role.
