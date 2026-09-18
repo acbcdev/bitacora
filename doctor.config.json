@@ -30,10 +30,7 @@
         // documentado; el fix canónico (ajustar durante render) choca con el doc-en-ref
         // deliberado del hook. Se acota al archivo.
         "files": ["src/notes/notes.api.ts"],
-        "rules": [
-          "react-doctor/no-adjust-state-on-prop-change",
-          "react-doctor/exhaustive-deps"
-        ]
+        "rules": ["react-doctor/no-adjust-state-on-prop-change", "react-doctor/exhaustive-deps"]
       }
     ]
   }
