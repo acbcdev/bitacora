@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Check, HardDrive } from "lucide-react"
+import { Check, HardDrive, LoaderCircle } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Card } from "@/core/ui/card"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/core/ui/field"
@@ -10,16 +10,20 @@ import { setStorageMode } from "@/core/store/mode"
 export function Login() {
   const [email, setEmail] = useState("")
   const [sent, setSent] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function send(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setLoading(true)
     try {
       await store.auth.signIn(email)
       setSent(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo enviar el link")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -63,8 +67,15 @@ export function Login() {
                   />
                   <FieldError>{error}</FieldError>
                 </Field>
-                <Button type="submit" size="lg">
-                  Enviar magic link
+                <Button type="submit" size="lg" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <LoaderCircle className="animate-spin" />
+                      Enviando…
+                    </>
+                  ) : (
+                    "Enviar magic link"
+                  )}
                 </Button>
               </FieldGroup>
             </form>
