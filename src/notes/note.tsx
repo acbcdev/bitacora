@@ -168,6 +168,7 @@ export function NoteEditor({
           onChange={(e) => onTitleChange(e.target.value)}
           onPaste={onTitlePaste}
           onBlur={save}
+          aria-label="Título"
           placeholder="Título"
           className="field-sizing-content w-full resize-none bg-transparent text-4xl font-semibold tracking-tighter text-pretty outline-none placeholder:text-muted-foreground"
         />

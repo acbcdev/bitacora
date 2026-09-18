@@ -97,12 +97,18 @@ export function useNoteDraft(id: string | undefined) {
     latest.current = { id, title }
   })
 
+  // Reset del draft SOLO al abrir otra nota: keyea al id (ADR 0015), no a la identidad del
+  // objeto de la query. Con [note], el refetch del autosave (onSuccess invalida ["note", id])
+  // volvía a pisar el tipeo en curso y borraba el "Guardado HH:MM" recién puesto.
+  // oxlint-disable react-hooks/exhaustive-deps -- keyea a note?.id por ADR 0015: el draft local
+  // es la autoridad dentro de la nota; el server no re-sincroniza post-refetch.
   useEffect(() => {
     if (!note) return
     setTitle(note.title)
     doc.current = note.content
     setSavedAt(null)
-  }, [note])
+  }, [note?.id])
+  // oxlint-enable react-hooks/exhaustive-deps
 
   // Cambiar de nota con un save pendiente perdería el tipeo: cancelar el timer y guardar ya.
   useEffect(() => () => clearTimeout(timer.current), [id])

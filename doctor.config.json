@@ -12,6 +12,28 @@
       {
         "files": ["dist/assets/*.js"],
         "rules": ["react-doctor/artifact-baas-authority-surface"]
+      },
+      {
+        // False positive documentado (grilling 2026-09-17, spec react-doctor-triage): el div
+        // `cursor-text` de note.tsx NO es un control — es la zona muerta clickeable para poner
+        // el cursor al final del texto (patrón Notion/Docs). Un usuario de teclado ya llega al
+        // editor con Tab; `role="button"` le anunciaría a un lector de pantalla un botón que no
+        // lleva a nada que el Tab no alcance. Se acota al archivo.
+        "files": ["src/notes/note.tsx"],
+        "rules": ["react-doctor/no-static-element-interactions"]
+      },
+      {
+        // Waiver con evidencia (ADR 0015, grilling 2026-09-17): el reset del draft keyea a
+        // note?.id por decisión — el draft local es la autoridad dentro de la nota y el server
+        // no re-sincroniza post-refetch (pisaría el tipeo). El detector matchea el shape (effect
+        // con deps que derivan de la query + setters) pero el trade-off está aceptado y
+        // documentado; el fix canónico (ajustar durante render) choca con el doc-en-ref
+        // deliberado del hook. Se acota al archivo.
+        "files": ["src/notes/notes.api.ts"],
+        "rules": [
+          "react-doctor/no-adjust-state-on-prop-change",
+          "react-doctor/exhaustive-deps"
+        ]
       }
     ]
   }

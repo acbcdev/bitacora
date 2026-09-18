@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { Flame } from "lucide-react"
 import { NoteSkeleton } from "@/core/components/skeletons"
-import { NoteDialog } from "@/review/note-dialog"
-import { Button } from "@/core/ui/button"
 import { Card } from "@/core/ui/card"
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
 import { Progress } from "@/core/ui/progress"
 import { useNotebooks } from "@/notebooks/notebooks.api"
 import { useDeleteNote, useNote } from "@/notes/notes.api"
@@ -14,53 +10,15 @@ import { useReviewQueue } from "@/review/review.api"
 import { useReviewSession } from "@/review/review-session"
 import { FlashcardCard } from "@/review/flashcard-card"
 import { NoteCard } from "@/review/note-card"
-import { todayKey } from "@/core/lib/day"
 import { useSnapshot } from "@/core/lib/snapshot"
-import {
-  DAILY_GOAL,
-  EMPTY_READ_STATS,
-  HISTORY_DAYS,
-  lastDays,
-  readStats,
-} from "@/core/store/derive"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
+import { DAILY_GOAL, EMPTY_READ_STATS, readStats } from "@/core/store/derive"
 import { cn } from "@/core/lib/utils"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { Notebooks } from "@/notebooks/notebooks"
+import { ReviewEmpty } from "@/review/review-empty"
+import { ReviewNoteDialog } from "@/review/review-note-dialog"
+import { ReviewStats } from "@/review/review-stats"
 import { HabitTiles } from "@/habits/habit-tiles"
-
-// Los últimos 14 días de lectura, a lo GitHub. Sin clicks: es un resumen, no un control.
-// El color sale de la fracción leída contra la meta del día, no de un sí/no: 1 de 3 notas no es
-// lo mismo que 3 de 3. Mezcla contra --muted (no transparent) para que la escala no se dé vuelta
-// entre tema claro y oscuro. Piso de 25%: "leí algo" nunca se ve igual que "no leí nada".
-function ReadHistory({ byDay }: { byDay?: Map<string, number> }) {
-  const days = lastDays(byDay)
-  return (
-    <span
-      role="img"
-      aria-label={`Últimos ${HISTORY_DAYS} días de lectura: ${days.join(", ")}`}
-      className="flex gap-1"
-    >
-      {days.map((n, i) => (
-        <span
-          key={i}
-          style={
-            n === 0
-              ? undefined
-              : {
-                  backgroundColor: `color-mix(in oklab, var(--brand) ${Math.round(25 + Math.min(1, n / DAILY_GOAL) * 75)}%, var(--muted))`,
-                }
-          }
-          className={cn(
-            "h-7 w-3.5 rounded-[3px]",
-            n === 0 && "bg-muted",
-            i === HISTORY_DAYS - 1 && "ring-1 ring-border ring-offset-1 ring-offset-popover",
-          )}
-        />
-      ))}
-    </span>
-  )
-}
 
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
 //   Enter = abrir la nota (adentro, Enter otra vez = leído + siguiente) · J = volver · K = siguiente.
@@ -88,6 +46,9 @@ export function Review() {
   const donePct = Math.min(100, (readToday / DAILY_GOAL) * 100)
   const reads = session.reads
   const revealed = session.revealed
+  // Dos hotkeys "enter" prendidos a la vez disparan los dos: los hotkeys de la pantalla se apagan
+  // juntos cuando hay dialog/confirm de borrado abierto (ver comentario en cada uso).
+  const keysEnabled = !confirmingDelete && !dialogOpen
 
   // Cada ítem nuevo arranca sin el diálogo de borrado y sin la nota abierta.
   // revealed lo resetea la sesión en su effect de index.
@@ -128,12 +89,10 @@ export function Review() {
   // abierto es del botón enfocado —Cancelar/Borrar— vía el default del navegador.
   // useSafeHotkeys ya bloquea si el foco está en un overlay de otro contexto (Hábitos,
   // NotebookForm, IconPicker) o si hay un dialog porteado abierto.
-  useSafeHotkeys(
-    "enter",
+  useSafeHotkeys("enter", onEnter, { preventDefault: true, enabled: keysEnabled }, [
     onEnter,
-    { preventDefault: true, enabled: !confirmingDelete && !dialogOpen },
-    [onEnter, confirmingDelete, dialogOpen],
-  )
+    keysEnabled,
+  ])
 
   // mod+enter: vista expandida de la nota (misma acción que el botón Maximize2 del dialog),
   // sin pasar primero por el dialog chico. Solo notas — flashcard no tiene vista expandida.
@@ -145,12 +104,10 @@ export function Review() {
     navigate(note.notebook_id ? `/notebook/${note.notebook_id}/${note.id}` : `/note/${note.id}`)
   }, [note, navigate])
 
-  useSafeHotkeys(
-    "mod+enter",
+  useSafeHotkeys("mod+enter", openExpanded, { preventDefault: true, enabled: keysEnabled }, [
     openExpanded,
-    { preventDefault: true, enabled: !confirmingDelete && !dialogOpen },
-    [openExpanded, confirmingDelete, dialogOpen],
-  )
+    keysEnabled,
+  ])
 
   // "Focus" del menú de acciones: misma navegación que expandir, pero entrando ya en focus mode.
   // `?focus=1` porque cambiar de ruta apaga el focus en App — el param se lo vuelve a prender.
@@ -161,16 +118,8 @@ export function Review() {
     navigate(`${to}?focus=1`)
   }, [note, navigate])
 
-  useSafeHotkeys("j", prev, { preventDefault: true, enabled: !confirmingDelete && !dialogOpen }, [
-    prev,
-    confirmingDelete,
-    dialogOpen,
-  ]) // volver
-  useSafeHotkeys("k", next, { preventDefault: true, enabled: !confirmingDelete && !dialogOpen }, [
-    next,
-    confirmingDelete,
-    dialogOpen,
-  ]) // siguiente, sin contar
+  useSafeHotkeys("j", prev, { preventDefault: true, enabled: keysEnabled }, [prev, keysEnabled]) // volver
+  useSafeHotkeys("k", next, { preventDefault: true, enabled: keysEnabled }, [next, keysEnabled]) // siguiente, sin contar
 
   if (isLoading)
     return (
@@ -184,39 +133,7 @@ export function Review() {
 
   return (
     <div className="fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8">
-      <div className="mb-4 flex items-baseline justify-between">
-        <p className="eyebrow">Hoy — {todayKey()}</p>
-        <div className="flex items-center gap-6">
-          {/* Hover = MIRAR el historial, igual que el tile de hábito. Sin `asChild`: el trigger
-              de Radix ya es un botón, así que el 🔥 se enfoca con Tab sin inventar tabIndex.
-              `delayDuration` propio — el provider de app.tsx está en 0 y la grilla saltando al
-              primer píxel de hover es ruido. */}
-          <Tooltip delayDuration={400}>
-            <TooltipTrigger className="inline-flex cursor-default items-center gap-1.5 rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
-              <Flame size={14} className="text-brand-fg" />
-              <span className="mono">
-                {streak} {streak === 1 ? "día" : "días"}
-              </span>
-            </TooltipTrigger>
-            {/* Superficie de popover y sin flecha: adentro van cuadrados de color que sobre el
-                fondo invertido del tooltip se leerían al revés (mismo motivo que HabitHistory). */}
-            <TooltipContent
-              side="bottom"
-              sideOffset={6}
-              showArrow={false}
-              className="flex-col items-stretch gap-2 rounded-lg border bg-popover p-2.5 text-popover-foreground"
-            >
-              <span className="mono-dim text-[11px]">
-                Últimos {HISTORY_DAYS} días · meta {DAILY_GOAL}/día
-              </span>
-              <ReadHistory byDay={stats?.byDay} />
-            </TooltipContent>
-          </Tooltip>
-          <span className="mono">
-            leídas hoy {readToday}/{DAILY_GOAL}
-          </span>
-        </div>
-      </div>
+      <ReviewStats streak={streak} readToday={readToday} byDay={stats?.byDay} />
 
       <Progress
         value={donePct}
@@ -234,26 +151,11 @@ export function Review() {
         )}
       >
         {done || !note ? (
-          // Cola vacía o batch terminado → estado claro, no error (review/02).
-          <Empty className="px-4 py-12 sm:px-8 sm:py-16">
-            <EmptyHeader>
-              <EmptyTitle className="text-lg">
-                {session.length === 0 ? "Nada para repasar hoy." : "Batch terminado."}
-              </EmptyTitle>
-              <EmptyDescription>
-                {readToday} {readToday === 1 ? "nota leída" : "notas leídas"} hoy.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button
-                variant="outline"
-                // Re-tomar la cola del snapshot vivo: es el único punto donde se descongela.
-                onClick={() => session.loadMore()}
-              >
-                Cargar más
-              </Button>
-            </EmptyContent>
-          </Empty>
+          <ReviewEmpty
+            count={session.length}
+            readToday={readToday}
+            onLoadMore={() => session.loadMore()}
+          />
         ) : (
           <div className="mx-auto w-full max-w-3xl px-4 sm:px-8">
             {note.kind === "note" ? (
@@ -290,20 +192,17 @@ export function Review() {
       </Card>
 
       {note && note.kind === "note" && openNote && (
-        <NoteDialog
-          note={openNote}
+        <ReviewNoteDialog
+          openNote={openNote}
           notebook={notebook}
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
+          dialogOpen={dialogOpen}
+          setDialogOpen={setDialogOpen}
           marked={marked}
           reads={reads}
-          onMarkRead={markReadAndNext}
-          onExpand={openExpanded}
-          onFocus={openFocused}
-          onDeleted={() => {
-            setDialogOpen(false)
-            next()
-          }}
+          markReadAndNext={markReadAndNext}
+          openExpanded={openExpanded}
+          openFocused={openFocused}
+          next={next}
         />
       )}
 

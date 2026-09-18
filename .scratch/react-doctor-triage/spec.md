@@ -86,6 +86,44 @@ implementa: mismo orden, mismo alcance, sin re-decidir nada.
 10. **Al terminar:** correr react-doctor y registrar el score nuevo en este spec; todo lo de la
     sección "Observaciones documentadas" de abajo queda como está.
 
+## Ejecución (2026-09-17, mismo día)
+
+Los 10 puntos del plan quedaron implementados. Verificación:
+
+- `pnpm typecheck`, `pnpm lint`, `pnpm format:check` — limpios.
+- Suite completa: 199/201 — los 2 fails son los mismos tests de wall-clock ya conocidos
+  (`notebook-create-note` <400ms, `icon-picker` paste <5s), flaky sólo bajo la carga del full
+  suite; los dos pasan en isolation.
+- **react-doctor 0.9.13: score 47 → 49, issues 22 → 14 (warnings 21 → 10).**
+
+Detalle del delta:
+
+- `notebooks.tsx` — muertos los 2 effects encadenados (setters wrappers: `useNotebookFilters`,
+  `goToPage`); el archivo quedó en orquestación y se partió a hermanos:
+  `notebook-toolbar.tsx`, `notebook-table.tsx`, `notebook-card.tsx`, `notebook-pagination.tsx`,
+  `notebook-row-actions.tsx`, `notebook-hotkeys.ts`, `notebook-filters.ts`,
+  `notebook-status.ts`, `notebook-delete-confirm.tsx`, `notebook-empty.tsx`. `no-giant-component`
+  y `no-high-complexity` de `Notebooks`: muertos.
+- `image-view.tsx` — drag-resize extraído a `image-resize.ts` (`startImageResize`). El complejo
+  del `<img>` queda: los estilos condicionales NO se tocan (decisión de grilling). El flag
+  `no-high-complexity` de `ImageView` queda en pie — es el precio de esa decisión.
+- `habit-tiles.tsx` — `HabitTile` (29/27) bajó bajo umbral con tres hermanos: `habit-dots.tsx`,
+  `habit-tile-actions.tsx`, `habit-tile-info.tsx` (que ahora es dueño de `Run`/`LABEL`/`quickLabel`).
+- `review.tsx` (19/18) — `ReviewStats` (cabecera con `ReadHistory` adentro, `review-stats.tsx`),
+  `ReviewEmpty` (`review-empty.tsx`) y `ReviewNoteDialog` (`review-note-dialog.tsx`). Muerto.
+- `notes.api.ts` — effect keyeado a `[note?.id]` con comentario citando ADR 0015. El flag
+  `no-adjust-state-on-prop-change` de react-doctor sigue matcheando el shape (no mira el id):
+  waiver con evidencia en `doctor.config.json` (junto a `exhaustive-deps`, mismo formato que el
+  override de `artifact-baas-authority-surface`).
+- `toggle-group.tsx:49` — `useMemo` del value del Provider.
+- A11y: `role="list"`/`role="navigation"` fuera; `aria-label="Título"` en el textarea de note.tsx;
+  el div `cursor-text` con waiver documentado en `doctor.config.json`.
+- `pnpm-workspace.yaml`: `minimumReleaseAge: 4320`, lockfile pasa.
+
+Quedan flags de complexity en `image-view`, `icon-picker` y `notebook.tsx`: los dos últimos son
+slides de la ejecución de FieldPill (anterior a esta ejecución, ver su spec) y quedan para esa
+iteración; `image-view` es decisión de grilling.
+
 ## Pendientes con decisión humana — RESUELTOS (grilling 2026-09-17, ver plan arriba: puntos 1 y 2)
 
 1. **`trustPolicyExclude` puntual** — `@trickfilm400/rollup-plugin-off-main-thread@3.0.0-pre1`

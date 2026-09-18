@@ -35,7 +35,12 @@ export function supabaseStore(): Store {
         return () => data.subscription.unsubscribe()
       },
       async signIn(email) {
-        const { error } = await getSupabase().auth.signInWithOtp({ email })
+        // emailRedirectTo al origin actual: el magic link vuelve a donde la app corre
+        // (localhost en dev, dominio en prod) sin hardcodear URLs.
+        const { error } = await getSupabase().auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: window.location.origin },
+        })
         if (error) throw error
       },
       async signOut() {

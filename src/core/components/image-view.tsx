@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { NodeViewWrapper } from "@tiptap/react"
 import type { NodeViewProps } from "@tiptap/react"
 import { ImageOff } from "lucide-react"
 import { cn } from "@/core/lib/utils"
 import { Skeleton } from "@/core/ui/skeleton"
+import { startImageResize } from "@/core/components/image-resize"
 
 export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
   const src = node.attrs.src as string
@@ -13,9 +14,6 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
   const [dragWidth, setDragWidth] = useState<number | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(false)
-  const startX = useRef(0)
-  const startW = useRef(0)
-  const side = useRef<"left" | "right" | null>(null)
   const displayWidth = dragWidth ?? width ?? null
 
   useEffect(() => {
@@ -38,44 +36,13 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
 
   function onMouseDown(s: "left" | "right") {
     return (e: React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      side.current = s
-      startX.current = e.clientX
       const img = (e.currentTarget as HTMLElement)
         .closest("[data-image-wrapper]")
         ?.querySelector("img")
       const rectW = img?.getBoundingClientRect().width ?? 0
-      startW.current = width ?? Math.round(rectW) ?? 320
-      setDragWidth(startW.current)
-      const prevCursor = document.body.style.cursor
-      const prevSelect = document.body.style.userSelect
-      const prevHtmlCursor = document.documentElement.style.cursor
-      document.body.style.cursor = "ew-resize"
-      document.documentElement.style.cursor = "ew-resize"
-      document.body.style.userSelect = "none"
-
-      const onMove = (ev: MouseEvent) => {
-        const delta = ev.clientX - startX.current
-        let nw = side.current === "right" ? startW.current + delta : startW.current - delta
-        const max = Math.min(900, window.innerWidth - 64)
-        nw = Math.max(120, Math.min(max, nw))
-        setDragWidth(Math.round(nw))
-      }
-      const onUp = () => {
-        window.removeEventListener("mousemove", onMove)
-        window.removeEventListener("mouseup", onUp)
-        document.body.style.cursor = prevCursor
-        document.documentElement.style.cursor = prevHtmlCursor
-        document.body.style.userSelect = prevSelect
-        setDragWidth((cur) => {
-          if (cur != null) updateAttributes({ width: cur })
-          return null
-        })
-        side.current = null
-      }
-      window.addEventListener("mousemove", onMove)
-      window.addEventListener("mouseup", onUp)
+      startImageResize(e, width ?? Math.round(rectW) ?? 320, s, setDragWidth, (w) =>
+        updateAttributes({ width: w }),
+      )
     }
   }
 
@@ -133,6 +100,8 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
           ref={(el) => {
             if (el?.complete && el.naturalWidth > 0 && !loaded && !error) {
               queueMicrotask(() =>
+                // SAFETY: ref callback corre tras el mount; el elemento ya tiene naturalWidth,
+                // simulamos el evento onLoad de React (solo se lee currentTarget).
                 handleLoad({
                   currentTarget: el,
                 } as unknown as React.SyntheticEvent<HTMLImageElement>),
