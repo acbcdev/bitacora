@@ -36,7 +36,10 @@ export function NotebookForm({
   // Solo lectura: fechas y estado no se editan en el form (el estado se cambia desde la vista
   // del notebook). Se reenvían tal cual para no pisar started_at/finished_at/status al editar.
   const status = notebook?.status ?? "active"
-  const startedAt = notebook?.started_at?.slice(0, 10) ?? ""
+  // En alta arranca hoy: si no, `started_at` null lo manda al final del sort 'Recientes'
+  // (nulls last, para los importados) y un notebook recién creado no se ve en la grilla.
+  const startedAt =
+    notebook?.started_at?.slice(0, 10) ?? (notebook ? "" : new Date().toLocaleDateString("sv"))
   const finishedAt = notebook?.finished_at?.slice(0, 10) ?? ""
 
   function submit(e: React.FormEvent) {
