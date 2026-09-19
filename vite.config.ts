@@ -5,7 +5,18 @@ import tailwindcss from "@tailwindcss/vite"
 import { VitePWA } from "vite-plugin-pwa"
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), VitePWA({ registerType: "autoUpdate" })],
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      registerType: "autoUpdate",
+      manifest: {
+        name: "Bitácora",
+        short_name: "Bitácora",
+        icons: [{ src: "/favicon.svg", sizes: "any", type: "image/svg+xml" }],
+      },
+    }),
+  ],
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },

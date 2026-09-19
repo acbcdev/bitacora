@@ -81,7 +81,24 @@ export function Sidebar({
   return (
     <SidebarRoot collapsible="icon">
       <SidebarHeader className="flex-row items-center justify-between gap-0 pt-4 pr-2 pb-2 pl-4 group-data-[collapsible=icon]:px-2">
-        <span className={`text-base font-semibold tracking-tight ${EXPANDED_ONLY}`}>Bitácora</span>
+        <NavLink to="/" aria-label="Inicio" className={`flex items-center gap-2 ${EXPANDED_ONLY}`}>
+          {/* Inline y no <img>: el svg usa currentColor, así hereda el color en dark mode. */}
+          <svg
+            viewBox="0 0 32 32"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            className="size-5"
+          >
+            <path d="M7 15c0-5 4-8.5 9-8.5s9 3.5 9 8.5" />
+            <path d="M7 15c0 2.8-1.6 4-3 5.2M25 15c0 2.8 1.6 4 3 5.2" />
+            <path d="M11 16.5c0 4-1 6-2.5 8M16 17v9M21 16.5c0 4 1 6 2.5 8" />
+            <circle cx="12.8" cy="11.5" r="1.3" fill="currentColor" stroke="none" />
+            <circle cx="19.2" cy="11.5" r="1.3" fill="currentColor" stroke="none" />
+          </svg>
+          <span className="text-base font-semibold tracking-tight">Bitácora</span>
+        </NavLink>
         <SidebarTrigger />
       </SidebarHeader>
 
