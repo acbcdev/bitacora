@@ -11,9 +11,16 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "Bitácora",
-        short_name: "Bitácora",
-        icons: [{ src: "/favicon.svg", sizes: "any", type: "image/svg+xml" }],
+        name: "Bitacoras",
+        short_name: "Bitacoras",
+        background_color: "#0a0a0a",
+        theme_color: "#0a0a0a",
+        display: "standalone",
+        start_url: "/",
+        icons: [
+          { src: "/icon-rounded.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
       },
     }),
   ],

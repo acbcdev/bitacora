@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke-width="2.4" stroke-linecap="round">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="33 79 404 325" fill="none" >
   <!-- Bitácora: pulpo de línea. Claro en tabs oscuros, oscuro en tabs claros. -->
   <style>
     :is(path,circle){stroke:#f0f0f0}
     @media (prefers-color-scheme: light){ :is(path,circle){stroke:#242424} }
   </style>
-  <path d="M7 15c0-5 4-8.5 9-8.5s9 3.5 9 8.5"/>
-  <path d="M7 15c0 2.8-1.6 4-3 5.2M25 15c0 2.8 1.6 4 3 5.2"/>
-  <path d="M11 16.5c0 4-1 6-2.5 8M16 17v9M21 16.5c0 4 1 6 2.5 8"/>
-  <circle cx="12.8" cy="11.5" r="1.3" fill="currentColor" stroke="none"/>
-  <circle cx="19.2" cy="11.5" r="1.3" fill="currentColor" stroke="none"/>
+<path d="M102.812 220.312C102.812 146.875 161.562 95.4688 235 95.4688C308.438 95.4688 367.188 146.875 367.188 220.312" stroke="#F0F0F0" stroke-width="32" stroke-linecap="round"/>
+<path d="M102.812 220.312C102.812 261.438 79.3125 279.063 58.75 296.688M367.188 220.312C367.188 261.438 390.688 279.063 411.25 296.688" stroke="#F0F0F0" stroke-width="32" stroke-linecap="round"/>
+<path d="M161.562 242.344C161.562 301.094 146.875 330.469 124.844 359.844M235 249.688V381.875M308.438 242.344C308.438 301.094 323.125 330.469 345.156 359.844" stroke="#F0F0F0" stroke-width="32" stroke-linecap="round"/>
+<path d="M188 188C198.545 188 207.094 179.451 207.094 168.906C207.094 158.361 198.545 149.812 188 149.812C177.455 149.812 168.906 158.361 168.906 168.906C168.906 179.451 177.455 188 188 188Z" fill="#F0F0F0"/>
+<path d="M282 188C292.545 188 301.093 179.451 301.093 168.906C301.093 158.361 292.545 149.812 282 149.812C271.454 149.812 262.906 158.361 262.906 168.906C262.906 179.451 271.454 188 282 188Z" fill="#F0F0F0"/>
 </svg>
