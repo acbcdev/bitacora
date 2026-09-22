@@ -45,11 +45,12 @@ form. La intercepción vive en capture en `window` (antes del capture de documen
 (`preventDefault`). Enter sin match no se toca: submittea el form y el valor tipeado queda como
 fuente/área nueva (texto libre, manda el schema).
 
-**6. El dot es la identidad del valor y vive sólo en la lista.** Las opciones del dropdown
-llevan su dot de color (`dotColor(option)`, hash determinista sobre una paleta de 12); el pill
-en sí vuelve al estilo sobrio (icono + texto, fondo `bg-secondary` con valor) sin chips sólidos.
-El valor seleccionado se vacía con un × a la derecha: el dropdown queda abierto y el foco en el
-input, listo para elegir/crear otro (un solo valor a la vez: elegir o crear reemplaza).
+**6. Búsqueda interna, separada del valor.** El valor confirmado (`value`) es lo que el pill
+muestra y lo que manda el form. Lo tipeado va a un estado interno `search` que sólo filtra la
+lista; confirmar (elegir una opción, Enter sin match, o click afuera) lo manda a `value` y lo
+limpia. Escape descarta la búsqueda sin tocar el valor. Sin × y sin chips: el pill es sobrio
+(icono + texto, `bg-secondary` con valor) y el dot de color vive sólo como identidad de cada
+opción en la lista.
 
 **7. Fix de stacking.** El dropdown vivía debajo de los botones del footer: el footer es hermano
 posterior con background y ganaba el orden de pintado pese al `z-50` del popup. Con el dropdown
@@ -59,7 +60,9 @@ abierto, la raíz del pill eleva su stacking context (`z-10`) y el popup cubre t
 
 - Murió la dependencia de `Combobox`/`PillCombobox` para estos campos: sin portal, sin vars
   runtime, sin parches de pointer-events, y los tests abren el dropdown con un `focus`.
-- El input del pill es uno solo para los dos estados (con valor y vacío): al vaciar con × el
-  nodo sobrevive y el foco no se pierde.
+- El input del pill es uno solo para los dos estados (valor confirmado y búsqueda): el nodo
+  sobrevive y el foco no se pierde al confirmar.
+- Al confirmar por click afuera (mousedown en "Guardar", otro pill, etc.) la búsqueda pendiente
+  se manda a `value` — nada de lo tipeado se pierde; Escape es la única salida que descarta.
 - Ubicación: `src/core/ui/` como input genérico, aunque hoy tenga un solo consumidor
   (`notebook-form.tsx`).
