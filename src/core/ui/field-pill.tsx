@@ -197,9 +197,34 @@ export function FieldPill({
             </li>
           )}
           {matches.length === 0 ? (
-            <li className="w-full py-2 text-center text-sm text-muted-foreground">
-              Sin resultados
-            </li>
+            q ? (
+              // Búsqueda sin matches: ofrecer crear el valor nuevo (el Enter ya lo hace).
+              <li role="none">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onChange(shown.trim())
+                    setSearch(null)
+                    setOpen(false)
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-sm whitespace-nowrap"
+                >
+                  <span
+                    aria-hidden
+                    className="size-[7px] shrink-0 rounded-full"
+                    style={{ background: dotColor(shown.trim()) }}
+                  />
+                  Crear “{shown.trim()}”
+                </button>
+              </li>
+            ) : (
+              <li className="w-full py-2 text-center text-sm text-muted-foreground">
+                Sin resultados
+              </li>
+            )
           ) : (
             matches.map((option, i) => (
               <li key={option} role="none">

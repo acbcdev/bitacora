@@ -94,7 +94,8 @@ test("filtro case-insensitive; 'Sin resultados' cuando no matchea", () => {
   expect(screen.queryByRole("option", { name: "Marketing" })).not.toBeInTheDocument()
 
   fireEvent.change(input, { target: { value: "zzz" } })
-  expect(screen.getByText("Sin resultados")).toBeInTheDocument()
+  // Sin matches la lista ofrece crear el valor nuevo.
+  expect(screen.getByRole("option", { name: "Crear “zzz”" })).toBeInTheDocument()
 })
 
 test("Enter sin match confirma la búsqueda y deja que el form submittee", () => {
@@ -111,7 +112,7 @@ test("Enter sin match confirma la búsqueda y deja que el form submittee", () =>
 
   openCombobox(input)
   fireEvent.change(input, { target: { value: "web.dev" } })
-  expect(screen.getByText("Sin resultados")).toBeInTheDocument()
+  expect(screen.getByRole("option", { name: "Crear “web.dev”" })).toBeInTheDocument()
 
   expect(fireEvent.keyDown(input, { key: "Enter" })).toBe(true)
   // El Enter confirma la búsqueda como valor nuevo (única llamada onChange) y no bloquea
@@ -150,7 +151,7 @@ test("Escape descarta la búsqueda: el valor confirmado queda y el dropdown se c
 
   openCombobox(input)
   fireEvent.change(input, { target: { value: "Platzzz" } })
-  expect(screen.getByText("Sin resultados")).toBeInTheDocument()
+  expect(screen.getByRole("option", { name: "Crear “Platzzz”" })).toBeInTheDocument()
 
   fireEvent.keyDown(input, { key: "Escape" })
   expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
@@ -167,6 +168,19 @@ test("elegir una opción reemplaza el valor", () => {
   fireEvent.click(screen.getByRole("option", { name: "Marketing" }))
   expect(onChange).toHaveBeenCalledWith("Marketing")
   expect(input).toHaveValue("Marketing")
+  expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
+})
+
+test("click en 'Crear …' crea el valor nuevo sin pasar por Enter", () => {
+  const onChange = vi.fn()
+  render(<Pill onChange={onChange} />)
+  const input = screen.getByLabelText("Fuente")
+
+  openCombobox(input)
+  fireEvent.change(input, { target: { value: "web.dev" } })
+  fireEvent.click(screen.getByRole("option", { name: "Crear “web.dev”" }))
+  expect(onChange).toHaveBeenCalledWith("web.dev")
+  expect(input).toHaveValue("web.dev")
   expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
 })
 

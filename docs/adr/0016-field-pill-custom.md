@@ -50,7 +50,8 @@ muestra y lo que manda el form. Lo tipeado va a un estado interno `search` que s
 lista; confirmar (elegir una opción, Enter sin match, o click afuera) lo manda a `value` y lo
 limpia. Escape descarta la búsqueda sin tocar el valor. Sin × y sin chips: el pill es sobrio
 (icono + texto, `bg-secondary` con valor) y el dot de color vive sólo como identidad de cada
-opción en la lista.
+opción en la lista. Con búsqueda sin matches, la lista ofrece “Crear «búsqueda»” (con el dot de
+color que le tocaría): el click crea igual que el Enter.
 
 **7. Fix de stacking.** El dropdown vivía debajo de los botones del footer: el footer es hermano
 posterior con background y ganaba el orden de pintado pese al `z-50` del popup. Con el dropdown
