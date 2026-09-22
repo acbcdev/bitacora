@@ -29,7 +29,7 @@ export function dotColor(value: string) {
 }
 
 const PILL =
-  "flex h-[34px] w-full min-w-0 items-center gap-1.5 rounded-full border bg-transparent pl-2.5 pr-1 transition-colors hover:border-border-strong hover:bg-accent focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/10"
+  "flex h-10 w-full min-w-0 items-center gap-2 rounded-full border bg-transparent pl-3 pr-1.5 transition-colors hover:border-border-strong hover:bg-accent focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/10"
 
 const ValueDot = ({ value }: { value: string }) => (
   <span
@@ -160,7 +160,7 @@ export function FieldPill({
       <div className={cn(PILL, hasValue && "border-border-strong bg-secondary hover:bg-secondary")}>
         {/* Un solo <input> en los dos estados: muestra el valor confirmado o la búsqueda en curso. */}
         <span className="flex min-w-0 flex-1 items-center gap-1">
-          <span className="pointer-events-none shrink-0 text-muted-foreground [&_svg]:size-3.5">
+          <span className="pointer-events-none shrink-0 text-muted-foreground [&_svg]:size-4">
             {icon}
           </span>
           <input
@@ -176,12 +176,12 @@ export function FieldPill({
             aria-controls={`${id}-listbox`}
             aria-activedescendant={open && matches.length > 0 ? optionId(highlight) : undefined}
             autoComplete="off"
-            className="min-w-0 flex-1 truncate bg-transparent text-[13.5px] font-medium outline-none placeholder:font-normal"
+            className="min-w-0 flex-1 truncate bg-transparent text-sm font-medium outline-none placeholder:font-normal"
           />
         </span>
         <ChevronDown
           aria-hidden
-          className="mr-1 size-3.5 shrink-0 text-muted-foreground opacity-60"
+          className="mr-1 size-4 shrink-0 text-muted-foreground opacity-60"
         />
       </div>
 
