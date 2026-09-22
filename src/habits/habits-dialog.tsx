@@ -136,7 +136,10 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
             })}
           </div>
         ) : (
-          <HabitForm habit={form === "new" ? null : form} onClose={() => setForm(null)} />
+          // Cancelar cierra el dialog entero, no vuelve a la lista: el que canceló quiso salir
+          // del form, no ver los otros hábitos. Al guardar pasa lo mismo — el tile nuevo ya
+          // aparece en la tira de Hoy.
+          <HabitForm habit={form === "new" ? null : form} onClose={onClose} />
         )}
       </DrialogContent>
 
