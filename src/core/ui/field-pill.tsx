@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { ChevronDown, X } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { cn } from "@/core/lib/utils"
 
 // Reemplaza al PillCombobox de Base UI: sin portal ni vars runtime (--available-height /
@@ -62,24 +62,39 @@ export function FieldPill({
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
-
-  const q = value.trim().toLowerCase()
+  // Búsqueda interna, separada del valor confirmado (value): mientras se tipea, el input
+  // muestra y filtra por esto; confirmar (elegir/crear) la limpia. Nunca es un valor a mostrar:
+  // cerrar sin confirmar (Escape) la descarta, confirmar la manda a value.
+  const [search, setSearch] = useState<string | null>(null)
+  const editing = search !== null
+  const shown = editing ? search : value
+  // Sin edición activa la lista muestra todas las opciones: el filtro es de la búsqueda, no del valor.
+  const q = (editing ? search : "").trim().toLowerCase()
   const matches = q ? options.filter((o) => o.toLowerCase().includes(q)) : options
 
   useEffect(() => setHighlight(0), [q, open])
 
+  // Confirmar la búsqueda pendiente como valor (crear) vive inline en el effect de abajo:
+  // ahí es el único uso, leyendo `search` directo (deps completos, sin ref).
+
   // Cerrar al click afuera: listener en document porque el click en otra parte del modal no
-  // dispara blur útil (el input conserva el foco al clickar opciones).
+  // dispara blur útil (el input conserva el foco al clickar opciones). Lo tipeado se confirma:
+  // click en "Guardar"/otro pill no borra lo escrito.
   useEffect(() => {
     if (!open) return
     const close = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+      if (rootRef.current?.contains(e.target as Node)) return
+      const v = search?.trim()
+      if (v) onChange(v)
+      setSearch(null)
+      setOpen(false)
     }
     document.addEventListener("mousedown", close)
     return () => document.removeEventListener("mousedown", close)
-  }, [open])
+  }, [open, search, onChange])
 
-  // Escape con dropdown abierto cierra el dropdown y el modal queda. El DismissableLayer de
+  // Escape con dropdown abierto cierra el dropdown y el modal queda, descartando la búsqueda
+  // (el valor confirmado no se toca).
   // Radix (el Dialog) escucha keydown en capture en document y sólo respeta defaultPrevented;
   // en capture corre ANTES de llegar al input, así que ahí preventDefault llega tarde. Por eso
   // la intercepción vive en capture en window (antes del capture de document) y marca
@@ -91,6 +106,7 @@ export function FieldPill({
       if (e.key === "Escape" && rootRef.current?.contains(e.target as Node)) {
         e.preventDefault()
         setOpen(false)
+        setSearch(null)
       }
     }
     window.addEventListener("keydown", onEscape, { capture: true })
@@ -99,6 +115,7 @@ export function FieldPill({
 
   function pick(option: string) {
     onChange(option)
+    setSearch(null)
     setOpen(false)
   }
 
@@ -121,20 +138,16 @@ export function FieldPill({
       e.preventDefault()
       moveTo(Math.max(highlight - 1, 0))
     } else if (e.key === "Enter" && open && matches[highlight]) {
-      // Enter sobre una opción la selecciona; Enter sin match no se toca → submittea el form
-      // y el valor tipeado queda como fuente/área nueva.
+      // Enter sobre una opción la selecciona; Enter sin match (o dropdown cerrado) no se toca
+      // → submittea el form. Confirmar la búsqueda como valor nuevo es parte del pick.
       e.preventDefault()
       pick(matches[highlight])
+    } else if (e.key === "Enter" && open && editing && shown.trim()) {
+      // Crear desde cero: la búsqueda pasa a ser el valor y el form submittea (el valor tipeado
+      // llega al payload). Sin preventDefault para no bloquear el submit nativo.
+      onChange(shown.trim())
+      setSearch(null)
     }
-  }
-
-  function clear(e: React.MouseEvent) {
-    // El × vacía el valor sin robar el foco al input y deja el dropdown abierto para
-    // elegir/crear otro (focus() explícito: el mousedown con preventDefault no lo mueve).
-    e.preventDefault()
-    onChange("")
-    setOpen(true)
-    document.getElementById(id)?.focus()
   }
 
   const hasValue = !!value.trim()
@@ -145,19 +158,18 @@ export function FieldPill({
     // (hermano posterior con background) pintaba encima del popup pese a su z-50.
     <div ref={rootRef} className={cn("relative min-w-0", open && "z-10", className)}>
       <div className={cn(PILL, hasValue && "border-border-strong bg-secondary hover:bg-secondary")}>
-        {/* Un solo <input> en los dos estados: al vaciar con × el nodo sobrevive, el foco
-            queda en el input y el dropdown sigue abierto para elegir/crear. */}
+        {/* Un solo <input> en los dos estados: muestra el valor confirmado o la búsqueda en curso. */}
         <span className="flex min-w-0 flex-1 items-center gap-1">
           <span className="pointer-events-none shrink-0 text-muted-foreground [&_svg]:size-3.5">
             {icon}
           </span>
           <input
             id={id}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
+            value={shown}
+            onChange={(e) => setSearch(e.target.value)}
             onFocus={() => setOpen(true)}
             onKeyDown={onKeyDown}
-            placeholder={placeholder}
+            placeholder={editing ? placeholder : hasValue ? undefined : placeholder}
             aria-label={placeholder}
             role="combobox"
             aria-expanded={open}
@@ -166,18 +178,6 @@ export function FieldPill({
             autoComplete="off"
             className="min-w-0 flex-1 truncate bg-transparent text-[13.5px] font-medium outline-none placeholder:font-normal"
           />
-          {hasValue && (
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-label={`Vaciar ${placeholder.toLowerCase()}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={clear}
-              className="shrink-0 rounded-full p-0.5 opacity-70 hover:opacity-100"
-            >
-              <X className="size-3" />
-            </button>
-          )}
         </span>
         <ChevronDown
           aria-hidden

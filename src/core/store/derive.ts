@@ -273,7 +273,7 @@ export type HabitState = {
 
 // Ventana de la serie por período (dots del tile + panel): celdas del período del hábito
 // (ADR 0013). Más atrás es un calendario, que es otra UI (spec: Out of Scope).
-export const SERIES: Record<HabitPeriod, number> = { day: 14, week: 7, month: 6 }
+export const SERIES: Record<HabitPeriod, number> = { day: 7, week: 5, month: 4 }
 
 // good = piso (llegar al target), bad = techo (no pasarlo). Mismo cálculo, signo distinto.
 export const meets = (kind: HabitKind, total: number, target: number) =>

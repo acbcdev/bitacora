@@ -137,17 +137,17 @@ test("habits.days es recordatorio: el mismo log da idéntico resultado con y sin
   expect(con).toEqual(sin)
 })
 
-test("la serie diaria son 14 celdas, de hace 13 días a hoy, con amount y target de cada fila", () => {
+test("la serie diaria son 7 celdas, de hace 6 días a hoy, con amount y target de cada fila", () => {
   const h = habit({ metric: "time", target: 25 * 60 })
   const rows = [
     row("2026-08-20", 10 * 60, 25 * 60),
-    row("2026-08-07", 40 * 60, 15 * 60),
+    row("2026-08-14", 40 * 60, 15 * 60),
     row("2026-07-30", 99 * 60, 25 * 60),
   ]
 
   const { days, today } = deriveHabit(h, rows, NOW)
-  expect(days).toHaveLength(14)
-  expect(days[13]).toEqual({ amount: 10 * 60, target: 25 * 60 })
+  expect(days).toHaveLength(7)
+  expect(days[6]).toEqual({ amount: 10 * 60, target: 25 * 60 })
   expect(days[0]).toEqual({ amount: 40 * 60, target: 15 * 60 }) // el target viejo, no el vivo
   // Un día sin fila no tiene target congelado: cae en el actual del hábito.
   expect(days[1]).toEqual({ amount: 0, target: 25 * 60 })
@@ -155,7 +155,7 @@ test("la serie diaria son 14 celdas, de hace 13 días a hoy, con amount y target
   expect(today).toBe(10 * 60)
 })
 
-test("la serie semanal son 7 celdas con el total y target congelado de cada semana (ADR 0013)", () => {
+test("la serie semanal son 5 celdas con el total y target congelado de cada semana (ADR 0013)", () => {
   const h = habit({ target: 3, period: "week", created_at: "2026-06-01T12:00:00Z" })
   const rows = [
     row("2026-08-17", 1, 3), // semana actual: 1 de 3
@@ -164,15 +164,15 @@ test("la serie semanal son 7 celdas con el total y target congelado de cada sema
   ]
 
   const { days } = deriveHabit(h, rows, NOW)
-  expect(days).toHaveLength(7)
-  expect(days[6]).toEqual({ amount: 1, target: 3 }) // actual, contra la meta viva
-  expect(days[5]).toEqual({ amount: 3, target: 5 }) // cerrada, contra el congelado
+  expect(days).toHaveLength(5)
+  expect(days[4]).toEqual({ amount: 1, target: 3 }) // actual, contra la meta viva
+  expect(days[3]).toEqual({ amount: 3, target: 5 }) // cerrada, contra el congelado
   expect(days[0]).toEqual({ amount: 0, target: 3 }) // sin filas: 0 con el target vivo
 })
 
-test("la serie mensual son 6 celdas", () => {
+test("la serie mensual son 4 celdas", () => {
   const h = habit({ target: 3, period: "month", created_at: "2025-01-01T12:00:00Z" })
-  expect(deriveHabit(h, [], NOW).days).toHaveLength(6)
+  expect(deriveHabit(h, [], NOW).days).toHaveLength(4)
 })
 
 test("las filas de otros hábitos no entran en el cálculo", () => {
@@ -196,7 +196,7 @@ test("timer 23:59→00:19: la fila del día de inicio llena ayer y deja hoy en 0
   expect(s.total).toBe(0)
   // El 19 quedó cumplido: la racha de ayer sigue viva (el 20 aún en curso no corta).
   expect(s.streak).toBe(1)
-  expect(s.days[12]).toEqual({ amount: 20 * 60, target: 20 * 60 })
+  expect(s.days[5]).toEqual({ amount: 20 * 60, target: 20 * 60 }) // ayer = 19
 })
 
 test("timer domingo→lunes: todo queda en la semana del domingo, nada se filtra a la nueva", () => {
@@ -210,9 +210,9 @@ test("timer domingo→lunes: todo queda en la semana del domingo, nada se filtra
   const s = deriveHabit(h, rows, now)
   // La semana NUEVA (lunes) empieza en 0: el timer no la toca…
   expect(s.total).toBe(0)
-  expect(s.days[6]).toEqual({ amount: 0, target: 150 * 60 })
+  expect(s.days[4]).toEqual({ amount: 0, target: 150 * 60 })
   // …y la semana CERRADA del domingo se lleva los 20 min completos (sin partir a medianoche).
-  expect(s.days[5]).toEqual({ amount: 20 * 60, target: 150 * 60 })
+  expect(s.days[3]).toEqual({ amount: 20 * 60, target: 150 * 60 })
 })
 
 test("timer dentro de la misma semana: el total semanal incluye el día de inicio y el de hoy", () => {

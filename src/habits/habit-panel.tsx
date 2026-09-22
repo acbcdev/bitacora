@@ -41,17 +41,18 @@ export function HabitHistory({ habit, state }: { habit: Habit; state: HabitState
       aria-label={`${habit.period === "week" ? "Últimas" : "Últimos"} ${state.days.length} ${PERIOD_NOUN[habit.period]} de ${habit.name}: ${state.days
         .map((c) => c.amount)
         .join(", ")}`}
-      className="flex gap-1"
+      // Días: gap más chico → cada celda un pelín más ancha (7 celdas vs 4-5 de semana/mes).
+      className={habit.period === "day" ? "flex w-full gap-[2px]" : "flex w-full gap-1"}
     >
       {state.days.map((cell, n) =>
         // Hoy sin resaltado; gris mientras está vacío, color al registrar — igual que los dots.
         n === state.days.length - 1 && cell.amount === 0 ? (
-          <span key={n} className="h-7 w-3.5 rounded-[3px] bg-muted" />
+          <span key={n} className="h-7 flex-1 rounded-[3px] bg-muted" />
         ) : (
           <span
             key={n}
             style={{ backgroundColor: cellColor(habit.kind, cellPct(cell)) }}
-            className="h-7 w-3.5 rounded-[3px]"
+            className="h-7 flex-1 rounded-[3px]"
           />
         ),
       )}

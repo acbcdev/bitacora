@@ -112,13 +112,25 @@ test("Enter sobre una opción la selecciona y no submittea el form", async () =>
   expect(insert).not.toHaveBeenCalled()
 })
 
+// FieldPill: el tipeo va a una búsqueda interna, el valor se confirma al cerrar el dropdown
+// (click afuera). En el browser todo click va precedido de un mousedown — se simula acá.
+function confirmPillSearch(button: HTMLElement) {
+  fireEvent.mouseDown(button)
+  fireEvent.click(button)
+}
+
 test("crear un notebook manda source/area tipeados en el payload", async () => {
   renderForm(null)
 
   fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Notebook nuevo" } })
-  fireEvent.change(screen.getByLabelText("Fuente"), { target: { value: "web.dev" } })
-  fireEvent.change(screen.getByLabelText("Área"), { target: { value: "Inglés" } })
-  fireEvent.click(screen.getByRole("button", { name: "Crear notebook" }))
+  // Tipear implica foco: el focus abre el dropdown y deja la búsqueda pendiente de confirmar.
+  const fuente = screen.getByLabelText("Fuente")
+  openCombobox(fuente)
+  fireEvent.change(fuente, { target: { value: "web.dev" } })
+  const area = screen.getByLabelText("Área")
+  openCombobox(area)
+  fireEvent.change(area, { target: { value: "Inglés" } })
+  confirmPillSearch(screen.getByRole("button", { name: "Crear notebook" }))
 
   await waitFor(() =>
     expect(insert).toHaveBeenCalledWith(
@@ -130,9 +142,13 @@ test("crear un notebook manda source/area tipeados en el payload", async () => {
 test("editar un notebook manda source/area tipeados en el payload", async () => {
   renderForm(notebook2)
 
-  fireEvent.change(screen.getByLabelText("Fuente"), { target: { value: "Udemy" } })
-  fireEvent.change(screen.getByLabelText("Área"), { target: { value: "Marketing digital" } })
-  fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+  const fuente = screen.getByLabelText("Fuente")
+  openCombobox(fuente)
+  fireEvent.change(fuente, { target: { value: "Udemy" } })
+  const area = screen.getByLabelText("Área")
+  openCombobox(area)
+  fireEvent.change(area, { target: { value: "Marketing digital" } })
+  confirmPillSearch(screen.getByRole("button", { name: "Guardar" }))
 
   await waitFor(() =>
     expect(update).toHaveBeenCalledWith(

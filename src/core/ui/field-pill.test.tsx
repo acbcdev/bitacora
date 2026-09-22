@@ -5,9 +5,8 @@ import { Drialog, DrialogContent, DrialogTitle } from "@/core/ui/drialog"
 
 const OPTIONS = ["Platzi", "Programación", "Marketing"]
 
-// Fixture con estado: FieldPill es controlado (value/onChange), así que el tipeo del test
-// tiene que pasar por un setValue real para que el filtro y el chip funcionen. Ojo: el input
-// del estado vacío y el del chip son elementos DOM distintos — re-query tras cada cambio.
+// Fixture con estado: FieldPill es controlado (value/onChange). El tipeo no pasa por onChange
+// (la búsqueda es interna): el filtro vive adentro del componente.
 function Pill({
   initial = "",
   onChange = vi.fn(),
@@ -68,7 +67,7 @@ test("↓/↑ mueven el highlight (aria-activedescendant) y Enter selecciona", (
   expect(fireEvent.keyDown(input, { key: "Enter" })).toBe(false)
 })
 
-test("Escape con dropdown abierto lo cierra con stopPropagation; cerrado, el Escape sigue y cierra el modal", () => {
+test("Escape con dropdown abierto lo cierra y descarta la búsqueda; cerrado, el Escape sigue y cierra el modal", () => {
   render(<DrialogFixture />)
   const input = screen.getByLabelText("Fuente")
 
@@ -98,7 +97,7 @@ test("filtro case-insensitive; 'Sin resultados' cuando no matchea", () => {
   expect(screen.getByText("Sin resultados")).toBeInTheDocument()
 })
 
-test("Enter sin match no preventDefault (el browser submittea el form) y el valor queda", () => {
+test("Enter sin match confirma la búsqueda y deja que el form submittee", () => {
   const onSubmit = vi.fn((e: React.FormEvent) => e.preventDefault())
   const onChange = vi.fn()
   render(
@@ -115,30 +114,78 @@ test("Enter sin match no preventDefault (el browser submittea el form) y el valo
   expect(screen.getByText("Sin resultados")).toBeInTheDocument()
 
   expect(fireEvent.keyDown(input, { key: "Enter" })).toBe(true)
-  // El valor tipeado queda: onChange solo lo llamó el tipeo, no el Enter.
+  // El Enter confirma la búsqueda como valor nuevo (única llamada onChange) y no bloquea
+  // el submit nativo del browser.
   expect(onChange).toHaveBeenCalledTimes(1)
   expect(onChange).toHaveBeenCalledWith("web.dev")
+  expect(input).toHaveValue("web.dev")
   fireEvent.submit(input.closest("form")!)
   expect(onSubmit).toHaveBeenCalledTimes(1)
 })
 
-test("elegir una opción reemplaza el valor; × del chip lo vacía", () => {
+test("el tipeo no pisa el valor confirmado: la búsqueda es interna hasta confirmar", () => {
   const onChange = vi.fn()
   render(<Pill initial="Platzi" onChange={onChange} />)
-
-  // El chip reemplaza al valor: elegir otro arranca una búsqueda nueva (× o tipeo).
   const input = screen.getByLabelText("Fuente")
-  openCombobox(input)
-  fireEvent.click(screen.getByRole("button", { name: "Vaciar fuente" }))
-  expect(onChange).toHaveBeenCalledWith("")
-  expect(input).toHaveValue("")
-  // El × deja el dropdown abierto y el foco en el input, listo para elegir/crear otro.
-  expect(screen.getByRole("listbox")).toBeInTheDocument()
-  expect(input).toHaveFocus()
 
+  openCombobox(input)
+  // Sin búsqueda activa la lista muestra todas las opciones (el filtro no sale del valor).
+  expect(screen.getByRole("option", { name: "Marketing" })).toBeInTheDocument()
+
+  // Tipear arranca una búsqueda: no toca el valor confirmado.
+  fireEvent.change(input, { target: { value: "Progra" } })
+  expect(input).toHaveValue("Progra")
+  expect(onChange).not.toHaveBeenCalled()
+  expect(screen.getByRole("option", { name: "Programación" })).toBeInTheDocument()
+
+  fireEvent.keyDown(input, { key: "Enter" })
+  expect(onChange).toHaveBeenCalledWith("Programación")
+  expect(input).toHaveValue("Programación")
+})
+
+test("Escape descarta la búsqueda: el valor confirmado queda y el dropdown se cierra", () => {
+  const onChange = vi.fn()
+  render(<Pill initial="Platzi" onChange={onChange} />)
+  const input = screen.getByLabelText("Fuente")
+
+  openCombobox(input)
+  fireEvent.change(input, { target: { value: "Platzzz" } })
+  expect(screen.getByText("Sin resultados")).toBeInTheDocument()
+
+  fireEvent.keyDown(input, { key: "Escape" })
+  expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
+  expect(input).toHaveValue("Platzi")
+  expect(onChange).not.toHaveBeenCalled()
+})
+
+test("elegir una opción reemplaza el valor", () => {
+  const onChange = vi.fn()
+  render(<Pill initial="Platzi" onChange={onChange} />)
+  const input = screen.getByLabelText("Fuente")
+
+  openCombobox(input)
   fireEvent.click(screen.getByRole("option", { name: "Marketing" }))
   expect(onChange).toHaveBeenCalledWith("Marketing")
   expect(input).toHaveValue("Marketing")
+  expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
+})
+
+test("click afuera confirma la búsqueda pendiente (no se pierde lo tipeado)", () => {
+  const onChange = vi.fn()
+  render(
+    <>
+      <Pill onChange={onChange} />
+      <button type="button">otro</button>
+    </>,
+  )
+  const input = screen.getByLabelText("Fuente")
+
+  openCombobox(input)
+  fireEvent.change(input, { target: { value: "web.dev" } })
+  fireEvent.mouseDown(screen.getByRole("button", { name: "otro" }))
+  expect(onChange).toHaveBeenCalledWith("web.dev")
+  expect(input).toHaveValue("web.dev")
+  expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
 })
 
 test("mover el highlight con ↓ llama scrollIntoView({ block: 'nearest' })", () => {
