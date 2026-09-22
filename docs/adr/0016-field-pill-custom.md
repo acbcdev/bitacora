@@ -45,11 +45,11 @@ form. La intercepción vive en capture en `window` (antes del capture de documen
 (`preventDefault`). Enter sin match no se toca: submittea el form y el valor tipeado queda como
 fuente/área nueva (texto libre, manda el schema).
 
-**6. Look Notion.** Valor seleccionado = chip con fondo sólido del color del dot + × a la derecha
-para vaciar (el dropdown queda abierto para elegir/crear otro; un solo valor a la vez: elegir o
-crear reemplaza). Opciones del dropdown como chips coloreadas, la destacada con ring; encabezado
-"Selecciona o crea una opción" solo cuando no hay filtro. Al mover el highlight con ↓/↑, la opción
-destacada hace `scrollIntoView({ block: "nearest" })` directo en el handler.
+**6. El dot es la identidad del valor y vive sólo en la lista.** Las opciones del dropdown
+llevan su dot de color (`dotColor(option)`, hash determinista sobre una paleta de 12); el pill
+en sí vuelve al estilo sobrio (icono + texto, fondo `bg-secondary` con valor) sin chips sólidos.
+El valor seleccionado se vacía con un × a la derecha: el dropdown queda abierto y el foco en el
+input, listo para elegir/crear otro (un solo valor a la vez: elegir o crear reemplaza).
 
 **7. Fix de stacking.** El dropdown vivía debajo de los botones del footer: el footer es hermano
 posterior con background y ganaba el orden de pintado pese al `z-50` del popup. Con el dropdown
@@ -59,9 +59,7 @@ abierto, la raíz del pill eleva su stacking context (`z-10`) y el popup cubre t
 
 - Murió la dependencia de `Combobox`/`PillCombobox` para estos campos: sin portal, sin vars
   runtime, sin parches de pointer-events, y los tests abren el dropdown con un `focus`.
-- El input usa `field-sizing-content` para que el chip abraza al texto: browsers sin soporte ven
-  el ancho default del input — degradación aceptada.
-- El color del texto sobre chips usa un cálculo YIQ aproximado (`chipText`): si entra un color
-  nuevo a `DOT_COLORS` con contraste raro, se ajusta el umbral ahí.
+- El input del pill es uno solo para los dos estados (con valor y vacío): al vaciar con × el
+  nodo sobrevive y el foco no se pierde.
 - Ubicación: `src/core/ui/` como input genérico, aunque hoy tenga un solo consumidor
   (`notebook-form.tsx`).

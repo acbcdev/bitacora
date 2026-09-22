@@ -28,20 +28,20 @@ export function dotColor(value: string) {
   return DOT_COLORS[h % DOT_COLORS.length]
 }
 
-// Texto sobre chip de fondo sólido: los amarillos/verdes claros piden texto oscuro, el resto
-// blanco. YIQ aproximado — los 12 colores de DOT_COLORS caen bien con el umbral 160.
-function chipText(color: string) {
-  const n = parseInt(color.slice(1), 16)
-  const yiq = (((n >> 16) & 255) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000
-  return yiq >= 160 ? "#1c1917" : "#ffffff"
-}
-
 const PILL =
   "flex h-[34px] w-full min-w-0 items-center gap-1.5 rounded-full border bg-transparent pl-2.5 pr-1 transition-colors hover:border-border-strong hover:bg-accent focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/10"
 
-// Pill editable con sugerencias (estilo Notion): input libre (crea valores nuevos) + dropdown
-// con las opciones ya usadas filtradas case-insensitive, como chips del color del valor.
-// Sin portal — vive dentro del modal.
+const ValueDot = ({ value }: { value: string }) => (
+  <span
+    aria-hidden
+    className="pointer-events-none size-[7px] shrink-0 rounded-full"
+    style={{ background: dotColor(value) }}
+  />
+)
+
+// Pill editable con sugerencias: input libre (crea valores nuevos) + dropdown con las
+// opciones ya usadas filtradas case-insensitive, cada una con su dot de color. Sin portal —
+// vive dentro del modal.
 export function FieldPill({
   id,
   value,
@@ -138,28 +138,19 @@ export function FieldPill({
   }
 
   const hasValue = !!value.trim()
-  const chip = dotColor(value.trim())
   const optionId = (i: number) => `${id}-option-${i}`
 
   return (
     // Con el dropdown abierto la raíz crea su propio stacking context: si no, el footer
     // (hermano posterior con background) pintaba encima del popup pese a su z-50.
     <div ref={rootRef} className={cn("relative min-w-0", open && "z-10", className)}>
-      <div className={cn(PILL, hasValue && "border-border-strong")}>
-        {/* Un solo <input> en los dos estados (chip o vacío): al vaciar el chip con × el nodo
-            sobrevive, el foco queda en el input y el dropdown sigue abierto para elegir/crear. */}
-        <span
-          className={cn(
-            "flex min-w-0 flex-1 items-center gap-1",
-            hasValue && "rounded-full py-[3px] pr-1 pl-2",
-          )}
-          style={hasValue ? { background: chip, color: chipText(chip) } : undefined}
-        >
-          {!hasValue && (
-            <span className="pointer-events-none shrink-0 text-muted-foreground [&_svg]:size-3.5">
-              {icon}
-            </span>
-          )}
+      <div className={cn(PILL, hasValue && "border-border-strong bg-secondary hover:bg-secondary")}>
+        {/* Un solo <input> en los dos estados: al vaciar con × el nodo sobrevive, el foco
+            queda en el input y el dropdown sigue abierto para elegir/crear. */}
+        <span className="flex min-w-0 flex-1 items-center gap-1">
+          <span className="pointer-events-none shrink-0 text-muted-foreground [&_svg]:size-3.5">
+            {icon}
+          </span>
           <input
             id={id}
             value={value}
@@ -173,14 +164,7 @@ export function FieldPill({
             aria-controls={`${id}-listbox`}
             aria-activedescendant={open && matches.length > 0 ? optionId(highlight) : undefined}
             autoComplete="off"
-            className={cn(
-              "bg-transparent text-[13.5px] font-medium outline-none placeholder:font-normal",
-              hasValue
-                ? // field-sizing-content: el chip abraza al texto. Sin soporte queda el ancho
-                  // default del input — degradación aceptable.
-                  "min-w-6 field-sizing-content"
-                : "min-w-0 flex-1 truncate placeholder:font-normal",
-            )}
+            className="min-w-0 flex-1 truncate bg-transparent text-[13.5px] font-medium outline-none placeholder:font-normal"
           />
           {hasValue && (
             <button
@@ -229,20 +213,13 @@ export function FieldPill({
                   onClick={() => pick(option)}
                   onPointerMove={() => setHighlight(i)}
                   className={cn(
-                    "flex w-full items-center rounded-lg px-1.5 py-1 text-left text-sm whitespace-nowrap",
-                    i === highlight && "bg-accent/50",
+                    "flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-sm whitespace-nowrap",
+                    i === highlight && "bg-accent text-accent-foreground",
                   )}
                 >
-                  {/* Chip del color del valor; la destacada lleva ring. */}
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[13px] font-medium",
-                      i === highlight && "ring-2 ring-ring ring-offset-1",
-                    )}
-                    style={{ background: dotColor(option), color: chipText(dotColor(option)) }}
-                  >
-                    {option}
-                  </span>
+                  {/* El dot de color es la identidad del valor; sólo vive en la lista. */}
+                  <ValueDot value={option} />
+                  {option}
                 </button>
               </li>
             ))
