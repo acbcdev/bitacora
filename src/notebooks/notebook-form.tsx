@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from "react"
 import { Globe, Layers } from "lucide-react"
 import { IconPicker } from "@/notebooks/icon-picker"
-import { FieldPill, dotColor } from "@/notebooks/field-pill"
+import { FieldPill, dotColor } from "@/core/ui/field-pill"
 import { useNotebooks, useCreateNotebook, useUpdateNotebook } from "@/notebooks/notebooks.api"
 import { Button } from "@/core/ui/button"
 import { Drialog, DrialogContent, DrialogTitle } from "@/core/ui/drialog"
@@ -105,7 +105,6 @@ export function NotebookForm({
                 options={sourceOptions}
                 placeholder="Fuente"
                 icon={<Globe />}
-                showDot={!!source.trim() && !!area.trim()}
               />
               <FieldPill
                 id="notebook-area"
@@ -115,7 +114,6 @@ export function NotebookForm({
                 options={areaOptions}
                 placeholder="Área"
                 icon={<Layers />}
-                showDot={!!source.trim() && !!area.trim()}
               />
             </div>
           </div>

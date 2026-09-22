@@ -95,8 +95,9 @@ notebooks(id, user_id, name, status, started_at, finished_at, icon, source, area
   -- source: dónde se estudió (ej. 'Platzi', 'web.dev'). Texto libre, sin enum. Nullable.
   -- area: tema/categoría del notebook ('Libros', 'Programación'…). Texto libre single-value
   --   (no tags), sin enum. Nullable.
-  --   source/area no tienen tabla propia: el <datalist> del form sugiere valores ya usados,
-  --   calculados en cliente desde useNotebooks() — no hay CRUD de categorías.
+  --   source/area no tienen tabla propia: el FieldPill del form (src/core/ui/field-pill.tsx)
+  --   sugiere valores ya usados, calculados en cliente desde useNotebooks() — no hay CRUD de
+  --   categorías.
 notes(id, user_id, notebook_id, title, content, kind, position, imported, deleted_at, created_at)
   -- content: documento Tiptap. notebook_id uuid references notebooks(id) on delete set null
   -- kind: 'note' | 'flashcard'. En una flashcard, title = pregunta y content = respuesta (ADR 0010).

@@ -1,14 +1,10 @@
 # Mejoras pendientes de FieldPill
 
-Status: needs-triage
+Status: done — los 5 ítems están implementados en `src/notebooks/field-pill.tsx`
+(teclado ↓/↑/Enter/Escape, scroll con `max-h-72`, truncado con `min-w-0`, valor libre que
+se conserva, "Sin resultados").
 
-Funciones que el Base UI Combobox no satisfacía y que el custom cubre parcialmente;
-esto queda para iterar después:
-
-- [ ] Navegación con flechas + Enter + Escape (seleccionar destacado en vez de submit).
-- [ ] Scroll del dropdown dentro del modal sin depender de vars runtime de Base UI.
-- [ ] Truncado consistente de valores largos (pill, opciones y resumen del footer).
-- [ ] Crear valor libre tipeando sin perder el texto (el `input-clear` de Base UI lo borraba).
-- [ ] Mostrar "Sin resultados" cuando el filtro no matchea y permitir crear igual.
-
-Blocked by: ninguna
+Sigue en `.scratch/field-pill/spec.md` → "Sesión de grilling — decisiones 1 a 12
+(PENDIENTE implementar)": look Notion (chip + ×), fix de stacking del dropdown,
+`aria-activedescendant`, move a `core/ui/`, ADR 0016 y glosario. La implementación se
+asigna a otro agente con ese spec como fuente de verdad.

@@ -107,7 +107,8 @@ test("Enter sobre una opción la selecciona y no submittea el form", async () =>
   await waitFor(() => expect(screen.getByRole("option", { name: "Platzi" })).toBeInTheDocument())
 
   fireEvent.keyDown(input, { key: "Enter" })
-  expect(input).toHaveValue("Platzi")
+  // Al seleccionar el valor pasa al chip: otro nodo DOM, re-query.
+  expect(screen.getByLabelText("Fuente")).toHaveValue("Platzi")
   expect(insert).not.toHaveBeenCalled()
 })
 
