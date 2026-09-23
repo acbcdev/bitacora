@@ -28,7 +28,9 @@ export function Login() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center px-6">
+    // dvh, no screen: en iOS 100vh incluye la zona bajo la barra del navegador y empuja el
+    // bloque "Probar sin cuenta" fuera del primer viewport.
+    <div className="grid min-h-dvh place-items-center px-6 py-10">
       <div className="fade-in flex w-95 max-w-full flex-col gap-8">
         <div>
           <h1 className="text-3xl font-semibold tracking-tighter">Bitácora</h1>
@@ -37,7 +39,8 @@ export function Login() {
           </p>
         </div>
 
-        <Card className="gap-5 p-8">
+        {/* h-11 (44px): mínimo de tap target Apple/Google. p-6 en mobile, p-8 desde sm. */}
+        <Card className="gap-5 p-6 sm:p-8">
           {sent ? (
             <>
               <p className="flex items-center gap-2 text-sm font-medium text-brand-fg">
@@ -59,15 +62,20 @@ export function Login() {
                     id="email"
                     type="email"
                     required
+                    autoComplete="email"
+                    inputMode="email"
+                    enterKeyHint="go"
                     aria-invalid={!!error}
                     placeholder="tu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-10"
+                    // text-md (17px): el text-base del DS es 15px y iOS Safari hace auto-zoom
+                    // sobre cualquier input < 16px al enfocarlo.
+                    className="h-11 text-md"
                   />
                   <FieldError>{error}</FieldError>
                 </Field>
-                <Button type="submit" size="lg" disabled={loading}>
+                <Button type="submit" size="lg" disabled={loading} className="h-11">
                   {loading ? (
                     <>
                       <LoaderCircle className="animate-spin" />
@@ -86,7 +94,7 @@ export function Login() {
             justamente el de alguien que todavía no tiene cuenta: probar la app sin registrarse.
             Recarga (setStorageMode) y arranca contra el navegador. */}
         <div className="flex flex-col gap-3">
-          <Button variant="ghost" onClick={() => setStorageMode("local")}>
+          <Button variant="ghost" onClick={() => setStorageMode("local")} className="h-11">
             <HardDrive />
             Probar sin cuenta — todo en este navegador
           </Button>
