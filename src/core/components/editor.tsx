@@ -70,6 +70,8 @@ export type EditorHandle = {
   // Click en la zona vacía debajo del contenido (notes/07): pone el cursor al final, como en
   // Notion/Docs, en vez de no hacer nada.
   focusEnd: () => void
+  // Type-to-focus (ADR 0017): el hook tiene que preguntar si la letra ya cae adentro del editor.
+  isFocused: () => boolean
 }
 
 // Editor Tiptap (notes/01). StarterKit = headings, bold/italic/strike/code, listas, codeBlock,
@@ -301,6 +303,9 @@ export function Editor({
       },
       focusEnd() {
         editor?.chain().focus("end").run()
+      },
+      isFocused() {
+        return editor?.isFocused ?? false
       },
     }),
     [editor],

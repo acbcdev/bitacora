@@ -11,6 +11,7 @@ import { Kbd } from "@/core/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useNotebooks } from "@/notebooks/notebooks.api"
 import { useNoteDraft } from "@/notes/notes.api"
+import { useTypeToFocus } from "@/notes/use-type-to-focus"
 import { dayOf } from "@/core/lib/day"
 import { useSnapshot } from "@/core/lib/snapshot"
 import { EMPTY_READ_STATS, readStats } from "@/core/store/derive"
@@ -37,6 +38,11 @@ export function NoteEditor({
   const { data: stats = EMPTY_READ_STATS } = useSnapshot((s) => readStats(s))
   const [confirming, setConfirming] = useState(false)
   const editorRef = useRef<EditorHandle>(null)
+
+  // Regla v2 (ADR 0017): las letras escriben. Con el editor desenfocado, un keydown de letra a-z
+  // enfoca el editor y la letra entra — sin excepciones (ni F). Cubre Nota standalone y el editor
+  // embebido de Notebook con el mismo hook.
+  useTypeToFocus(editorRef)
 
   // Paste "smart" tipo Notion (notes/05): con el título vacío, pegar un bloque multilínea
   // -sea en el título o en el body- manda la 1ra línea al título y el resto al body.
@@ -92,12 +98,9 @@ export function NoteEditor({
 
   // Global en esta vista: por default react-hotkeys-hook ignora teclas con foco en
   // input/textarea/contentEditable (para no interferir mientras escribís). Acá se fuerza para
-  // Esc y mod+, porque el foco está siempre en el título o el editor — pero `f` bare NO se
-  // fuerza: escribir la letra "f" en la nota disparaba el toggle de focus por error. `f` queda
-  // con el default (solo dispara con el foco afuera del editable) y `mod+f` cubre el caso de
-  // adentro, mismo patrón que mod+j/mod+k en Notebook.
+  // Esc y mod+, porque el foco está siempre en el título o el editor. El `f` bare se retiró con
+  // la regla v2 (ADR 0017): las letras escriben, focus mode queda en ⌘F solo.
   const globalScope = { enableOnFormTags: true, enableOnContentEditable: true }
-  useHotkeys("f", () => setFocus(!focus), { preventDefault: true }, [focus, setFocus])
   useHotkeys("mod+f", () => setFocus(!focus), { ...globalScope, preventDefault: true }, [
     focus,
     setFocus,
@@ -188,11 +191,11 @@ export function NoteEditor({
 
       {!focus && (
         <p className="pt-10 text-center text-xs text-muted-foreground">
-          <Kbd>F</Kbd> focus mode
+          <Kbd>⌘F</Kbd> focus mode
           {embedded && (
             <>
               {" "}
-              · <Kbd>J</Kbd> / <Kbd>K</Kbd> entre notas
+              · <Kbd>⌘J</Kbd>/<Kbd>⌘K</Kbd> entre notas
             </>
           )}{" "}
           · autosave activado

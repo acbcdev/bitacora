@@ -40,7 +40,7 @@ import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { daysSince } from "@/core/lib/day"
 import { useSnapshot } from "@/core/lib/snapshot"
-import { EMPTY_READ_STATS, readStats } from "@/core/store/derive"
+import { EMPTY_READ_STATS, lastEditedNote, readStats } from "@/core/store/derive"
 import { cn } from "@/core/lib/utils"
 import { store } from "@/core/store"
 import type { NotebookStatus } from "@/core/types/database"
@@ -93,7 +93,10 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
   const [confirmingNote, setConfirmingNote] = useState<string | null>(null)
 
   const notebook = notebooks.find((c) => c.id === id)
-  const selected = notes.find((n) => n.id === noteId) ?? notes[0]
+  // Selección inicial = la última editada (spec .scratch/editor-flow, issue 02). El índice NO se
+  // reordena — la lista queda por `position`; sólo cambia la nota en la que caés al entrar.
+  // Con noteId válido, nada cambia.
+  const selected = notes.find((n) => n.id === noteId) ?? lastEditedNote(notes)
 
   // Filtro de búsqueda del índice: por título, en cliente (el snapshot ya trae los títulos).
   const visible = q
@@ -119,10 +122,9 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
     }
   }, [id, noteId, selected, isLoading, navigate])
 
-  // J/K y flechas entre notas del notebook. J/left = atrás, K/right = adelante. Además de la versión
-  // bare (default de la lib: se desactiva sola con el foco en el editor embebido), se agrega el
-  // alias mod+ forzado para cuando el foco SÍ está adentro del editor — misma acción, dos formas
-  // de dispararla según dónde esté el foco.
+  // Nav del índice entre notas, en mod+ (regla v2, ADR 0017): las letras escriben en el editor,
+  // así que los bare j/k/left/right/n de la v1 murieron — las acciones de app van forzadas con
+  // enableOnContentEditable para andar también con el foco adentro del editor.
   // Se mueven sobre las notas VISIBLES (el filtro de búsqueda): saltar a una fila escondida
   // se sentiría como un bug.
   function step(dir: "back" | "forward") {
@@ -131,10 +133,6 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
       visible[dir === "forward" ? Math.min(i + 1, visible.length - 1) : Math.max(i - 1, 0)]
     if (target) select(target)
   }
-  // useSafeHotkeys (no bare): con el NotebookForm o el confirm de borrado abiertos, j/k/n no
-  // deben mover nada detrás del diálogo — mismo leak que ya cubren las otras pantallas.
-  useSafeHotkeys("j,left", () => step("back"), { preventDefault: true }, [visible, selected])
-  useSafeHotkeys("k,right", () => step("forward"), { preventDefault: true }, [visible, selected])
   useSafeHotkeys(
     "mod+j,mod+left",
     () => step("back"),
@@ -147,10 +145,11 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
     { enableOnContentEditable: true, preventDefault: true },
     [visible, selected],
   )
+  // Nueva nota es deliberada aunque estés escribiendo: mod+n con alias forzado.
   useSafeHotkeys(
-    "n",
+    "mod+n",
     () => createNote.mutate(id!, { onSuccess: (note) => navigate(`/notebook/${id}/${note.id}`) }),
-    { preventDefault: true },
+    { enableOnContentEditable: true, preventDefault: true },
     [id, createNote],
   )
 
@@ -376,7 +375,7 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
             >
               <Plus />
               Nueva nota
-              <Kbd className="ml-auto">N</Kbd>
+              <Kbd className="ml-auto">⌘N</Kbd>
             </Button>
           </div>
 

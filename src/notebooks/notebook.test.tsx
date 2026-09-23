@@ -171,6 +171,45 @@ test("el botón queda deshabilitado si el notebook no tiene notas", async () => 
   )
 })
 
+// Selección inicial (spec .scratch/editor-flow, issue 02): al entrar sin noteId se abre la nota
+// con `updated_at` máximo — pero el índice NO se reordena: la lista queda por `position`.
+test("entrar al notebook abre la última editada, sin reordenar el índice", async () => {
+  state.notes = [
+    {
+      id: "n1",
+      title: "Primera",
+      content: { type: "doc" },
+      notebook_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      updated_at: "2026-01-01",
+      position: 0,
+    },
+    {
+      id: "n2",
+      title: "Editada ayer",
+      content: { type: "doc" },
+      notebook_id: "c1",
+      kind: "note",
+      created_at: "2026-01-02",
+      updated_at: "2026-06-01",
+      position: 1,
+    },
+  ]
+  const { container } = renderNotebook()
+
+  // La nota abierta es la última editada (n2), no la primera del orden.
+  await waitFor(() =>
+    expect(container.querySelector('[data-active="true"]')?.textContent).toContain("Editada ayer"),
+  )
+  // Y el índice conserva el orden por position: Primera arriba, Editada ayer abajo.
+  const rows = [...container.querySelectorAll("[data-active]")]
+  expect(rows.map((r) => r.textContent)).toEqual([
+    expect.stringContaining("Primera"),
+    expect.stringContaining("Editada ayer"),
+  ])
+})
+
 // mod+j / mod+k: alias forzado (enableOnContentEditable) para navegar entre notas con el foco
 // adentro del editor — j,k solos se desactivan ahí por default de la lib. ctrlKey: true porque
 // jsdom reporta un userAgent sin "mac", así que "mod" resuelve a ctrlKey acá, no metaKey.
@@ -207,6 +246,39 @@ test("mod+k / mod+j mueven entre notas del notebook", async () => {
   await waitFor(() =>
     expect(container.querySelector('[data-active="true"]')?.textContent).toContain("Nota 1"),
   )
+})
+
+// Regla v2 (ADR 0017): los bare j/k murieron — las letras escriben en el editor. Un j accidental
+// con el índice enfocado no debe mover la selección (el type-to-focus del editor embebido hace
+// su trabajo; con el editor mockeado acá, lo único verificable es que NO navega).
+test("j bare ya no mueve la selección", async () => {
+  state.notes = [
+    {
+      id: "n1",
+      title: "Nota 1",
+      content: { type: "doc" },
+      notebook_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      position: 0,
+    },
+    {
+      id: "n2",
+      title: "Nota 2",
+      content: { type: "doc" },
+      notebook_id: "c1",
+      kind: "note",
+      created_at: "2026-01-01",
+      position: 1,
+    },
+  ]
+  const { container } = renderNotebook()
+  await screen.findByText("Nota 1")
+
+  fireEvent.keyDown(document, { code: "KeyJ" })
+  await new Promise((r) => setTimeout(r, 50))
+
+  expect(container.querySelector('[data-active="true"]')?.textContent).toContain("Nota 1")
 })
 
 // Variant E: la celda derecha de cada fila muestra frescura (días desde el último repaso) y queda

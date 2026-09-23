@@ -213,13 +213,14 @@ export function localStore(): Store {
       return {
         notebooks: live(read("notebooks")),
         notes: live(read("notes")).map(
-          ({ id, title, notebook_id, position, kind, created_at }) => ({
+          ({ id, title, notebook_id, position, kind, created_at, updated_at }) => ({
             id,
             title,
             notebook_id,
             position,
             kind,
             created_at,
+            updated_at,
           }),
         ),
         reads: read("read_log").map(({ note_id, read_at, grade }) => ({ note_id, read_at, grade })),
@@ -275,21 +276,28 @@ export function localStore(): Store {
       const rows = read(table)
 
       if (id) {
+        // updated_at es la señal de "última editada" (migración 0013): en Postgres lo pone el
+        // trigger, acá lo setea el adapter — sólo notes, la única tabla con la columna.
+        const touch = table === "notes" ? { updated_at: now() } : null
         write(
           table,
-          rows.map((r) => (r.id === id ? { ...r, ...values } : r)),
+          rows.map((r) => (r.id === id ? { ...r, ...values, ...touch } : r)),
         )
         return undefined as WriteResult[E]
       }
 
-      const row = {
+      const base = {
         id: crypto.randomUUID(),
         user_id: LOCAL_USER_ID,
         ...DEFAULTS[table],
         ...values,
         deleted_at: null,
         created_at: now(),
-      } as Tables[typeof table]
+      }
+      // updated_at sólo existe en notes (migración 0013): local lo mantiene igual a Postgres.
+      const row = (
+        table === "notes" ? { ...base, updated_at: now() } : base
+      ) as Tables[typeof table]
       write(table, [...rows, row])
       // Sólo `notes` devuelve la fila (ADR 0008); el resto no la necesita.
       return (entity === "notes" ? row : undefined) as WriteResult[E]

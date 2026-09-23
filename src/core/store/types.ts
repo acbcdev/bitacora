@@ -31,7 +31,7 @@ export type AuthUser = { email: string }
 // `note(id)`. A ~1.500 notas, mandar el content en el snapshot serían megas por cada arranque.
 export type NoteRef = Pick<
   Note,
-  "id" | "title" | "notebook_id" | "position" | "kind" | "created_at"
+  "id" | "title" | "notebook_id" | "position" | "kind" | "created_at" | "updated_at"
 >
 
 // Una fila cruda de read_log. `grade` sólo viene completo en flashcards.

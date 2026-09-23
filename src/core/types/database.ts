@@ -61,6 +61,7 @@ export type Database = {
           kind: NoteKind
           position: number
           imported: boolean
+          updated_at: string
         } & Timestamps
         Insert: {
           id?: string
@@ -71,6 +72,8 @@ export type Database = {
           kind?: NoteKind
           position?: number
           imported?: boolean
+          // Postgres lo setea (default + trigger, migración 0013): llega en la fila devuelta.
+          updated_at?: string
           deleted_at?: string | null
           created_at?: string
         }

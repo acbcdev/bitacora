@@ -60,13 +60,22 @@ export function useCreateNote() {
   )
 }
 
-const toRef = ({ id, title, notebook_id, position, kind, created_at }: Note): NoteRef => ({
+const toRef = ({
   id,
   title,
   notebook_id,
   position,
   kind,
   created_at,
+  updated_at,
+}: Note): NoteRef => ({
+  id,
+  title,
+  notebook_id,
+  position,
+  kind,
+  created_at,
+  updated_at,
 })
 
 export function useUpdateNote() {

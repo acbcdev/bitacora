@@ -59,7 +59,7 @@ export function supabaseStore(): Store {
         // Sin `content`: es el 99% del peso y sólo lo necesita la nota abierta.
         supabase
           .from("notes")
-          .select("id, title, notebook_id, position, kind, created_at")
+          .select("id, title, notebook_id, position, kind, created_at, updated_at")
           .is("deleted_at", null),
         supabase.from("read_log").select("note_id, read_at, grade"),
         supabase.from("habits").select("*").is("deleted_at", null),

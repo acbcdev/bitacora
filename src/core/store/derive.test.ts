@@ -2,6 +2,7 @@ import {
   notebookNotes,
   notebooksPage,
   frozenTarget,
+  lastEditedNote,
   liveNotebooks,
   noteRefs,
   retention,
@@ -42,6 +43,7 @@ const note = (over: Partial<NoteRef> = {}): NoteRef => ({
   position: 0,
   kind: "note",
   created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
   ...over,
 })
 
@@ -95,6 +97,19 @@ describe("notebookNotes / noteRefs", () => {
     })
     expect(notebookNotes(snap, "c1").map((n) => n.id)).toEqual(["a", "b"])
     expect(noteRefs(snap).map((n) => n.id)).toEqual(["a", "otra", "b"])
+  })
+
+  // Selección inicial del notebook (spec .scratch/editor-flow, issue 02): máx updated_at, sin
+  // tocar el orden de la lista. Filas viejas de localStorage pueden no traer updated_at.
+  test("lastEditedNote: máx updated_at, con fallback a created_at", () => {
+    const notes = [
+      note({ id: "a", updated_at: "2026-01-01" }),
+      note({ id: "b", updated_at: "2026-06-01" }),
+      note({ id: "c", updated_at: "2026-03-01" }),
+    ]
+    expect(lastEditedNote(notes)?.id).toBe("b")
+    expect(lastEditedNote([])).toBeUndefined()
+    expect(lastEditedNote([note({ id: "vieja", updated_at: undefined })])?.id).toBe("vieja")
   })
 })
 

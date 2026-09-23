@@ -93,12 +93,13 @@ function renderNotebook() {
   )
 }
 
-test("`n` abre la nota nueva sin esperar ningún SELECT, y no rebota a la primera", async () => {
+test("⌘N abre la nota nueva sin esperar ningún SELECT, y no rebota a la primera", async () => {
   renderNotebook()
   await waitFor(() => expect(screen.getByTestId("note-id")).toHaveTextContent("n1"))
 
   const t0 = Date.now()
-  fireEvent.keyDown(document, { key: "n", code: "KeyN" })
+  // ctrlKey: true — jsdom reporta un userAgent sin "mac", "mod" resuelve a ctrlKey acá.
+  fireEvent.keyDown(document, { key: "n", code: "KeyN", ctrlKey: true })
   await waitFor(() => expect(screen.getByTestId("note-id")).toHaveTextContent("n2"))
 
   // Falla si alguien devuelve la promesa del invalidateQueries (el navigate se cuelga del refetch)

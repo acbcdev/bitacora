@@ -26,25 +26,32 @@ interacción, no decoración.
 Resultado del grill en `.scratch/keyboard-shortcuts/`. Antes de agregar un shortcut nuevo, revisar
 si ya hay una tecla con este significado en otra vista — reusarla en vez de inventar una nueva.
 
-| Tecla | Significa | Dónde aplica bare | Dónde necesita `mod+` |
-|---|---|---|---|
-| `J`/`K` (+ `Left`/`Right` alias) | anterior/siguiente en una secuencia plana | listas sin contenido editable (Cursos, Repaso) | vistas con editor siempre enfocado (Course: nav de notas) |
-| `N` | crear | siempre (no hay contenido editable en el punto donde se dispara) | — |
-| `E` | editar | Cursos (fila seleccionada) | — |
-| `Delete`/`Backspace` | borrar (siempre con confirmación) | Cursos (fila seleccionada, sin editable) | Nota (contenido editable siempre enfocado) |
-| `Enter` | confirmar / abrir la acción principal | Cursos (abrir), Repaso (marcar leído/revelar, gateado en dialog), CourseForm (submit nativo), CommandPalette (cmdk) | — |
-| `Esc` | cerrar / cancelar / salir | siempre | — |
-| `/` (bind: `"slash"`, no `"/"` — la lib matchea por `e.code`) | enfocar buscador | Cursos | — |
-| chord `g>`/`h>` + dígito | acción por posición, sin gastar una letra bare: `g>1..9` = ir al curso N del sidebar, `h>1..9` = acción rápida del hábito N de la tira de Hoy | — (siempre chord) | — |
-| `mod+,` | abrir Ajustes | — | global (convención del SO: es la tecla que todo el mundo prueba primero) |
-| `mod+` | señal de "esto es deliberado, corré aunque el foco esté en un editor" | — | Note (`F`, borrar), Course (nav de notas), global (`mod+k`, precedente ya existente) |
+**Regla v2 (ADR 0017): "las letras escriben, mod+ manda" — por pantalla, no por tecla.** Donde
+hay editor (Nota, Notebook) cualquier letra a-z con el editor desenfocado enfoca el editor y se
+escribe, sin excepciones (ni F: focus mode es `⌘F`); las acciones de app viven solo en `mod+`.
+Donde no hay editor (Repaso, Cursos), bare queda. Los chords `g>`/`h>` solo llegan a pantallas
+sin editor — desde Nota/Notebook, `Esc` primero. Detalle en `.scratch/editor-flow/`.
 
-**Regla de fondo:** un atajo de una sola letra bare es inseguro en cualquier vista donde el foco
-puede estar sobre contenido editable — colisiona con escribir esa letra (bug real encontrado con
-`Space` en Repaso y `F` en Nota, ver `.scratch/keyboard-shortcuts/to-grill-keyboard-shortcuts.md`).
-Fix: separar en un par bare (default de la lib, se desactiva solo con foco en editable) + `mod+`
-(forzado, para cuando el foco sí está en el editor) — salvo acciones destructivas (borrar), que van
-solo con `mod+`, sin alias bare, porque no hay beneficio en que anden fuera del editor.
+| Tecla                                                         | Significa                                                                                                                                     | Dónde aplica bare                                                                                                   | Dónde necesita `mod+`                                                                |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `J`/`K` (+ `Left`/`Right` alias)                              | anterior/siguiente en una secuencia plana                                                                                                     | Repaso y Cursos (sin editor)                                                                                        | Notebook (nav del índice — ahí las letras escriben, v2)                              |
+| `N`                                                           | crear                                                                                                                                         | Cursos (sin editor, no hay editable en el punto de disparo)                                                         | Notebook (`⌘N` — v2: las letras escriben)                                            |
+| `E`                                                           | editar                                                                                                                                        | Cursos (fila seleccionada, sin editor)                                                                              | —                                                                                    |
+| `Delete`/`Backspace`                                          | borrar (siempre con confirmación)                                                                                                             | Cursos (fila seleccionada, sin editable)                                                                            | Nota (contenido editable siempre enfocado)                                           |
+| `Enter`                                                       | confirmar / abrir la acción principal                                                                                                         | Cursos (abrir), Repaso (marcar leído/revelar, gateado en dialog), CourseForm (submit nativo), CommandPalette (cmdk) | —                                                                                    |
+| `Esc`                                                         | cerrar / cancelar / salir                                                                                                                     | siempre                                                                                                             | —                                                                                    |
+| `/` (bind: `"slash"`, no `"/"` — la lib matchea por `e.code`) | enfocar buscador                                                                                                                              | Cursos                                                                                                              | —                                                                                    |
+| chord `g>`/`h>` + dígito                                      | acción por posición, sin gastar una letra bare: `g>1..9` = ir al curso N del sidebar, `h>1..9` = acción rápida del hábito N de la tira de Hoy | — (siempre chord)                                                                                                   | —                                                                                    |
+| Letra a-z con editor desenfocado                              | escribir (type-to-focus)                                                                                                                      | Nota y Notebook (sin excepciones, v2)                                                                               | —                                                                                    |
+| `mod+,`                                                       | abrir Ajustes                                                                                                                                 | —                                                                                                                   | global (convención del SO: es la tecla que todo el mundo prueba primero)             |
+| `mod+`                                                        | señal de "esto es deliberado, corré aunque el foco esté en un editor"                                                                         | —                                                                                                                   | Note (`F`, borrar), Course (nav de notas), global (`mod+k`, precedente ya existente) |
+
+**Regla de fondo (v1, ADR 0017 la re-decide):** un atajo de una sola letra bare es inseguro en
+cualquier vista donde el foco puede estar sobre contenido editable — colisiona con escribir esa
+letra (bug real con `Space` en Repaso y `F` en Nota, ver
+`.scratch/keyboard-shortcuts/to-grill-keyboard-shortcuts.md`). La v2 lo resuelve por partición:
+en pantalla con editor las letras escriben y todo es `mod+`; en pantalla sin editor bare es
+seguro y queda. Las acciones destructivas (borrar) siguen solo con `mod+` en ambos mundos.
 
 ## Qué NO hacer
 

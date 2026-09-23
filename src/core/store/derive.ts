@@ -52,6 +52,17 @@ export function noteRefs(snap: Snapshot): NoteRef[] {
   return snap.notes.filter((n) => n.kind === "note").toSorted((a, b) => a.position - b.position)
 }
 
+// La nota en la que se entra a un notebook: la última editada (máx updated_at). Es un HECHO
+// derivado, no ordena nada: el índice queda por position (spec .scratch/editor-flow, issue 02).
+// `?? created_at`: filas viejas de localStorage anteriores a 0013 no traen la columna.
+export function lastEditedNote(notes: NoteRef[]): NoteRef | undefined {
+  return notes.reduce<NoteRef | undefined>(
+    (best, n) =>
+      !best || (n.updated_at ?? n.created_at) > (best.updated_at ?? best.created_at) ? n : best,
+    undefined,
+  )
+}
+
 // Cuántas veces se leyó cada nota y cuándo fue la última.
 function readsByNote(reads: ReadRow[]) {
   const map = new Map<string, { count: number; last: string | null }>()
