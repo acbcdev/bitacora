@@ -48,12 +48,16 @@ Seguimiento de hábitos y `goals`/metas son el mismo territorio conceptual. Esto
 nueva, es la misma idea ya evaluada y descartada con otro nombre. Reabrir esto necesita un caso
 concreto distinto al que ya se descartó, no una preferencia.
 
-**Optimizar mobile → el único ítem de este batch respaldado por un ADR existente.** ADR 0004
-("no offline-first"), textual: "el usuario **repasa en el celular**, online." El caso de uso mobile
-ya está documentado como real para la pantalla Repaso — esto no es scope creep, es cerrar una brecha
-entre lo que el ADR asume y lo que la UI hoy soporta. Prioridad más alta del batch.
+**Optimizar mobile → el supuesto de ADR 0004 estaba sin verificar.** ADR 0004 ("no offline-first")
+declara "el usuario **repasa en el celular**, online" — pero grillado 2026-06, el usuario confirmó
+que **nunca usó Repaso en el celular**. Spec-ear mobile-Repaso sería spec sobre un supuesto, el
+mismo patrón que este grill ya cazó en dos ítems más de este batch. **Decisión: trial en celu
+primero** (usar Repaso en el celular una semana real, anotar qué duele, recién ahí spec-ear).
+Detalle en `.scratch/mobile/spec.md`. Bug mobile confirmado con dolor real: el trigger del sidebar
+se pierde al scrollear (`.scratch/mobile/issues/01-sidebar-trigger-scroll.md`).
 
 **Abstraer DB para permitir `localStorage` en vez de Supabase → contradice 3 ADRs a la vez:**
+
 - ADR 0001: SQLite local/Dexie/IndexedDB fueron evaluados y rechazados explícitamente ("muertos al
   elegir un backend hosted").
 - ADR 0004: "Sin offline-first, sin sync engine" — un storage swap Supabase↔localStorage es
@@ -71,6 +75,7 @@ genérica de storage.
 
 **Sidebar de integración AI (generar flashcards automático) → varios problemas simultáneos.
 Actualizado 2026-07-30: de los cuatro, dos ya cayeron.**
+
 - ~~Depende de que exista la entidad `flashcards`~~ — **resuelto**: son `notes.kind = 'flashcard'`,
   y ya se generan con AI (botón "Generar flashcards" en la pantalla Curso, `course.tsx:208`).
 - `ui-principles.md` regla #3: "Sin sidebars pesadas, sin toolbars llenas de botones que no se usan."
@@ -94,31 +99,41 @@ pantalla nueva (vive en Nota, una de las 3 ya aprobadas) — menor fricción con
 ese eje. Sí hay que vigilar cuántos botones se agregan al editor: "chrome mínimo" aplica igual ahí
 adentro.
 
-**Más shortcuts → sin conflicto, es la regla #1 de `ui-principles.md` tal cual.** Ítem más barato y
-más alineado de todo el batch. No necesita grill adicional, necesita lista concreta de qué acciones
-todavía no tienen tecla.
+**Más shortcuts → grillado y re-decidido como convención de teclado v2 (ADR 0017).** El inventario
+encontró que las acciones frecuentes ya tenían tecla, pero el grill descubrió el dolor real: el
+costo mental de la convención dual bare/mod+ y el editor que no recibe tipeo directo. **Regla v2:
+"las letras escriben, mod+ manda", por pantalla** — con editor (Nota, Notebook) las letras
+escriben y todo es mod+; sin editor (Repaso, Cursos) bare queda. Incluye type-to-focus sin
+exenciones, `N`→`⌘N` en Notebook, y la selección inicial del notebook = última editada
+(migración 0013, `notes.updated_at` + trigger). Spec e issues en `.scratch/editor-flow/`.
+Tabla viva actualizada en `docs/ui-principles.md`.
 
 ## Lista, por costo/conflicto real
 
 **Tier 0 — ya existe**
+
 - Theme claro/oscuro (`app.tsx:64-69`, `sidebar.tsx`). Confirmar si "themes" pedía más que esto.
 
 **Tier 1 — alineado con principios documentados, barato**
+
 - Más shortcuts (ui-principles #1). Falta: inventario de acciones sin tecla.
-- Mobile para Repaso — respaldado por ADR 0004 tal cual. Mayor prioridad del batch.
+- Mobile para Repaso — ~~respaldado por ADR 0004 tal cual~~ **el supuesto de ADR 0004 no estaba
+  verificado**: nunca se usó en celu. Trial primero, spec después (`.scratch/mobile/spec.md`).
 
 **Tier 2 — reabre scope de pantallas, necesita justificar antes de construir**
+
 - ~~Settings~~ — **HECHO (2026-08-25).** No terminó siendo pantalla: es un `Drialog`. Lo justificó
   el modo de almacenamiento, que necesitaba dónde vivir. Ver el bloque "Resuelto" al final.
 
 **Tier 3 — contradice una decisión ya tomada, no reabrir sin caso nuevo**
+
 - ~~Seguimiento de hábitos~~ — **HECHO. Reabierto con caso nuevo, specificado en
   `.scratch/habits/spec.md` e implementado (2026-08-20): tablas `habits` + `habit_log`
   (`0010_habits.sql`), tiles en Repaso, panel, dialog y cronómetro. Los 6 issues de
   `.scratch/habits/issues/` están en `resuelto`.** No era el mismo territorio que `goals`: entidad propia + log propio
-  + hábitos **malos**, nada de eso derivable de `read_log`. Responde la pregunta abierta #2. El
-  gate del loop diario (#5) **sigue abierto** — se saltó por decisión consciente del usuario, no
-  porque se haya resuelto.
+  - hábitos **malos**, nada de eso derivable de `read_log`. Responde la pregunta abierta #2. El
+    gate del loop diario (#5) **sigue abierto** — se saltó por decisión consciente del usuario, no
+    porque se haya resuelto.
 - ~~Abstracción DB → localStorage~~ — **HECHA (2026-08-25), reabierta con caso nuevo.** El
   rechazo aplicaba a "una capa genérica para un usuario hipotético"; lo construido es el seam
   `Store` con dos adapters, y los beneficiarios son los tests, el clone sin env y probar la app
@@ -126,6 +141,7 @@ todavía no tienen tecla.
 
 **Tier 4 — ~~requiere decisión de arquitectura nueva~~ → la decisión se tomó (2026-07-30, ADR 0010).
 El backend existe y la AI ya está en producción. Esto bajó de tier.**
+
 - ~~Auto-generar flashcards~~ — **hecho**, sin sidebar: un botón en la pantalla Curso.
 - Sidebar AI — lo único que lo frena hoy es "chrome mínimo" (`ui-principles.md` #3) + falta de caso
   de uso. Ya no es un problema de infra.
@@ -187,7 +203,15 @@ ADR 0004) y el inventario de acciones sin tecla para "más shortcuts" — sólo 
 
 ## Próximo paso
 
-Tier 1 (shortcuts, mobile) no depende de ninguna respuesta pendiente — **es lo que queda listo para
-spec-ear**, y mobile-en-Repaso sigue siendo lo más respaldado del doc (ADR 0004). Las preguntas 3, 4
-y 5 (abstracción DB, contenido de Settings, gate del loop diario) siguen abiertas y siguen bloqueando
-sus features.
+Mobile-Repaso **cayó del tier 1**: estaba respaldado por un supuesto de ADR 0004 sin verificar —
+el usuario nunca repasó en el celu. Sale del batch hasta tener el trial real en mano
+(`.scratch/mobile/spec.md`). El único fix mobile con dolor confirmado es el trigger del sidebar
+(`.scratch/mobile/issues/01-sidebar-trigger-scroll.md`).
+
+**Shortcuts: RESUELTO** — quedó convertido en la convención v2 (ADR 0017) con spec e issues en
+`.scratch/editor-flow/`. El item "inventario de acciones sin tecla" ya no existe: la regla es por
+pantalla, no por inventario.
+
+**Siguen abiertos del batch:** tonos de nota y sidebar AI (Tier 4, ambos gateados por la
+pregunta 5: ¿el loop diario está en uso diario real?) y themes multi-preset (hogar ya existe,
+falta decidir qué significa).
