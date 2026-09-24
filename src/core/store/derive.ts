@@ -182,23 +182,6 @@ export function reviewQueue(snap: Snapshot, limit: number): NoteRef[] {
     .slice(0, limit)
 }
 
-// % de retención por notebook: correctos / autoevaluaciones (ADR 0003, nada denormalizado).
-// El join read_log → notes(notebook_id) que antes hacía PostgREST, acá es un Map.
-export function retention(snap: Snapshot): Map<string, number> {
-  const notebookOf = new Map(snap.notes.map((n) => [n.id, n.notebook_id]))
-  const totals = new Map<string, { correct: number; total: number }>()
-  for (const r of snap.reads) {
-    if (!r.grade) continue
-    const notebookId = notebookOf.get(r.note_id)
-    if (!notebookId) continue
-    const t = totals.get(notebookId) ?? { correct: 0, total: 0 }
-    t.total++
-    if (r.grade === "correcto") t.correct++
-    totals.set(notebookId, t)
-  }
-  return new Map([...totals].map(([id, t]) => [id, Math.round((t.correct / t.total) * 100)]))
-}
-
 // Meta diaria = el batch de review_queue() (migrations/0003). El diseño muestra "leídas hoy N/M".
 export const DAILY_GOAL = 3
 

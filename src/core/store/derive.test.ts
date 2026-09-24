@@ -5,7 +5,6 @@ import {
   lastEditedNote,
   liveNotebooks,
   noteRefs,
-  retention,
   reviewQueue,
   type NotebooksQuery,
 } from "@/core/store/derive"
@@ -237,31 +236,6 @@ describe("reviewQueue", () => {
   test("corta en el límite", () => {
     const snap = snapshot({ notes: Array.from({ length: 10 }, (_, i) => note({ id: `n${i}` })) })
     expect(reviewQueue(snap, 3)).toHaveLength(3)
-  })
-})
-
-describe("retention", () => {
-  test("es correctos sobre el total de autoevaluaciones, redondeado, por notebook", () => {
-    const snap = snapshot({
-      notes: [note({ id: "n1", notebook_id: "c1" }), note({ id: "n2", notebook_id: "c2" })],
-      reads: [
-        read("n1", "2026-02-01T10:00:00Z", "correcto"),
-        read("n1", "2026-02-02T10:00:00Z", "parcial"),
-        read("n1", "2026-02-03T10:00:00Z", "incorrecto"),
-        read("n2", "2026-02-01T10:00:00Z", "correcto"),
-      ],
-    })
-    const pct = retention(snap)
-    expect(pct.get("c1")).toBe(33)
-    expect(pct.get("c2")).toBe(100)
-  })
-
-  test("un repaso sin grade (nota normal) no entra en el cálculo", () => {
-    const snap = snapshot({
-      notes: [note({ id: "n1" })],
-      reads: [read("n1", "2026-02-01T10:00:00Z")],
-    })
-    expect(retention(snap).size).toBe(0)
   })
 })
 
