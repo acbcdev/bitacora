@@ -6,7 +6,7 @@ import { store } from "@/core/store"
 import { setStorageMode } from "@/core/store/mode"
 import { cn } from "@/core/lib/utils"
 import type { StorageMode } from "@/core/store/types"
-import { playDoneSound } from "@/habits/habit-timer"
+import { playDoneSound } from "@/habits/sound"
 
 // Ajustes como Drialog y no como ruta: un overlay no reabre "solo 3 pantallas" (ui-principles),
 // mismo criterio que el dialog de hábitos. CONTEXT.md ya dejaba escrita esta dirección.
