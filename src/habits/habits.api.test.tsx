@@ -6,9 +6,9 @@ import { useSetDay } from "@/habits/habits.api"
 import { habit, habitLogRow, renderApp } from "@/test/harness"
 import type { Habit } from "@/core/types/database"
 
-// Seam Store (spec habit-quick-increment): el +1 se decide en el onMutate optimista, leyendo el
-// cache en el instante del mutate — no la render, que puede estar vieja. Dos mutates seguidos sin
-// await reproducen el doble tap rápido sin esperar timers.
+// Seam Store (spec habit-quick-increment): el +1 se decide en el sow optimista, leyendo el cache
+// en el instante del mutate — no la render, que puede estar vieja. Dos mutates seguidos sin await
+// reproducen el doble tap rápido sin esperar timers.
 let nudge!: (delta: number) => void
 let set!: (value: number) => void
 

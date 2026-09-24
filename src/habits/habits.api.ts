@@ -1,10 +1,9 @@
 import { store } from "@/core/store"
 import { frozenTarget } from "@/core/store/derive"
-import { SNAPSHOT_KEY, useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
-import { useQueryClient } from "@tanstack/react-query"
+import { useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
 import { toast } from "sonner"
 import type { Habit } from "@/core/types/database"
-import type { HabitInput, HabitLogRow, Snapshot } from "@/core/store/types"
+import type { HabitInput, HabitLogRow } from "@/core/store/types"
 
 // Hábitos vivos, en orden de creación. Ese orden es el de la tira y el del chord h>1..9: si algo
 // lo reordenara, h>2 sería otro hábito según el día.
@@ -33,16 +32,15 @@ const nextAmount = (prev: HabitLogRow | undefined, { value, delta }: SetDayInput
   value !== undefined ? value : Math.max(0, (prev?.amount ?? 0) + (delta ?? 0))
 
 export function useSetDay() {
-  const qc = useQueryClient()
   return useSnapshotMutation(
-    (input: SetDayInput) => {
+    (input: SetDayInput, snap) => {
       const { habit, day } = input
-      // El onMutate ya resolvió el delta contra el cache: la fila que persistimos es LA MISMA que
-      // dejó el optimismo. Recalcular acá contaría el delta dos veces (mutate → onMutate → fn). Si
-      // el cache estaba vacío, onMutate no escribió nada y se resuelve pelado.
+      // El sow ya resolvió el delta contra el cache: la fila que persistimos es LA MISMA que
+      // dejó el optimismo. Recalcular acá contaría el delta dos veces (mutate → sow → fn). Si
+      // el cache estaba vacío, sow no escribió nada y se resuelve pelado.
       // El target congelado lo resuelve `derive.frozenTarget`, una sola vez y del lado de acá:
       // el adapter escribe lo que le dan (ADR 0009).
-      const log = qc.getQueryData<Snapshot>(SNAPSHOT_KEY)?.habitLog ?? []
+      const log = snap?.habitLog ?? []
       const prev = log.find((r) => r.habit_id === habit.id && r.day === day)
       return store.save("habit_log", {
         habit_id: habit.id,
@@ -53,26 +51,23 @@ export function useSetDay() {
     },
     {
       // Optimismo en la UI (ui-principles 4): el número y el relleno se mueven sin esperar el
-      // round-trip. El +/− se aplica sobre ESTE cache (el más fresco), no sobre la render.
-      onMutate: (input: SetDayInput) => {
-        qc.setQueryData<Snapshot>(SNAPSHOT_KEY, (snap) => {
-          if (!snap) return snap
-          const prev = snap.habitLog.find(
-            (r) => r.habit_id === input.habit.id && r.day === input.day,
-          )
-          const next: HabitLogRow = {
-            habit_id: input.habit.id,
-            day: input.day,
-            amount: nextAmount(prev, input),
-            target: prev?.target ?? input.habit.target,
-          }
-          return {
-            ...snap,
-            habitLog: prev
-              ? snap.habitLog.map((r) => (r === prev ? next : r))
-              : [...snap.habitLog, next],
-          }
-        })
+      // round-trip. El +/− se aplica sobre ESTE cache (el más fresco en el instante del mutate,
+      // no la render); el rollback al faller lo hace `useSnapshotMutation`.
+      sow: (snap, input) => {
+        if (!snap) return snap
+        const prev = snap.habitLog.find((r) => r.habit_id === input.habit.id && r.day === input.day)
+        const next: HabitLogRow = {
+          habit_id: input.habit.id,
+          day: input.day,
+          amount: nextAmount(prev, input),
+          target: frozenTarget(snap.habitLog, input.habit.id, input.day, input.habit.target),
+        }
+        return {
+          ...snap,
+          habitLog: prev
+            ? snap.habitLog.map((r) => (r === prev ? next : r))
+            : [...snap.habitLog, next],
+        }
       },
     },
   )

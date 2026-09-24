@@ -3,9 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { store } from "@/core/store"
 import { notebookNotes, noteRefs } from "@/core/store/derive"
-import { SNAPSHOT_KEY, useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
+import { useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
 import type { Note, TiptapDoc } from "@/core/types/database"
-import type { NoteRef, Snapshot } from "@/core/store/types"
 
 const EMPTY_DOC: TiptapDoc = { type: "doc", content: [] }
 
@@ -33,50 +32,17 @@ export function useNote(id: string | undefined) {
 }
 
 // Crea nota al final del notebook (position = max+1) y devuelve la fila entera para navegar al editor
-// sin volver a pedirla — un solo roundtrip en todo el flujo (ADR 0008).
+// sin volver a pedirla — un solo roundtrip en todo el flujo (ADR 0008). Sembrar `['note', id]` y el
+// ref en el snapshot lo hace `useSnapshotMutation`: el cache no es decisión de esta mutation.
 export function useCreateNote() {
-  const qc = useQueryClient()
-  return useSnapshotMutation(
-    async (notebookId: string): Promise<Note> => {
-      // El position sale del snapshot que ya está en cache; sin él, 0. Colisión de position =
-      // orden ambiguo entre dos notas, no error (no hay unique constraint).
-      const snap = qc.getQueryData<Snapshot>(SNAPSHOT_KEY)
-      const cached = snap ? notebookNotes(snap, notebookId) : []
-      const position = Math.max(-1, ...cached.map((n) => n.position)) + 1
-      return store.save("notes", { notebook_id: notebookId, position, content: EMPTY_DOC })
-    },
-    {
-      onSuccess: (note) => {
-        // Sembrar, no invalidar (ADR 0008): la fila la acaba de mandar el server. Sin esto el
-        // editor monta con NoteSkeleton y —peor— el efecto de auto-corrección de URL de Notebook no
-        // encuentra la nota en el snapshot viejo y rebota a la primera del notebook.
-        // El refetch del snapshot lo dispara `useSnapshotMutation` sin que nadie lo espere.
-        qc.setQueryData(["note", note.id], note)
-        qc.setQueryData<Snapshot>(SNAPSHOT_KEY, (snap) =>
-          snap ? { ...snap, notes: [...snap.notes, toRef(note)] } : snap,
-        )
-      },
-    },
-  )
+  return useSnapshotMutation(async (notebookId: string, snap): Promise<Note> => {
+    // El position sale del snapshot que ya está en cache; sin él, 0. Colisión de position =
+    // orden ambiguo entre dos notas, no error (no hay unique constraint).
+    const cached = snap ? notebookNotes(snap, notebookId) : []
+    const position = Math.max(-1, ...cached.map((n) => n.position)) + 1
+    return store.save("notes", { notebook_id: notebookId, position, content: EMPTY_DOC })
+  })
 }
-
-const toRef = ({
-  id,
-  title,
-  notebook_id,
-  position,
-  kind,
-  created_at,
-  updated_at,
-}: Note): NoteRef => ({
-  id,
-  title,
-  notebook_id,
-  position,
-  kind,
-  created_at,
-  updated_at,
-})
 
 export function useUpdateNote() {
   const qc = useQueryClient()
