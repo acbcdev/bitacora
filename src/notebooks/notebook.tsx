@@ -72,7 +72,7 @@ const STATUS: Record<NotebookStatus, string> = {
 // La URL manda: /notebook/:id/:noteId siempre apunta a una nota real (se auto-corrige si no).
 // J / K se mueven entre notas sin tocar el mouse. Focus mode esconde este aside (y el
 // Sidebar global, en App) igual que en la nota standalone.
-export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: boolean) => void }) {
+export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFocus: () => void }) {
   const { id, noteId } = useParams()
   const navigate = useNavigate()
   const { data: notebooks = [] } = useNotebooks()
@@ -167,7 +167,7 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
             key={selected.id}
             id={selected.id}
             focus={focus}
-            setFocus={setFocus}
+            onToggleFocus={onToggleFocus}
             embedded
           />
         ) : (
@@ -339,7 +339,6 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
                         hideNotebook
                         confirming={confirmingNote === n.id}
                         onConfirmingChange={(open) => setConfirmingNote(open ? n.id : null)}
-                        onFocus={() => setFocus(true)}
                         onDeleted={() => navigate(`/notebook/${id}`)}
                       />
                     </span>

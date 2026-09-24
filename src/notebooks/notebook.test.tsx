@@ -48,10 +48,13 @@ function renderNotebook() {
       <MemoryRouter initialEntries={["/notebook/c1"]}>
         <TooltipProvider>
           <Routes>
-            <Route path="/notebook/:id" element={<Notebook focus={false} setFocus={() => {}} />} />
+            <Route
+              path="/notebook/:id"
+              element={<Notebook focus={false} onToggleFocus={() => {}} />}
+            />
             <Route
               path="/notebook/:id/:noteId"
-              element={<Notebook focus={false} setFocus={() => {}} />}
+              element={<Notebook focus={false} onToggleFocus={() => {}} />}
             />
           </Routes>
         </TooltipProvider>

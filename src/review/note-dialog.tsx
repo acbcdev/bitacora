@@ -22,7 +22,6 @@ export function NoteDialog({
   onOpenChange,
   onMarkRead,
   onExpand,
-  onFocus,
   onDeleted,
 }: {
   note: Note
@@ -33,7 +32,6 @@ export function NoteDialog({
   onOpenChange: (open: boolean) => void
   onMarkRead: () => void
   onExpand: () => void
-  onFocus: () => void
   onDeleted: () => void
 }) {
   // Callback ref, no useRef: Radix monta el contenido un tick después de que `open` pasa a true
@@ -100,7 +98,6 @@ export function NoteDialog({
             content={() => note.content}
             confirming={confirming}
             onConfirmingChange={setConfirming}
-            onFocus={onFocus}
             onDeleted={onDeleted}
           />
         </div>

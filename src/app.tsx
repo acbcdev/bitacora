@@ -29,6 +29,7 @@ import { Settings } from "@/settings/settings"
 import { store } from "@/core/store"
 import type { AuthUser } from "@/core/store/types"
 import { mod } from "@/core/lib/utils"
+import { useFocusMode } from "@/core/lib/hooks/use-focus-mode"
 import { Notebook } from "@/notebooks/notebook"
 import { Notebooks } from "@/notebooks/notebooks"
 import { ErrorBoundary } from "@/core/components/error-boundary"
@@ -59,7 +60,7 @@ export function App() {
 // desaparece todo el chrome y queda sola la nota.
 function Shell({ user }: { user: AuthUser }) {
   const navigate = useNavigate()
-  const { pathname, search } = useLocation()
+  const { pathname } = useLocation()
   const { data: notebooks = [] } = useNotebooks()
   const { data: notes = [] } = useAllNoteRefs()
   const pinnedIds = usePinnedNotebookIds()
@@ -67,34 +68,17 @@ function Shell({ user }: { user: AuthUser }) {
   const [palette, setPalette] = useState(false)
   const [cheat, setCheat] = useState(false)
   const [settings, setSettings] = useState(false)
-  const [focus, setFocus] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("bita-sb") === "1")
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"))
+
+  // Un módulo, un seam: URL ?focus=1, Fullscreen API y Esc viven adentro. Shell sólo lee `focus`
+  // y reparte enter()/exit() a las pantallas.
+  const { focus, enter, exit } = useFocusMode()
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
     localStorage.setItem("bita-theme", dark ? "dark" : "light")
   }, [dark])
-
-  // Cambiar de pantalla sale de focus mode — salvo que la URL lo pida con `?focus=1`, que es
-  // como el menú de acciones de la nota abre "Focus" desde el dialog de Repaso.
-  useEffect(() => setFocus(new URLSearchParams(search).has("focus")), [pathname, search])
-
-  // Focus = fullscreen nativo (como un video): se va también el chrome del browser, no sólo el
-  // de la app. requestFullscreen exige gesto del usuario: con `?focus=1` (navegación, sin
-  // gesto) la promesa rechaza y queda sólo el layout sin chrome — de ahí el catch.
-  // ponytail: Fullscreen API pelada, sin prefijos webkit (Safari 16.4+ ya va sin ellos).
-  useEffect(() => {
-    if (focus) document.documentElement.requestFullscreen().catch(() => {})
-    else if (document.fullscreenElement) document.exitFullscreen()
-
-    // Esc y F11 salen del fullscreen sin pasar por React (el browser se come la tecla).
-    function sync() {
-      if (!document.fullscreenElement) setFocus(false)
-    }
-    document.addEventListener("fullscreenchange", sync)
-    return () => document.removeEventListener("fullscreenchange", sync)
-  }, [focus])
 
   // Persistir fuera de los updaters (React puede invocarlos más de una vez). El effect es el
   // único escritor: cubre toggleSidebar, onOpenChange y cualquier otro camino a setCollapsed.
@@ -185,7 +169,7 @@ function Shell({ user }: { user: AuthUser }) {
         label: "Focus mode",
         kbd: "F",
         icon: <Maximize2 />,
-        run: () => setFocus(true),
+        run: () => enter(),
       },
       {
         group: "Vista",
@@ -247,15 +231,15 @@ function Shell({ user }: { user: AuthUser }) {
               <Route path="/notebooks" element={<Notebooks />} />
               <Route
                 path="/notebook/:id"
-                element={<Notebook focus={focus} setFocus={setFocus} />}
+                element={<Notebook focus={focus} onToggleFocus={exit} />}
               />
               <Route
                 path="/notebook/:id/:noteId"
-                element={<Notebook focus={focus} setFocus={setFocus} />}
+                element={<Notebook focus={focus} onToggleFocus={exit} />}
               />
               {/* Solo para notas sin notebook (note.notebook_id null) — con notebook, la ruta principal
                   es /notebook/:id/:noteId de arriba. */}
-              <Route path="/note/:id" element={<Note focus={focus} setFocus={setFocus} />} />
+              <Route path="/note/:id" element={<Note focus={focus} onToggleFocus={exit} />} />
             </Routes>
           </ErrorBoundary>
         </main>

@@ -25,7 +25,6 @@ const note = { id: "n1", title: "Mi nota", notebook_id: "c1", content: doc } as 
 function renderActions(props: Partial<React.ComponentProps<typeof NoteActions>> = {}) {
   const onDeleted = vi.fn()
   const onConfirmingChange = vi.fn()
-  const onFocus = vi.fn()
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -37,7 +36,6 @@ function renderActions(props: Partial<React.ComponentProps<typeof NoteActions>> 
             content={() => doc}
             confirming={false}
             onConfirmingChange={onConfirmingChange}
-            onFocus={onFocus}
             onDeleted={onDeleted}
             {...props}
           />
@@ -45,7 +43,7 @@ function renderActions(props: Partial<React.ComponentProps<typeof NoteActions>> 
       </MemoryRouter>
     </QueryClientProvider>,
   )
-  return { onDeleted, onConfirmingChange, onFocus }
+  return { onDeleted, onConfirmingChange }
 }
 
 // Radix abre el menú con pointerdown; en jsdom es más estable por teclado (ver notebook.test.tsx).

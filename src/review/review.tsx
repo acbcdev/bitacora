@@ -109,14 +109,8 @@ export function Review() {
     keysEnabled,
   ])
 
-  // "Focus" del menú de acciones: misma navegación que expandir, pero entrando ya en focus mode.
-  // `?focus=1` porque cambiar de ruta apaga el focus en App — el param se lo vuelve a prender.
-  const openFocused = useCallback(() => {
-    if (!note) return
-    setDialogOpen(false)
-    const to = note.notebook_id ? `/notebook/${note.notebook_id}/${note.id}` : `/note/${note.id}`
-    navigate(`${to}?focus=1`)
-  }, [note, navigate])
+  // "Focus" del menú de acciones vive en NoteActions (única superficie que lo usaba desde el
+  // dialog): cruza el seam de useFocusMode con focusHref — sin props perforados por acá.
 
   useSafeHotkeys("j", prev, { preventDefault: true, enabled: keysEnabled }, [prev, keysEnabled]) // volver
   useSafeHotkeys("k", next, { preventDefault: true, enabled: keysEnabled }, [next, keysEnabled]) // siguiente, sin contar
@@ -201,7 +195,6 @@ export function Review() {
           reads={reads}
           markReadAndNext={markReadAndNext}
           openExpanded={openExpanded}
-          openFocused={openFocused}
           next={next}
         />
       )}

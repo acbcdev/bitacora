@@ -80,7 +80,7 @@ function renderNotebook() {
                 element={
                   <>
                     <NoteIdProbe />
-                    <Notebook focus={false} setFocus={() => {}} />
+                    <Notebook focus={false} onToggleFocus={() => {}} />
                   </>
                 }
               />

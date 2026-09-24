@@ -23,12 +23,12 @@ import { EMPTY_READ_STATS, readStats } from "@/core/store/derive"
 export function NoteEditor({
   id,
   focus,
-  setFocus,
+  onToggleFocus,
   embedded = false,
 }: {
   id: string
   focus: boolean
-  setFocus: (v: boolean) => void
+  onToggleFocus: () => void
   embedded?: boolean
 }) {
   const navigate = useNavigate()
@@ -101,11 +101,9 @@ export function NoteEditor({
   // Esc y mod+, porque el foco está siempre en el título o el editor. El `f` bare se retiró con
   // la regla v2 (ADR 0017): las letras escriben, focus mode queda en ⌘F solo.
   const globalScope = { enableOnFormTags: true, enableOnContentEditable: true }
-  useHotkeys("mod+f", () => setFocus(!focus), { ...globalScope, preventDefault: true }, [
-    focus,
-    setFocus,
-  ])
-  useHotkeys("escape", () => setFocus(false), { ...globalScope, enabled: focus }, [setFocus])
+  // Toggle (⌘F entra y sale): el esc del fullscreen/chrome y el del editor lo maneja el hook
+  // y su URL — ya no hay hotkey de escape propio acá.
+  useHotkeys("mod+f", onToggleFocus, { ...globalScope, preventDefault: true }, [onToggleFocus])
 
   if (isLoading) return <NoteSkeleton />
   if (!note) return <p className="p-8 text-muted-foreground">Nota no encontrada.</p>
@@ -150,7 +148,6 @@ export function NoteEditor({
               content={getDoc}
               confirming={confirming}
               onConfirmingChange={setConfirming}
-              onFocus={() => setFocus(true)}
               // embedded: vuelve al notebook (sin noteId) -> Notebook.tsx auto-selecciona la próxima
               // nota. standalone: al notebook si tenía uno, si no a /notebooks.
               onDeleted={() =>
@@ -207,8 +204,8 @@ export function NoteEditor({
 
 // Pantalla Nota standalone (screen 3): /note/:id, para notas sin notebook (note.notebook_id null).
 // Con notebook, la ruta principal es /notebook/:id/:noteId (Notebook.tsx renderiza NoteEditor inline).
-export function Note({ focus, setFocus }: { focus: boolean; setFocus: (v: boolean) => void }) {
+export function Note({ focus, onToggleFocus }: { focus: boolean; onToggleFocus: () => void }) {
   const { id } = useParams()
   if (!id) return null
-  return <NoteEditor id={id} focus={focus} setFocus={setFocus} />
+  return <NoteEditor id={id} focus={focus} onToggleFocus={onToggleFocus} />
 }

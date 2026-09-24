@@ -12,6 +12,7 @@ import {
 } from "@/core/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useDeleteNote } from "@/notes/notes.api"
+import { focusHref } from "@/core/lib/hooks/use-focus-mode"
 import { docToMarkdown, downloadMarkdown } from "@/core/lib/tiptap-markdown"
 import type { Note, TiptapDoc } from "@/core/types/database"
 
@@ -33,7 +34,6 @@ export function NoteActions({
   content,
   confirming,
   onConfirmingChange,
-  onFocus,
   onDeleted,
   hideNotebook,
 }: {
@@ -41,12 +41,18 @@ export function NoteActions({
   content: () => TiptapDoc | Promise<TiptapDoc>
   confirming: boolean
   onConfirmingChange: (open: boolean) => void
-  onFocus: () => void
   onDeleted: () => void
   hideNotebook?: boolean
 }) {
   const navigate = useNavigate()
   const del = useDeleteNote()
+
+  // "Focus": misma navegación que expandir, ya en focus mode — cruza el seam de useFocusMode
+  // (visión?focus=1) sin props perforados desde las pantallas.
+  function openFocused() {
+    const to = note.notebook_id ? `/notebook/${note.notebook_id}/${note.id}` : `/note/${note.id}`
+    navigate(focusHref(to))
+  }
 
   async function copy(text: string, msg: string) {
     await navigator.clipboard.writeText(text)
@@ -70,7 +76,7 @@ export function NoteActions({
           <TooltipContent>Acciones</TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem onSelect={onFocus}>
+          <DropdownMenuItem onSelect={openFocused}>
             <Maximize2 />
             Focus
           </DropdownMenuItem>

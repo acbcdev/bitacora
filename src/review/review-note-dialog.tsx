@@ -13,7 +13,6 @@ export function ReviewNoteDialog({
   reads,
   markReadAndNext,
   openExpanded,
-  openFocused,
   next,
 }: {
   openNote: Note
@@ -24,7 +23,6 @@ export function ReviewNoteDialog({
   reads: number
   markReadAndNext: () => void
   openExpanded: () => void
-  openFocused: () => void
   next: () => void
 }) {
   return (
@@ -37,7 +35,6 @@ export function ReviewNoteDialog({
       reads={reads}
       onMarkRead={markReadAndNext}
       onExpand={openExpanded}
-      onFocus={openFocused}
       onDeleted={() => {
         setDialogOpen(false)
         next()
