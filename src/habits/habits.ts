@@ -29,6 +29,9 @@ export const displayTarget = (h: Pick<Habit, "metric" | "target">) =>
 export const displayAmount = (h: Pick<Habit, "metric">, amountSec: number) =>
   h.metric === "time" ? Math.floor(amountSec / 60) : amountSec
 
+// Inverso de displayTarget/displayAmount: minutos de display → segundos de storage (0011).
+export const fromDisplay = (metric: Habit["metric"], v: number) => (metric === "time" ? v * 60 : v)
+
 // "3/semana", "25 min/día", "máx 0/día" — la meta en una línea. Un número suelto no dice si es
 // piso o techo; el "máx" sí. Para time, target viene en segundos (0011), se muestra en min.
 export const goalText = (h: Pick<Habit, "kind" | "metric" | "target" | "period">) =>

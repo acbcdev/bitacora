@@ -184,9 +184,7 @@ export function clearTimer() {
 // Migración 0011: `amount` y `target` para metric=time ahora son SEGUNDOS.
 // Antes eran minutos int con `round` (±30s por pausa, ADR 0009). Ahora son segundos nativos:
 // `Math.floor((now - startedAt)/1000)` + amountSec, cero round. La view muestra min con /60.
-export function elapsedMs(t: Timer, now = Date.now()) {
-  return now - t.startedAt
-}
+// La vista muestra min con /60.
 export function elapsedSeconds(t: Timer, now = Date.now()) {
   return Math.floor((now - t.startedAt) / 1000)
 }
@@ -194,17 +192,6 @@ export function elapsedSeconds(t: Timer, now = Date.now()) {
 // Lo que hay en DB (segundos) + lo que va del cronómetro, en segundos.
 export function shownSeconds(amountSec: number, t: Timer, now = Date.now()) {
   return amountSec + elapsedSeconds(t, now)
-}
-export function shownMs(amountSec: number, t: Timer, now = Date.now()) {
-  return shownSeconds(amountSec, t, now) * 1000
-}
-
-// Compat: amount venía en minutos. Ahora amountSec es segundos.
-export function elapsedMinutes(t: Timer, now = Date.now()) {
-  return Math.round(elapsedSeconds(t, now) / 60)
-}
-export function shownMinutes(amountSec: number, t: Timer, now = Date.now()) {
-  return Math.floor(shownSeconds(amountSec, t, now) / 60)
 }
 
 export function shownClock(amountSec: number, t: Timer, now = Date.now()) {

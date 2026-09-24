@@ -24,7 +24,7 @@ import { Input } from "@/core/ui/input"
 import { cn } from "@/core/lib/utils"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { IconPicker } from "@/notebooks/icon-picker"
-import { deriveHabit, goalText, streakText } from "@/habits/habits"
+import { deriveHabit, displayTarget, fromDisplay, goalText, streakText } from "@/habits/habits"
 import { HabitHistory } from "@/habits/habit-panel"
 import { useArchiveHabit, useHabitLog, useHabits, useSaveHabit } from "@/habits/habits.api"
 import type { Habit, HabitMetric, HabitPeriod } from "@/core/types/database"
@@ -241,9 +241,7 @@ function HabitForm({ habit, onClose }: { habit: Habit | null; onClose: () => voi
   const [name, setName] = useState(habit?.name ?? "")
   const [icon, setIcon] = useState(habit?.icon ?? null)
   const [metric, setMetric] = useState<HabitMetric>(habit?.metric ?? "check")
-  const [target, setTarget] = useState(
-    String(habit ? (habit.metric === "time" ? Math.round(habit.target / 60) : habit.target) : 1),
-  )
+  const [target, setTarget] = useState(String(habit ? displayTarget(habit) : 1))
   const [period, setPeriod] = useState<HabitPeriod>(habit?.period ?? "day")
 
   // En `check` la meta es 1 y no se pide: o lo hiciste o no. En el resto, piso 1 — una meta de 0 se
@@ -254,7 +252,7 @@ function HabitForm({ habit, onClose }: { habit: Habit | null; onClose: () => voi
     kind: "good" as const,
     metric,
     period,
-    target: metric === "time" ? rawTarget * 60 : rawTarget,
+    target: fromDisplay(metric, rawTarget),
   }
 
   function submit(e: React.FormEvent) {

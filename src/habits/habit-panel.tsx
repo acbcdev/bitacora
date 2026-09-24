@@ -9,7 +9,16 @@ import {
   InputGroupInput,
 } from "@/core/ui/input-group"
 import { dayKey } from "@/core/lib/day"
-import { SERIES, cellColor, cellPct, dayAt, goalText, type HabitState } from "@/habits/habits"
+import {
+  SERIES,
+  cellColor,
+  cellPct,
+  dayAt,
+  displayAmount,
+  fromDisplay,
+  goalText,
+  type HabitState,
+} from "@/habits/habits"
 import { useSetDay } from "@/habits/habits.api"
 import type { Habit, HabitMetric, HabitPeriod } from "@/core/types/database"
 
@@ -71,9 +80,9 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
   // o un h>N con el panel abierto se ven acá al toque.
   // Para time, amount viene en segundos (0011) — en el panel se muestra en min.
   const rawShown = state.days[i].amount
-  const shown = habit.metric === "time" ? Math.floor(rawShown / 60) : rawShown
+  const shown = displayAmount(habit, rawShown)
   const step = STEP[habit.metric]
-  const toStorage = (v: number) => (habit.metric === "time" ? v * 60 : v)
+  const toStorage = (v: number) => fromDisplay(habit.metric, v)
 
   // Cada gesto escribe, igual que el click del tile — la mutation es optimista, el número se mueve
   // sin esperar el round-trip. Antes esto juntaba los cambios en un borrador y los volcaba al

@@ -1,11 +1,11 @@
 import { dayKey } from "@/core/lib/day"
 import {
   clearTimer,
-  elapsedMinutes,
+  elapsedSeconds,
   finishTimer,
   pausedValue,
   readTimer,
-  shownMinutes,
+  shownSeconds,
   startTimer,
   TIMER_KEY,
 } from "@/habits/habit-timer"
@@ -39,16 +39,16 @@ test("pausar antes de 1s no escribe nada", () => {
 test("reanudar parte del acumulado de la DB, no de cero", () => {
   startTimer("h1")
   const t = readTimer()!
-  // shownMinutes ahora es floor(segundos/60), pero el acumulado viene en segundos (720s=12min)
-  expect(shownMinutes(720, t, NOW)).toBe(12)
-  expect(shownMinutes(720, t, NOW + SECONDS(60))).toBe(13)
+  // El acumulado viene en segundos (720s = 12 min).
+  expect(shownSeconds(720, t, NOW)).toBe(720)
+  expect(shownSeconds(720, t, NOW + SECONDS(60))).toBe(780)
 })
 
 test("llegar a la meta avisa y apaga el cronómetro", () => {
   startTimer("h1")
   const t = readTimer()!
   const done = NOW + SECONDS(60 * 25)
-  expect(shownMinutes(0, t, done) >= 25).toBe(true)
+  expect(shownSeconds(0, t, done)).toBe(25 * 60)
 
   // finishTimer recibe SEGUNDOS y anuncia minutos (spec: "minutos derivados de segundos").
   finishTimer("Leer", 25 * 60)
@@ -63,7 +63,7 @@ test("un startedAt viejo en localStorage sobrevive al reload", () => {
 
   const t = readTimer()!
   expect(t.habitId).toBe("h1")
-  expect(elapsedMinutes(t, NOW)).toBe(5)
+  expect(elapsedSeconds(t, NOW)).toBe(300)
 })
 
 test("localStorage con basura no rompe: no hay cronómetro corriendo", () => {
