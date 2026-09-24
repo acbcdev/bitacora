@@ -16,7 +16,7 @@ import { cn } from "@/core/lib/utils"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { Notebooks } from "@/notebooks/notebooks"
 import { ReviewEmpty } from "@/review/review-empty"
-import { ReviewNoteDialog } from "@/review/review-note-dialog"
+import { NoteDialog } from "@/review/note-dialog"
 import { ReviewStats } from "@/review/review-stats"
 import { HabitTiles } from "@/habits/habit-tiles"
 
@@ -186,16 +186,19 @@ export function Review() {
       </Card>
 
       {note && note.kind === "note" && openNote && (
-        <ReviewNoteDialog
-          openNote={openNote}
+        <NoteDialog
+          note={openNote}
           notebook={notebook}
-          dialogOpen={dialogOpen}
-          setDialogOpen={setDialogOpen}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
           marked={marked}
           reads={reads}
-          markReadAndNext={markReadAndNext}
-          openExpanded={openExpanded}
-          next={next}
+          onMarkRead={markReadAndNext}
+          onExpand={openExpanded}
+          onDeleted={() => {
+            setDialogOpen(false)
+            next()
+          }}
         />
       )}
 
