@@ -48,6 +48,7 @@ export function notebookNotes(snap: Snapshot, notebookId: string): NoteRef[] {
 }
 
 // Índice de todas las notas para la command palette y el "últ. repaso" por notebook.
+// kind = 'note' y no notebook_id: las flashcards SÍ tienen notebook y no se listan (ADR 0010).
 export function noteRefs(snap: Snapshot): NoteRef[] {
   return snap.notes.filter((n) => n.kind === "note").toSorted((a, b) => a.position - b.position)
 }
