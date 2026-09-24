@@ -4,8 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { TooltipProvider } from "@/core/ui/tooltip"
 import { Notebook } from "@/notebooks/notebook"
 
-const { generateFlashcards, softDelete, state } = vi.hoisted(() => ({
-  generateFlashcards: vi.fn(() => Promise.resolve()),
+const { softDelete, state } = vi.hoisted(() => ({
   softDelete: vi.fn(() => Promise.resolve()),
   state: {
     notes: [
@@ -27,7 +26,6 @@ const { generateFlashcards, softDelete, state } = vi.hoisted(() => ({
 // tres escrituras — antes era un builder de supabase-js imitado a mano.
 vi.mock("@/core/store", () => ({
   store: {
-    canGenerateFlashcards: true,
     snapshot: async () => ({
       notebooks: [{ id: "c1", name: "Notebook", status: "active", created_at: "2026-01-01" }],
       notes: state.notes,
@@ -38,7 +36,6 @@ vi.mock("@/core/store", () => ({
     note: async (id: string) => state.notes.find((n) => n.id === id),
     save: async () => {},
     softDelete,
-    generateFlashcards,
   },
 }))
 
@@ -64,7 +61,6 @@ function renderNotebook() {
 }
 
 beforeEach(() => {
-  generateFlashcards.mockClear()
   softDelete.mockClear()
   state.reads = []
   state.notes = [
@@ -87,17 +83,6 @@ function openNotebookMenu() {
 }
 
 // Qué se afirma acá cambió con el seam: que el menú dispara la operación del dominio para ESTE
-// notebook. Que un par pregunta/respuesta se guarde como `kind: 'flashcard'` (ADR 0010) es interno
-// del adapter de Supabase — la Edge Function no existe del lado local.
-test("Generar flashcards dispara la generación para el notebook abierto", async () => {
-  renderNotebook()
-  await screen.findByText("Notebook")
-
-  openNotebookMenu()
-  fireEvent.click(await screen.findByRole("menuitem", { name: /Generar flashcards/ }))
-
-  await waitFor(() => expect(generateFlashcards).toHaveBeenCalledWith("c1"))
-})
 
 // Borrar es soft delete (deleted_at, ADR 0002) y va detrás de una confirmación: el menú se
 // desmonta al elegir el item, así que el AlertDialog vive fuera del DropdownMenu.
@@ -157,18 +142,6 @@ test("en mobile, elegir una nota del índice scrollea al panel de la nota", asyn
 
   expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth" })
   Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 1024 })
-})
-
-test("el botón queda deshabilitado si el notebook no tiene notas", async () => {
-  state.notes = []
-  renderNotebook()
-  await screen.findByText("Notebook")
-
-  openNotebookMenu()
-  expect(await screen.findByRole("menuitem", { name: /Generar flashcards/ })).toHaveAttribute(
-    "aria-disabled",
-    "true",
-  )
 })
 
 // Selección inicial (spec .scratch/editor-flow, issue 02): al entrar sin noteId se abre la nota

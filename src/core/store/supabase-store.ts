@@ -1,5 +1,5 @@
 import { getSupabase } from "@/core/lib/supabase"
-import type { Note, TiptapDoc } from "@/core/types/database"
+import type { Note } from "@/core/types/database"
 import type { Snapshot, Store, WriteInput, WriteResult, Writable } from "@/core/store/types"
 
 // Adapter contra Supabase — el default (CONTEXT.md, "Stack cerrado").
@@ -11,17 +11,9 @@ import type { Snapshot, Store, WriteInput, WriteResult, Writable } from "@/core/
 // Lo que sí sigue igual: RLS aplica (`supabase-js` habla PostgREST directo, sin ORM — ADR 0006),
 // el borrado es lógico (ADR 0002) y read_log es append-only.
 
-function answerDoc(answer: string): TiptapDoc {
-  return {
-    type: "doc",
-    content: [{ type: "paragraph", content: [{ type: "text", text: answer }] }],
-  }
-}
-
 export function supabaseStore(): Store {
   return {
     mode: "supabase",
-    canGenerateFlashcards: true,
 
     auth: {
       async getUser() {
@@ -146,8 +138,6 @@ export function supabaseStore(): Store {
       return supabase.storage.from("course-icons").getPublicUrl(path).data.publicUrl
     },
 
-    // Edge Function + insert de cada par como nota `kind: 'flashcard'` — mismo shape que una nota
-    // normal, sin tabla nueva (ADR 0010).
     // Bucket 'notes-images' (migración 0005, creado para el import de Notion): mismo patrón
     // que uploadNotebookIcon. La carpeta tiene que ser el user_id: lo exige la policy.
     async uploadNoteImage(file) {
@@ -159,25 +149,6 @@ export function supabaseStore(): Store {
       const { error } = await supabase.storage.from("notes-images").upload(path, file)
       if (error) throw error
       return supabase.storage.from("notes-images").getPublicUrl(path).data.publicUrl
-    },
-
-    async generateFlashcards(notebookId) {
-      const supabase = getSupabase()
-      const { data, error } = await supabase.functions.invoke<{
-        flashcards: { question: string; answer: string }[]
-      }>("generate-flashcards", { body: { notebook_id: notebookId } })
-      if (error) throw error
-      const pairs = data?.flashcards ?? []
-      if (pairs.length === 0) return
-      const { error: insertError } = await supabase.from("notes").insert(
-        pairs.map((p) => ({
-          notebook_id: notebookId,
-          kind: "flashcard" as const,
-          title: p.question,
-          content: answerDoc(p.answer),
-        })),
-      )
-      if (insertError) throw insertError
     },
   }
 }

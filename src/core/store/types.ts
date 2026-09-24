@@ -126,9 +126,6 @@ export type WriteResult = {
 
 export type Store = {
   readonly mode: StorageMode
-  // Capacidad declarada en vez de sorpresa en runtime: generar flashcards necesita la Edge
-  // Function (ADR 0010), que no existe sin backend. La UI pregunta antes de mostrar el botón.
-  readonly canGenerateFlashcards: boolean
 
   auth: {
     getUser(): Promise<AuthUser | null>
@@ -148,5 +145,4 @@ export type Store = {
   // Imagen pegada en el editor de notas: URL pública (Supabase, bucket 'notes-images') o data
   // URL (local). Tira Error con mensaje en español — el editor lo muestra con toast.
   uploadNoteImage(file: File): Promise<string>
-  generateFlashcards(notebookId: string): Promise<void>
 }

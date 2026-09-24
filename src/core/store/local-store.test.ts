@@ -119,11 +119,6 @@ test("desmarcar deja la fila en cero, no la borra", async () => {
   ])
 })
 
-test("generar flashcards no está disponible sin backend, y lo dice antes de intentarlo", async () => {
-  expect(store.canGenerateFlashcards).toBe(false)
-  await expect(store.generateFlashcards("c1")).rejects.toThrow(/Supabase/)
-})
-
 test("sin env de Supabase, salir del modo local avisa que no hay a dónde ir", async () => {
   // Antes esto llamaba a setStorageMode('supabase') y recargaba: la app volvía a caer en local
   // (no hay env) y el usuario veía un reload que no hacía nada.

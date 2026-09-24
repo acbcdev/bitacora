@@ -41,7 +41,6 @@ const slow = <T,>(value: T) => new Promise<T>((r) => setTimeout(() => r(value), 
 // lo lento son las lecturas, que es justo lo que ADR 0008 no quiere que el navigate espere.
 vi.mock("@/core/store", () => ({
   store: {
-    canGenerateFlashcards: true,
     snapshot: () =>
       slow({
         notebooks: [{ id: "c1", name: "Notebook", status: "active", created_at: "2026-01-01" }],

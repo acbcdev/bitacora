@@ -10,14 +10,12 @@ import {
   Plus,
   RotateCcw,
   Search,
-  Sparkles,
   Trash2,
 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { NotebookForm } from "@/notebooks/notebook-form"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { NoteActions } from "@/notes/note-actions"
-import { NoteEditor } from "@/notes/note"
 import { NoteSkeleton } from "@/core/components/skeletons"
 import { Badge } from "@/core/ui/badge"
 import { Button } from "@/core/ui/button"
@@ -34,7 +32,7 @@ import { Kbd } from "@/core/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useNotebooks, useDeleteNotebook, useUpdateNotebook } from "@/notebooks/notebooks.api"
 import { togglePinnedNotebook, usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
-import { useGenerateFlashcards } from "@/flashcards/flashcards.api"
+import { NoteEditor } from "@/notes/note"
 import { useCreateNote, useNotes } from "@/notes/notes.api"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
@@ -82,7 +80,6 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
   const { data: stats = EMPTY_READ_STATS } = useSnapshot((s) => readStats(s))
   const createNote = useCreateNote()
   const updateNotebook = useUpdateNotebook()
-  const generateFlashcards = useGenerateFlashcards(id!)
   const isMobile = useIsMobile()
   const deleteNotebook = useDeleteNotebook()
   const pinned = usePinnedNotebookIds().includes(id!)
@@ -218,9 +215,8 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
                   {notebook.name}
                 </h1>
               </div>
-              {/* Generar flashcards y cerrar el notebook son de una vez por notebook: acá, no compitiendo
-                  con "Nueva nota" al pie. Además las flashcards no se ven en esta lista (kind
-                  'flashcard', `useNotes` filtra 'note') — el resultado vive en /review. */}
+              {/* Cerrar el notebook es de una vez por notebook: acá, no compitiendo con
+                  "Nueva nota" al pie. */}
               <DropdownMenu>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -245,16 +241,6 @@ export function Notebook({ focus, setFocus }: { focus: boolean; setFocus: (v: bo
                   <DropdownMenuItem onSelect={() => setEditing(true)}>
                     <Pencil />
                     Editar notebook
-                  </DropdownMenuItem>
-                  {/* Sin Edge Function no hay dónde correr la llamada a Anthropic ni dónde esconder
-                      la key (ADR 0010): en modo local el ítem no existe, en vez de existir y fallar. */}
-                  <DropdownMenuItem
-                    hidden={!store.canGenerateFlashcards}
-                    disabled={notes.length === 0 || generateFlashcards.isPending}
-                    onClick={() => generateFlashcards.mutate()}
-                  >
-                    <Sparkles />
-                    {generateFlashcards.isPending ? "Generando…" : "Generar flashcards"}
                   </DropdownMenuItem>
                   {/* Acá se cierra y se reabre el notebook: el fin es cuando apretás el botón, no un
                       date picker. Reabrir limpia `finished_at` — si no, un notebook activo quedaría

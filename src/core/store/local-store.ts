@@ -182,9 +182,6 @@ export function localStore(): Store {
   maybeMigrateTimeToSeconds()
   return {
     mode: "local",
-    // Generar flashcards necesita la Edge Function con la API key server-side (ADR 0010). Sin
-    // backend no hay dónde correrla ni dónde esconder la key: la UI esconde el botón.
-    canGenerateFlashcards: false,
 
     auth: {
       async getUser() {
@@ -335,13 +332,6 @@ export function localStore(): Store {
         )
       }
       return fileToDataUrl(file)
-    },
-
-    async generateFlashcards() {
-      // No es "todavía no implementado": no hay dónde correr la llamada a Anthropic ni dónde
-      // guardar la key sin backend (ADR 0010). `canGenerateFlashcards` deja que la UI lo esconda;
-      // esto es la red por si alguien igual llega hasta acá.
-      throw new Error("Generar flashcards necesita Supabase — no corre en modo local.")
     },
   }
 }
