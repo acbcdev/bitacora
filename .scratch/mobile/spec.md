@@ -4,7 +4,7 @@
 
 ## Decisión del grill
 
-"Optimizar mobile" del doc [[to-grill-platform-features]] estaba respaldado por ADR 0004, pero el
+"Optimizar mobile" del grill de plataforma (batch 2026-06, hoy repartido en `.scratch/` por feature) estaba respaldado por ADR 0004, pero el
 supuesto de ese ADR ("el usuario **repasa en el celular**, online") **no es un hecho: el usuario
 nunca usó Repaso en el celu**. Spec-ear hoy sería spec sobre supuestos.
 

@@ -66,8 +66,8 @@ significan lo mismo de los dos lados.
   nada que la app ejecute — la cobertura equivalente vive en `derive.test.ts`, que corre sin
   Postgres.
 - **Filtrado, orden y paginado de Cursos pasaron al cliente.** A 59 cursos es irrelevante, y
-  CONTEXT.md ya lo licencia: *"los datos son CHICOS… cualquier propuesta que asuma volumen grande
-  está mal calibrada"*. Esto no es una filosofía nueva: `useReadStats` y `useHabitLog` **ya** se
+  CONTEXT.md ya lo licencia: _"los datos son CHICOS… cualquier propuesta que asuma volumen grande
+  está mal calibrada"_. Esto no es una filosofía nueva: `useReadStats` y `useHabitLog` **ya** se
   bajaban su tabla entera y agregaban en JS. `courses_page` era el outlier.
 - **Una sola queryKey (`["snapshot"]`).** Antes eran seis y cada mutation tenía que acordarse de
   cuáles invalidar. El costo, dicho: cualquier escritura refetchea todo. Si algún día pesa, el
@@ -102,13 +102,13 @@ significan lo mismo de los dos lados.
   no mapea entidades y no tiene query builder. El adapter de Supabase sigue siendo `supabase-js`
   hablando PostgREST directo, con RLS aplicando igual. En local no hay servidor ni datos de otro
   usuario que proteger.
-- **ADR 0001 descartó SQLite/Dexie/IndexedDB como *el backend*.** Sigue descartado: Supabase es el
+- **ADR 0001 descartó SQLite/Dexie/IndexedDB como _el backend_.** Sigue descartado: Supabase es el
   default y lo único que sincroniza entre dispositivos. `localStorage` acá es un modo de prueba.
 
 ## Qué lo justificó ahora, y no antes
 
-El grill de `.scratch/platform-features/` lo mandó a Tier 3 con un argumento correcto para su
-momento: *"generalizar para un usuario hipotético que no existe"*. Lo que se rechazó era una capa
+El grill de 2026-08 (batch "plataforma", hoy repartido en `.scratch/` por feature) lo mandó a Tier 3 con un argumento correcto para su
+momento: _"generalizar para un usuario hipotético que no existe"_. Lo que se rechazó era una capa
 genérica de storage. Hoy hay tres beneficiarios reales:
 
 1. **Los tests.** Seis fakes de `supabase-js` borrados, incluida la reimplementación de

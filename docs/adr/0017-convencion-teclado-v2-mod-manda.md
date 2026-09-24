@@ -41,11 +41,11 @@ simplifica: en vez de sostener dos alias por tecla y memorizar excepciones, el t
 - El índice de Notebook deja de navegar con `J/K` bare: `⌘J/⌘K`.
 - El type-to-focus es un listener propio (las lib de hotkeys no matchea "cualquier letra"): en
   Nota y en el Notebook, keydown de letra con el editor desenfocado → enfoca editor e inserta la
-  letra. Ver `.scratch/editor-flow/issues/03-type-to-focus.md`.
+  letra (implementado en `src/notes/use-type-to-focus.tsx`).
 - Lo que NO cambia: chords, hotkeys `mod+` existentes, todo el loop de Repaso, la tecla `/`.
 
 ## Detalle relacionado (misma sesión, mismo spec)
 
 Selección inicial en Notebook = nota con `updated_at` más reciente (migración 0013: columna +
 trigger auto-update + backfill con `created_at`; el índice NO se reordena — sigue por
-`position`). Ver `.scratch/editor-flow/issues/01` y `02`.
+`position`). Implementado en `notebook.tsx` (`lastEditedNote`, `src/core/store/derive.ts`).

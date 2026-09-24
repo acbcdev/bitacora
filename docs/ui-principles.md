@@ -30,7 +30,7 @@ si ya hay una tecla con este significado en otra vista — reusarla en vez de in
 hay editor (Nota, Notebook) cualquier letra a-z con el editor desenfocado enfoca el editor y se
 escribe, sin excepciones (ni F: focus mode es `⌘F`); las acciones de app viven solo en `mod+`.
 Donde no hay editor (Repaso, Cursos), bare queda. Los chords `g>`/`h>` solo llegan a pantallas
-sin editor — desde Nota/Notebook, `Esc` primero. Detalle en `.scratch/editor-flow/`.
+sin editor — desde Nota/Notebook, `Esc` primero.
 
 | Tecla                                                         | Significa                                                                                                                                     | Dónde aplica bare                                                                                                   | Dónde necesita `mod+`                                                                |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |

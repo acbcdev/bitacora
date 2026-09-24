@@ -84,6 +84,7 @@ Notas de licencia/tier:
 | **Derivación**                       | Las funciones puras de `derive.ts` que convierten un `Snapshot` en hechos del dominio (cola de repaso, página de notebooks, retención, racha). Las comparten los dos adapters: una regla, un lugar.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Modo local**                       | El adapter que corre entero en el navegador (`localStorage`), sin cuenta y sin red. **Excluyente**, no offline-first: o Supabase o local, nunca los dos, sin sync (ADR 0011).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | **Outline**                          | El rail de headings al margen derecho de una nota: ticks siempre visibles + panel de títulos al hover, marca la sección actual y salta al click. No decir "TOC", "índice" ni "minimapa". Vive en el `Editor`, así aparece en las 3 superficies que renderizan una nota (Nota standalone, Nota en curso, dialog de Repaso). Ver `docs/adr/0007-outline-desde-el-dom.md`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Tono (NO construido)**             | Un preset fijo con prompt a medida que reescribe el **cuerpo** de la nota con AI (nunca el título). Seis presets cerrados para el MVP; tonos propios guardados quedan para después. Flujo agent-style: draft → markdown → diff rojo/verde → aceptar todo o nada → el editor autosavea como siempre. El split-button vive en el header de la pantalla Nota, no en Repaso (sólo lectura) ni dentro del editor (sin toolbar, ADR 0017). Supabase-only como las flashcards. Resuelto como idea en `.scratch/note-tones/spec.md` (2026-09-23), sin spec de implementación.                                                                                                                                                                                                                                                                                |
 
 ## Schema (frozen)
 
@@ -152,18 +153,21 @@ almacenamiento. Se abre con `⌘,`, desde ⌘K o desde el menú de cuenta del si
 de que el loop diario ande. Si vuelve el impulso hacia sync/stats/goals antes de que el loop
 diario funcione, es **scope creep** — frenarlo con estos datos, no con opinión.
 
-**Regla general (grilling 2026-07-28, `.scratch/platform-features/`):** la misma lógica aplica a
-toda feature nueva fuera de las 3 pantallas, no solo a `goals`. Repo tiene 5 días (primer commit
-2026-07-23), loop diario recién armado, sin uso real confirmado todavía. Hasta que el loop diario
-esté en uso real: gated — sidebar de integración AI, tonos de nota vía AI, themes (multi-preset).
-Se reabren con el loop diario probado en uso real, no antes.
+**Regla general (grilling 2026-07-28):** la misma lógica aplica a
+toda feature nueva fuera de las 3 pantallas, no solo a `goals`. El gate — "hasta que el loop diario
+esté en uso real" — **se levantó (2026-09-23)**: el usuario confirma que repasa la cola casi todos
+los días. Lo que reabre con uso real confirmado: tonos de nota vía AI, themes (multi-preset). El
+sidebar AI sigue con SU blocker propio (chrome mínimo + sin caso de uso) — ese nunca dependió del
+gate, y el gate tampoco lo levanta.
+
+**Pregunta abierta #5: RESUELTA (2026-09-23).** Repaso casi todos los días, respuesta directa del
+usuario. Ya no condiciona nada: lo que quedaba gateado por (b) queda libre de ese gate.
 
 **Settings y la abstracción DB→localStorage salieron de esa lista (2026-08-25).** El gate era
 doble: (a) "no hay beneficiario real" y (b) "el loop diario todavía no está en uso real
 confirmado". **(a) se resolvió; (b) se saltó por decisión consciente del usuario** — mismo
-precedente que hábitos y que el spec de flashcards. La pregunta abierta #5 de
-`.scratch/platform-features/` **sigue sin responderse**, y sigue condicionando lo que queda
-gateado. Se dice acá para que no parezca resuelta.
+precedente que hábitos y que el spec de flashcards. La pregunta abierta #5 se **respondió
+después (2026-09-23)**: uso diario real confirmado.
 
 Lo que resolvió (a): dejaron de ser generalización especulativa y pasaron a tener beneficiarios
 concretos. El seam `Store` borró seis fakes de `supabase-js` de la suite de tests,
