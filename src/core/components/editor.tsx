@@ -141,10 +141,13 @@ export function Editor({
       EditorBold,
       CodeBlock,
       ResizableImage,
-      // Scroll horizontal (story 3): la clase va en el tag table via HTMLAttributes — sin wrapper
-      // DOM extra. td/th/padding/borders viven en index.css (.tiptap-host .ProseMirror th/td).
       // resizable true (historia 5): sin migración — colwidth es attr con default null y solo
       // nace al arrastrar un borde. La UI de filas/columnas vive en table-controls.tsx.
+      // Las clases de scroll/spacing tienen DOS caminos (misma lista, una sola fuente de verdad
+      // conceptual): con resizable + editable el NodeView de prosemirror-tables arma su propio
+      // DOM (div.tableWrapper + table) y SUELTA los HTMLAttributes — ahí manda index.css
+      // (.tableWrapper). Sin NodeView (editable=false, hoy: flashcard-card) renderHTML sí
+      // aplica estas clases al tag table. td/th/padding/borders viven en index.css.
       Table.configure({
         resizable: true,
         HTMLAttributes: {

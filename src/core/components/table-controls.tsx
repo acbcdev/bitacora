@@ -22,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/core/ui/dropdown-menu"
+import { preventFocus } from "@/core/components/prevent-focus"
 
 // Controles de tabla por hover (spec .scratch/editor-notion-ux, historia 5). Overlay absoluto
 // sobre el host (mismo patrón que Outline): hover de fila → ⋮⋮ al borde izquierdo y + a la
@@ -73,10 +74,11 @@ function locate(view: EditorView, cell: HTMLElement) {
   const $pos = view.state.doc.resolve(view.posAtDOM(cell, 0))
   let rowDepth = 0
   let tableDepth = 0
+  // Primer match = el más profundo: el del inner table (paste de Notion con tabla anidada).
   for (let d = $pos.depth; d > 0; d--) {
     const name = $pos.node(d).type.name
     if (!rowDepth && name === "tableRow") rowDepth = d
-    if (name === "table") tableDepth = d
+    if (!tableDepth && name === "table") tableDepth = d
   }
   return { $pos, rowDepth, tableDepth }
 }
@@ -89,27 +91,29 @@ function duplicateRow(view: EditorView, cell: HTMLElement) {
 }
 
 // Duplicar columna: rearma la tabla con la celda copiada en cada fila. La copia pierde el
-// header (sale como celda común) — decisión de la spec.
+// header (sale como celda común) — decisión de la spec. Si alguna fila no llega a ese
+// índice (colspan/rowspan de un paste), no duplica — fuera de alcance (ver computeHover).
 function duplicateColumn(view: EditorView, cell: HTMLElement) {
   const { $pos, rowDepth, tableDepth } = locate(view, cell)
   // index(rowDepth) = índice de la celda dentro de la fila (el hijo del nodo en rowDepth).
   const colIndex = $pos.index(rowDepth)
-  const rows: unknown[] = []
+  const rows: Array<{ content?: Array<Record<string, unknown>> }> = []
+  let even = true
   $pos.node(tableDepth).forEach((rowNode) => {
     const rowJSON = rowNode.toJSON() as { content?: Array<Record<string, unknown>> }
-    const cells = rowJSON.content ?? []
-    cells.splice(colIndex + 1, 0, { ...cells[colIndex], type: "tableCell" })
-    rows.push({ ...rowJSON, content: cells })
+    if (!rowJSON.content?.[colIndex]) even = false
+    rows.push(rowJSON)
   })
+  if (!even) return
+  for (const rowJSON of rows) {
+    const cells = rowJSON.content!
+    cells.splice(colIndex + 1, 0, { ...cells[colIndex], type: "tableCell" })
+  }
   const clone = Node.fromJSON(view.state.schema, { type: "table", content: rows })
   view.dispatch(view.state.tr.replaceWith($pos.before(tableDepth), $pos.after(tableDepth), clone))
 }
 
 // ── UI ──────────────────────────────────────────────────────────────────────────
-
-function preventFocus(e: React.MouseEvent) {
-  e.preventDefault()
-}
 
 const BTN = 18
 
@@ -144,13 +148,19 @@ export function TableHoverControls({
       // Cruzando hacia nuestros botones: el hover vigente sigue siendo el correcto.
       if (target?.closest?.("[data-table-ctrl]")) return
       const cell = target?.closest?.("td, th") as HTMLTableCellElement | null
-      if (!cell || !el.contains(cell)) return clear()
-      const h = computeHover(el, cell)
-      const k = key(h)
-      if (k !== lastKey.current) {
-        lastKey.current = k
-        setHover(h)
+      if (cell && el.contains(cell)) {
+        const h = computeHover(el, cell)
+        const k = key(h)
+        if (k !== lastKey.current) {
+          lastKey.current = k
+          setHover(h)
+        }
+        return
       }
+      // Con border-collapse los pixeles entre celdas vecinas caen en el <table>: mantener
+      // el hover (es el mismo lugar visual). Salir de la tabla sí limpia.
+      if (target && el.contains(target) && target.closest("table")) return
+      clear()
     }
     el.addEventListener("mousemove", onMove)
     el.addEventListener("mouseleave", clear)
@@ -170,11 +180,21 @@ export function TableHoverControls({
 
   const cell = hover.cell
   const run = (fn: () => void) => () => {
-    fn()
-    // Limpia el hover y el dedup SOLO si sigue siendo esta celda: el click dispara un
-    // mousemove posterior y no hay que pisarlo.
-    lastKey.current = ""
-    setHover((h) => (h?.cell === cell ? null : h))
+    // Un undo/edición externa puede borrar la tabla sin mover el mouse: el hover queda
+    // pintado sobre un nodo descolgado — no hay nada que hacer con él.
+    if (!cell.isConnected) {
+      lastKey.current = ""
+      setHover(null)
+      return
+    }
+    try {
+      fn()
+    } finally {
+      // Limpia el hover y el dedup SOLO si sigue siendo esta celda: el click dispara un
+      // mousemove posterior y no hay que pisarlo.
+      lastKey.current = ""
+      setHover((h) => (h?.cell === cell ? null : h))
+    }
   }
 
   // Estilo Notion: el + de la fila agrega la columna AL FINAL de la tabla (se selecciona la

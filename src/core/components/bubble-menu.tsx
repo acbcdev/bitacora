@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/core/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/ui/popover"
+import { preventFocus } from "@/core/components/prevent-focus"
 
 // Bubble de formato (spec .scratch/editor-notion-ux, historia 4; mockup 07). Panel Notion:
 // fila de bloque arriba (muestra el tipo actual y convierte — el usuario lo eligió sobre el
@@ -43,10 +44,6 @@ export const PALETTE = [
 // Constante de módulo: BubbleMenu despacha un meta-transaction si cambia el objeto options
 // (identidad), así que un literal en JSX re-dispachearía en cada render del editor.
 const BUBBLE_OPTIONS = { placement: "top", offset: 8 } as const
-
-function preventFocus(e: React.MouseEvent) {
-  e.preventDefault()
-}
 
 // Clases compartidas de los botones de la grilla: hover con el accent del UI; activo =
 // mismo fondo + hairline inset (mockup 07), sin color de marca.
