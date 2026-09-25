@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Suggestion from "@tiptap/suggestion"
 import type { SuggestionProps } from "@tiptap/suggestion"
 import { PluginKey } from "@tiptap/pm/state"
@@ -161,11 +161,19 @@ type PopupProps = {
 
 function SlashPopup({ items, command, keyRef }: PopupProps) {
   const [index, setIndex] = useState(0)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   // Items cambiaron (nuevo query) → selección vuelve al primero.
   useEffect(() => {
     setIndex(0)
   }, [items])
+
+  // Scroll del ítem seleccionado: cmdk solo scrollea al mover la selección con SU keymap
+  // interno, que nunca corre (el foco vive en el editor). Sin esto, con más de ~9 ítems la
+  // selección se va fuera de la lista (max-h-72) sin scroll.
+  useEffect(() => {
+    rootRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" })
+  }, [index, items])
 
   // Sin deps: el handler se re-registra con el closure fresco en cada render. Los keydown
   // llegan por el editor (el foco nunca sale del editor), así que cmdk no ve teclas —
@@ -202,13 +210,27 @@ function SlashPopup({ items, command, keyRef }: PopupProps) {
     }
   })
 
+  const selected = items[index]?.title ?? ""
+
   return (
     <div
+      ref={rootRef}
       data-testid="slash-menu"
       // Mousedown → preventDefault: el popup nunca roba el foco de la selección (AC transversal).
       onMouseDown={(e) => e.preventDefault()}
     >
-      <Command shouldFilter={false} className="w-64 rounded-xl! border shadow-lg">
+      {/* value/onValueChange controlados: el highlight visual de cmdk sigue al index que maneja
+          el teclado (flechas/Enter delegado por el plugin via keyRef), y el hover del mouse
+          actualiza el index — una sola fuente de verdad. */}
+      <Command
+        shouldFilter={false}
+        value={selected}
+        onValueChange={(v) => {
+          const i = items.findIndex((item) => item.title === v)
+          if (i >= 0) setIndex(i)
+        }}
+        className="w-64 rounded-xl! border shadow-lg"
+      >
         <CommandList>
           {items.map((item) => (
             <CommandItem

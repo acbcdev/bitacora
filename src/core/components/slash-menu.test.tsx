@@ -50,6 +50,58 @@ async function openMenu(view: EditorView, text: string) {
 const items = (popup: Element) =>
   [...popup.querySelectorAll("[data-slot=command-item]")].map((el) => el.textContent)
 
+const selected = (popup: Element) =>
+  [...popup.querySelectorAll("[cmdk-item]")].find(
+    (el) => el.getAttribute("aria-selected") === "true",
+  )?.textContent
+
+// Navegación: flechas mueven el highlight visual (value controlado de cmdk) y Enter inserta el ítem resaltado.
+test("ArrowDown/ArrowUp mueven el ítem seleccionado con wrap", async () => {
+  const { view } = await setup()
+  const popup = await openMenu(view, "")
+  expect(items(popup)).toHaveLength(11)
+  expect(selected(popup)).toBe("Heading 1")
+  fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowDown" })
+  await waitFor(() => expect(selected(popup)).toBe("Heading 2"))
+  // Wrap: 10 flechas más desde el índice 1 → 11 ≡ 0 (mod 11), vuelve al primero.
+  for (let i = 0; i < 10; i++) fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowDown" })
+  await waitFor(() => expect(selected(popup)).toBe("Heading 1"))
+  // Wrap hacia arriba: del primero va al último.
+  fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowUp" })
+  await waitFor(() => expect(selected(popup)).toBe("Imagen"))
+})
+
+test("hover mueve la selección y Enter inserta el ítem resaltado", async () => {
+  const { view, onChange } = await setup()
+  const popup = await openMenu(view, "")
+  const item = [...popup.querySelectorAll("[cmdk-item]")].find(
+    (el) => el.textContent === "Heading 3",
+  )!
+  fireEvent.pointerMove(item)
+  await waitFor(() => expect(selected(popup)).toBe("Heading 3"))
+  fireEvent.keyDown(view.dom as HTMLElement, { key: "Enter" })
+  await waitFor(() => {
+    const json = onChange.mock.lastCall?.[0] as TiptapDoc | undefined
+    const p = json?.content?.[0] as { type: string; attrs?: { level: number } } | undefined
+    expect(p?.type).toBe("heading")
+    expect(p?.attrs?.level).toBe(3)
+  })
+})
+
+// Con más ítems que el alto visible (max-h-72), mover la selección scrollea el ítem a la vista.
+test("navegar más allá del alto visible scrollea el ítem seleccionado", async () => {
+  const { view } = await setup()
+  await openMenu(view, "")
+  const spy = vi.spyOn(Element.prototype, "scrollIntoView")
+  try {
+    // 6 flechas: el ítem seleccionado sale de la vista (lista ≈ 9 ítems visibles en max-h-72).
+    for (let i = 0; i < 6; i++) fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowDown" })
+    await waitFor(() => expect(spy).toHaveBeenCalledWith({ block: "nearest" }))
+  } finally {
+    spy.mockRestore()
+  }
+})
+
 // ── Trigger ──────────────────────────────────────────────────────────────────
 
 test("`/` al inicio de un bloque abre el popup con los ítems", async () => {
