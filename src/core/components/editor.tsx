@@ -8,6 +8,7 @@ import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
 import { TaskList } from "@tiptap/extension-task-list"
 import TaskItem from "@tiptap/extension-task-item"
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table"
+import { NodeRange } from "@tiptap/extension-node-range"
 import { Bold } from "@tiptap/extension-bold"
 import { TextStyleKit } from "@tiptap/extension-text-style"
 import Highlight from "@tiptap/extension-highlight"
@@ -25,6 +26,7 @@ import { Outline } from "@/core/components/outline"
 import { SlashMenu, isSlashMenuActive } from "@/core/components/slash-menu"
 import { FormatBubbleMenu } from "@/core/components/bubble-menu"
 import { TableHoverControls } from "@/core/components/table-controls"
+import { BlockControls } from "@/core/components/block-controls"
 import { EditorLightbox } from "@/core/components/editor-lightbox"
 import { collectImages, type LightboxImage } from "@/core/components/editor-lightbox-utils"
 
@@ -137,7 +139,7 @@ export function Editor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ codeBlock: false, bold: false }),
+      StarterKit.configure({ codeBlock: false, bold: false, dropcursor: false }),
       EditorBold,
       CodeBlock,
       ResizableImage,
@@ -162,6 +164,10 @@ export function Editor({
       TaskItem.configure({ nested: true }),
       // Menú slash (historia 2): trigger `/`, popup cmdk en portal.
       SlashMenu,
+      // Bloques (historia 6): node-range para multi-bloque (click ⋮⋮ / Shift+click / drag).
+      // El handle vive en block-controls.tsx; unique-id se omite (el plugin no lee ids y
+      // grabaría `id` en el JSON persistido de cada nota).
+      NodeRange,
       // Formato visible (historia 4): color y highlight son marks oficiales con la paleta fija
       // de 8 (ver bubble-menu.tsx). TextStyleKit trae TextStyle + Color; el resto (fuentes,
       // line-height, background-color) no se usa — fuera.
@@ -380,6 +386,8 @@ export function Editor({
       <EditorContent editor={editor} className="tiptap-host" />
       {/* Tablas (historia 5): + y handles por hover, solo con el editor editable. */}
       {editor && editable && <TableHoverControls editor={editor} host={host} />}
+      {/* Bloques (historia 6): + ⋮⋮ por hover, menú y drag, solo editable. */}
+      {editor && editable && <BlockControls editor={editor} host={host} />}
       {/* Bubble de formato (historia 4): aparece con selección no vacía. */}
       {editor && <FormatBubbleMenu editor={editor} />}
       <EditorLightbox
