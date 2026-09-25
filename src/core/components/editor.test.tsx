@@ -119,11 +119,13 @@ test("pegar Markdown de tabla genera una tabla en el DOM", async () => {
   })
 })
 
-// Scroll horizontal mobile (story 3): la clase overflow-x-auto vive en el tag table (renderHTML).
-test("la tabla tiene overflow-x auto para scroll horizontal", async () => {
+// Scroll horizontal (story 3 → historia 5): con resizable el NodeView envuelve en
+// div.tableWrapper y el scroll vive ahí via CSS (index.css) — en jsdom solo se puede
+// afirmar que el wrapper existe dentro del editor.
+test("la tabla queda envuelta en el wrapper con scroll", async () => {
   const { container } = render(<Editor content={tableDoc} />)
   await waitFor(() => expect(container.querySelector("table")).toBeInTheDocument())
-  expect(container.querySelector("table")?.className).toContain("overflow-x-auto")
+  expect(container.querySelector(".ProseMirror > .tableWrapper table")).toBeInTheDocument()
 })
 
 // ── Paste de imagen (upload via store.uploadNoteImage) ──────────────────────────────

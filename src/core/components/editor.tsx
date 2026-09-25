@@ -24,6 +24,7 @@ import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
 import { SlashMenu, isSlashMenuActive } from "@/core/components/slash-menu"
 import { FormatBubbleMenu } from "@/core/components/bubble-menu"
+import { TableHoverControls } from "@/core/components/table-controls"
 import { EditorLightbox } from "@/core/components/editor-lightbox"
 import { collectImages, type LightboxImage } from "@/core/components/editor-lightbox-utils"
 
@@ -135,9 +136,6 @@ export function Editor({
   )
 
   const editor = useEditor({
-    // Tablas (spec .scratch/editor-tables): solo render + edición de texto de celdas. resizable
-    // false = sin handles ni columnGroup attrs; no hay toolbar de tabla — el contenido entra por
-    // paste Markdown o import Notion.
     extensions: [
       StarterKit.configure({ codeBlock: false, bold: false }),
       EditorBold,
@@ -145,8 +143,10 @@ export function Editor({
       ResizableImage,
       // Scroll horizontal (story 3): la clase va en el tag table via HTMLAttributes — sin wrapper
       // DOM extra. td/th/padding/borders viven en index.css (.tiptap-host .ProseMirror th/td).
+      // resizable true (historia 5): sin migración — colwidth es attr con default null y solo
+      // nace al arrastrar un borde. La UI de filas/columnas vive en table-controls.tsx.
       Table.configure({
-        resizable: false,
+        resizable: true,
         HTMLAttributes: {
           class: "my-4 block w-max max-w-full overflow-x-auto border-collapse text-sm",
         },
@@ -252,6 +252,18 @@ export function Editor({
       handleDOMEvents: {
         keydown(view, event) {
           if (event.key !== "Tab") return false
+          // En una celda (y fuera de una lista anidada) Tab es del keymap de la tabla de
+          // ProseMirror: salta a la celda siguiente y en la última crea fila (historia 5).
+          // Devolver false lo deja pasar al keymap en vez de insertar indentación.
+          const { $from } = view.state.selection
+          let inCell = false
+          let inList = false
+          for (let d = $from.depth; d > 0; d--) {
+            const name = $from.node(d).type.name
+            if (name === "tableCell" || name === "tableHeader") inCell = true
+            if (name === "listItem" || name === "taskItem") inList = true
+          }
+          if (inCell && !inList) return false
           event.preventDefault()
           // En lista: anida/saca el ítem. Si no aplica (primer ítem, fuera de lista), Tab
           // inserta indentación — antes era un no-op total.
@@ -262,7 +274,6 @@ export function Editor({
               : sinkListItem(itemType)(view.state, view.dispatch)
             if (sunk) return true
           }
-          const { $from } = view.state.selection
           if (event.shiftKey) {
             // Borra hasta 4 espacios pegados al cursor (el indent que insertó Tab).
             const before = $from.parent.textBetween(
@@ -364,6 +375,8 @@ export function Editor({
     <div ref={host} className="relative">
       <Outline host={host} version={version} />
       <EditorContent editor={editor} className="tiptap-host" />
+      {/* Tablas (historia 5): + y handles por hover, solo con el editor editable. */}
+      {editor && editable && <TableHoverControls editor={editor} host={host} />}
       {/* Bubble de formato (historia 4): aparece con selección no vacía. */}
       {editor && <FormatBubbleMenu editor={editor} />}
       <EditorLightbox
