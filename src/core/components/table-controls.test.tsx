@@ -5,7 +5,7 @@ import { Editor } from "@/core/components/editor"
 import type { TiptapDoc } from "@/core/types/database"
 
 // Contrato de tablas finas (.scratch/editor-notion-ux/spec.md, historia 5 / issue 04):
-// - Overlay de hover: ⋮⋮ y + para fila, ▾ y + para columna, solo con el editor editable.
+// - Overlay de hover: ⋮⋮ y + para fila, ▾ y + para columna.
 // - Comandos vía menú: insertar/duplicar/eliminar fila y columna, toggle header.
 // - Duplicar fila/columna es build propio (clone JSON); la columna duplicada pierde header.
 // - El + de fila/columna agrega al final de la tabla (estilo Notion); los menús, pegado.
@@ -115,14 +115,6 @@ test("hover sobre una celda muestra los 4 controles; fuera de tabla no hay overl
   // Al salir de la tabla el overlay desaparece.
   fireEvent.mouseMove(view.dom, { target: view.dom })
   await waitFor(() => expect(screen.queryByTestId("table-controls")).toBeNull())
-})
-
-test("sin editable no hay overlay", async () => {
-  render(<Editor content={doc([["A", "B"]])} editable={false} />)
-  await waitFor(() => expect(document.querySelector(".ProseMirror")).toBeTruthy())
-  const td = document.querySelector("td")!
-  fireEvent.mouseMove(td, { target: td })
-  expect(screen.queryByTestId("table-controls")).toBeNull()
 })
 
 test("+ de fila agrega una columna al final de la tabla", async () => {

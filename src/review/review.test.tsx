@@ -98,7 +98,8 @@ test("Flashcard Enter revela y Correcto idempotente sin avanzar", async () => {
   await screen.findByText("Pregunta uno")
   expect(screen.queryByTestId("editor")).not.toBeInTheDocument()
   fireEvent.keyDown(document, { code: "Enter" })
-  await screen.findByTestId("editor")
+  // Historia 7: la respuesta revelada es texto simple (sin editor); la flashcard seedeada viene vacía.
+  await screen.findByText("Nota sin contenido todavía.")
   fireEvent.click(screen.getByRole("button", { name: "Correcto" }))
   await waitFor(async () => expect((await store.snapshot()).reads).toHaveLength(1))
   expect(screen.getByRole("button", { name: "Correcto" })).toBeDisabled()

@@ -98,8 +98,9 @@ function plainInline(nodes: Node[] = []): string {
   return nodes.map((n) => n.text ?? "").join("")
 }
 
-// Extracto sin formato (review/note-dialog): a diferencia de blocks(), separa bloques con un
-// espacio en vez de "\n\n" y no aplica marks — pensado para una sola línea truncada por CSS.
+// Extracto sin formato (tarjetas de Repaso: note-card y flashcard-card): a diferencia de
+// blocks(), separa bloques con un espacio en vez de "\n\n" y no aplica marks — pensado para
+// una línea truncada por CSS o un texto plano sin estructura.
 function plainBlock(node: Node): string {
   switch (node.type) {
     case "bulletList":

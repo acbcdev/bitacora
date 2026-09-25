@@ -9,7 +9,6 @@ import type { TiptapDoc } from "@/core/types/database"
 // - ⋮⋮ click selecciona el bloque (node-range); Shift+click extiende el rango.
 // - Menú: Convertir a ▸ (Párrafo, H1-3, Lista, To-do, Cita, Código) · Duplicar · Eliminar.
 // - Drag reordena; durante el drag aparece la línea guía de 2px.
-// - Sin editable no hay handles.
 
 beforeAll(() => {
   document.elementFromPoint = () => null
@@ -103,15 +102,6 @@ test("hover muestra + y ⋮⋮; al salir del editor se esconden", async () => {
   visible()
   fireEvent.mouseLeave(view.dom)
   await waitFor(hidden)
-})
-
-test("sin editable no hay handles", async () => {
-  render(<Editor content={{ type: "doc", content: [para("Uno")] } as TiptapDoc} editable={false} />)
-  await waitFor(() => expect(document.querySelector(".ProseMirror")).toBeTruthy())
-  fireEvent.mouseMove(document.querySelector(".ProseMirror")!, { clientX: 10, clientY: 10 })
-  // Sin overlay ni glifos: ni siquiera se monta el wrapper del handle.
-  expect(screen.queryByTestId("block-handle")).toBeNull()
-  expect(document.querySelector(".block-drag-handle")).toBeNull()
 })
 
 test("+ inserta un párrafo vacío debajo del bloque y enfoca", async () => {

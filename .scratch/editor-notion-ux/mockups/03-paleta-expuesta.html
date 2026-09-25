@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="es" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ideas bubble · 03 — paleta siempre visible</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,100..900;1,100..900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --background: #1c1c1c;
+        --page: #232323;
+        --panel: #232323;
+        --hover: #2e2e2e;
+        --foreground: #f2f2f0;
+        --fg2: #c3c5c2;
+        --muted: #9a9c99;
+        --border: #2f2f2f;
+        --brand: #37a873;
+        --brand-soft: #1f2f24;
+        --brand-fg: #74cba0;
+        --shadow: 0 10px 34px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+      }
+      body.light {
+        --background: #f6f7f5;
+        --page: #ffffff;
+        --panel: #ffffff;
+        --hover: #eef0ee;
+        --foreground: #0b0d0c;
+        --fg2: #484c49;
+        --muted: #868a86;
+        --border: #e2e4e1;
+        --brand: #1f7a52;
+        --brand-soft: #e2f0e8;
+        --brand-fg: #1a5c3c;
+        --shadow: 0 10px 34px rgba(11, 13, 12, 0.14), 0 2px 8px rgba(11, 13, 12, 0.08);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font-family: "Archivo", sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        display: grid;
+        place-items: start center;
+        padding: 48px 24px 96px;
+        transition:
+          background 0.25s,
+          color 0.25s;
+      }
+      .topbar {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        display: flex;
+        gap: 8px;
+      }
+      .topbar button {
+        font: inherit;
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--page);
+        color: var(--fg2);
+        cursor: pointer;
+      }
+      .topbar button:hover {
+        color: var(--foreground);
+        border-color: var(--muted);
+      }
+      .page {
+        width: min(680px, 100%);
+        background: var(--page);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 44px 48px 64px;
+        box-shadow: var(--shadow);
+      }
+      h1.note {
+        font-size: 34px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 0 0 20px;
+      }
+      p {
+        margin: 0 0 14px;
+        color: var(--fg2);
+      }
+      .sel {
+        background: color-mix(in srgb, var(--brand) 26%, transparent);
+        border-radius: 3px;
+        padding: 1px 0;
+      }
+      .kicker {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 40px;
+      }
+      .note-attr {
+        text-align: center;
+        margin-top: 56px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* ── Bubble: toggles + paleta expuesta ────────────────── */
+      .bubble {
+        width: max-content;
+        margin: 10px auto 26px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        padding: 6px 8px 8px;
+        animation: pop 0.18s ease-out;
+      }
+      @keyframes pop {
+        from {
+          opacity: 0;
+          transform: translateY(4px) scale(0.98);
+        }
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .btn {
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: 7px;
+        background: none;
+        color: var(--fg2);
+        cursor: pointer;
+        position: relative;
+        display: grid;
+        place-items: center;
+        font: inherit;
+        transition:
+          background 0.12s,
+          color 0.12s;
+      }
+      .btn:hover {
+        background: var(--hover);
+        color: var(--foreground);
+      }
+      .btn.active {
+        background: var(--brand-soft);
+        color: var(--brand-fg);
+      }
+      .btn .glyph {
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .btn .glyph.i {
+        font-style: italic;
+        font-family: Georgia, serif;
+        font-weight: 600;
+      }
+      .btn .glyph.s {
+        text-decoration: line-through;
+        text-decoration-thickness: 2px;
+      }
+      .swatches {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-top: 8px;
+        padding: 7px 6px 3px;
+        border-top: 1px solid var(--border);
+      }
+      .sw {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 0;
+        cursor: pointer;
+        padding: 0;
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+        transition:
+          transform 0.1s,
+          box-shadow 0.1s;
+      }
+      .sw {
+        position: relative;
+        width: 18px;
+        height: 18px;
+      }
+      .sw:hover {
+        transform: scale(1.15);
+      }
+      .sw.on::after {
+        content: "";
+        position: absolute;
+        inset: -4px;
+        border-radius: 50%;
+        border: 2px solid var(--brand-fg);
+      }
+      .sw.text {
+        background: var(--c);
+      }
+      .sw.hl {
+        background: var(--c);
+      }
+      .swatches .none {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        padding: 0;
+        border: 1px dashed var(--muted);
+        background: none;
+        color: var(--muted);
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        margin-left: 2px;
+      }
+      .swatches .none:hover {
+        color: var(--foreground);
+        border-color: var(--foreground);
+      }
+      .swatches .none svg {
+        width: 10px;
+        height: 10px;
+        stroke: currentColor;
+        stroke-width: 2.5;
+        fill: none;
+        stroke-linecap: round;
+      }
+      .tab {
+        display: flex;
+        gap: 4px;
+        margin: 2px 0 8px;
+      }
+      .tab {
+        font: inherit;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        background: none;
+        border: 0;
+        padding: 3px 8px;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .tab:hover {
+        color: var(--foreground);
+      }
+      .tab.on {
+        background: var(--hover);
+        color: var(--foreground);
+      }
+      svg.ic {
+        width: 15px;
+        height: 15px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .sample {
+        text-align: center;
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <button onclick="document.body.classList.toggle('light')">tema</button>
+    </div>
+
+    <article class="page">
+      <div class="kicker">Idea 03 · Paleta expuesta — sin popover, color a un click</div>
+      <h1 class="note">Guía de campo</h1>
+      <p>
+        La paleta fija de 8 vive <em>adentro</em> del panel: fila de toggles arriba,
+        <span class="sel">fichas de color y highlight abajo con pestañas</span>. Un click menos para
+        colorear — el patrón de la paleta del menú de bloque, traído al bubble.
+      </p>
+
+      <!-- BUBBLE -->
+      <div class="bubble" role="menu" aria-label="Formato">
+        <div class="row">
+          <button class="btn active" title="Bold (mod+alt+b)"><span class="glyph">B</span></button>
+          <button class="btn" title="Itálica (mod+i)"><span class="glyph i">I</span></button>
+          <button class="btn" title="Tachado (mod+shift+x)"><span class="glyph s">S</span></button>
+          <button class="btn" title="Código (mod+e)">
+            <svg class="ic" viewBox="0 0 24 24">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+          </button>
+          <span style="flex: 1"></span>
+          <button class="btn" title="Limpiar formato (mod+\)">
+            <svg class="ic" viewBox="0 0 24 24">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="tab">
+          <button class="tab on">Texto</button>
+          <button class="tab">Fondo</button>
+        </div>
+        <div class="swatches">
+          <button class="sw text" style="--c: #787774" title="Gris"></button>
+          <button class="sw text" style="--c: #9f6b53" title="Marrón"></button>
+          <button class="sw text" style="--c: #d9730d" title="Naranja"></button>
+          <button class="sw text" style="--c: #cb912f" title="Amarillo"></button>
+          <button class="sw text" style="--c: #448361" title="Verde"></button>
+          <button class="sw text on" style="--c: #d44c47" title="Rojo — activo"></button>
+          <button class="sw text" style="--c: #337ea9" title="Azul"></button>
+          <button class="sw text" style="--c: #9065b0" title="Violeta"></button>
+          <button class="none" title="Quitar color">
+            <svg viewBox="0 0 24 24">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <p style="margin-top: 26px">
+        Las pestañas <em>Texto / Fondo</em> evitan dos filas de 8; la ficha activa lleva anillo de
+        marca. El panel crece pero gasta cero popovers — y el ✕ deja de competir con la paleta: vive
+        en su propia fila.
+      </p>
+
+      <div class="sample">(demo interactiva: tocá una ficha)</div>
+      <div class="note-attr">mockup estático · bitácora DS oscuro</div>
+    </article>
+
+    <script>
+      // Demo: click en ficha tiñe la palabra seleccionada del texto de ejemplo.
+      const sel = document.querySelector(".sel")
+      document.querySelectorAll(".sw").forEach((sw) => {
+        sw.addEventListener("click", () => {
+          document.querySelectorAll(".sw").forEach((x) => x.classList.remove("on"))
+          sw.classList.add("on")
+          sel.style.color = sw.classList.contains("text") ? sw.style.getPropertyValue("--c") : ""
+          sel.style.background = sw.classList.contains("hl") ? sw.style.getPropertyValue("--c") : ""
+        })
+      })
+    </script>
+  </body>
+</html>

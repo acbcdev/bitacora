@@ -1,6 +1,6 @@
 import { Trash2 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
-import { Editor } from "@/core/components/editor"
+import { docToPlainText } from "@/core/lib/tiptap-markdown"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
 import type { Notebook, Note } from "@/core/types/database"
@@ -54,7 +54,13 @@ export function FlashcardCard({
         {!revealed ? (
           <p className="text-muted-foreground">Pensá tu respuesta y revelala cuando estés listo.</p>
         ) : (
-          openNote && <Editor content={openNote.content} editable={false} />
+          // Historia 7: sin editor en la flashcard — la respuesta sale como texto simple
+          // (tablas/imagenes se aplanan). Mismo camino que note-card.
+          openNote && (
+            <p className="text-pretty">
+              {docToPlainText(openNote.content) || <em>Nota sin contenido todavía.</em>}
+            </p>
+          )
         )}
       </div>
 

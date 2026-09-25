@@ -128,14 +128,6 @@ test("la tabla queda envuelta en el wrapper con scroll", async () => {
   expect(container.querySelector(".ProseMirror > .tableWrapper table")).toBeInTheDocument()
 })
 
-// En editable=false (hoy: flashcard-card) no hay NodeView: renderHTML aplica las clases
-// de scroll directo al tag table — guard de regresión del story 3 en ese camino.
-test("sin editable la clase overflow-x-auto sigue en el tag table", async () => {
-  const { container } = render(<Editor content={tableDoc} editable={false} />)
-  await waitFor(() => expect(container.querySelector("table")).toBeInTheDocument())
-  expect(container.querySelector("table")?.className).toContain("overflow-x-auto")
-})
-
 // ── Paste de imagen (upload via store.uploadNoteImage) ──────────────────────────────
 
 const { uploadNoteImage } = vi.hoisted(() => ({ uploadNoteImage: vi.fn() }))

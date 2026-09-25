@@ -109,13 +109,11 @@ export type EditorHandle = {
 // Image: solo lectura de nodos existentes (notas importadas de Notion) — no hay upload desde la app.
 export function Editor({
   content,
-  editable = true,
   onChange,
   onPaste,
   ref,
 }: {
   content: TiptapDoc
-  editable?: boolean
   onChange?: (doc: TiptapDoc) => void
   // Preprocesa el texto pegado antes del parseo Markdown (notes/05: le da la 1ra línea al
   // título si estaba vacío). Devuelve el texto que efectivamente se inserta en el body.
@@ -145,11 +143,9 @@ export function Editor({
       ResizableImage,
       // resizable true (historia 5): sin migración — colwidth es attr con default null y solo
       // nace al arrastrar un borde. La UI de filas/columnas vive en table-controls.tsx.
-      // Las clases de scroll/spacing tienen DOS caminos (misma lista, una sola fuente de verdad
-      // conceptual): con resizable + editable el NodeView de prosemirror-tables arma su propio
-      // DOM (div.tableWrapper + table) y SUELTA los HTMLAttributes — ahí manda index.css
-      // (.tableWrapper). Sin NodeView (editable=false, hoy: flashcard-card) renderHTML sí
-      // aplica estas clases al tag table. td/th/padding/borders viven en index.css.
+      // El NodeView de prosemirror-tables arma su propio DOM (div.tableWrapper + table) y
+      // SUELTA los HTMLAttributes — ahí manda index.css (.tableWrapper). td/th/padding/borders
+      // viven en index.css.
       Table.configure({
         resizable: true,
         HTMLAttributes: {
@@ -181,7 +177,6 @@ export function Editor({
       FormatKeys,
     ],
     content: content as Content,
-    editable,
     onUpdate: ({ editor: updated }) => {
       setVersion((v) => v + 1)
       onChange?.(updated.getJSON() as TiptapDoc)
@@ -344,19 +339,6 @@ export function Editor({
     return () => el.removeEventListener("click", handler)
   }, [])
 
-  useEffect(() => {
-    if (editor && editor.isEditable !== editable) editor.setEditable(editable)
-  }, [editor, editable])
-
-  // Modo lectura (Repaso): si cambia la nota mostrada, refrescar el contenido. setContent no
-  // dispara onUpdate, así que el rescaneo del Outline se avisa a mano.
-  useEffect(() => {
-    if (editor && !editable) {
-      editor.commands.setContent(content as Content)
-      setVersion((v) => v + 1)
-    }
-  }, [editor, editable, content])
-
   useImperativeHandle(
     ref,
     () => ({
@@ -384,10 +366,10 @@ export function Editor({
     <div ref={host} className="relative">
       <Outline host={host} version={version} />
       <EditorContent editor={editor} className="tiptap-host" />
-      {/* Tablas (historia 5): + y handles por hover, solo con el editor editable. */}
-      {editor && editable && <TableHoverControls editor={editor} host={host} />}
-      {/* Bloques (historia 6): + ⋮⋮ por hover, menú y drag, solo editable. */}
-      {editor && editable && <BlockControls editor={editor} host={host} />}
+      {/* Tablas (historia 5): + y handles por hover. */}
+      {editor && <TableHoverControls editor={editor} host={host} />}
+      {/* Bloques (historia 6): + ⋮⋮ por hover, menú y drag. */}
+      {editor && <BlockControls editor={editor} host={host} />}
       {/* Bubble de formato (historia 4): aparece con selección no vacía. */}
       {editor && <FormatBubbleMenu editor={editor} />}
       <EditorLightbox

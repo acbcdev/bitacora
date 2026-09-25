@@ -357,7 +357,7 @@ test("Editor no toca el doc: onChange no dispara al abrir lightbox", async () =>
 })
 
 test("click en imagen no rompe handlePaste", async () => {
-  const { container } = render(<Editor content={docNoImages} editable />)
+  const { container } = render(<Editor content={docNoImages} />)
   const pm = await waitFor(() => container.querySelector<HTMLElement>(".ProseMirror")!)
   pm.focus()
   // Simular que el editor sigue recibiendo paste (no testeamos markdownToDoc acá, solo que no throw)
@@ -365,24 +365,13 @@ test("click en imagen no rompe handlePaste", async () => {
 })
 
 test("resize handles visibles en editable", async () => {
-  const { container } = render(<Editor content={docOneImage} editable />)
+  const { container } = render(<Editor content={docOneImage} />)
   await getImgs(container)
   expect(container.querySelectorAll("[data-resize-handle]").length).toBe(2)
 })
 
-test("resize handles visibles también en modo lectura (ambos)", async () => {
-  const { container } = render(<Editor content={docOneImage} editable={false} />)
-  await waitFor(() =>
-    expect(container.querySelector<HTMLElement>(".ProseMirror")).toBeInTheDocument(),
-  )
-  await waitFor(() =>
-    expect(container.querySelectorAll<HTMLImageElement>(".ProseMirror img").length).toBe(1),
-  )
-  expect(container.querySelectorAll("[data-resize-handle]").length).toBe(2)
-})
-
 test("handles tienen cursor ew-resize y están inset del borde", async () => {
-  const { container } = render(<Editor content={docOneImage} editable />)
+  const { container } = render(<Editor content={docOneImage} />)
   await getImgs(container)
   const left = container.querySelector<HTMLElement>('[data-resize-handle="left"]')!
   const right = container.querySelector<HTMLElement>('[data-resize-handle="right"]')!
@@ -404,7 +393,7 @@ test("handles tienen cursor ew-resize y están inset del borde", async () => {
 
 test("drag handle derecha actualiza width y dispara onChange", async () => {
   const onChange = vi.fn()
-  const { container } = render(<Editor content={docOneImage} editable onChange={onChange} />)
+  const { container } = render(<Editor content={docOneImage} onChange={onChange} />)
   await getImgs(container)
   onChange.mockClear()
   const handle = container.querySelector<HTMLElement>('[data-resize-handle="right"]')!
@@ -436,7 +425,7 @@ test("drag handle derecha actualiza width y dispara onChange", async () => {
 
 test("drag handle izquierda aumenta al arrastrar a la izquierda", async () => {
   const onChange = vi.fn()
-  const { container } = render(<Editor content={docOneImage} editable onChange={onChange} />)
+  const { container } = render(<Editor content={docOneImage} onChange={onChange} />)
   await getImgs(container)
   onChange.mockClear()
   const handle = container.querySelector<HTMLElement>('[data-resize-handle="left"]')!
@@ -466,7 +455,7 @@ test("drag handle izquierda aumenta al arrastrar a la izquierda", async () => {
 })
 
 test("cursor cambia a ew-resize mientras se arrastra y vuelve", async () => {
-  const { container } = render(<Editor content={docOneImage} editable />)
+  const { container } = render(<Editor content={docOneImage} />)
   await getImgs(container)
   const handle = container.querySelector<HTMLElement>('[data-resize-handle="right"]')!
   const img = container.querySelector<HTMLImageElement>(".ProseMirror img")!
