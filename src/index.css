@@ -131,6 +131,25 @@
   --warning: #96661f;
   --warning-bg: #f3ead6;
 
+  /* Paleta del editor (bubble, historia 4): bicolor por tema — letra y fondo calibrados por
+     contraste sobre el fondo del tema. Los marks persisten la cadena var() y el tema la resuelve. */
+  --p-gray: #787774;
+  --p-gray-hl: #f1f1ef;
+  --p-brown: #9f6b53;
+  --p-brown-hl: #f4eeee;
+  --p-orange: #d9730d;
+  --p-orange-hl: #fbecdd;
+  --p-yellow: #cb912f;
+  --p-yellow-hl: #fbf3db;
+  --p-green: #448361;
+  --p-green-hl: #edf3ec;
+  --p-blue: #337ea9;
+  --p-blue-hl: #e7f3f8;
+  --p-violet: #9065b0;
+  --p-violet-hl: #f4f0f7;
+  --p-red: #d44c47;
+  --p-red-hl: #fdebec;
+
   --sidebar: #f6f7f5;
   --sidebar-foreground: #0b0d0c;
   --sidebar-primary: #0b0d0c;
@@ -171,6 +190,25 @@
   --brand-fg: #74cba0;
   --warning: #d5a75f;
   --warning-bg: #383023;
+
+  /* Paleta del editor en dark: letra más clara/luminosa, highlight en versión oscura saturada
+     — calibrados para legibilidad sobre grafito. */
+  --p-gray: #9b9a97;
+  --p-gray-hl: #444444;
+  --p-brown: #b78a6d;
+  --p-brown-hl: #584234;
+  --p-orange: #e07927;
+  --p-orange-hl: #5e3f11;
+  --p-yellow: #e5ae4d;
+  --p-yellow-hl: #56440b;
+  --p-green: #66b180;
+  --p-green-hl: #244e3a;
+  --p-blue: #5ca4d6;
+  --p-blue-hl: #17465a;
+  --p-violet: #b17dd2;
+  --p-violet-hl: #412c56;
+  --p-red: #ed766f;
+  --p-red-hl: #5e201f;
 
   --sidebar: #1c1c1c;
   --sidebar-foreground: #f2f2f0;

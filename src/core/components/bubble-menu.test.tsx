@@ -110,11 +110,11 @@ test("isActive por control: B, I, S, code, A y H reflejan las marks activas", as
     expect(item(bubble, "Itálica")).toHaveAttribute("data-state", "on")
     expect(item(bubble, "Tachado")).toHaveAttribute("data-state", "on")
   })
-  // Mini-preview: los íconos de A y H pintan el color activo.
-  expect(item(bubble, "Color de letra").querySelector("svg")).toHaveStyle({ color: ROJO })
-  expect(item(bubble, "Resaltado").querySelector("svg")).toHaveStyle({
-    backgroundColor: ROJO_BG,
-  })
+  // Mini-preview: los botones de A y H muestran un dot con el color activo (paleta bicolor).
+  const aDot = item(bubble, "Color de letra").querySelector("[data-testid=color-dot]")
+  expect(aDot?.getAttribute("style")).toContain(ROJO)
+  const hDot = item(bubble, "Resaltado").querySelector("[data-testid=color-dot]")
+  expect(hDot?.getAttribute("style")).toContain(ROJO_BG)
 
   // Code es excluyente: solo, con sus toggles hermanos en off.
   editor.commands.unsetAllMarks()
@@ -169,6 +169,31 @@ test("click en B del bubble togglea bold", async () => {
   expect(editor.isActive("bold")).toBe(true)
   press(item(bubble, "Bold"))
   expect(editor.isActive("bold")).toBe(false)
+})
+
+// Fila de bloque (mockup 07): label = tipo actual; el popover convierte el bloque.
+test("fila de bloque: label del tipo actual y conversión desde el popover", async () => {
+  const { view, editor } = await setup()
+  selectText(view)
+  const bubble = await waitFor(() => document.body.querySelector(BUBBLE)!)
+  expect(item(bubble, "Convertir bloque").textContent).toContain("Texto normal")
+
+  // El editor marca el tipo actual con un check en el menú.
+  press(item(bubble, "Convertir bloque"))
+  await waitFor(() =>
+    expect(document.body.querySelector("[data-testid=turn-item-1]")).not.toBeNull(),
+  )
+  press(document.body.querySelector("[data-testid=turn-item-2]")!) // Encabezado 2
+  expect(editor.isActive("heading", { level: 2 })).toBe(true)
+
+  // El label sigue al bloque; el ítem activo queda marcado con data-active.
+  await waitFor(() =>
+    expect(item(bubble, "Convertir bloque").textContent).toContain("Encabezado 2"),
+  )
+  press(item(bubble, "Convertir bloque"))
+  await waitFor(() =>
+    expect(document.body.querySelector("[data-testid=turn-item-2]")).toHaveAttribute("data-active"),
+  )
 })
 
 // Esc con un popover de color abierto: cierra SOLO el popover (capture), el foco queda en el
