@@ -8,9 +8,13 @@ import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
 import { TaskList } from "@tiptap/extension-task-list"
 import TaskItem from "@tiptap/extension-task-item"
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table"
+import { Bold } from "@tiptap/extension-bold"
+import { TextStyleKit } from "@tiptap/extension-text-style"
+import Highlight from "@tiptap/extension-highlight"
 import { createLowlight, common } from "lowlight"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { sinkListItem, liftListItem } from "@tiptap/pm/schema-list"
+import { Extension } from "@tiptap/react"
 import { toast } from "sonner"
 import { store } from "@/core/store"
 import type { TiptapDoc } from "@/core/types/database"
@@ -19,10 +23,30 @@ import { CodeBlockView } from "@/core/components/code-block"
 import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
 import { SlashMenu, isSlashMenuActive } from "@/core/components/slash-menu"
+import { FormatBubbleMenu } from "@/core/components/bubble-menu"
 import { EditorLightbox } from "@/core/components/editor-lightbox"
 import { collectImages, type LightboxImage } from "@/core/components/editor-lightbox-utils"
 
 const lowlight = createLowlight(common)
+
+// Teclado de formato (ADR 0019): mod+B es del sidebar (shadcn) — el editor lo suelta para no
+// hacer doble efecto; bold del editor = mod+Alt+B. mod+\ limpia todas las marks (incluidas
+// color y highlight); el resto de defaults de Tiptap queda (I, mod+Shift+X, mod+E, mod+Shift+H).
+const EditorBold = Bold.extend({
+  addKeyboardShortcuts() {
+    return {
+      "Mod-b": () => false,
+      "Mod-Alt-b": () => this.editor.commands.toggleBold(),
+    }
+  },
+})
+
+const FormatKeys = Extension.create({
+  name: "formatKeys",
+  addKeyboardShortcuts() {
+    return { "Mod-\\": () => this.editor.commands.unsetAllMarks() }
+  },
+})
 
 const CodeBlock = CodeBlockLowlight.extend({
   addNodeView: () => ReactNodeViewRenderer(CodeBlockView),
@@ -115,7 +139,8 @@ export function Editor({
     // false = sin handles ni columnGroup attrs; no hay toolbar de tabla — el contenido entra por
     // paste Markdown o import Notion.
     extensions: [
-      StarterKit.configure({ codeBlock: false }),
+      StarterKit.configure({ codeBlock: false, bold: false }),
+      EditorBold,
       CodeBlock,
       ResizableImage,
       // Scroll horizontal (story 3): la clase va en el tag table via HTMLAttributes — sin wrapper
@@ -134,6 +159,17 @@ export function Editor({
       TaskItem.configure({ nested: true }),
       // Menú slash (historia 2): trigger `/`, popup cmdk en portal.
       SlashMenu,
+      // Formato visible (historia 4): color y highlight son marks oficiales con la paleta fija
+      // de 8 (ver bubble-menu.tsx). TextStyleKit trae TextStyle + Color; el resto (fuentes,
+      // line-height, background-color) no se usa — fuera.
+      TextStyleKit.configure({
+        backgroundColor: false,
+        fontFamily: false,
+        fontSize: false,
+        lineHeight: false,
+      }),
+      Highlight.configure({ multicolor: true }),
+      FormatKeys,
     ],
     content: content as Content,
     editable,
@@ -328,6 +364,8 @@ export function Editor({
     <div ref={host} className="relative">
       <Outline host={host} version={version} />
       <EditorContent editor={editor} className="tiptap-host" />
+      {/* Bubble de formato (historia 4): aparece con selección no vacía. */}
+      {editor && <FormatBubbleMenu editor={editor} />}
       <EditorLightbox
         images={lbImages}
         index={lbIndex}
