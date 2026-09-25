@@ -5,6 +5,8 @@ import type { Content } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Image from "@tiptap/extension-image"
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
+import { TaskList } from "@tiptap/extension-task-list"
+import TaskItem from "@tiptap/extension-task-item"
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table"
 import { createLowlight, common } from "lowlight"
 import { Fragment, Slice } from "@tiptap/pm/model"
@@ -16,6 +18,7 @@ import { markdownToDoc } from "@/core/lib/tiptap-markdown"
 import { CodeBlockView } from "@/core/components/code-block"
 import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
+import { SlashMenu, isSlashMenuActive } from "@/core/components/slash-menu"
 import { EditorLightbox } from "@/core/components/editor-lightbox"
 import { collectImages, type LightboxImage } from "@/core/components/editor-lightbox-utils"
 
@@ -126,6 +129,11 @@ export function Editor({
       TableRow,
       TableHeader,
       TableCell,
+      // To-do (Menú slash, historia 2): TaskList/TaskItem no vienen en StarterKit.
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      // Menú slash (historia 2): trigger `/`, popup cmdk en portal.
+      SlashMenu,
     ],
     content: content as Content,
     editable,
@@ -196,6 +204,9 @@ export function Editor({
       handleKeyDown(view, event) {
         if (lbOpenRef.current) return false
         if (event.key !== "Escape") return false
+        // Menú slash abierto: Esc cierra el popup (plugin de Suggestion) y el foco se queda
+        // en el editor — el `/` queda como texto literal. Ver slash-menu.tsx.
+        if (isSlashMenuActive(view)) return false
 
         view.dom.blur()
         return true

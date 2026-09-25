@@ -5,6 +5,21 @@ import "@testing-library/jest-dom"
 Element.prototype.scrollIntoView = () => {}
 // coordsAtPos de ProseMirror (focus/scroll tras typing) necesita rects que jsdom no da.
 Element.prototype.getClientRects ??= () => [] as unknown as DOMRectList
+// Idem sobre Range de texto: PM consulta ClientRects del caret con un Range al hacer scroll
+// después de un comando con focus (ej. slash menu → deleteRange). Sin esto, el comando peta.
+Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList
+Range.prototype.getBoundingClientRect ??= () =>
+  ({
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: 0,
+    height: 0,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  }) as DOMRect
 globalThis.ResizeObserver ??= class {
   observe() {}
   unobserve() {}
