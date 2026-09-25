@@ -170,9 +170,12 @@ function SlashPopup({ items, command, keyRef }: PopupProps) {
 
   // Scroll del ítem seleccionado: cmdk solo scrollea al mover la selección con SU keymap
   // interno, que nunca corre (el foco vive en el editor). Sin esto, con más de ~9 ítems la
-  // selección se va fuera de la lista (max-h-72) sin scroll.
+  // selección se va fuera de la lista (max-h-72) sin scroll. Se scrollea por POSICIÓN
+  // (items[index]) y no por el atributo aria-selected: cmdk sincroniza ese atributo en un
+  // update React posterior al commit — al click de teclas rápidas el attr aún está viejo y
+  // el scroll del wrap se ve con un keypress de retraso.
   useEffect(() => {
-    rootRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" })
+    rootRef.current?.querySelectorAll("[cmdk-item]")[index]?.scrollIntoView({ block: "nearest" })
   }, [index, items])
 
   // Sin deps: el handler se re-registra con el closure fresco en cada render. Los keydown

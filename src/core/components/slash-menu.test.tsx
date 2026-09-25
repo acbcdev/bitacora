@@ -71,6 +71,18 @@ test("ArrowDown/ArrowUp mueven el ítem seleccionado con wrap", async () => {
   await waitFor(() => expect(selected(popup)).toBe("Imagen"))
 })
 
+// Caso reportado: 1×ArrowUp desde el primer ítem debe envolver directo al último (no en el 2º
+// keypress); 1×ArrowDown en el último debe envolver directo al primero.
+test("wrap inmediato en ambos bordes", async () => {
+  const { view } = await setup()
+  const popup = await openMenu(view, "")
+  expect(selected(popup)).toBe("Heading 1")
+  fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowUp" })
+  await waitFor(() => expect(selected(popup)).toBe("Imagen"))
+  fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowDown" })
+  await waitFor(() => expect(selected(popup)).toBe("Heading 1"))
+})
+
 test("hover mueve la selección y Enter inserta el ítem resaltado", async () => {
   const { view, onChange } = await setup()
   const popup = await openMenu(view, "")
