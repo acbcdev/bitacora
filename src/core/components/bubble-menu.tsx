@@ -387,7 +387,11 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
       className="z-50"
     >
       {/* mousedown → preventDefault: el bubble nunca roba la selección (AC transversal). */}
-      <div onMouseDown={preventFocus} data-testid="bubble-menu">
+      <div
+        onMouseDown={preventFocus}
+        data-testid="bubble-menu"
+        className="w-[236px] overflow-hidden rounded-[10px] border border-border bg-popover shadow-md"
+      >
         {/* Fila de bloque (mockup 07): label del tipo actual + conversión en popover. */}
         <Popover
           open={turnOpen}
