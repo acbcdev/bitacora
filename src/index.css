@@ -266,13 +266,20 @@
     background: transparent;
   }
   .tiptap-host .ProseMirror .ProseMirror-selectednoderange {
+    /* El halo es un ::before detras del contenido: aire alrededor del bloque SIN reflow
+       (padding real re-envolvería el texto) y sin box-shadow (el spread se derrama sobre
+       los bloques vecinos no seleccionados). isolation: isolate mantiene el ::before
+       (z-index -1) dentro del contexto del propio bloque. */
+    position: relative;
+    isolation: isolate;
+  }
+  .tiptap-host .ProseMirror .ProseMirror-selectednoderange::before {
+    content: "";
+    position: absolute;
+    inset: -4px -8px;
+    border-radius: 8px;
     background: var(--muted);
-    /* El halo se extiende 8px más allá del bloque (sin reflow: padding real del bloque
-       re-envolvería el texto al seleccionar). Los bloques contiguos se funden en una sola
-       barra — el spread cubre los gaps. radius 4 + spread 8 = esquina externa ~12px,
-       menos redondeada que una píldora. */
-    border-radius: 4px;
-    box-shadow: 0 0 0 8px var(--muted);
+    z-index: -1;
   }
   .mono {
     @apply font-mono text-xs text-fg-secondary;
