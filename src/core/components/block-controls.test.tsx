@@ -264,4 +264,20 @@ describe("visibilidad del asa (v2: bloque + gutter)", () => {
     await settle()
     await waitFor(() => expect(lastDoc(onChange).content?.[1]?.type).toBe("heading"))
   })
+
+  test("al salir del host, por encima del primer y debajo del último bloque, se esconde", async () => {
+    const { view, container } = await setup()
+    stackRects(view)
+    const h = hostEl(container)
+    fireEvent.mouseMove(h, { clientX: -40, clientY: 36 })
+    await waitFor(visible)
+
+    // Salir del host (el mouse viaja al portal del menú u otro lado): esconder.
+    fireEvent.mouseLeave(h)
+    await waitFor(hidden)
+
+    // Dentro del gutter pero sin bloque a esa altura (debajo del último).
+    fireEvent.mouseMove(h, { clientX: -40, clientY: 999 })
+    await waitFor(hidden)
+  })
 })

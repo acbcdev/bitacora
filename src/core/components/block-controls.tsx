@@ -263,13 +263,32 @@ export function BlockControls({
   useEffect(() => {
     const h = host.current
     if (!h) return
+    const menuOpenRef = { current: menuOpen }
+    const hide = () => {
+      // Con el menú abierto el mouse viaja al portal del DropdownMenu (fuera del host):
+      // no esconder, el lock del plugin ya congela el hover.
+      if (menuOpenRef.current) return
+      const el = h.querySelector<HTMLElement>(".block-drag-handle")
+      if (el) {
+        el.style.visibility = "hidden"
+        el.style.pointerEvents = "none"
+      }
+    }
     const onMove = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null
       if (!t || !h.contains(t)) return
       if (editor.view.dom.contains(t)) return
       if (t.closest(".block-drag-handle")) return
+      // Gutter REAL: a la izquierda del contenteditable. El resto de hijos del host
+      // (outline, controles de tabla, overlays) están en columna de contenido y no
+      // deben hacer aparecer el asa.
+      if (e.clientX >= editor.view.dom.getBoundingClientRect().left) return
       const block = blockAtY(editor.view, e.clientY)
-      if (!block) return
+      // Por encima del primer / debajo del último bloque no hay a qué anclar: esconder.
+      if (!block) {
+        hide()
+        return
+      }
       target.current = block
       const el = h.querySelector<HTMLElement>(".block-drag-handle")
       if (!el) return
@@ -279,9 +298,17 @@ export function BlockControls({
       if (!(dom instanceof HTMLElement)) return
       positionHandle(el, firstLineRect(dom) ?? dom.getBoundingClientRect(), h)
     }
+    // Salir del host (y del scroll: wheel en el gutter mueve los bloques bajo el asa)
+    // la esconden; el próximo mousemove la re-muestra en su lugar.
     h.addEventListener("mousemove", onMove)
-    return () => h.removeEventListener("mousemove", onMove)
-  }, [editor, host])
+    h.addEventListener("mouseleave", hide)
+    h.addEventListener("scroll", hide, true)
+    return () => {
+      h.removeEventListener("mousemove", onMove)
+      h.removeEventListener("mouseleave", hide)
+      h.removeEventListener("scroll", hide, true)
+    }
+  }, [editor, host, menuOpen])
 
   const selectBlock = (shift: boolean) => {
     const t = target.current
