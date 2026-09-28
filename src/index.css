@@ -239,6 +239,36 @@
   .eyebrow {
     @apply text-2xs font-medium tracking-widest text-muted-foreground uppercase;
   }
+  /* Asa de bloque (+ ⋮⋮): clase del wrapper del plugin. El plugin esconde el handle en el
+     mouseleave del editor salvo que relatedTarget caiga DENTRO del wrapper — sin este
+     gap sólido el trayecto cursor→botón cruzaba 8px de aire y el asa desaparecía antes
+     de llegar (Notion: zona de gracia hacia el lado del asa). pointer-events-auto
+     revive el hover de los botones (el wrapper padre vive con pointer-events:none). */
+  .block-drag-handle {
+    padding-right: 10px;
+    pointer-events: auto;
+  }
+  .block-drag-handle > div {
+    pointer-events: none;
+  }
+  .block-drag-handle button {
+    pointer-events: auto;
+  }
+  /* Selección de bloque (node-range, Shift+click): el plugin estila los bloques del rango
+     con la clase ProseMirror-selectednoderange — halo gris redondeado a todo el ancho
+     (contrato v2: la selección de bloque NUNCA es azul de texto). La clase en el
+     contenteditable (mismo nombre, la agrega NodeRange en el .ProseMirror raíz mientras
+     dura) oculta caret y selección nativa. Mayor especificidad que los estilos por tipo
+     (.tiptap-host .ProseMirror blockquote) para que el halo gane en cualquier bloque. */
+  .ProseMirror-noderangeselection,
+  .ProseMirror-noderangeselection ::selection {
+    caret-color: transparent;
+    background: transparent;
+  }
+  .tiptap-host .ProseMirror .ProseMirror-selectednoderange {
+    background: var(--muted);
+    border-radius: 12px;
+  }
   .mono {
     @apply font-mono text-xs text-fg-secondary;
   }

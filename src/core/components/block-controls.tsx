@@ -34,14 +34,20 @@ import { preventFocus } from "@/core/components/prevent-focus"
 // Bloques: + ⋮⋮ en el margen izquierdo del bloque hovered (spec historia 6, issue 05).
 // El drag (reordenar, rango multi-bloque, línea guía en drop) lo maneja el plugin oficial
 // de @tiptap/extension-drag-handle + NodeRange; acá vive solo la UI: los dos glifos, el
-// menú del ⋮⋮ y el overlay de la guía. Todo botón usa mousedown → preventDefault para no
-// robar el foco de la selección. Skip: unique-id (el plugin no lee ids y meterlo grabaría
-// `id` en el JSON persistido de cada nota); auto-scroll (notas cortas).
+// menú del ⋮⋮ y el overlay de la guía. Todo botón de overlay usa mousedown → preventDefault
+// para no robar el foco — EXCEPCIÓN: el ⋮⋮, que no puede cancelarlo (el drag nativo es una
+// acción default del mousedown: cancelarlo lo mata). Skip: unique-id (el plugin no lee ids
+// y meterlo grabaría `id` en el JSON persistido de cada nota); auto-scroll (notas cortas).
 
 const btnCls =
-  "pointer-events-auto grid size-[18px] place-items-center rounded-[4px] border border-popover bg-popover text-fg-secondary shadow-sm hover:bg-muted hover:text-foreground"
+  "pointer-events-auto grid size-6 cursor-grab place-items-center rounded-md border border-popover bg-popover text-fg-secondary shadow-sm hover:bg-muted hover:text-foreground active:cursor-grabbing"
 
-const itemIcon = "size-3.5 text-fg-secondary"
+const itemIcon = "size-4 text-fg-secondary"
+
+// Constante de módulo (NO inline): el useEffect del DragHandle depende de esta config —
+// un objeto nuevo por render re-registraba el plugin entero y re-escondía el asa
+// (visibility: hidden) en cada re-render del editor (autosave, refetch...).
+const POSITION_CONFIG = { placement: "left", strategy: "absolute" } as const
 
 // Bloque bajo el handle (hover del plugin) — el menú siempre opera sobre él.
 type BlockTarget = { node: Node; pos: number }
@@ -108,12 +114,20 @@ const rangeOf = (t: BlockTarget) => ({ from: t.pos + 1, to: t.pos + t.node.nodeS
 
 // Línea guía de 2px en el punto de drop, coordenadas relativas al host (mismo patrón que
 // TableHoverControls). `width` = ancho del bloque destino.
-type DropLine = { top: number; left: number; width: number }
+type DropLine = {
+  top: number
+  left: number
+  width: number
+  destTop: number
+  destHeight: number
+  isDragged: boolean
+}
 
 function locateLine(
   view: EditorView,
   host: HTMLElement,
   dragged: Node | null,
+  draggedPos: number,
   clientX: number,
   clientY: number,
 ): DropLine | null {
@@ -148,7 +162,62 @@ function locateLine(
     top: (clientY < box.top + box.height / 2 ? box.top : box.bottom) - hostBox.top - 1,
     left: box.left - hostBox.left,
     width: box.width,
+    // Rect del bloque destino (para el highlight de "acá va a caer"); null si el destino
+    // es el propio bloque arrastrado (drop en sí mismo = no-op).
+    destTop: box.top - hostBox.top,
+    destHeight: box.height,
+    isDragged: blockPos === draggedPos,
   }
+}
+
+// Rect de la primera línea de texto del bloque: para centrar el asa en el PRINCIPIO del
+// block (estilo Notion) en vez del centro vertical del bloque entero (párrafos largos
+// dejaban el asa al medio). Sin texto (imagen, tabla) → fallback al rect completo.
+function firstLineRect(dom: HTMLElement): DOMRect | null {
+  const walker = document.createTreeWalker(dom, NodeFilter.SHOW_TEXT)
+  for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
+    if (!n.data.trim()) continue
+    const range = document.createRange()
+    range.setStart(n, 0)
+    range.setEnd(n, Math.min(1, n.data.length))
+    const box = range.getBoundingClientRect()
+    if (box.height > 0) return box
+  }
+  return null
+}
+
+// Posiciona el asa contra la primera línea del bloque: borde derecho contra el borde
+// izquierdo del ref, centrado vertical — la MISMA matemática que floating-ui aplica al
+// plugin con placement "left" + strategy "absolute" (coordenadas relativas al offsetParent;
+// el host es el ancestro posicionado y sin borde, así que su rect es el origen).
+function positionHandle(el: HTMLElement, ref: DOMRect, host: HTMLElement) {
+  const hostBox = host.getBoundingClientRect()
+  el.style.left = `${ref.left - hostBox.left - el.offsetWidth}px`
+  el.style.top = `${ref.top + ref.height / 2 - hostBox.top - el.offsetHeight / 2}px`
+}
+
+// Mapeo por Y (contrato v2 de visibilidad): el bloque cuyo rect vertical contiene el
+// cursor. Desciende un nivel en contenedores de bloques (lista → ítem, blockquote →
+// párrafo) para que el gutter al lado de un ítem ancle ese ítem, como Notion.
+function blockAtY(view: EditorView, y: number): BlockTarget | null {
+  const pick = (parent: Node, basePos: number): BlockTarget | null => {
+    let pos = basePos
+    for (let i = 0; i < parent.childCount; i++) {
+      const child = parent.child(i)
+      const dom = view.nodeDOM(pos)
+      if (dom instanceof HTMLElement) {
+        const box = dom.getBoundingClientRect()
+        if (y >= box.top && y <= box.bottom) {
+          const first = child.firstChild
+          if (first?.isBlock && child.childCount > 1) return pick(child, pos + 1)
+          return { node: child, pos }
+        }
+      }
+      pos += child.nodeSize
+    }
+    return null
+  }
+  return pick(view.state.doc, 0)
 }
 
 export function BlockControls({
@@ -162,13 +231,25 @@ export function BlockControls({
   const target = useRef<{ node: Node; pos: number } | null>(null)
   const [dragging, setDragging] = useState(false)
   const [line, setLine] = useState<DropLine | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
-  // Durante el drag, dragover sobre el editor ubica la línea guía.
+  // Durante el drag, dragover sobre el editor ubica la línea guía. preventDefault: sin él
+  // el navegador no marca el drop como válido (dragover default = negar el drop).
   useEffect(() => {
     if (!dragging) return
     const onDragOver = (e: DragEvent) => {
+      e.preventDefault()
       if (!host.current || !target.current) return
-      setLine(locateLine(editor.view, host.current, target.current.node, e.clientX, e.clientY))
+      setLine(
+        locateLine(
+          editor.view,
+          host.current,
+          target.current.node,
+          target.current.pos,
+          e.clientX,
+          e.clientY,
+        ),
+      )
     }
     const clear = () => {
       setDragging(false)
@@ -193,6 +274,36 @@ export function BlockControls({
     fn(t)
   }
 
+  // Visibilidad del asa (contrato v2, grill 2026-09-27): el plugin la esconde en el
+  // mouseleave del editor y solo la revive con un mousemove sobre el texto — que nunca
+  // llega mientras el puntero esté en el gutter. La detección de zona es PROPIA de esta
+  // capa: mousemove sobre el host que no cae en el contenteditable ni en el propio asa =
+  // gutter; mapeo por Y → target + mostrar + posicionar contra la primera línea del
+  // bloque. Sin eventos sintéticos al plugin: si su currentNode quedó reseteado por el
+  // mouseleave, el dragstart resuelve el rango desde las coords del evento.
+  useEffect(() => {
+    const h = host.current
+    if (!h) return
+    const onMove = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null
+      if (!t || !h.contains(t)) return
+      if (editor.view.dom.contains(t)) return
+      if (t.closest(".block-drag-handle")) return
+      const block = blockAtY(editor.view, e.clientY)
+      if (!block) return
+      target.current = block
+      const el = h.querySelector<HTMLElement>(".block-drag-handle")
+      if (!el) return
+      el.style.visibility = ""
+      el.style.pointerEvents = "auto"
+      const dom = editor.view.nodeDOM(block.pos)
+      if (!(dom instanceof HTMLElement)) return
+      positionHandle(el, firstLineRect(dom) ?? dom.getBoundingClientRect(), h)
+    }
+    h.addEventListener("mousemove", onMove)
+    return () => h.removeEventListener("mousemove", onMove)
+  }, [editor, host])
+
   const selectBlock = (shift: boolean) => {
     const t = target.current
     if (!t) return
@@ -213,12 +324,27 @@ export function BlockControls({
         editor={editor}
         className="block-drag-handle"
         nested
+        // placement "left" centrado contra el virtual element de primera línea
+        // (getReferencedVirtualElement): el asa queda alineada al principio del bloque.
+        computePositionConfig={POSITION_CONFIG}
         onNodeChange={({ node, pos }) => {
           target.current = node && pos >= 0 ? { node, pos } : null
         }}
+        // Centrar el asa (+ ⋮⋮) contra la PRIMERA LÍNEA del bloque (target.current lo fija
+        // onNodeChange, que el plugin llama justo antes de re-posicionar).
+        getReferencedVirtualElement={() => {
+          const t = target.current
+          if (!t) return null
+          const dom = editor.view.nodeDOM(t.pos)
+          if (!(dom instanceof HTMLElement)) return null
+          const rect = firstLineRect(dom) ?? dom.getBoundingClientRect()
+          return { getBoundingClientRect: () => rect }
+        }}
         onElementDragStart={() => setDragging(true)}
       >
-        <div className="flex items-start gap-[2px]">
+        {/* pr-2: aire entre el asa y el texto — floating-ui pega el borde derecho del wrapper
+            (cuenta todo el box, padding incluido) al borde izquierdo del bloque. */}
+        <div className="flex items-center gap-1.5 pr-2">
           {/* +: párrafo vacío debajo del bloque, enfocado (sin menú: escribir / ya abre slash). */}
           <button
             type="button"
@@ -237,30 +363,54 @@ export function BlockControls({
                 .run()
             })}
           >
-            <PlusIcon className="size-3" />
+            <PlusIcon className="size-4" />
           </button>
 
           {/* ⋮⋮: click selecciona el bloque (node-range), Shift+click extiende, drag mueve.
               El menú lockea el handle (el plugin lo esconde al salir del editor y con el
               menú abierto el mouse viaja al portal del DropdownMenu). */}
           <DropdownMenu
-            onOpenChange={(open) =>
+            open={menuOpen}
+            onOpenChange={(open) => {
+              setMenuOpen(open)
               editor.view.dispatch(editor.view.state.tr.setMeta("lockDragHandle", open))
-            }
+            }}
           >
+            {/* El trigger de Radix abre el menú en pointerdown y hace preventDefault — un
+                pointerdown cancelado suprime el drag nativo en Chromium/Firefox: el ⋮⋮
+                nunca arrastraba (abría el menú y moría). La captura corta ese handler sin
+                cancelar nada; el menú abre en click (tras un drag no hay click, así que
+                el gesto drag no dispara el menú). Enter/Space siguen abriendo vía Radix
+                (el keydown del grip burbujea al trigger). */}
             <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                data-testid="block-handle"
-                aria-label="Menú de bloque"
-                className={btnCls}
-                onMouseDown={(e) => {
-                  preventFocus(e)
-                  selectBlock(e.shiftKey)
-                }}
-              >
-                <GripVerticalIcon className="size-3" />
-              </button>
+              <span className="contents" onPointerDownCapture={(e) => e.stopPropagation()}>
+                {/* span con role=button, NO <button>: Chromium no inicia drag nativo desde
+                    un form control ni con draggable=true (probado con Chrome headless —
+                    dragstart solo dispara desde el wrapper). */}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  data-testid="block-handle"
+                  aria-label="Menú de bloque"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  draggable={!menuOpen}
+                  className={btnCls}
+                  // Contrato v2: click = SOLO menú, no toca la selección del editor (el
+                  // drag agarra el bloque sin seleccionar; el node-range lo fija el
+                  // propio plugin en el dragstart). La selección de bloque solo existe
+                  // con Shift+click. SIN preventDefault: iniciar el drag es una acción
+                  // default del mousedown — cancelarlo lo mata.
+                  onMouseDown={(e) => {
+                    if (!e.shiftKey) return
+                    selectBlock(true)
+                    setTimeout(() => editor.view.focus(), 0)
+                  }}
+                  onClick={() => setMenuOpen((o) => !o)}
+                >
+                  <GripVerticalIcon className="size-4" />
+                </span>
+              </span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-44">
               <DropdownMenuSub>
@@ -299,11 +449,34 @@ export function BlockControls({
       {dragging && (
         <div className="absolute inset-0 z-20 pointer-events-none">
           {line && (
-            <div
-              data-testid="drop-line"
-              className="absolute rounded-full bg-fg-accent"
-              style={{ top: line.top, left: line.left, width: line.width, height: 2 }}
-            />
+            <>
+              {/* Highlight del bloque destino ("acá va a caer") — omitido si el destino es
+                  el propio bloque arrastrado (drop en sí mismo = no-op). */}
+              {!line.isDragged && (
+                <div
+                  data-testid="drop-target"
+                  className="absolute rounded-[12px] border-2 border-brand-strong bg-brand-soft/60"
+                  style={{
+                    top: line.destTop,
+                    left: line.left,
+                    width: line.width,
+                    height: line.destHeight,
+                  }}
+                />
+              )}
+              {/* Línea de drop + punto (estilo Notion): el dot marca exactamente el punto
+                  de inserción al margen, la línea cruza todo el ancho del bloque destino. */}
+              <div
+                data-testid="drop-dot"
+                className="absolute size-2 rounded-full bg-brand-strong"
+                style={{ top: line.top - 3, left: line.left - 3 }}
+              />
+              <div
+                data-testid="drop-line"
+                className="absolute rounded-full bg-brand-strong"
+                style={{ top: line.top, left: line.left, width: line.width, height: 2 }}
+              />
+            </>
           )}
         </div>
       )}

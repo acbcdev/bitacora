@@ -104,8 +104,34 @@ selección vacía y fuera del editor.
 - **`⋮⋮` click** abre `DropdownMenu`: **Convertir a ▸** (Párrafo, H1/H2/H3, Lista, To-do,
   Cita, Código — sin tabla/imagen/divisor) · **Duplicar** (copia debajo) · **Eliminar**
   (directo, sin confirmación — un bloque se deshace con `mod+Z`).
-- **Drag:** línea guía de 2px en el punto de drop (overlay propio). Click en `⋮⋮` selecciona
-  el bloque (node-range); `Shift+click` extiende el rango; drag mueve el rango entero.
+- **Drag:** línea guía de 2px en el punto de drop (overlay propio). `Shift+click` extiende
+  el rango; drag mueve el rango entero.
+- **Reescritura v2 del drag (grill 2026-09-27):** el click en `⋮⋮` dejaba una NodeRangeSelection
+  pintada como selección de texto azul ANTES de decidirse click vs drag — el drag nativo arrancaba
+  en conflicto con esa selección activa (síntoma del usuario: "draggea como si seleccionara texto").
+  Contrato nuevo:
+  - **Dos selecciones separadas, como Notion:** click en `⋮⋮` = SOLO menú, no toca la selección
+    del editor. Drag = agarrar el bloque. La selección de bloque solo existe con Shift+click.
+  - **Selección de bloque visual ≠ selección de texto:** estilar las decoraciones que la
+    extensión ya agrega (`ProseMirror-selectednoderange` / `ProseMirror-noderangeselection`)
+    como halo gris redondeado a todo el ancho del bloque (mockup del usuario), sin azul de texto.
+  - **Ghost del plugin solo:** muere el `dragPaint` global (estilos inline a mano con bug de
+    limpieza). El ghost nativo hereda estilos leyendo el DOM.
+  - La guía de drop estilo Notion (línea + dot + highlight) queda custom — decisión del usuario:
+    "la nativa no, quiero la de bloques porque me da mejor customización y UX".
+  - El motor sigue siendo el plugin oficial; lo reescrito de 0 es la capa de interacción UI encima
+    (mousedown/selección/guía/pintado). Excepción a la regla transversal de
+    `mousedown → preventDefault`: el ⋮⋮ no puede cancelarlo — iniciar el drag nativo es una
+    acción default del mousedown, y cancelarlo lo mata (los demás botones del overlay siguen
+    con preventDefault).
+- **Visibilidad del asa (v2, grill 2026-09-27):** hoy el plugin la esconde apenas el puntero sale
+  del contenteditable y solo la revive con mousemove sobre el texto — hay un hack de mousemove
+  sintético para compensar. Contrato:
+  - El asa aparece si el cursor está sobre el bloque **o sobre el gutter a su altura**
+    (mapeo por Y: el bloque cuyo rect vertical contiene el cursor).
+  - «Toda la fila» queda fuera: alineado con chrome mínimo, activa por bloque + gutter.
+  - Muere el hack de `mousemove` sintético: la detección de zona (bloque + gutter) es propia
+    de la capa UI, sin depender del ciclo mouseleave/mousemove del plugin.
 - **Skip:** auto-scroll en drag (notas cortas), `FloatingMenu` (tercera puerta redundante,
   descartado en grill).
 - **AC:** test de menú (convertir/duplicar/eliminar); drag test básico (reordenar dos

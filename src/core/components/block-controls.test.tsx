@@ -3,12 +3,15 @@ import type { EditorView } from "@tiptap/pm/view"
 import { Editor } from "@/core/components/editor"
 import type { TiptapDoc } from "@/core/types/database"
 
-// Contrato de bloques (.scratch/editor-notion-ux/spec.md, historia 6 / issue 05):
+// Contrato de bloques (.scratch/editor-notion-ux/spec.md, historia 6 / issue 05, v2):
 // - Handle + ⋮⋮ en el margen izquierdo del bloque hovered, todos los niveles.
 // - + inserta párrafo vacío debajo y enfoca; sin menú propio.
-// - ⋮⋮ click selecciona el bloque (node-range); Shift+click extiende el rango.
+// - ⋮⋮ click = SOLO menú (no toca la selección); Shift+click selecciona/extiende el
+//   node-range (única fuente de selección de bloque).
 // - Menú: Convertir a ▸ (Párrafo, H1-3, Lista, To-do, Cita, Código) · Duplicar · Eliminar.
 // - Drag reordena; durante el drag aparece la línea guía de 2px.
+// - El asa también aparece con el cursor en el gutter a la altura del bloque (mapeo por Y,
+//   detección de zona propia — sin mousemove sintético).
 
 beforeAll(() => {
   document.elementFromPoint = () => null
@@ -202,21 +205,63 @@ describe("drag", () => {
 })
 
 describe("node-range", () => {
-  test("click en ⋮⋮ selecciona el bloque; Shift+click extiende el rango", async () => {
+  test("click en ⋮⋮ NO toca la selección (solo menú); Shift+click selecciona y extiende", async () => {
     const { view } = await setup()
     await hoverBlock(view, "Dos")
 
-    // mousedown: node-range sobre "Dos" (p arranca en pos 5, "Dos" = 5..10).
+    // Click simple: la selección del editor queda intacta (contrato v2).
     fireEvent.mouseDown(screen.getByTestId("block-handle"))
-    expect(view.state.selection.from).toBe(5)
+    expect(view.state.selection.empty).toBe(true)
+
+    // Shift+mousedown en ⋮⋮ de "Dos" (p 5..10): node-range desde el caret (0) → 2 rangos.
+    fireEvent.mouseDown(screen.getByTestId("block-handle"), { shiftKey: true })
+    const sel = view.state.selection as unknown as { ranges: unknown[] }
+    expect(sel.ranges.length).toBe(2)
+    expect(view.state.selection.from).toBe(0)
     expect(view.state.selection.to).toBe(10)
 
     // Shift+mousedown en ⋮⋮ de "Tres" (p 10..15): extiende el rango hasta cubrirlo.
     await hoverBlock(view, "Tres")
     fireEvent.mouseDown(screen.getByTestId("block-handle"), { shiftKey: true })
-    // NodeRangeSelection con 2 rangos = "Dos" + "Tres" (multi-bloque del AC).
-    const sel = view.state.selection as unknown as { ranges: unknown[] }
-    expect(sel.ranges.length).toBe(2)
-    expect(view.state.selection.from).toBe(5)
+    const extended = view.state.selection as unknown as { ranges: unknown[] }
+    expect(extended.ranges.length).toBe(3)
+    expect(view.state.selection.from).toBe(0)
+  })
+})
+
+describe("visibilidad del asa (v2: bloque + gutter)", () => {
+  // Rects diferenciados por bloque para que el mapeo por Y pueda distinguirlos.
+  const stackRects = (view: EditorView) => {
+    const blocks = [...view.dom.querySelectorAll("p, h1, h2, h3")]
+    blocks.forEach((el, i) => {
+      vi.spyOn(el, "getBoundingClientRect").mockReturnValue({
+        top: i * 24,
+        bottom: (i + 1) * 24,
+        left: 0,
+        right: 100,
+        width: 100,
+        height: 24,
+      } as DOMRect)
+    })
+  }
+  const hostEl = (container: HTMLElement) => container.firstElementChild as HTMLElement
+
+  test("el asa aparece con el cursor en el gutter a la altura del bloque (mapeo por Y)", async () => {
+    const { view, container, onChange } = await setup()
+    hidden()
+    stackRects(view)
+    const h = hostEl(container)
+    expect(view.state.doc.child(1).textContent).toBe("Dos")
+
+    // El gutter: mousemove sobre el host que no cae en el contenteditable.
+    fireEvent.mouseMove(h, { clientX: -40, clientY: 36 }) // mitad del bloque "Dos"
+    await waitFor(visible)
+
+    // El target del mapeo es "Dos": el menú del asa (abierta desde el gutter) opera sobre él.
+    fireEvent.keyDown(screen.getByTestId("block-handle"), { key: "Enter" })
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Convertir a/ }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: /^Heading 1/ }))
+    await settle()
+    await waitFor(() => expect(lastDoc(onChange).content?.[1]?.type).toBe("heading"))
   })
 })
