@@ -379,7 +379,10 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
     <BubbleMenu
       editor={editor}
       shouldShow={shouldShow}
-      updateDelay={0}
+      // Delay de aparición: con 0 el bubble saltaba al instante con cualquier selección
+      // (molesto cuando no lo querés). ~350ms = tiempo de Notion para aparecer tras
+      // asentar la selección; el plugin debouncer el update con este delay.
+      updateDelay={350}
       options={BUBBLE_OPTIONS}
       className="z-50"
     >

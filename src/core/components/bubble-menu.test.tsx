@@ -83,6 +83,15 @@ test("mod+\\ limpia todas las marks, incluidas color y highlight", async () => {
 const BUBBLE = "[data-testid=bubble-menu]"
 const item = (bubble: Element, label: string) => bubble.querySelector(`[aria-label="${label}"]`)!
 
+// El bubble aparece tras el updateDelay del plugin (~350ms): esperar el montaje real.
+function waitForBubble() {
+  return waitFor(() => {
+    const b = document.body.querySelector(BUBBLE)
+    if (!b) throw new Error("bubble no montado")
+    return b
+  })
+}
+
 async function openPalette(kind: "color" | "highlight") {
   const label = kind === "color" ? "Color de letra" : "Resaltado"
   press(item(document.body, label))
@@ -103,8 +112,7 @@ test("isActive por control: B, I, S, code, A y H reflejan las marks activas", as
   editor.commands.toggleStrike()
   editor.commands.setColor(ROJO)
   editor.commands.setHighlight({ color: ROJO_BG })
-
-  const bubble = await waitFor(() => document.body.querySelector(BUBBLE)!)
+  const bubble = await waitForBubble()
   await waitFor(() => {
     expect(item(bubble, "Bold")).toHaveAttribute("data-state", "on")
     expect(item(bubble, "Itálica")).toHaveAttribute("data-state", "on")
@@ -128,7 +136,7 @@ test("isActive por control: B, I, S, code, A y H reflejan las marks activas", as
 test("paleta fija: 8 fichas en cada popover, ficha activa quita, Quitar quita", async () => {
   const { view, editor } = await setup()
   selectText(view)
-  const bubble = await waitFor(() => document.body.querySelector(BUBBLE)!)
+  const bubble = await waitForBubble()
 
   // Color: 8 fichas; aplicar rojo activa el mark.
   const colors = await openPalette("color")
@@ -164,7 +172,7 @@ test("paleta fija: 8 fichas en cada popover, ficha activa quita, Quitar quita", 
 test("click en B del bubble togglea bold", async () => {
   const { view, editor } = await setup()
   selectText(view)
-  const bubble = await waitFor(() => document.body.querySelector(BUBBLE)!)
+  const bubble = await waitForBubble()
   press(item(bubble, "Bold"))
   expect(editor.isActive("bold")).toBe(true)
   press(item(bubble, "Bold"))
@@ -175,7 +183,7 @@ test("click en B del bubble togglea bold", async () => {
 test("fila de bloque: label del tipo actual y conversión desde el popover", async () => {
   const { view, editor } = await setup()
   selectText(view)
-  const bubble = await waitFor(() => document.body.querySelector(BUBBLE)!)
+  const bubble = await waitForBubble()
   expect(item(bubble, "Convertir bloque").textContent).toContain("Texto normal")
 
   // El editor marca el tipo actual con un check en el menú.
@@ -201,6 +209,7 @@ test("fila de bloque: label del tipo actual y conversión desde el popover", asy
 test("Esc con popover abierto cierra el popover y no saca el foco del editor", async () => {
   const { pm, view, editor } = await setup()
   selectText(view)
+  await waitForBubble()
   await openPalette("color")
   fireEvent.keyDown(document.body, { key: "Escape", bubbles: true })
   await waitFor(() =>

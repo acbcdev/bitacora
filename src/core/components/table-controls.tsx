@@ -26,9 +26,10 @@ import { preventFocus } from "@/core/components/prevent-focus"
 
 // Controles de tabla por hover (spec .scratch/editor-notion-ux, historia 5). Overlay absoluto
 // sobre el host (mismo patrón que Outline): hover de fila → ⋮⋮ al borde izquierdo y + a la
-// derecha (addColumnAfter); hover de columna → ▾ al borde superior y + debajo (addRowAfter).
-// Los handles abren DropdownMenu (insertar / duplicar / eliminar / toggle header). Todo botón
-// usa mousedown → preventDefault para no robar el foco de la selección del editor.
+// derecha (addColumnAfter, solo en la última columna); hover de columna → ▾ al borde superior
+// y + debajo (addRowAfter, solo en la última fila). Los handles abren DropdownMenu (insertar /
+// duplicar / eliminar / toggle header). Todo botón usa mousedown → preventDefault para no robar
+// el foco de la selección del editor.
 
 type Rect = { top: number; left: number; width: number; height: number }
 
@@ -115,10 +116,13 @@ function duplicateColumn(view: EditorView, cell: HTMLElement) {
 
 // ── UI ──────────────────────────────────────────────────────────────────────────
 
-const BTN = 18
+const BTN = 22
+const ADD_W = 28
 
-// Tamaño del botón con 2px solapados al borde de la tabla: sin hueco entre tabla y botón,
-// así cruzar el mouse de la celda al botón no deja de "hoverear" la fila/columna.
+// Botón + en píldora: se estira a lo largo de toda la fila/columna (hit area grande), con
+// 4px solapados al borde de la tabla para que cruzar del cell al botón no pierda el hover.
+const addCls =
+  "pointer-events-auto absolute grid place-items-center rounded-[10px] border border-popover bg-popover text-fg-secondary shadow-sm hover:bg-muted hover:text-foreground"
 const ctlCls =
   "pointer-events-auto absolute grid size-[18px] place-items-center rounded-[4px] border border-popover bg-popover text-fg-secondary shadow-sm hover:bg-muted hover:text-foreground"
 
@@ -133,6 +137,9 @@ export function TableHoverControls({
 }) {
   const [hover, setHover] = useState<Hover | null>(null)
 
+  // Último hover vivo en ref: el cierre de onMove lee el actual sin re-suscribirse.
+  const hoverRef = useRef<Hover | null>(null)
+
   // Dedup de hover: la misma celda/rects no re-renderiza. En ref para que run() pueda
   // resetearlo desde fuera del closure del effect.
   const lastKey = useRef("")
@@ -141,6 +148,7 @@ export function TableHoverControls({
     if (!el) return
     const clear = () => {
       lastKey.current = ""
+      hoverRef.current = null
       setHover(null)
     }
     const onMove = (e: MouseEvent) => {
@@ -153,6 +161,7 @@ export function TableHoverControls({
         const k = key(h)
         if (k !== lastKey.current) {
           lastKey.current = k
+          hoverRef.current = h
           setHover(h)
         }
         return
@@ -160,6 +169,20 @@ export function TableHoverControls({
       // Con border-collapse los pixeles entre celdas vecinas caen en el <table>: mantener
       // el hover (es el mismo lugar visual). Salir de la tabla sí limpia.
       if (target && el.contains(target) && target.closest("table")) return
+      // Hueco de 4px entre la tabla y la píldora +: el mousemove cae en el host (ni celda
+      // ni botón). Mantener el hover mientras el puntero siga en la zona de las píldoras
+      // (borde + grosor de la píldora + margen): cruzar del cell al + no puede matarlo a
+      // mitad de camino ni al pasar por encima de contenido vecino.
+      const cur = hoverRef.current
+      if (cur && cur.cell.isConnected) {
+        const hBox = el.getBoundingClientRect()
+        const tBox = cur.cell.closest("table")!.getBoundingClientRect()
+        const x = e.clientX - hBox.left
+        const y = e.clientY - hBox.top
+        const inBandX = x >= tBox.left - hBox.left - 6 && x <= tBox.right - hBox.left + ADD_W + 8
+        const inBandY = y >= tBox.top - hBox.top - 6 && y <= tBox.bottom - hBox.top + ADD_W + 8
+        if (inBandX && inBandY) return
+      }
       clear()
     }
     el.addEventListener("mousemove", onMove)
@@ -193,13 +216,22 @@ export function TableHoverControls({
       // Limpia el hover y el dedup SOLO si sigue siendo esta celda: el click dispara un
       // mousemove posterior y no hay que pisarlo.
       lastKey.current = ""
+      hoverRef.current = null
       setHover((h) => (h?.cell === cell ? null : h))
     }
   }
 
   // Estilo Notion: el + de la fila agrega la columna AL FINAL de la tabla (se selecciona la
-  // última celda de la fila hovered) y el + de la columna agrega la fila al pie. Los menús,
+  // última celda de la fila hovered) y el + de la columna agrega la fila al pie. Solo aparecen
+  // en el hover de la última fila / última columna, montados sobre esa fila/columna. Los menús,
   // en cambio, insertan pegado a la fila/columna hovered.
+  const isLastRow =
+    cell.parentElement ===
+    cell.closest("table")!.tBodies[0].rows[cell.closest("table")!.tBodies[0].rows.length - 1]
+  const isLastCol =
+    (cell.parentElement as HTMLTableRowElement).cells[
+      (cell.parentElement as HTMLTableRowElement).cells.length - 1
+    ] === cell
   const lastOfRow = () =>
     (cell.parentElement as HTMLTableRowElement).cells[
       (cell.parentElement as HTMLTableRowElement).cells.length - 1
@@ -280,23 +312,27 @@ export function TableHoverControls({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* + de fila: a la derecha del borde (addColumnAfter). */}
-      <button
-        type="button"
-        data-table-ctrl=""
-        data-testid="table-row-add"
-        aria-label="Añadir columna"
-        className={ctlCls}
-        style={{
-          left: hover.row.left + hover.row.width - 2,
-          top: hover.row.top + hover.row.height / 2,
-          transform: "translateY(-50%)",
-        }}
-        onMouseDown={preventFocus}
-        onClick={run(() => chainAt(lastOfRow()).addColumnAfter().run())}
-      >
-        <PlusIcon className="size-3" />
-      </button>
+      {/* + de fila: a la derecha del borde (addColumnAfter) — solo en la última columna,
+          centrado en toda la altura de la columna. */}
+      {isLastCol && (
+        <button
+          type="button"
+          data-table-ctrl=""
+          data-testid="table-row-add"
+          aria-label="Añadir columna"
+          className={addCls}
+          style={{
+            left: hover.col.left + hover.col.width + 4,
+            top: hover.col.top,
+            width: ADD_W,
+            height: hover.col.height,
+          }}
+          onMouseDown={preventFocus}
+          onClick={run(() => chainAt(lastOfRow()).addColumnAfter().run())}
+        >
+          <PlusIcon className="size-4" />
+        </button>
+      )}
 
       {/* Handle de columna: borde superior de la columna hovered. */}
       <DropdownMenu>
@@ -322,23 +358,27 @@ export function TableHoverControls({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* + de columna: debajo del borde (addRowAfter). */}
-      <button
-        type="button"
-        data-table-ctrl=""
-        data-testid="table-col-add"
-        aria-label="Añadir fila"
-        className={ctlCls}
-        style={{
-          left: hover.col.left + hover.col.width / 2,
-          top: hover.col.top + hover.col.height - 2,
-          transform: "translateX(-50%)",
-        }}
-        onMouseDown={preventFocus}
-        onClick={run(() => chainAt(lastOfColumn()).addRowAfter().run())}
-      >
-        <PlusIcon className="size-3" />
-      </button>
+      {/* + de columna: debajo del borde (addRowAfter) — solo en la última fila, centrado
+          en toda la anchura de la fila. */}
+      {isLastRow && (
+        <button
+          type="button"
+          data-table-ctrl=""
+          data-testid="table-col-add"
+          aria-label="Añadir fila"
+          className={addCls}
+          style={{
+            left: hover.row.left,
+            top: hover.row.top + hover.row.height + 4,
+            width: hover.row.width,
+            height: ADD_W,
+          }}
+          onMouseDown={preventFocus}
+          onClick={run(() => chainAt(lastOfColumn()).addRowAfter().run())}
+        >
+          <PlusIcon className="size-4" />
+        </button>
+      )}
     </div>
   )
 }

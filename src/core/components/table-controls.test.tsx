@@ -104,22 +104,31 @@ async function pick(label: RegExp | string) {
   await new Promise((r) => setTimeout(r, 30))
 }
 
-test("hover sobre una celda muestra los 4 controles; fuera de tabla no hay overlay", async () => {
+test("hover muestra ⋮⋮ y ▾ en cualquier celda; los + solo en la última fila/columna", async () => {
   const { container, view } = await setup()
   expect(screen.queryByTestId("table-controls")).toBeNull()
+  // Celda "C" (última fila, col 1): solo el + de fila nueva debajo.
   await hoverCell(container, "C")
   expect(screen.getByTestId("table-row-menu")).toBeTruthy()
-  expect(screen.getByTestId("table-row-add")).toBeTruthy()
   expect(screen.getByTestId("table-col-menu")).toBeTruthy()
+  expect(screen.queryByTestId("table-row-add")).toBeNull()
   expect(screen.getByTestId("table-col-add")).toBeTruthy()
-  // Al salir de la tabla el overlay desaparece.
-  fireEvent.mouseMove(view.dom, { target: view.dom })
+  // Celda "B" (primera fila, última columna): solo el + de columna a la derecha.
+  await hoverCell(container, "B")
+  expect(screen.getByTestId("table-row-add")).toBeTruthy()
+  expect(screen.queryByTestId("table-col-add")).toBeNull()
+  // Celda "D" (última fila, última columna): los dos +.
+  await hoverCell(container, "D")
+  expect(screen.getByTestId("table-row-add")).toBeTruthy()
+  expect(screen.getByTestId("table-col-add")).toBeTruthy()
+  // Al salir de la tabla (clientX lejos del borde) el overlay desaparece.
+  fireEvent.mouseMove(view.dom, { target: view.dom, clientX: -1000, clientY: -1000 })
   await waitFor(() => expect(screen.queryByTestId("table-controls")).toBeNull())
 })
 
 test("+ de fila agrega una columna al final de la tabla", async () => {
   const { container, onChange } = await setup()
-  await hoverCell(container, "C")
+  await hoverCell(container, "D")
   fireEvent.click(screen.getByTestId("table-row-add"))
   await waitFor(() => {
     const t = lastTable(onChange)
@@ -130,7 +139,7 @@ test("+ de fila agrega una columna al final de la tabla", async () => {
 
 test("+ de columna agrega una fila al pie de la tabla", async () => {
   const { container, onChange } = await setup()
-  await hoverCell(container, "A")
+  await hoverCell(container, "C")
   fireEvent.click(screen.getByTestId("table-col-add"))
   await waitFor(() => expect(rowTexts(lastTable(onChange))).toEqual(["AB", "CD", ""]))
 })
