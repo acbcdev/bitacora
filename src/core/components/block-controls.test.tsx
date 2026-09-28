@@ -246,38 +246,35 @@ describe("visibilidad del asa (v2: bloque + gutter)", () => {
   }
   const hostEl = (container: HTMLElement) => container.firstElementChild as HTMLElement
 
-  test("el asa aparece con el cursor en el gutter a la altura del bloque (mapeo por Y)", async () => {
+  test("aparece en la franja izquierda (host incluido) y se esconde fuera de la zona", async () => {
     const { view, container, onChange } = await setup()
     hidden()
     stackRects(view)
     const h = hostEl(container)
     expect(view.state.doc.child(1).textContent).toBe("Dos")
 
-    // El gutter: mousemove sobre el host que no cae en el contenteditable.
+    // La franja izquierda: mousemove que no cae en el contenteditable (el listener vive
+    // en document — el asa vive fuera del box del host).
     fireEvent.mouseMove(h, { clientX: -40, clientY: 36 }) // mitad del bloque "Dos"
     await waitFor(visible)
 
-    // El target del mapeo es "Dos": el menú del asa (abierta desde el gutter) opera sobre él.
+    // Columna de contenido (x al centro del texto): esconder.
+    fireEvent.mouseMove(h, { clientX: 50, clientY: 36 })
+    await waitFor(hidden)
+
+    // Franja otra vez y debajo del último bloque: aparecer y esconder.
+    fireEvent.mouseMove(h, { clientX: -40, clientY: 36 })
+    await waitFor(visible)
+    fireEvent.mouseMove(h, { clientX: -40, clientY: 999 })
+    await waitFor(hidden)
+
+    // El target del mapeo es "Dos": el menú del asa (abierta desde la franja) opera sobre él.
+    fireEvent.mouseMove(h, { clientX: -40, clientY: 36 })
+    await waitFor(visible)
     fireEvent.keyDown(screen.getByTestId("block-handle"), { key: "Enter" })
     fireEvent.click(await screen.findByRole("menuitem", { name: /Convertir a/ }))
     fireEvent.click(await screen.findByRole("menuitem", { name: /^Heading 1/ }))
     await settle()
     await waitFor(() => expect(lastDoc(onChange).content?.[1]?.type).toBe("heading"))
-  })
-
-  test("al salir del host, por encima del primer y debajo del último bloque, se esconde", async () => {
-    const { view, container } = await setup()
-    stackRects(view)
-    const h = hostEl(container)
-    fireEvent.mouseMove(h, { clientX: -40, clientY: 36 })
-    await waitFor(visible)
-
-    // Salir del host (el mouse viaja al portal del menú u otro lado): esconder.
-    fireEvent.mouseLeave(h)
-    await waitFor(hidden)
-
-    // Dentro del gutter pero sin bloque a esa altura (debajo del último).
-    fireEvent.mouseMove(h, { clientX: -40, clientY: 999 })
-    await waitFor(hidden)
   })
 })

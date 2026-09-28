@@ -184,26 +184,44 @@ function positionHandle(el: HTMLElement, ref: DOMRect, host: HTMLElement) {
   el.style.top = `${ref.top + ref.height / 2 - hostBox.top - el.offsetHeight / 2}px`
 }
 
-// Mapeo por Y (contrato v2 de visibilidad): el bloque cuyo rect vertical contiene el
-// cursor. Desciende un nivel en contenedores de bloques (lista → ítem, blockquote →
-// párrafo) para que el gutter al lado de un ítem ancle ese ítem, como Notion.
+// Mapeo por Y (contrato v2 de visibilidad): el bloque más cercano al cursor (distancia al
+// intervalo vertical de su rect — 0 si lo contiene). Desciende un nivel en contenedores de
+// bloques (lista → ítem, blockquote → párrafo) para que el gutter al lado de un ítem ancle
+// ese ítem, como Notion.
 function blockAtY(view: EditorView, y: number): BlockTarget | null {
+  // Fuera de la extensión vertical del contenido (header de la pantalla, pie): null.
+  const doc = view.state.doc
+  if (!doc.childCount) return null
+  const firstDom = view.nodeDOM(0)
+  const lastDom = view.nodeDOM(doc.content.size - doc.lastChild!.nodeSize)
+  if (firstDom instanceof HTMLElement && lastDom instanceof HTMLElement) {
+    const top = firstDom.getBoundingClientRect().top
+    const bottom = lastDom.getBoundingClientRect().bottom
+    if (y < top || y > bottom) return null
+  }
   const pick = (parent: Node, basePos: number): BlockTarget | null => {
+    let best: BlockTarget | null = null
+    let bestDist = Infinity
     let pos = basePos
     for (let i = 0; i < parent.childCount; i++) {
       const child = parent.child(i)
       const dom = view.nodeDOM(pos)
       if (dom instanceof HTMLElement) {
         const box = dom.getBoundingClientRect()
-        if (y >= box.top && y <= box.bottom) {
+        const dist = Math.max(box.top - y, y - box.bottom, 0)
+        if (dist < bestDist) {
+          bestDist = dist
+          // Contenedor de bloques (lista, blockquote): anclar al hijo en esa altura.
           const first = child.firstChild
-          if (first?.isBlock && child.childCount > 1) return pick(child, pos + 1)
-          return { node: child, pos }
+          best =
+            first?.isBlock && child.childCount >= 1
+              ? (pick(child, pos + 1) ?? { node: child, pos })
+              : { node: child, pos }
         }
       }
       pos += child.nodeSize
     }
-    return null
+    return best
   }
   return pick(view.state.doc, 0)
 }
@@ -254,21 +272,22 @@ export function BlockControls({
   }
 
   // Visibilidad del asa (contrato v2, grill 2026-09-27): el plugin la esconde en el
-  // mouseleave del editor y solo la revive con un mousemove sobre el texto — que nunca
-  // llega mientras el puntero esté en el gutter. La detección de zona es PROPIA de esta
-  // capa: mousemove sobre el host que no cae en el contenteditable ni en el propio asa =
-  // gutter; mapeo por Y → target + mostrar + posicionar contra la primera línea del
-  // bloque. Sin eventos sintéticos al plugin: si su currentNode quedó reseteado por el
-  // mouseleave, el dragstart resuelve el rango desde las coords del evento.
+  // mouseleave del editor y solo la revive con un mousemove sobre el texto. La detección
+  // de zona es PROPIA de esta capa y escucha en DOCUMENT, no en el host: el asa vive
+  // FUERA del box del host (a la izquierda del texto, sobre el padding del contenedor de
+  // la nota) — con listeners en el host, cruzar hacia ella dispara el mouseleave y la
+  // mata justo antes de llegar. Zona: franja izquierda del contenteditable a la altura
+  // del contenido, mapeo por Y al bloque más cercano (los gaps entre bloques incluidos).
+  // Sobre el texto manda el plugin; el resto (bajo el último bloque, sobre el header,
+  // controles de tabla, bubble) esconde. Sin eventos sintéticos al plugin: si su
+  // currentNode quedó reseteado, el dragstart resuelve el rango desde las coords.
   useEffect(() => {
-    const h = host.current
-    if (!h) return
     const menuOpenRef = { current: menuOpen }
     const hide = () => {
       // Con el menú abierto el mouse viaja al portal del DropdownMenu (fuera del host):
       // no esconder, el lock del plugin ya congela el hover.
       if (menuOpenRef.current) return
-      const el = h.querySelector<HTMLElement>(".block-drag-handle")
+      const el = document.querySelector<HTMLElement>(".block-drag-handle")
       if (el) {
         el.style.visibility = "hidden"
         el.style.pointerEvents = "none"
@@ -276,37 +295,39 @@ export function BlockControls({
     }
     const onMove = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null
-      if (!t || !h.contains(t)) return
+      if (!t) return
       if (editor.view.dom.contains(t)) return
       if (t.closest(".block-drag-handle")) return
-      // Gutter REAL: a la izquierda del contenteditable. El resto de hijos del host
-      // (outline, controles de tabla, overlays) están en columna de contenido y no
-      // deben hacer aparecer el asa.
-      if (e.clientX >= editor.view.dom.getBoundingClientRect().left) return
+      const domBox = editor.view.dom.getBoundingClientRect()
+      const h = host.current
+      if (!h) return
+      // Franja izquierda del editor. clientX >= borde = columna de contenido (outline,
+      // controles de tabla, bubble…): ahí no aparece el asa.
+      if (e.clientX >= domBox.left) {
+        hide()
+        return
+      }
       const block = blockAtY(editor.view, e.clientY)
-      // Por encima del primer / debajo del último bloque no hay a qué anclar: esconder.
+      // Fuera de la extensión vertical del contenido (header de la pantalla, pie): esconder.
       if (!block) {
         hide()
         return
       }
       target.current = block
       const el = h.querySelector<HTMLElement>(".block-drag-handle")
-      if (!el) return
+      const dom = editor.view.nodeDOM(block.pos)
+      if (!el || !(dom instanceof HTMLElement)) return
       el.style.visibility = ""
       el.style.pointerEvents = "auto"
-      const dom = editor.view.nodeDOM(block.pos)
-      if (!(dom instanceof HTMLElement)) return
       positionHandle(el, firstLineRect(dom) ?? dom.getBoundingClientRect(), h)
     }
-    // Salir del host (y del scroll: wheel en el gutter mueve los bloques bajo el asa)
-    // la esconden; el próximo mousemove la re-muestra en su lugar.
-    h.addEventListener("mousemove", onMove)
-    h.addEventListener("mouseleave", hide)
-    h.addEventListener("scroll", hide, true)
+    // Scroll (wheel en la franja incluido) mueve los bloques bajo el asa: esconder; el
+    // próximo mousemove la re-muestra en su posición.
+    document.addEventListener("mousemove", onMove)
+    document.addEventListener("scroll", hide, true)
     return () => {
-      h.removeEventListener("mousemove", onMove)
-      h.removeEventListener("mouseleave", hide)
-      h.removeEventListener("scroll", hide, true)
+      document.removeEventListener("mousemove", onMove)
+      document.removeEventListener("scroll", hide, true)
     }
   }, [editor, host, menuOpen])
 
