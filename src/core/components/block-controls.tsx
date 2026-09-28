@@ -410,7 +410,10 @@ export function BlockControls({
                 el gesto drag no dispara el menú). Enter/Space siguen abriendo vía Radix
                 (el keydown del grip burbujea al trigger). */}
             <DropdownMenuTrigger asChild>
-              <span className="contents" onPointerDownCapture={(e) => e.stopPropagation()}>
+              {/* inline-flex (NO contents): Radix ancla el menú al rect del trigger — un
+                  span display:contents no tiene box (getBoundingClientRect = 0,0) y el
+                  menú abría en la esquina de la pantalla. */}
+              <span className="inline-flex" onPointerDownCapture={(e) => e.stopPropagation()}>
                 {/* span con role=button, NO <button>: Chromium no inicia drag nativo desde
                     un form control ni con draggable=true (probado con Chrome headless —
                     dragstart solo dispara desde el wrapper). */}
