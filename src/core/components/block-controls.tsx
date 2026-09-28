@@ -113,21 +113,14 @@ const CONVERTS: Array<{
 const rangeOf = (t: BlockTarget) => ({ from: t.pos + 1, to: t.pos + t.node.nodeSize - 1 })
 
 // Línea guía de 2px en el punto de drop, coordenadas relativas al host (mismo patrón que
-// TableHoverControls). `width` = ancho del bloque destino.
-type DropLine = {
-  top: number
-  left: number
-  width: number
-  destTop: number
-  destHeight: number
-  isDragged: boolean
-}
+// TableHoverControls). `width` = ancho del bloque destino. Sin highlight del bloque destino:
+// la guía es la línea (y el dot), no un rect sobre el bloque (decisión del usuario).
+type DropLine = { top: number; left: number; width: number }
 
 function locateLine(
   view: EditorView,
   host: HTMLElement,
   dragged: Node | null,
-  draggedPos: number,
   clientX: number,
   clientY: number,
 ): DropLine | null {
@@ -162,11 +155,6 @@ function locateLine(
     top: (clientY < box.top + box.height / 2 ? box.top : box.bottom) - hostBox.top - 1,
     left: box.left - hostBox.left,
     width: box.width,
-    // Rect del bloque destino (para el highlight de "acá va a caer"); null si el destino
-    // es el propio bloque arrastrado (drop en sí mismo = no-op).
-    destTop: box.top - hostBox.top,
-    destHeight: box.height,
-    isDragged: blockPos === draggedPos,
   }
 }
 
@@ -240,16 +228,7 @@ export function BlockControls({
     const onDragOver = (e: DragEvent) => {
       e.preventDefault()
       if (!host.current || !target.current) return
-      setLine(
-        locateLine(
-          editor.view,
-          host.current,
-          target.current.node,
-          target.current.pos,
-          e.clientX,
-          e.clientY,
-        ),
-      )
+      setLine(locateLine(editor.view, host.current, target.current.node, e.clientX, e.clientY))
     }
     const clear = () => {
       setDragging(false)
@@ -450,20 +429,6 @@ export function BlockControls({
         <div className="absolute inset-0 z-20 pointer-events-none">
           {line && (
             <>
-              {/* Highlight del bloque destino ("acá va a caer") — omitido si el destino es
-                  el propio bloque arrastrado (drop en sí mismo = no-op). */}
-              {!line.isDragged && (
-                <div
-                  data-testid="drop-target"
-                  className="absolute rounded-[12px] border-2 border-brand-strong bg-brand-soft/60"
-                  style={{
-                    top: line.destTop,
-                    left: line.left,
-                    width: line.width,
-                    height: line.destHeight,
-                  }}
-                />
-              )}
               {/* Línea de drop + punto (estilo Notion): el dot marca exactamente el punto
                   de inserción al margen, la línea cruza todo el ancho del bloque destino. */}
               <div
