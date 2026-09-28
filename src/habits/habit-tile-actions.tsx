@@ -5,8 +5,8 @@ import { cn } from "@/core/lib/utils"
 import type { Habit } from "@/core/types/database"
 import type { HabitState } from "@/habits/habits"
 
-// Corregir días pasados sólo existe en hábitos diarios: la escritura es una fila por día,
-// y repartir un total semanal/mensual en días es lo que ADR 0009 no quiere (ADR 0013).
+// El panel corrige en la escala del hábito: un día en los diarios, el total del período en
+// semana/mes (consolidado en una fila — nunca reparte en días, ADR 0009).
 export function HabitTileActions({
   h,
   state,
@@ -28,7 +28,7 @@ export function HabitTileActions({
 }) {
   return (
     <span className="flex shrink-0 items-center gap-1.5">
-      {h.period === "day" && <HabitPanel habit={h} state={state} />}
+      <HabitPanel habit={h} state={state} />
       <Button
         type="button"
         size="icon-lg"

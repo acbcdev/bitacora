@@ -106,6 +106,11 @@ export function habitLogRow(
 export function seedSnapshot(seed: Partial<Snapshot> = {}) {
   // force local mode (hasSupabaseEnv is false in tests, but be explicit)
   localStorage.setItem("bita-storage", "local")
+  // Los flags de migración (0011/0012) también viven en localStorage: sin esto, el clear() de
+  // renderApp los borra y el siguiente localStore() re-corre la 0011 sobre datos ya en segundos
+  // (target ×60). Los seeds ya escriben en la unidad final.
+  localStorage.setItem("bita-migrated-0011", "1")
+  localStorage.setItem("bita-migrated-0012", "1")
   if (seed.notebooks !== undefined) {
     localStorage.setItem(PREFIX + "notebooks", JSON.stringify(seed.notebooks))
   }

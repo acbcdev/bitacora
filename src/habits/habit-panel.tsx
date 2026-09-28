@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Dropover, DropoverContent, DropoverTrigger } from "@/core/ui/dropover"
@@ -17,27 +17,51 @@ import {
   displayAmount,
   fromDisplay,
   goalText,
+  parseDay,
+  periodKey,
+  periodStartAt,
   type HabitState,
 } from "@/habits/habits"
-import { useSetDay } from "@/habits/habits.api"
+import { useHabitLog, useSetDay } from "@/habits/habits.api"
 import type { Habit, HabitMetric, HabitPeriod } from "@/core/types/database"
 
 // Dos gestos distintos, dos superficies distintas:
-//  · MIRAR la serie   → hover/historia (HabitHistory, sólo lectura). En semana/mes la serie es de
-//    períodos (ADR 0013); la corrección de días pasados no existe ahí — sólo el botón + de hoy.
-//  · CORREGIR un día  → el `⌄` (HabitPanel). Sólo hábitos diarios: la escritura es una fila por
-//    día (ADR 0009) y repartir un total semanal/mensual en días es el algoritmo que mató.
+//  · MIRAR la serie   → hover/historia (HabitHistory, sólo lectura), en la escala del período
+//    del hábito (ADR 0013).
+//  · CORREGIR         → el `⌄` (HabitPanel). En `day` corrige un día (una fila por día, ADR 0009);
+//    en semana/mes corrige el TOTAL del período — nunca reparte en días: consolida todo el valor
+//    en UNA fila del período (el modelo "una fila = el total" ya lo puntuaba bien la derivación).
 // Estaban juntos y por eso el popover tenía cuatro bloques y tres formas de escribir el mismo
 // número. La grilla clickeable era lo único que obligaba a un Dropover en vez de un Tooltip; ahora
 // que es de sólo lectura, el hover puede ser un Tooltip pelado.
 
-const TODAY = SERIES.day - 1
+// Un sólo panel abierto a la vez: cada tile montaba su propio `open` y en mobile los drawers se
+// apilaban. El estado global vive en el módulo — el subscribe re-renderiza los HabitPanel montados
+// (son pocos) y abrir otro cierra el anterior sin prop-drilling por tres niveles.
+let openHabitId: string | null = null
+const panelSubs = new Set<() => void>()
+const setOpenHabit = (id: string | null) => {
+  openHabitId = id
+  for (const l of panelSubs) l()
+}
+function useOpenHabit() {
+  return [
+    useSyncExternalStore(
+      (l) => (panelSubs.add(l), () => panelSubs.delete(l)),
+      () => openHabitId,
+    ),
+    setOpenHabit,
+  ] as const
+}
 
 // Cuánto mueve el `+`. En `time` de a 5: nadie corrige minutos de a uno.
 // El STEP sigue en minutos de display; toStorage lo pasa a segundos.
 const STEP: Record<HabitMetric, number> = { check: 1, count: 1, time: 5 }
 
 const FMT = new Intl.DateTimeFormat("es", { weekday: "short", day: "numeric", month: "short" })
+const FMT_DAY = new Intl.DateTimeFormat("es", { day: "numeric" })
+const FMT_MONTH_SHORT = new Intl.DateTimeFormat("es", { month: "short" })
+const FMT_MONTH = new Intl.DateTimeFormat("es", { month: "long", year: "numeric" })
 
 const PERIOD_NOUN: Record<HabitPeriod, string> = { day: "días", week: "semanas", month: "meses" }
 
@@ -71,11 +95,17 @@ export function HabitHistory({ habit, state }: { habit: Habit; state: HabitState
 
 export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }) {
   const setDay = useSetDay()
-  const [open, setOpen] = useState(false)
-  // Qué día se está corrigiendo: 13 = hoy. Sin grilla, se navega con las flechas.
+  const { data: log = [] } = useHabitLog()
+  const [openId, setOpenId] = useOpenHabit()
+  const open = openId === habit.id
+  // Qué período se está corrigiendo: el último de la serie es el en curso. Sin grilla, se navega
+  // con las flechas.
+  const TODAY = SERIES[habit.period] - 1
   const [i, setI] = useState(TODAY)
 
+  const isDay = habit.period === "day"
   const day = dayAt(i)
+  const periodStart = periodStartAt(i, habit.period)
   // El número sale del cache, no de un borrador: MISMA fuente que el tile, así que el cronómetro
   // o un h>N con el panel abierto se ven acá al toque.
   // Para time, amount viene en segundos (0011) — en el panel se muestra en min.
@@ -84,24 +114,61 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
   const step = STEP[habit.metric]
   const toStorage = (v: number) => fromDisplay(habit.metric, v)
 
+  // Etiqueta de la celda: día tal cual; semana como rango numérico "14 – 20 sept" (el mes una
+  // sola vez, dos si cruza de mes) — sin días de semana ni meses repetidos; mes con nombre y año.
+  const cellLabel = isDay
+    ? FMT.format(day)
+    : habit.period === "week"
+      ? (() => {
+          const end = new Date(periodStart)
+          end.setDate(end.getDate() + 6)
+          const m1 = FMT_MONTH_SHORT.format(periodStart)
+          const m2 = FMT_MONTH_SHORT.format(end)
+          return m1 === m2
+            ? `${FMT_DAY.format(periodStart)} – ${FMT_DAY.format(end)} ${m1}`
+            : `${FMT_DAY.format(periodStart)} ${m1} – ${FMT_DAY.format(end)} ${m2}`
+        })()
+      : FMT_MONTH.format(periodStart)
+  const currentLabel = { day: "hoy", week: "esta semana", month: "este mes" }[habit.period]
+
   // Cada gesto escribe, igual que el click del tile — la mutation es optimista, el número se mueve
   // sin esperar el round-trip. Antes esto juntaba los cambios en un borrador y los volcaba al
   // cerrar, y por eso hacía falta un cartel ("Se guarda al cerrar. Sin guardar todavía.") que sólo
   // existía para explicar su propia mecánica. Sin borrador no hay nada pendiente que avisar.
   // ponytail: un upsert por tap del `+`. Es lo que ya hace el tile; si el spam molesta, debounce
   // acá — no volver al borrador.
-  const write = (value: number) =>
-    setDay.mutate({ habit, day: dayKey(day), value: toStorage(value) })
+  // La fila que representa al período: hoy si es el período en curso (misma fila que mueve el
+  // botón + del tile), si no el día de arranque (lunes / día 1).
+  const repDay = i === TODAY ? dayKey(new Date()) : dayKey(periodStart)
+
+  const write = (value: number) => {
+    if (isDay) return setDay.mutate({ habit, day: dayKey(day), value: toStorage(value) })
+    // Período: el SET es sobre el TOTAL, no sobre una fila. Consolida en UNA fila — la
+    // representativa — y cero las demás filas del período. Nunca reparte en días: eso es
+    // lo que ADR 0009 mató.
+    const key = periodKey(periodStart, habit.period)
+    const rows = log.filter(
+      (r) => r.habit_id === habit.id && periodKey(parseDay(r.day), habit.period) === key,
+    )
+    for (const r of rows) {
+      if (r.day !== repDay && r.amount !== 0) setDay.mutate({ habit, day: r.day, value: 0 })
+    }
+    setDay.mutate({ habit, day: repDay, value: toStorage(Math.max(0, value)) })
+  }
   // +/− relativos al cache (mismo onMutate que el tile): taps rápidos del stepper no se pisan
-  // aunque la render esté vieja. El piso 0 lo pone el onMutate.
-  const nudge = (n: number) => setDay.mutate({ habit, day: dayKey(day), delta: toStorage(n) })
+  // aunque la render esté vieja. En los tres períodos es delta sobre la fila representativa —
+  // que en semana/mes suma exactamente n al total del período.
+  const nudge = (n: number) =>
+    isDay
+      ? setDay.mutate({ habit, day: dayKey(day), delta: toStorage(n) })
+      : setDay.mutate({ habit, day: repDay, delta: toStorage(n) })
 
   return (
     <Dropover
       open={open}
       onOpenChange={(next) => {
-        setOpen(next)
-        setI(TODAY) // abrir y cerrar siempre vuelven a hoy: el panel corrige, no navega
+        setOpenId(next ? habit.id : null)
+        setI(TODAY) // abrir y cerrar siempre vuelven al período en curso: el panel corrige, no navega
       }}
     >
       <DropoverTrigger asChild>
@@ -124,7 +191,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
 
       <DropoverContent
         title={habit.name}
-        className="flex flex-col gap-5 rounded-2xl p-5 shadow-xl md:w-92 md:gap-5 md:p-6 max-md:rounded-t-[20px] max-md:px-5 max-md:pb-10 max-md:pt-3"
+        className="flex flex-col gap-5 rounded-2xl p-5 shadow-xl md:w-92 md:gap-5 md:p-6 max-md:min-h-[60vh] max-md:rounded-t-[20px] max-md:px-5 max-md:pb-10 max-md:pt-3"
       >
         <p className="eyebrow leading-none">
           {habit.name} · {goalText(habit)}
@@ -141,7 +208,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
             type="button"
             size="icon"
             variant="ghost"
-            aria-label="Día anterior"
+            aria-label="Período anterior"
             disabled={i === 0}
             onClick={() => setI(i - 1)}
             className="size-10 shrink-0 md:size-10 max-md:size-11"
@@ -150,9 +217,9 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
           </Button>
           <span className="flex-1 text-center">
             <span className="block text-[15px] font-semibold tracking-tight leading-none">
-              {i === TODAY ? "hoy" : FMT.format(day)}
+              {i === TODAY ? currentLabel : cellLabel}
             </span>
-            {i !== TODAY && (
+            {i !== TODAY && isDay && (
               <span className="block text-[11px] font-normal text-muted-foreground leading-none mt-0.5">
                 {dayKey(day)}
               </span>
@@ -163,7 +230,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
             type="button"
             size="icon"
             variant="ghost"
-            aria-label="Día siguiente"
+            aria-label="Período siguiente"
             disabled={i === TODAY}
             onClick={() => setI(i + 1)}
             className="size-10 shrink-0 md:size-10 max-md:size-11"
@@ -213,7 +280,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
               min={0}
               value={shown}
               onChange={(e) => write(Math.max(0, Number(e.target.value) || 0))}
-              aria-label={`Cantidad de ${FMT.format(day)}`}
+              aria-label={`Cantidad de ${cellLabel}`}
               className="text-center text-xl font-semibold tabular-nums tracking-tight md:text-lg max-md:text-xl"
             />
             <InputGroupAddon align="inline-end" className="pr-1.5">

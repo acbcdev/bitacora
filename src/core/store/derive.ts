@@ -282,6 +282,21 @@ export function dayAt(i: number, now = new Date()) {
   return d
 }
 
+// La fecha de ARRANQUE del período índice `i` de la serie (SERIES[period]-1 = el período en
+// curso): lunes para semana, día 1 para mes, el día tal cual para `day`. La usa el panel para
+// etiquetar la celda y para saber qué fila escribe la corrección del período.
+export function periodStartAt(i: number, period: HabitPeriod, now = new Date()) {
+  const back = SERIES[period] - 1 - i
+  const d = new Date(now)
+  if (period === "week") return monday(new Date(d.setDate(d.getDate() - back * 7)))
+  if (period === "month") {
+    d.setDate(1)
+    d.setMonth(d.getMonth() - back)
+    return d
+  }
+  return dayAt(i, now)
+}
+
 // habit_log.day ya es fecha local (ADR 0009): se parsea con las partes explícitas y NO con
 // new Date(day), que lo leería como UTC y a la noche devolvería el día anterior.
 // Exportado: el Cronómetro necesita la fecha del startedDay para derivar su período.

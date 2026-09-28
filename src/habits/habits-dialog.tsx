@@ -47,7 +47,9 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
         showCloseButton={false}
         className={cn(
           "gap-0 p-0",
-          form === null ? "md:w-240 md:max-w-240" : "sm:max-w-[520px] md:max-w-[520px]",
+          form === null
+            ? "md:w-240 md:max-w-240"
+            : "max-md:mt-16 max-md:h-[95vh] max-md:max-h-[95vh]! sm:max-w-[520px] md:max-w-[520px]",
         )}
       >
         {/* En el form el título visible ES el input del nombre (página de Notion), así que el
