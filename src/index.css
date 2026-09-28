@@ -267,7 +267,12 @@
   }
   .tiptap-host .ProseMirror .ProseMirror-selectednoderange {
     background: var(--muted);
-    border-radius: 12px;
+    /* El halo se extiende 8px más allá del bloque (sin reflow: padding real del bloque
+       re-envolvería el texto al seleccionar). Los bloques contiguos se funden en una sola
+       barra — el spread cubre los gaps. radius 4 + spread 8 = esquina externa ~12px,
+       menos redondeada que una píldora. */
+    border-radius: 4px;
+    box-shadow: 0 0 0 8px var(--muted);
   }
   .mono {
     @apply font-mono text-xs text-fg-secondary;
