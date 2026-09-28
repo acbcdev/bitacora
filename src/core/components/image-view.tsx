@@ -4,7 +4,7 @@ import type { NodeViewProps } from "@tiptap/react"
 import { ImageOff } from "lucide-react"
 import { cn } from "@/core/lib/utils"
 import { Skeleton } from "@/core/ui/skeleton"
-import { startImageResize } from "@/core/components/image-resize"
+import { scaledHeight, startImageResize } from "@/core/components/image-resize"
 
 export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
   const src = node.attrs.src as string
@@ -40,8 +40,13 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
         .closest("[data-image-wrapper]")
         ?.querySelector("img")
       const rectW = img?.getBoundingClientRect().width ?? 0
-      startImageResize(e, width ?? Math.round(rectW) ?? 320, s, setDragWidth, (w) =>
-        updateAttributes({ width: w }),
+      startImageResize(e, width ?? (rectW > 0 ? Math.round(rectW) : 320), s, setDragWidth, (w) =>
+        updateAttributes({
+          width: w,
+          // Re-escala height con el width: si no, aspectRatio queda con el height viejo
+          // y la imagen se estira/achata al commitear el drag.
+          ...(width && height ? { height: scaledHeight(w, width, height) } : {}),
+        }),
       )
     }
   }
@@ -99,13 +104,12 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
           decoding="async"
           ref={(el) => {
             if (el?.complete && el.naturalWidth > 0 && !loaded && !error) {
-              queueMicrotask(() =>
-                // SAFETY: ref callback corre tras el mount; el elemento ya tiene naturalWidth,
-                // simulamos el evento onLoad de React (solo se lee currentTarget).
-                handleLoad({
-                  currentTarget: el,
-                } as unknown as React.SyntheticEvent<HTMLImageElement>),
-              )
+              // SAFETY: ref callback corre tras el mount; el elemento ya tiene naturalWidth,
+              // simulamos el evento onLoad de React (solo se lee currentTarget).
+              const load = {
+                currentTarget: el,
+              } as unknown as React.SyntheticEvent<HTMLImageElement>
+              queueMicrotask(() => handleLoad(load))
             }
           }}
           onLoad={handleLoad}

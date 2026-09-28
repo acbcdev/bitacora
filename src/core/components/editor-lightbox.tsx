@@ -98,7 +98,8 @@ export function EditorLightbox({
           onTouchEnd={onTouchEnd}
           // animation-duration y no duration-*: duration-* también setea transition-duration,
           // y con el transition-property default (all) eso anima cualquier propiedad que cambie.
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-transparent p-4 outline-none animation-duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+          // Mobile: sin padding para que la imagen use todo el ancho; sm restaura el marco.
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-transparent p-0 outline-none animation-duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 sm:p-4"
         >
           <DialogPrimitive.Title className="sr-only">Imagen ampliada</DialogPrimitive.Title>
           {/* Índice */}
@@ -120,7 +121,7 @@ export function EditorLightbox({
           </DialogPrimitive.Close>
 
           {/* Imagen */}
-          <div className="flex max-h-[90vh] max-w-[90vw] flex-col items-center justify-center gap-3">
+          <div className="flex max-h-[90vh] w-full flex-col items-center justify-center gap-3 sm:w-auto">
             {broken ? (
               <div className="flex flex-col items-center gap-2 rounded-lg border bg-muted p-8 text-muted-foreground">
                 <ImageOff className="size-10" />
@@ -133,15 +134,18 @@ export function EditorLightbox({
                 src={current.src}
                 alt={current.alt ?? ""}
                 onError={() => setBrokenSrc(current.src)}
-                className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-xl"
+                // Mobile: width full hasta 100vw (los swipe dejan sin chevrons ahí).
+                className="h-auto w-full max-h-[90vh] max-w-full rounded-lg object-contain shadow-xl sm:w-auto sm:max-w-[90vw]"
               />
             )}
             {current.alt && !broken && (
-              <p className="max-w-[90vw] text-center text-sm text-fg-secondary">{current.alt}</p>
+              <p className="max-w-full text-center text-sm text-fg-secondary sm:max-w-[90vw]">
+                {current.alt}
+              </p>
             )}
           </div>
 
-          {/* Navegación */}
+          {/* Navegación: en mobile se navega con swipe, los chevrons se esconden. */}
           {count > 1 && (
             <>
               <Button
@@ -149,7 +153,7 @@ export function EditorLightbox({
                 size="icon"
                 aria-label="Imagen anterior"
                 onClick={goPrev}
-                className="absolute top-1/2 left-2 -translate-y-1/2 bg-muted/80 backdrop-blur hover:bg-muted sm:left-4"
+                className="absolute top-1/2 left-4 hidden -translate-y-1/2 bg-muted/80 backdrop-blur hover:bg-muted sm:block"
               >
                 <ChevronLeft />
               </Button>
@@ -158,7 +162,7 @@ export function EditorLightbox({
                 size="icon"
                 aria-label="Imagen siguiente"
                 onClick={goNext}
-                className="absolute top-1/2 right-2 -translate-y-1/2 bg-muted/80 backdrop-blur hover:bg-muted sm:right-4"
+                className="absolute top-1/2 right-4 hidden -translate-y-1/2 bg-muted/80 backdrop-blur hover:bg-muted sm:block"
               >
                 <ChevronRight />
               </Button>

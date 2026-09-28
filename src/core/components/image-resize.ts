@@ -1,5 +1,15 @@
 // Drag-resize de imagen: listeners de window (mousemove/mouseup) + restauración de
 // cursor/userSelect. Cortado de image-view.tsx tal cual.
+// Re-escala el height proporcional al nuevo width. Si no hay dims guardadas, nada que escalar.
+export function scaledHeight(
+  newW: number,
+  width: number | null,
+  height: number | null,
+): number | null {
+  if (!width || !height) return null
+  return Math.round((newW / width) * height)
+}
+
 export function startImageResize(
   e: React.MouseEvent,
   startW: number,
@@ -10,7 +20,9 @@ export function startImageResize(
   e.preventDefault()
   e.stopPropagation()
   const startX = e.clientX
-  let lastW = startW
+  const max = Math.min(900, window.innerWidth - 64)
+  // Clamp inicial: imágenes importadas más anchas que el max saltaban al primer move.
+  let lastW = Math.max(120, Math.min(max, startW))
   setDragWidth(startW)
   const prevCursor = document.body.style.cursor
   const prevSelect = document.body.style.userSelect
@@ -22,7 +34,6 @@ export function startImageResize(
   const onMove = (ev: MouseEvent) => {
     const delta = ev.clientX - startX
     let nw = side === "right" ? startW + delta : startW - delta
-    const max = Math.min(900, window.innerWidth - 64)
     nw = Math.max(120, Math.min(max, nw))
     lastW = Math.round(nw)
     setDragWidth(lastW)
