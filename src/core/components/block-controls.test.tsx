@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { NodeRangeSelection } from "@tiptap/extension-node-range"
+import { TextSelection } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { Editor } from "@/core/components/editor"
 import type { TiptapDoc } from "@/core/types/database"
@@ -204,28 +206,49 @@ describe("drag", () => {
   })
 })
 
+describe("zona muerta del asa", () => {
+  test("mousedown en la zona muerta del wrapper no roba el foco (preventDefault); el grip queda vivo para el drag", async () => {
+    await setup()
+    const wrapper = handleRoot()
+    const dead = new MouseEvent("mousedown", { bubbles: true, cancelable: true })
+    wrapper.dispatchEvent(dead)
+    expect(dead.defaultPrevented).toBe(true)
+    // El grip NO pasa por el preventDefault: el drag nativo es acción default del mousedown.
+    const grip = new MouseEvent("mousedown", { bubbles: true, cancelable: true })
+    screen.getByTestId("block-handle").dispatchEvent(grip)
+    expect(grip.defaultPrevented).toBe(false)
+  })
+})
+
 describe("node-range", () => {
-  test("click en ⋮⋮ NO toca la selección (solo menú); Shift+click selecciona y extiende", async () => {
+  test("click en ⋮⋮ selecciona el bloque (contrato v3) y abre el menú; Shift+click extiende", async () => {
     const { view } = await setup()
     await hoverBlock(view, "Dos")
 
-    // Click simple: la selección del editor queda intacta (contrato v2).
+    // Mod+click: selecciona el bloque SIN abrir el menú.
     fireEvent.mouseDown(screen.getByTestId("block-handle"))
-    expect(view.state.selection.empty).toBe(true)
+    fireEvent.click(screen.getByTestId("block-handle"), { metaKey: true })
+    const mod = view.state.selection as unknown as { ranges: unknown[] }
+    expect(mod.ranges.length).toBe(1)
+    expect(view.state.selection.from).toBe(5)
+    expect(view.state.selection.to).toBe(10)
+    expect(screen.queryByRole("menu")).toBeNull()
 
-    // Shift+mousedown en ⋮⋮ de "Dos" (p 5..10): node-range desde el caret (0) → 2 rangos.
-    fireEvent.mouseDown(screen.getByTestId("block-handle"), { shiftKey: true })
+    // Click simple en ⋮⋮: node-range sobre SOLO ese bloque (p 5..10) + menú abierto.
+    fireEvent.mouseDown(screen.getByTestId("block-handle"))
+    fireEvent.click(screen.getByTestId("block-handle"))
     const sel = view.state.selection as unknown as { ranges: unknown[] }
-    expect(sel.ranges.length).toBe(2)
-    expect(view.state.selection.from).toBe(0)
+    expect(sel.ranges.length).toBe(1)
+    expect(view.state.selection.from).toBe(5)
     expect(view.state.selection.to).toBe(10)
 
-    // Shift+mousedown en ⋮⋮ de "Tres" (p 10..15): extiende el rango hasta cubrirlo.
+    // Shift+mousedown en ⋮⋮ de "Tres" (p 10..16, 4 chars): extiende desde el anchor (5).
     await hoverBlock(view, "Tres")
     fireEvent.mouseDown(screen.getByTestId("block-handle"), { shiftKey: true })
     const extended = view.state.selection as unknown as { ranges: unknown[] }
-    expect(extended.ranges.length).toBe(3)
-    expect(view.state.selection.from).toBe(0)
+    expect(extended.ranges.length).toBe(2)
+    expect(view.state.selection.from).toBe(5)
+    expect(view.state.selection.to).toBe(16)
   })
 })
 
@@ -276,5 +299,115 @@ describe("visibilidad del asa (v2: bloque + gutter)", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: /^Heading 1/ }))
     await settle()
     await waitFor(() => expect(lastDoc(onChange).content?.[1]?.type).toBe("heading"))
+  })
+
+  test("node-range activo: los gutters persisten (el asa vuelve al contrato hover) y al perder la selección se van", async () => {
+    const { view } = await setup()
+    hidden()
+    stackRects(view)
+    // node-range sobre "Dos" + "Tres".
+    view.dispatch(view.state.tr.setSelection(NodeRangeSelection.create(view.state.doc, 5, 16)))
+    await waitFor(() => expect(screen.getByTestId("range-add-10")).toBeTruthy())
+
+    // El asa del plugin es hover puro: se esconde al salir; los gutters propios
+    // persisten igual (la selección vive en el set de esta capa).
+    fireEvent.mouseLeave(view.dom)
+    fireEvent.mouseMove(view.dom, { clientX: 50, clientY: 500 })
+    await waitFor(() => expect(screen.getByTestId("range-add-10")).toBeTruthy())
+
+    // Selección de texto: los gutters se van (contrato hover otra vez).
+    const pos = posOf(view, "Uno")
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos + 1)))
+    await waitFor(() => expect(screen.queryByTestId("range-add-10")).toBeNull())
+    await waitFor(hidden)
+  })
+
+  test("node-range: cada bloque seleccionado tiene su propio gutter (+ y ⋮⋮) activo", async () => {
+    const { view, onChange } = await setup()
+    stackRects(view)
+    // node-range "Dos" + "Tres" (p 5..16) → gutters en pos 5 y pos 10.
+    view.dispatch(view.state.tr.setSelection(NodeRangeSelection.create(view.state.doc, 5, 16)))
+    await waitFor(() => expect(screen.getByTestId("range-add-5")).toBeTruthy())
+    expect(screen.getByTestId("range-handle-5")).toBeTruthy()
+    expect(screen.getByTestId("range-add-10")).toBeTruthy()
+    expect(screen.getByTestId("range-handle-10")).toBeTruthy()
+
+    // El + de un gutter inserta debajo de SU bloque (no del primero del rango).
+    fireEvent.click(screen.getByTestId("range-add-10"))
+    await waitFor(() => expect(docTexts(onChange)).toEqual(["Uno", "Dos", "Tres", ""]))
+
+    // Selección de texto: los gutters propios desaparecen.
+    const pos = posOf(view, "Uno")
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos + 1)))
+    await waitFor(() => expect(screen.queryByTestId("range-add-10")).toBeNull())
+  })
+
+  test("multi-select NO contiguo: click en ⋮⋮ agrega bloques (this + next this)", async () => {
+    const { view } = await setup()
+    stackRects(view)
+    // Click en ⋮⋮ del asa de hover sobre "Dos": agrega "Dos" al set (el gutter propio
+    // no aparece aún: el asa del plugin está parada sobre él).
+    await hoverBlock(view, "Dos")
+    fireEvent.mouseDown(screen.getByTestId("block-handle"))
+    fireEvent.click(screen.getByTestId("block-handle"))
+    await waitFor(() =>
+      expect(view.dom.querySelectorAll("p.ProseMirror-selectednoderange").length).toBeGreaterThan(
+        0,
+      ),
+    )
+
+    // Click en ⋮⋮ (asa de hover) sobre "Tres": AGREGA (no reemplaza) — set = Dos + Tres.
+    // Al mover el hover a "Tres", el gutter propio de "Dos" aparece.
+    await hoverBlock(view, "Tres")
+    fireEvent.mouseDown(screen.getByTestId("block-handle"))
+    fireEvent.click(screen.getByTestId("block-handle"))
+    await waitFor(() => expect(screen.getByTestId("range-add-5")).toBeTruthy())
+
+    // Ambos bloques con su halo ("Dos" etiquetado a mano, fuera del node-range de PM).
+    expect(view.dom.querySelectorAll("p.ProseMirror-selectednoderange").length).toBe(2)
+
+    // Al salir del editor: el asa se esconde y AMBOS gutters propios quedan activos.
+    fireEvent.mouseLeave(view.dom)
+    await waitFor(() => expect(screen.getByTestId("range-add-10")).toBeTruthy())
+    expect(screen.getByTestId("range-add-5")).toBeTruthy()
+
+    // Al perder la selección de bloques (texto), todo se limpia.
+    const pos = posOf(view, "Uno")
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos + 1)))
+    await waitFor(() => {
+      expect(screen.queryByTestId("range-add-5")).toBeNull()
+      expect(screen.queryByTestId("range-add-10")).toBeNull()
+    })
+  })
+
+  test("⋮⋮ de un gutter no-primero abre el menú y opera sobre SU bloque", async () => {
+    const { view, onChange } = await setup()
+    stackRects(view)
+    view.dispatch(view.state.tr.setSelection(NodeRangeSelection.create(view.state.doc, 5, 15)))
+    await waitFor(() => expect(screen.getByTestId("range-handle-10")).toBeTruthy())
+    // Radix abre el menú en pointerdown/keydown (jsdom: mismo patrón que el asa de hover).
+    fireEvent.mouseDown(screen.getByTestId("range-handle-10"))
+    fireEvent.keyDown(screen.getByTestId("range-handle-10"), { key: "Enter" })
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Duplicar" }))
+    await settle()
+    await waitFor(() => expect(docTexts(onChange)).toEqual(["Uno", "Dos", "Tres", "Tres"]))
+  })
+
+  test("hover sobre un bloque seleccionado: el asa del plugin cubre SU gutter y vuelve al salir", async () => {
+    const { view } = await setup()
+    stackRects(view)
+    view.dispatch(view.state.tr.setSelection(NodeRangeSelection.create(view.state.doc, 5, 16)))
+    await waitFor(() => expect(screen.getByTestId("range-add-10")).toBeTruthy())
+    expect(screen.getByTestId("range-add-5")).toBeTruthy()
+
+    // Hover del asa del plugin sobre "Tres": el asa toma su lugar — el gutter propio
+    // de "Tres" se retira (el de "Dos" sigue).
+    await hoverBlock(view, "Tres")
+    await waitFor(() => expect(screen.queryByTestId("range-handle-10")).toBeNull())
+    expect(screen.getByTestId("range-add-5")).toBeTruthy()
+
+    // Al salir del editor el asa del plugin se esconde: el gutter propio vuelve.
+    fireEvent.mouseLeave(view.dom)
+    await waitFor(() => expect(screen.getByTestId("range-handle-10")).toBeTruthy())
   })
 })

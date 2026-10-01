@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { ReactNode, RefObject } from "react"
 import { DragHandle } from "@tiptap/extension-drag-handle-react"
 import { NodeRangeSelection } from "@tiptap/extension-node-range"
 import { Node } from "@tiptap/pm/model"
+import { Plugin, PluginKey } from "@tiptap/pm/state"
+import type { Selection, Transaction } from "@tiptap/pm/state"
+import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { EditorView } from "@tiptap/pm/view"
 import type { Editor } from "@tiptap/react"
 import {
@@ -226,6 +229,9 @@ function blockAtY(view: EditorView, y: number): BlockTarget | null {
   return pick(view.state.doc, 0)
 }
 
+// Key de las decoraciones del multi-select de bloques (compartido plugin/componente).
+const selDecoKey = new PluginKey("blockSelDeco")
+
 export function BlockControls({
   editor,
   host,
@@ -238,6 +244,86 @@ export function BlockControls({
   const [dragging, setDragging] = useState(false)
   const [line, setLine] = useState<DropLine | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuOpenRef = useRef(false)
+  useEffect(() => {
+    menuOpenRef.current = menuOpen
+  }, [menuOpen])
+
+  // Zona muerta del wrapper del asa (padding de gracia + ::after de index.css): click
+  // ahí NO roba el foco del editor. Listener nativo: el wrapper lo crea el plugin por
+  // fuera de React (portal) y no acepta handlers; el ref del contenido portalado
+  // llega a él por parentNode. Solo la zona muerta (target === wrapper): el grip no
+  // puede cancelar el mousedown (el drag nativo es su acción default).
+  const innerRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const wrap = innerRef.current?.parentElement
+    if (!wrap) return
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.target === wrap) e.preventDefault()
+    }
+    wrap.addEventListener("mousedown", onMouseDown)
+    return () => wrap.removeEventListener("mousedown", onMouseDown)
+  }, [])
+
+  // Selección de bloques (multi-select NO contiguo): la lleva ESTA capa — un set de
+  // bloques que se arma con clicks en ⋮⋮ ("this + next this": cada click AGREGA el
+  // bloque, no reemplaza) y con node-ranges contiguos (Shift+click extiende, drag del
+  // plugin). El PM selection queda en node-range sobre el ÚLTIMO bloque clicado: drag y
+  // suppression del bubble del plugin siguen andando; el halo de los bloques FUERA de
+  // ese rango lo pinta tagHalos (misma clase que pinta el plugin para el suyo).
+  const [selBlocks, setSelBlocks] = useState<GutterBlock[]>([])
+  const selRef = useRef<Array<{ pos: number; node: Node }>>([])
+  const prevPmSel = useRef<Selection | null>(null)
+  // Bloque donde está parada el asa del plugin (hover): su gutter propio se retira —
+  // sin doble gutter. -1 = asa escondida o en otra parte.
+  const [pluginHoverPos, setPluginHoverPos] = useState(-1)
+
+  const withRects = (list: Array<{ pos: number; node: Node }>): GutterBlock[] => {
+    const h = host.current
+    if (!h) return []
+    const hostBox = h.getBoundingClientRect()
+    return list.flatMap((b) => {
+      const dom = editor.view.nodeDOM(b.pos)
+      if (!(dom instanceof HTMLElement)) return []
+      const rect = firstLineRect(dom) ?? dom.getBoundingClientRect()
+      return [
+        {
+          pos: b.pos,
+          node: b.node,
+          left: rect.left - hostBox.left,
+          top: rect.top - hostBox.top,
+          height: rect.height,
+        },
+      ]
+    })
+  }
+
+  // Empuja las posiciones del set al plugin de decoraciones (halo nativo de PM). El
+  // dispatch es meta-only (no toca doc/selection) y solo si cambió algo (sin bucle).
+  const lastDecoPosRef = useRef<number[]>([])
+  const updateDecos = (blocks: GutterBlock[]) => {
+    const positions = blocks.map((b) => b.pos)
+    if (JSON.stringify(positions) === JSON.stringify(lastDecoPosRef.current)) return
+    lastDecoPosRef.current = positions
+    queueMicrotask(() => {
+      editor.view.dispatch(editor.view.state.tr.setMeta(selDecoKey, positions))
+    })
+  }
+
+  // ⋮⋮ click: agrega el bloque al set (multi-select) y deja el PM selection en node-range
+  // sobre él (drag/bubble del plugin). Idempotente; valida contra el doc vivo (un undo
+  // puede borrar el bloque bajo el mouse).
+  const addToSel = (t: BlockTarget) => {
+    if (!t.node.eq(editor.state.doc.nodeAt(t.pos) ?? ({} as Node))) return
+    if (!selRef.current.some((b) => b.pos === t.pos)) {
+      selRef.current = [...selRef.current, { pos: t.pos, node: t.node }]
+    }
+    editor.view.dispatch(
+      editor.view.state.tr
+        .setSelection(NodeRangeSelection.create(editor.state.doc, t.pos, t.pos + t.node.nodeSize))
+        .setMeta("blockSel", true),
+    )
+  }
 
   // Durante el drag, dragover sobre el editor ubica la línea guía. preventDefault: sin él
   // el navegador no marca el drop como válido (dragover default = negar el drop).
@@ -282,11 +368,9 @@ export function BlockControls({
   // controles de tabla, bubble) esconde. Sin eventos sintéticos al plugin: si su
   // currentNode quedó reseteado, el dragstart resuelve el rango desde las coords.
   useEffect(() => {
-    const menuOpenRef = { current: menuOpen }
     const hide = () => {
-      // Con el menú abierto el mouse viaja al portal del DropdownMenu (fuera del host):
-      // no esconder, el lock del plugin ya congela el hover.
       if (menuOpenRef.current) return
+      setPluginHoverPos(-1)
       const el = document.querySelector<HTMLElement>(".block-drag-handle")
       if (el) {
         el.style.visibility = "hidden"
@@ -301,6 +385,9 @@ export function BlockControls({
       const domBox = editor.view.dom.getBoundingClientRect()
       const h = host.current
       if (!h) return
+      // Menú abierto (asa o gutter): el target queda congelado sobre su bloque — blockAtY
+      // mapearía por Y al bloque bajo el menú y haría operar el menú sobre el equivocado.
+      if (menuOpenRef.current) return
       // Franja izquierda del editor. clientX >= borde = columna de contenido (outline,
       // controles de tabla, bubble…): ahí no aparece el asa.
       if (e.clientX >= domBox.left) {
@@ -314,6 +401,8 @@ export function BlockControls({
         return
       }
       target.current = block
+      // El asa del plugin queda parada aquí: el gutter propio de ESTE bloque se retira.
+      setPluginHoverPos(block.pos)
       const el = h.querySelector<HTMLElement>(".block-drag-handle")
       const dom = editor.view.nodeDOM(block.pos)
       if (!el || !(dom instanceof HTMLElement)) return
@@ -329,18 +418,110 @@ export function BlockControls({
       document.removeEventListener("mousemove", onMove)
       document.removeEventListener("scroll", hide, true)
     }
-  }, [editor, host, menuOpen])
+    // menuOpen vive en menuOpenRef (no re-suscribir por cada toggle del menú).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, host])
+
+  // Decoraciones del multi-select: la clase del halo la aplica PM vía decorations del
+  // plugin — NUNCA classList manual (el update de decoraciones de otros plugins pisa
+  // clases agregadas a mano). Estado = posiciones; docChanged las remapea.
+  useEffect(() => {
+    const plugin = new Plugin({
+      key: selDecoKey,
+      state: {
+        init: () => [] as number[],
+        apply: (tr, value) => {
+          const meta = tr.getMeta(selDecoKey)
+          if (meta !== undefined) return meta as number[]
+          if (!tr.docChanged) return value
+          return value.map((p) => tr.mapping.map(p, 1)).filter((p) => p >= 0)
+        },
+      },
+      props: {
+        decorations: (state) => {
+          const positions = selDecoKey.getState(state) as number[]
+          console.log("DECOS", JSON.stringify(positions))
+          if (!positions?.length) return DecorationSet.empty
+          const { doc } = state
+          const decos = positions.flatMap((pos) => {
+            const node = doc.nodeAt(pos)
+            if (!node) return []
+            return [
+              Decoration.node(pos, pos + node.nodeSize, {
+                class: "ProseMirror-selectednoderange",
+              }),
+            ]
+          })
+          return DecorationSet.create(doc, decos)
+        },
+      },
+    })
+    editor.registerPlugin(plugin)
+    return () => {
+      editor.unregisterPlugin(selDecoKey)
+    }
+  }, [editor])
+
+  // Sincroniza el set con el editor en cada transacción: un node-range contiguo externo
+  // (Shift+click, drag del plugin, restauración tras drop) lo sobreescribe; el caret
+  // moviéndose (texto) lo limpia; ediciones de doc remapean posiciones. Scroll
+  // recalcula rects (los bloques se movieron bajo los gutters).
+  useEffect(() => {
+    const sync = (tr?: Transaction) => {
+      const selection = editor.state.selection
+      const pmSelChanged = selection !== prevPmSel.current
+      prevPmSel.current = selection
+      if (tr?.getMeta("blockSel") == null) {
+        if (selection instanceof NodeRangeSelection && pmSelChanged) {
+          // Rango contiguo externo (shift+click, drag, restauración): manda él. Solo si
+          // CAMBIÓ — transacciones meta-only (nuestras decoraciones) no tocan el set.
+          selRef.current = selection.ranges.flatMap((r) => {
+            const node = r.$from.nodeAfter
+            return node ? [{ pos: r.$from.pos, node }] : []
+          })
+        } else if (!(selection instanceof NodeRangeSelection) && pmSelChanged) {
+          selRef.current = []
+        }
+        if (tr?.docChanged && selRef.current.length) {
+          selRef.current = selRef.current.flatMap((b) => {
+            const pos = tr.mapping.map(b.pos, 1)
+            const node = editor.state.doc.nodeAt(pos)
+            return node && node.eq(b.node) ? [{ pos, node }] : []
+          })
+        }
+      }
+      const blocks = withRects(selRef.current)
+      setSelBlocks(blocks)
+      updateDecos(blocks)
+    }
+    editor.on("transaction", ({ transaction }) => sync(transaction))
+    const onScroll = () => sync()
+    document.addEventListener("scroll", onScroll, true)
+    return () => {
+      editor.off("transaction", ({ transaction }) => sync(transaction))
+      document.removeEventListener("scroll", onScroll, true)
+    }
+    // withRects/tagHalos solo leen refs y el editor (estables).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor])
 
   const selectBlock = (shift: boolean) => {
     const t = target.current
     if (!t) return
+    if (!shift) {
+      // Click simple: AGREGA el bloque al multi-select (no reemplaza la selección).
+      addToSel(t)
+      return
+    }
+    // Shift: extiende el rango desde el anchor actual hasta cubrir el bloque (contiguo:
+    // sin meta, el sync lo adopta como set).
     const doc = editor.state.doc
     const to = t.pos + t.node.nodeSize
-    const anchor = shift ? editor.state.selection.anchor : t.pos
+    const anchor = editor.state.selection.anchor
     editor.view.dispatch(
       editor.view.state.tr.setSelection(NodeRangeSelection.create(doc, anchor, to)),
     )
-    if (!shift) editor.view.focus()
+    editor.view.focus()
   }
 
   return (
@@ -356,6 +537,7 @@ export function BlockControls({
         computePositionConfig={POSITION_CONFIG}
         onNodeChange={({ node, pos }) => {
           target.current = node && pos >= 0 ? { node, pos } : null
+          setPluginHoverPos(pos >= 0 ? pos : -1)
         }}
         // Centrar el asa (+ ⋮⋮) contra la PRIMERA LÍNEA del bloque (target.current lo fija
         // onNodeChange, que el plugin llama justo antes de re-posicionar).
@@ -371,7 +553,7 @@ export function BlockControls({
       >
         {/* pr-2: aire entre el asa y el texto — floating-ui pega el borde derecho del wrapper
             (cuenta todo el box, padding incluido) al borde izquierdo del bloque. */}
-        <div className="flex items-center gap-1.5 pr-2">
+        <div ref={innerRef} className="flex items-center gap-1.5 pr-2">
           {/* +: párrafo vacío debajo del bloque, enfocado (sin menú: escribir / ya abre slash). */}
           <button
             type="button"
@@ -426,54 +608,49 @@ export function BlockControls({
                   aria-expanded={menuOpen}
                   draggable={!menuOpen}
                   className={btnCls}
-                  // Contrato v2: click = SOLO menú, no toca la selección del editor (el
-                  // drag agarra el bloque sin seleccionar; el node-range lo fija el
-                  // propio plugin en el dragstart). La selección de bloque solo existe
-                  // con Shift+click. SIN preventDefault: iniciar el drag es una acción
-                  // default del mousedown — cancelarlo lo mata.
+                  // Contrato v4: click AGREGA el bloque al multi-select ("this + next
+                  // this") y abre el menú; Shift+click extiende el rango contiguo. El
+                  // drag agarra el bloque/rango sin pasar por acá (el node-range lo fija
+                  // el propio plugin en el dragstart). SIN preventDefault: iniciar el
+                  // drag es una acción default del mousedown — cancelarlo lo mata.
                   onMouseDown={(e) => {
                     if (!e.shiftKey) return
                     selectBlock(true)
                     setTimeout(() => editor.view.focus(), 0)
                   }}
-                  onClick={() => setMenuOpen((o) => !o)}
+                  onClick={(e) => {
+                    if (target.current) addToSel(target.current)
+                    // Mod+click = solo multi-select, sin menú (Shift ya lo hacía: la
+                    // selección se hace en mousedown; el click no existe tras el gesto).
+                    if (e.metaKey || e.ctrlKey) return
+                    setMenuOpen((o) => !o)
+                  }}
                 >
                   <GripVerticalIcon className="size-4" />
                 </span>
               </span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-44">
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <TypeIcon className={itemIcon} /> Convertir a
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="min-w-40">
-                  {CONVERTS.map((c) => (
-                    <DropdownMenuItem
-                      key={c.label}
-                      disabled={!c.can(editor)}
-                      onSelect={withTarget((t) => c.apply(editor, t))}
-                    >
-                      <span className="[&>svg]:size-3.5">{c.icon}</span> {c.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuItem onSelect={withTarget(duplicate(editor))}>
-                <CopyIcon className={itemIcon} /> Duplicar
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={withTarget((t) =>
-                  editor.view.dispatch(editor.view.state.tr.delete(t.pos, t.pos + t.node.nodeSize)),
-                )}
-              >
-                <Trash2Icon className={itemIcon} /> Eliminar
-              </DropdownMenuItem>
+              {target.current ? blockMenu(target.current, editor) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </DragHandle>
+
+      {/* Gutters propios de la selección (multi-select): uno por bloque del set,
+          excepto donde el asa del plugin está parada (sin doble gutter). Fuera durante
+          el drag (el asa del plugin + la guía toman el control). */}
+      {!dragging &&
+        selBlocks
+          .filter((rb) => rb.pos !== pluginHoverPos)
+          .map((rb) => (
+            <SelectionGutter
+              key={rb.pos}
+              editor={editor}
+              rb={rb}
+              onToggle={() => addToSel({ node: rb.node, pos: rb.pos })}
+            />
+          ))}
 
       {/* Guía de drop: solo durante el drag, no captura el mouse. */}
       {dragging && (
@@ -506,4 +683,144 @@ function duplicate(editor: Editor) {
     const clone = Node.fromJSON(editor.state.schema, t.node.toJSON())
     editor.view.dispatch(editor.view.state.tr.insert(t.pos + t.node.nodeSize, clone))
   }
+}
+
+// Un bloque dentro de un node-range activo, con las coords (relativas al host) de su
+// primera línea — donde se ancla su gutter propio.
+type GutterBlock = { pos: number; node: Node; left: number; top: number; height: number }
+
+// Items del menú de bloque, operando sobre el target t: el mismo menú para el asa de
+// hover y para los gutters de la selección (cada uno fija su target al abrir). Los
+// handlers capturan t en render y validan contra el doc vivo (un undo/edición externa
+// puede borrar el bloque entre apertura y click).
+function blockMenu(t: BlockTarget, editor: Editor): ReactNode {
+  const stale = () => !t.node.eq(editor.state.doc.nodeAt(t.pos) ?? ({} as Node))
+  return (
+    <>
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <TypeIcon className={itemIcon} /> Convertir a
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="min-w-40">
+          {CONVERTS.map((c) => (
+            <DropdownMenuItem
+              key={c.label}
+              disabled={!c.can(editor)}
+              onSelect={() => {
+                if (stale()) return
+                c.apply(editor, t)
+              }}
+            >
+              <span className="[&>svg]:size-3.5">{c.icon}</span> {c.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+      <DropdownMenuItem
+        onSelect={() => {
+          if (stale()) return
+          duplicate(editor)(t)
+        }}
+      >
+        <CopyIcon className={itemIcon} /> Duplicar
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onSelect={() => {
+          if (stale()) return
+          editor.view.dispatch(editor.view.state.tr.delete(t.pos, t.pos + t.node.nodeSize))
+        }}
+      >
+        <Trash2Icon className={itemIcon} /> Eliminar
+      </DropdownMenuItem>
+    </>
+  )
+}
+
+// Gutter propio de un bloque seleccionado (node-range): IGUAL al asa de hover (+ ⋮⋮,
+// mismas clases y mismo padding de gracia — .block-range-gutter en index.css) pero
+// PERSISTENTE mientras dure la selección — uno por bloque del rango. Sin drag propio (el
+// rango se arrastra desde cualquier asa del plugin: su dragstart cubre el node-range).
+// Los handlers operan explícitamente sobre SU bloque (el plugin puede re-apuntar el
+// target al bloque hovered en cualquier momento); el ⋮⋮ fija target al abrir para que
+// blockMenu opere sobre él.
+function SelectionGutter({
+  editor,
+  rb,
+  onToggle,
+}: {
+  editor: Editor
+  rb: GutterBlock
+  onToggle: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  // Misma matemática que positionHandle: borde derecho del gutter contra el borde
+  // izquierdo del bloque, centrado en su primera línea (offsetWidth/Height leídos tras
+  // el montaje — el CSS no los conoce de antemano).
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.left = `${rb.left - el.offsetWidth}px`
+    el.style.top = `${rb.top + rb.height / 2 - el.offsetHeight / 2}px`
+  }, [rb])
+  return (
+    <div
+      ref={ref}
+      className="block-range-gutter absolute flex items-center gap-1.5"
+      // Zona muerta (padding + ::after de index.css): click ahí no roba el foco.
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault()
+      }}
+    >
+      <button
+        type="button"
+        data-testid={`range-add-${rb.pos}`}
+        aria-label="Añadir bloque"
+        className={btnCls}
+        onMouseDown={preventFocus}
+        onDragStart={(e) => e.preventDefault()}
+        onClick={() => {
+          const node = editor.state.doc.nodeAt(rb.pos)
+          if (!node) return
+          const after = rb.pos + node.nodeSize
+          editor
+            .chain()
+            .insertContentAt(after, { type: "paragraph" })
+            .setTextSelection(after + 1)
+            .focus()
+            .run()
+        }}
+      >
+        <PlusIcon className="size-4" />
+      </button>
+      <DropdownMenu
+        open={open}
+        onOpenChange={(o) => {
+          setOpen(o)
+          editor.view.dispatch(editor.view.state.tr.setMeta("lockDragHandle", o))
+        }}
+      >
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            data-testid={`range-handle-${rb.pos}`}
+            aria-label="Menú de bloque"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            className={btnCls}
+            onMouseDown={preventFocus}
+            // Click agrega SU bloque al multi-select (sin robar foco); abrir/cerrar el
+            // menú lo maneja Radix (trigger toggle en pointerdown, open controlado).
+            onClick={onToggle}
+          >
+            <GripVerticalIcon className="size-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-44">
+          {blockMenu({ node: rb.node, pos: rb.pos }, editor)}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
 }

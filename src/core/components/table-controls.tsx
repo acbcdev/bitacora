@@ -116,11 +116,10 @@ function duplicateColumn(view: EditorView, cell: HTMLElement) {
 
 // ── UI ──────────────────────────────────────────────────────────────────────────
 
-const BTN = 22
+const BTN = 18
 const ADD_W = 28
 
-// Botón + en píldora: se estira a lo largo de toda la fila/columna (hit area grande), con
-// 4px solapados al borde de la tabla para que cruzar del cell al botón no pierda el hover.
+// Botón + en píldora: se estira a lo largo de toda la fila/columna (hit area grande).
 const addCls =
   "pointer-events-auto absolute grid place-items-center rounded-[10px] border border-popover bg-popover text-fg-secondary shadow-sm hover:bg-muted hover:text-foreground"
 const ctlCls =
@@ -288,7 +287,8 @@ export function TableHoverControls({
   return (
     // pointer-events-none en el manto: solo los botones capturan el mouse.
     <div className="absolute inset-0 z-20 pointer-events-none" data-testid="table-controls">
-      {/* Handle de fila: borde izquierdo de la fila hovered. */}
+      {/* Handle de fila: MONTADO sobre el borde izquierdo de la fila hovered (mitad
+          adentro/mitad afuera — no come margen externo de la nota). */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -298,7 +298,7 @@ export function TableHoverControls({
             aria-label="Menú de fila"
             className={ctlCls}
             style={{
-              left: hover.row.left - BTN + 2,
+              left: hover.row.left - BTN / 2,
               top: hover.row.top + hover.row.height / 2,
               transform: "translateY(-50%)",
             }}
@@ -322,7 +322,7 @@ export function TableHoverControls({
           aria-label="Añadir columna"
           className={addCls}
           style={{
-            left: hover.col.left + hover.col.width + 4,
+            left: hover.col.left + hover.col.width - ADD_W / 2,
             top: hover.col.top,
             width: ADD_W,
             height: hover.col.height,
@@ -334,7 +334,8 @@ export function TableHoverControls({
         </button>
       )}
 
-      {/* Handle de columna: borde superior de la columna hovered. */}
+      {/* Handle de columna: MONTADO sobre el borde superior de la columna hovered —
+          el espacio entre la tabla y el texto de arriba queda libre. */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -345,7 +346,7 @@ export function TableHoverControls({
             className={ctlCls}
             style={{
               left: hover.col.left + hover.col.width / 2,
-              top: hover.col.top - BTN + 2,
+              top: hover.col.top - BTN / 2,
               transform: "translateX(-50%)",
             }}
             onMouseDown={preventFocus}
@@ -369,7 +370,7 @@ export function TableHoverControls({
           className={addCls}
           style={{
             left: hover.row.left,
-            top: hover.row.top + hover.row.height + 4,
+            top: hover.row.top + hover.row.height - ADD_W / 2,
             width: hover.row.width,
             height: ADD_W,
           }}

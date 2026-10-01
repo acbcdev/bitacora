@@ -247,11 +247,35 @@
   .block-drag-handle {
     padding-right: 10px;
     pointer-events: auto;
+    /* Contexto de apilamiento propio: la zona de captura (::after, z-index -1) queda
+       DETRÁS de los botones — sin esto un pseudo posicionado pintaría encima y se
+       comería sus clicks. */
+    isolation: isolate;
   }
   .block-drag-handle > div {
     pointer-events: none;
   }
   .block-drag-handle button {
+    pointer-events: auto;
+  }
+  /* Zona de captura invisible: mismo aspecto, área de hover/click más grande — 8px
+     extra a la izquierda/arriba/abajo (a la derecha ya está el padding de gracia).
+     El hover que aterriza acá reporta el wrapper como target, así que el plugin lo
+     trata como “dentro del asa” y no esconde el asa; el click en la zona muerta
+     NO roba el foco (preventDefault en mousedown desde block-controls.tsx). */
+  .block-drag-handle::after,
+  .block-range-gutter::after {
+    content: "";
+    position: absolute;
+    inset: -8px 0 -8px -8px;
+    z-index: -1;
+  }
+  /* Gutter propio de los bloques seleccionados (node-range): MISMO box que el asa
+     normal. El asa del plugin reparte el aire final en dos capas (element 10px + inner
+     pr-2 8px) — acá va en UNA declaración (18px) porque el wrapper también lleva
+     utilidades Tailwind y pr-2 en utilities le ganaría a esta regla en components. */
+  .block-range-gutter {
+    padding-right: 18px;
     pointer-events: auto;
   }
   /* Selección de bloque (node-range, Shift+click): el plugin estila los bloques del rango
@@ -441,10 +465,10 @@
    prosemirror-tables envuelve la tabla en div.tableWrapper y suelta los HTMLAttributes —
    scroll horizontal, margen y font van por CSS acá; celdas abajo. */
 .tiptap-host .ProseMirror .tableWrapper {
-  @apply my-4 block w-max max-w-full overflow-x-auto;
+  @apply my-4 block max-w-full overflow-x-auto;
 }
 .tiptap-host .ProseMirror .tableWrapper table {
-  @apply border-collapse text-sm;
+  @apply w-full border-collapse text-sm;
 }
 .tiptap-host .ProseMirror th {
   @apply border border-border bg-muted px-3 py-1.5 text-left font-semibold;

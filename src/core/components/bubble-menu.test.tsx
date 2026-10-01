@@ -1,4 +1,5 @@
 import { fireEvent, render, waitFor } from "@testing-library/react"
+import { NodeRangeSelection } from "@tiptap/extension-node-range"
 import { TextSelection } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import type { Editor as TiptapEditor } from "@tiptap/react"
@@ -218,4 +219,16 @@ test("Esc con popover abierto cierra el popover y no saca el foco del editor", a
   expect(pm.contains(document.activeElement)).toBe(true)
   expect(view.state.selection.empty).toBe(false)
   expect(editor.isActive("bold")).toBe(false)
+})
+
+// Contrato v3 (gutters de selección): con node-range de bloques activo el bubble de
+// TEXTO nunca aparece (pasado el updateDelay del plugin, ~350ms).
+test("node-range de bloques: el bubble de texto NUNCA aparece", async () => {
+  const { view } = await setup(undefined)
+  const d = view.state.doc
+  view.dispatch(view.state.tr.setSelection(NodeRangeSelection.create(d, 0, d.content.size)))
+  expect(view.state.selection.empty).toBe(false)
+  // Más que el updateDelay del plugin: si el bubble fuera a aparecer, ya habría aparecido.
+  await new Promise((r) => setTimeout(r, 450))
+  expect(document.body.querySelector(BUBBLE)).toBeNull()
 })
