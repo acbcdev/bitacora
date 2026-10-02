@@ -5,6 +5,8 @@ import { HabitTileActions } from "@/habits/habit-tile-actions"
 import { HabitTileInfo, quickLabel, type Run } from "@/habits/habit-tile-info"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { todayKey } from "@/core/lib/day"
+import { HabitsSkeleton } from "@/core/components/skeletons"
+import { forceLoading, saveSample } from "@/core/lib/sample"
 import { cn } from "@/core/lib/utils"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { cellColor, deriveHabit, meets, parseDay, type HabitState } from "@/habits/habits"
@@ -126,10 +128,14 @@ export function HabitTiles() {
     [entries, timer, setDay, writePause],
   )
 
+  useEffect(() => {
+    if (logReady) saveSample({ habits: entries.length })
+  }, [logReady, entries.length])
+
   // Sin el log no se dibuja nada. El +1 y el toggle se calculan sobre lo de hoy y el target
   // congelado sale de ese mismo cache: con el log a medio cargar, un click escribiría `amount: 1`
   // sobre la fila real del día y le pisaría el target. Mostrar 0/3 mientras carga tampoco sirve.
-  if (!logReady) return null
+  if (!logReady || forceLoading()) return <HabitsSkeleton />
 
   const met = entries.filter((e) => e.state.met).length
 
