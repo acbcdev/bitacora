@@ -22,6 +22,7 @@ import { SidebarProvider, SidebarTrigger } from "@/core/ui/sidebar"
 import { Toaster } from "@/core/ui/sonner"
 import { TooltipProvider } from "@/core/ui/tooltip"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
+import { forceLoading } from "@/core/lib/sample"
 import { useNotebooks } from "@/notebooks/notebooks.api"
 import { usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
 import { useAllNoteRefs } from "@/notes/notes.api"
@@ -61,7 +62,7 @@ export function App() {
 function Shell({ user }: { user: AuthUser }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { data: notebooks = [] } = useNotebooks()
+  const { data: notebooks = [], isLoading: notebooksLoading } = useNotebooks()
   const { data: notes = [] } = useAllNoteRefs()
   const pinnedIds = usePinnedNotebookIds()
 
@@ -209,6 +210,7 @@ function Shell({ user }: { user: AuthUser }) {
         {!focus && (
           <Sidebar
             notebooks={notebooks}
+            loading={notebooksLoading || forceLoading()}
             email={user.email}
             dark={dark}
             onToggleTheme={() => setDark((d) => !d)}

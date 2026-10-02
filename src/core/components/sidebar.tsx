@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Check,
   ChevronRight,
@@ -13,6 +13,8 @@ import {
   Sun,
 } from "lucide-react"
 import { NavLink } from "react-router-dom"
+import { SidebarGroupSkeleton } from "@/core/components/skeletons"
+import { readSample, saveSample } from "@/core/lib/sample"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { toggleNotebookDone, useUpdateNotebook } from "@/notebooks/notebooks.api"
 import { togglePinnedNotebook, usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
@@ -57,6 +59,7 @@ const EXPANDED_ONLY = "group-data-[collapsible=icon]:hidden"
 // iconos (chrome mínimo, ui-principles #3). El estado colapsado lo controla App.
 export function Sidebar({
   notebooks,
+  loading,
   email,
   dark,
   onToggleTheme,
@@ -64,6 +67,7 @@ export function Sidebar({
   onSettings,
 }: {
   notebooks: Notebook[]
+  loading: boolean
   email: string
   dark: boolean
   onToggleTheme: () => void
@@ -72,9 +76,21 @@ export function Sidebar({
 }) {
   const pinnedIds = usePinnedNotebookIds()
   const { pinned, active, recent } = sidebarNotebookGroups(notebooks, pinnedIds)
-  const [fijadoOpen, setFijadoOpen] = useState(true)
-  const [activosOpen, setActivosOpen] = useState(true)
-  const [recientesOpen, setRecientesOpen] = useState(false)
+  const sample = readSample().sidebar
+  const [fijadoOpen, setFijadoOpen] = useState(sample.pinned.open)
+  const [activosOpen, setActivosOpen] = useState(sample.active.open)
+  const [recientesOpen, setRecientesOpen] = useState(sample.recent.open)
+  // Filas y abierto/cerrado de cada grupo (sample.ts): el skeleton dibuja lo que el usuario dejó.
+  useEffect(() => {
+    if (loading) return
+    saveSample({
+      sidebar: {
+        pinned: { rows: pinned.length, open: fijadoOpen },
+        active: { rows: active.length, open: activosOpen },
+        recent: { rows: recent.length, open: recientesOpen },
+      },
+    })
+  }, [loading, pinned.length, active.length, recent.length, fijadoOpen, activosOpen, recientesOpen])
   const ThemeIcon = dark ? Sun : Moon
   const themeLabel = dark ? "Tema claro" : "Tema oscuro"
 
@@ -106,27 +122,37 @@ export function Sidebar({
         {/* `min-h-0` para que este bloque sea el que se achica y scrollea: sin eso el footer
             (menú de cuenta) se va abajo del viewport cuando hay muchos notebooks. */}
         <div className="flex min-h-0 flex-col overflow-y-auto">
-          <NotebookGroup
-            label="Fijado"
-            notebooks={pinned}
-            pinned
-            open={fijadoOpen}
-            onOpenChange={setFijadoOpen}
-          />
-          <NotebookGroup
-            label="Activos"
-            notebooks={active}
-            pinned={false}
-            open={activosOpen}
-            onOpenChange={setActivosOpen}
-          />
-          <NotebookGroup
-            label="Recientes"
-            notebooks={recent}
-            pinned={false}
-            open={recientesOpen}
-            onOpenChange={setRecientesOpen}
-          />
+          {loading ? (
+            <div className={EXPANDED_ONLY}>
+              <SidebarGroupSkeleton label="Fijado" {...sample.pinned} />
+              <SidebarGroupSkeleton label="Activos" {...sample.active} />
+              <SidebarGroupSkeleton label="Recientes" {...sample.recent} />
+            </div>
+          ) : (
+            <>
+              <NotebookGroup
+                label="Fijado"
+                notebooks={pinned}
+                pinned
+                open={fijadoOpen}
+                onOpenChange={setFijadoOpen}
+              />
+              <NotebookGroup
+                label="Activos"
+                notebooks={active}
+                pinned={false}
+                open={activosOpen}
+                onOpenChange={setActivosOpen}
+              />
+              <NotebookGroup
+                label="Recientes"
+                notebooks={recent}
+                pinned={false}
+                open={recientesOpen}
+                onOpenChange={setRecientesOpen}
+              />
+            </>
+          )}
         </div>
       </SidebarContent>
 
