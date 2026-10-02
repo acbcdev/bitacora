@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { NoteSkeleton } from "@/core/components/skeletons"
+import { ReviewSkeleton } from "@/core/components/skeletons"
 import { Card } from "@/core/ui/card"
 import { Progress } from "@/core/ui/progress"
 import { useNotebooks } from "@/notebooks/notebooks.api"
@@ -13,6 +13,7 @@ import { NoteCard } from "@/review/note-card"
 import { useSnapshot } from "@/core/lib/snapshot"
 import { DAILY_GOAL, EMPTY_READ_STATS, readStats } from "@/core/store/derive"
 import { cn } from "@/core/lib/utils"
+import { forceLoading } from "@/core/lib/sample"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { Notebooks } from "@/notebooks/notebooks"
 import { ReviewEmpty } from "@/review/review-empty"
@@ -115,12 +116,10 @@ export function Review() {
   useSafeHotkeys("j", prev, { preventDefault: true, enabled: keysEnabled }, [prev, keysEnabled]) // volver
   useSafeHotkeys("k", next, { preventDefault: true, enabled: keysEnabled }, [next, keysEnabled]) // siguiente, sin contar
 
-  if (isLoading)
+  if (isLoading || forceLoading())
     return (
       <div className="fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8">
-        <Card className="py-6">
-          <NoteSkeleton />
-        </Card>
+        <ReviewSkeleton />
       </div>
     )
   const done = session.done
