@@ -9,7 +9,8 @@ import { useNotebookHotkeys } from "@/notebooks/notebook-hotkeys"
 import { NotebookPagination } from "@/notebooks/notebook-pagination"
 import { NotebookTable } from "@/notebooks/notebook-table"
 import { NotebookToolbar } from "@/notebooks/notebook-toolbar"
-import { TableSkeleton } from "@/core/components/skeletons"
+import { NotebookCardsSkeleton } from "@/core/components/skeletons"
+import { forceLoading, saveSample } from "@/core/lib/sample"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { PAGE_SIZE, useNotebooksPage, useDeleteNotebook } from "@/notebooks/notebooks.api"
@@ -43,6 +44,10 @@ export function Notebooks({ embed }: { embed?: boolean }) {
   // Distingue "todavía no creaste ningún notebook" de "los filtros no matchean nada": con paginado
   // en server no hay una lista completa en cliente contra la cual comparar.
   const filtering = !!filters.debouncedQ || filters.status !== "todos"
+  // Filas de la última carga sin filtrar, para dimensionar el skeleton (sample.ts).
+  useEffect(() => {
+    if (data && !filtering) saveSample({ notebooks: Math.min(data.total, PAGE_SIZE) })
+  }, [data, filtering])
 
   // Borrar el último notebook de la última página la deja vacía: retroceder en vez de mostrar nada.
   useEffect(() => {
@@ -102,8 +107,8 @@ export function Notebooks({ embed }: { embed?: boolean }) {
         onNew={() => setEditing("new")}
       />
 
-      {isLoading ? (
-        <TableSkeleton />
+      {isLoading || forceLoading() ? (
+        <NotebookCardsSkeleton />
       ) : view === "tabla" && !isMobile ? (
         <NotebookTable
           rows={rows}
