@@ -7,8 +7,18 @@ import {
 } from "@/core/store/derive"
 import { useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
 import type { NotebookInput } from "@/core/store/types"
+import type { Notebook as NotebookRow, NotebookStatus } from "@/core/types/database"
 
 export const PAGE_SIZE = 24
+
+// Payload del toggle "Marcar finalizado / Reabrir notebook", compartido por el sidebar y la
+// pantalla Notebook. Reabrir limpia `finished_at` — si no, un notebook activo quedaría con fecha de fin.
+export function toggleNotebookDone(notebook: NotebookRow): NotebookInput & { id: string } {
+  const done = notebook.status === "done"
+  return done
+    ? { id: notebook.id, status: "active" as NotebookStatus, finished_at: null }
+    : { id: notebook.id, status: "done" as NotebookStatus, finished_at: new Date().toISOString() }
+}
 
 // El tamaño de página lo fija la app, no la pantalla: la query de la UI son los cuatro filtros.
 export type NotebooksQuery = Omit<DeriveQuery, "pageSize">

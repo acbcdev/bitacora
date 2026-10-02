@@ -16,8 +16,8 @@ import { PAGE_SIZE, useNotebooksPage, useDeleteNotebook } from "@/notebooks/note
 import type { Notebook, NotebookRow } from "@/core/types/database"
 
 // Pantalla Notebooks (screen 2) como database view del diseño: buscar, filtrar por estado, ordenar,
-// y alternar tabla / tarjetas. Búsqueda, filtro, orden y paginado los resuelve la RPC
-// `notebooks_page` (migración 0006) — el cliente sólo guarda el estado de los controles.
+// y alternar tabla / tarjetas. Búsqueda, filtro, orden y paginado los resuelve la función pura
+// `derive.notebooksPage` sobre el snapshot — el cliente sólo guarda el estado de los controles.
 export function Notebooks({ embed }: { embed?: boolean }) {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()

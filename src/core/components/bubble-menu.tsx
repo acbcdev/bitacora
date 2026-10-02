@@ -66,6 +66,7 @@ function ColorDot({ color }: { color: string }) {
 
 type BlockKind = {
   name: string
+  icon: typeof TypeIcon
   isActive: (ed: Editor) => boolean
   // null = ya es ese bloque (se muestra con check y no hace nada).
   apply: (ed: Editor) => boolean
@@ -74,46 +75,55 @@ type BlockKind = {
 const BLOCKS: BlockKind[] = [
   {
     name: "Texto normal",
+    icon: TypeIcon,
     isActive: (ed) => ed.isActive("paragraph"),
     apply: (ed) => ed.chain().focus().setParagraph().run(),
   },
   {
     name: "Encabezado 1",
+    icon: Heading1Icon,
     isActive: (ed) => ed.isActive("heading", { level: 1 }),
     apply: (ed) => ed.chain().focus().setHeading({ level: 1 }).run(),
   },
   {
     name: "Encabezado 2",
+    icon: Heading2Icon,
     isActive: (ed) => ed.isActive("heading", { level: 2 }),
     apply: (ed) => ed.chain().focus().setHeading({ level: 2 }).run(),
   },
   {
     name: "Encabezado 3",
+    icon: Heading3Icon,
     isActive: (ed) => ed.isActive("heading", { level: 3 }),
     apply: (ed) => ed.chain().focus().setHeading({ level: 3 }).run(),
   },
   {
     name: "Lista con viñetas",
+    icon: ListIcon,
     isActive: (ed) => ed.isActive("bulletList"),
     apply: (ed) => ed.chain().focus().toggleBulletList().run(),
   },
   {
     name: "Lista numerada",
+    icon: ListOrderedIcon,
     isActive: (ed) => ed.isActive("orderedList"),
     apply: (ed) => ed.chain().focus().toggleOrderedList().run(),
   },
   {
     name: "To-do",
+    icon: ListTodoIcon,
     isActive: (ed) => ed.isActive("taskList"),
     apply: (ed) => ed.chain().focus().toggleTaskList().run(),
   },
   {
     name: "Cita",
+    icon: QuoteIcon,
     isActive: (ed) => ed.isActive("blockquote"),
     apply: (ed) => ed.chain().focus().toggleBlockquote().run(),
   },
   {
     name: "Código",
+    icon: CodeIcon,
     isActive: (ed) => ed.isActive("codeBlock"),
     apply: (ed) => ed.chain().focus().toggleCodeBlock().run(),
   },
@@ -166,6 +176,52 @@ function ClearButton({ kind, onClear }: { kind: "color" | "highlight"; onClear: 
     >
       Quitar
     </button>
+  )
+}
+
+// Envoltura compartida de los dos popovers de paleta (color / highlight): difieren sólo en el
+// trigger (children), el kind y los accesos; el shell — ref de popover abierto, foco que queda
+// en el editor, PaletteGrid + ClearButton — es el mismo.
+function ColorPopover({
+  kind,
+  active,
+  open,
+  onOpenChange,
+  onPick,
+  onClear,
+  popoverOpen,
+  children,
+}: {
+  kind: "color" | "highlight"
+  active: string | null
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  onPick: (kind: "color" | "highlight", index: number) => void
+  onClear: () => void
+  popoverOpen: React.RefObject<boolean>
+  children: React.ReactNode
+}) {
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        popoverOpen.current = o
+        onOpenChange(o)
+      }}
+    >
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent
+        className="w-auto gap-0 rounded-lg p-1.5"
+        onMouseDown={preventFocus}
+        // El foco queda en el editor: si Radix enfocara el content, el bubble (fuera del
+        // alcance de su isChildOfMenu) se ocultaba al abrir y quedaba desmontado.
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
+        <PaletteGrid kind={kind} active={active} onPick={onPick} />
+        <ClearButton kind={kind} onClear={onClear} />
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -303,69 +359,46 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
       >
         <CodeIcon />
       </button>
-      <Popover
+      <ColorPopover
+        kind="color"
+        active={active.color}
         open={colorOpen}
-        onOpenChange={(o) => {
-          popoverOpen.current = o
-          setColorOpen(o)
-        }}
+        onOpenChange={setColorOpen}
+        onPick={pick}
+        onClear={() => editor.chain().focus().unsetColor().run()}
+        popoverOpen={popoverOpen}
       >
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className={cn(btnCls, "pb-[7px]")}
-            aria-label="Color de letra"
-            title="Color de letra"
-            onMouseDown={preventFocus}
-          >
-            <span className="text-[15px] leading-none font-extrabold">A</span>
-            {active.color && <ColorDot color={active.color} />}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-auto gap-0 rounded-lg p-1.5"
+        <button
+          type="button"
+          className={cn(btnCls, "pb-[7px]")}
+          aria-label="Color de letra"
+          title="Color de letra"
           onMouseDown={preventFocus}
-          // El foco queda en el editor: si Radix enfocara el content, el bubble (fuera del
-          // alcance de su isChildOfMenu) se ocultaba al abrir y quedaba desmontado.
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          onCloseAutoFocus={(e) => e.preventDefault()}
         >
-          <PaletteGrid kind="color" active={active.color} onPick={pick} />
-          <ClearButton kind="color" onClear={() => editor.chain().focus().unsetColor().run()} />
-        </PopoverContent>
-      </Popover>
-      <Popover
+          <span className="text-[15px] leading-none font-extrabold">A</span>
+          {active.color && <ColorDot color={active.color} />}
+        </button>
+      </ColorPopover>
+      <ColorPopover
+        kind="highlight"
+        active={active.highlight}
         open={highlightOpen}
-        onOpenChange={(o) => {
-          popoverOpen.current = o
-          setHighlightOpen(o)
-        }}
+        onOpenChange={setHighlightOpen}
+        onPick={pick}
+        onClear={() => editor.chain().focus().unsetHighlight().run()}
+        popoverOpen={popoverOpen}
       >
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className={cn(btnCls, "pb-[3px]")}
-            aria-label="Resaltado"
-            title="Resaltado (mod+shift+h)"
-            onMouseDown={preventFocus}
-          >
-            <HighlighterIcon />
-            {active.highlight && <ColorDot color={active.highlight} />}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-auto gap-0 rounded-lg p-1.5"
+        <button
+          type="button"
+          className={cn(btnCls, "pb-[3px]")}
+          aria-label="Resaltado"
+          title="Resaltado (mod+shift+h)"
           onMouseDown={preventFocus}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          onCloseAutoFocus={(e) => e.preventDefault()}
         >
-          <PaletteGrid kind="highlight" active={active.highlight} onPick={pick} />
-          <ClearButton
-            kind="highlight"
-            onClear={() => editor.chain().focus().unsetHighlight().run()}
-          />
-        </PopoverContent>
-      </Popover>
+          <HighlighterIcon />
+          {active.highlight && <ColorDot color={active.highlight} />}
+        </button>
+      </ColorPopover>
       <button
         type="button"
         className={btnCls}
@@ -438,7 +471,7 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
                     data-active={current || undefined}
                   >
                     <span className="text-muted-foreground">
-                      <TurnBlockIcon index={i} />
+                      <b.icon size={15} />
                     </span>
                     {b.name}
                     {current && <CheckIcon size={14} className="ml-auto text-muted-foreground" />}
@@ -453,21 +486,4 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
       </div>
     </BubbleMenu>
   )
-}
-
-// Íconos por ítem del convertidor, por posición en BLOCKS.
-function TurnBlockIcon({ index }: { index: number }) {
-  const icons = [
-    TypeIcon,
-    Heading1Icon,
-    Heading2Icon,
-    Heading3Icon,
-    ListIcon,
-    ListOrderedIcon,
-    ListTodoIcon,
-    QuoteIcon,
-    CodeIcon,
-  ]
-  const Icon = icons[index]
-  return <Icon size={15} />
 }

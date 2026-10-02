@@ -27,9 +27,6 @@ import type { Habit } from "@/core/types/database"
 
 type Entry = { h: Habit; state: HabitState }
 
-// SLOT ya no se usa: el dato vive en sub con dots debajo, no en un slot de ancho mínimo que late.
-// Se mantiene el tabular-nums en el sub para el cronómetro.
-
 // La barra no tiene color propio: se MEZCLA — rojo lo que falta, verde lo hecho. En un `bad` la
 // escala va al revés (llenarse es perder), y el rojo del techo pasado sale de la misma fórmula
 // (pct = 100 → done = 0), sin caso especial.

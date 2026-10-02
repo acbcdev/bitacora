@@ -225,11 +225,6 @@ export function readStats(snap: Snapshot, now = new Date()): ReadStats {
   return { today: byDay.get(dayKey(now)) ?? 0, streak, byNote, byDay }
 }
 
-// Granular para tests: misma lógica sin necesidad de armar un Snapshot.
-export function deriveReadStats(rows: ReadRow[], now = new Date()): ReadStats {
-  return readStats({ notebooks: [], notes: [], reads: rows, habits: [], habitLog: [] }, now)
-}
-
 // Los últimos HISTORY_DAYS días en orden, con los huecos en cero: la grilla necesita las celdas
 // vacías, y byDay sólo tiene los días que existieron.
 export function lastDays(byDay: Map<string, number> | undefined, now = new Date()) {
@@ -378,7 +373,7 @@ export function deriveHabit(habit: Habit, rows: HabitLogRow[], now = new Date())
   const floor = periodKey(new Date(habit.created_at), habit.period)
   const cursor = new Date(now)
   // En un `good`, el período actual todavía sin cumplir no corta la racha (misma regla que
-  // deriveReadStats). En un `bad` sí: pasarse del techo es el fracaso, no una tarea pendiente.
+  // readStats). En un `bad` sí: pasarse del techo es el fracaso, no una tarea pendiente.
   if (!met && habit.kind === "good") stepBack[habit.period](cursor)
   let streak = 0
   while (periodKey(cursor, habit.period) >= floor && metAt(periodKey(cursor, habit.period))) {

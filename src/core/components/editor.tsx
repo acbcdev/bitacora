@@ -16,9 +16,8 @@ import { createLowlight, common } from "lowlight"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { sinkListItem, liftListItem } from "@tiptap/pm/schema-list"
 import { Extension } from "@tiptap/react"
-import { toast } from "sonner"
-import { store } from "@/core/store"
 import type { TiptapDoc } from "@/core/types/database"
+import { uploadNoteImageWithToast } from "@/core/components/upload-note-image"
 import { markdownToDoc } from "@/core/lib/tiptap-markdown"
 import { CodeBlockView } from "@/core/components/code-block"
 import { ImageView } from "@/core/components/image-view"
@@ -196,20 +195,13 @@ export function Editor({
           if (file) {
             event.preventDefault()
             const node = view.state.schema.nodes.image
-            toast.promise(
-              store.uploadNoteImage(file).then((src) => {
-                view.dispatch(
-                  view.state.tr.replaceSelection(
-                    new Slice(Fragment.from(node.create({ src })), 0, 0),
-                  ),
-                )
-              }),
-              {
-                loading: "Subiendo imagen…",
-                success: "Imagen insertada",
-                error: (e) => (e instanceof Error ? e.message : "No se pudo subir la imagen"),
-              },
-            )
+            uploadNoteImageWithToast(file, (src) => {
+              view.dispatch(
+                view.state.tr.replaceSelection(
+                  new Slice(Fragment.from(node.create({ src })), 0, 0),
+                ),
+              )
+            })
             return true
           }
         }

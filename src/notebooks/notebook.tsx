@@ -30,7 +30,12 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empt
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/core/ui/input-group"
 import { Kbd } from "@/core/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
-import { useNotebooks, useDeleteNotebook, useUpdateNotebook } from "@/notebooks/notebooks.api"
+import {
+  toggleNotebookDone,
+  useNotebooks,
+  useDeleteNotebook,
+  useUpdateNotebook,
+} from "@/notebooks/notebooks.api"
 import { togglePinnedNotebook, usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
 import { NoteEditor } from "@/notes/note"
 import { useCreateNote, useNotes } from "@/notes/notes.api"
@@ -246,17 +251,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                       date picker. Reabrir limpia `finished_at` — si no, un notebook activo quedaría
                       con fecha de fin. */}
                   <DropdownMenuItem
-                    onSelect={() =>
-                      updateNotebook.mutate(
-                        notebook.status === "done"
-                          ? { id: notebook.id, status: "active", finished_at: null }
-                          : {
-                              id: notebook.id,
-                              status: "done",
-                              finished_at: new Date().toISOString(),
-                            },
-                      )
-                    }
+                    onSelect={() => updateNotebook.mutate(toggleNotebookDone(notebook))}
                   >
                     {notebook.status === "done" ? <RotateCcw /> : <Check />}
                     {notebook.status === "done" ? "Reabrir notebook" : "Marcar finalizado"}

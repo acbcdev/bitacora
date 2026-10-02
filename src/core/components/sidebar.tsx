@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import { NavLink } from "react-router-dom"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
-import { useUpdateNotebook } from "@/notebooks/notebooks.api"
+import { toggleNotebookDone, useUpdateNotebook } from "@/notebooks/notebooks.api"
 import { togglePinnedNotebook, usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
 import { Button } from "@/core/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/core/ui/collapsible"
@@ -261,15 +261,7 @@ function NotebookMenuItem({ notebook, pinned }: { notebook: Notebook; pinned: bo
               {pinned ? <PinOff /> : <Pin />}
               {pinned ? "Desfijar" : "Fijar"}
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() =>
-                updateNotebook.mutate(
-                  done
-                    ? { id: notebook.id, status: "active", finished_at: null }
-                    : { id: notebook.id, status: "done", finished_at: new Date().toISOString() },
-                )
-              }
-            >
+            <DropdownMenuItem onSelect={() => updateNotebook.mutate(toggleNotebookDone(notebook))}>
               {done ? <RotateCcw /> : <Check />}
               {done ? "Reabrir notebook" : "Marcar finalizado"}
             </DropdownMenuItem>

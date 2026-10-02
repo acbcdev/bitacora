@@ -5,8 +5,7 @@ import { PluginKey } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { ReactRenderer, Extension } from "@tiptap/react"
 import type { Range, Editor } from "@tiptap/react"
-import { toast } from "sonner"
-import { store } from "@/core/store"
+import { uploadNoteImageWithToast } from "@/core/components/upload-note-image"
 import { Command, CommandEmpty, CommandItem, CommandList } from "@/core/ui/command"
 import {
   CodeIcon,
@@ -127,16 +126,7 @@ const SLASH_ITEMS: SlashItem[] = [
       input.addEventListener("change", () => {
         const file = input.files?.[0]
         if (!file) return
-        toast.promise(
-          store.uploadNoteImage(file).then((src) => {
-            editor.chain().focus().setImage({ src }).run()
-          }),
-          {
-            loading: "Subiendo imagen…",
-            success: "Imagen insertada",
-            error: (e) => (e instanceof Error ? e.message : "No se pudo subir la imagen"),
-          },
-        )
+        uploadNoteImageWithToast(file, (src) => editor.chain().focus().setImage({ src }).run())
       })
       input.click()
     },

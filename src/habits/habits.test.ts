@@ -51,7 +51,7 @@ test("good 3/semana a mitad de semana: todavía no cumple, pero no corta la rach
   const s = deriveHabit(h, rows, NOW)
   expect(s.total).toBe(2)
   expect(s.met).toBe(false)
-  // El período actual sin cumplir no corta (misma regla que deriveReadStats).
+  // El período actual sin cumplir no corta (misma regla que readStats).
   expect(s.streak).toBe(2)
 })
 
