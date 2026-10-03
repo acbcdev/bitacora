@@ -388,14 +388,15 @@
   @apply decoration-brand;
 }
 .tiptap-host .ProseMirror code {
-  @apply rounded bg-muted px-1 py-0.5 font-mono text-sm;
+  @apply rounded bg-muted px-[0.15em] font-mono text-[0.8em] tracking-[-0.01em] text-[var(--p-red)];
+  box-decoration-break: clone;
 }
 /* pt-10: deja lugar al header del node view (lenguaje + copiar), que va absoluto arriba. */
 .tiptap-host .ProseMirror pre {
   @apply my-4 overflow-x-auto rounded-lg border bg-sunken px-4 pt-10 pb-4 font-mono text-sm leading-relaxed;
 }
 .tiptap-host .ProseMirror pre code {
-  @apply bg-transparent p-0;
+  @apply bg-transparent p-0 text-[length:inherit] tracking-normal text-inherit;
 }
 /* Syntax highlighting (lowlight/highlight.js). Paleta propia estilo Vercel/Geist: no son los
    tokens de marca del tema — una paleta de sintaxis necesita más hues que brand/warning. */
