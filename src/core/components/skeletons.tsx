@@ -32,23 +32,19 @@ export function NotebookCardsSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: count }, (_, i) => (
-        <Card key={i} className="gap-0 p-6">
-          <div className="mb-3 flex items-start justify-between gap-2">
-            <span className="flex min-h-12 flex-1 items-center gap-2">
-              <Skeleton className="size-7 shrink-0" />
+        <Card key={i} className="gap-3.5 p-5 ring-0">
+          <div className="flex items-start gap-3">
+            <Skeleton className="size-8 shrink-0" />
+            <span className="flex min-h-[2.6em] flex-1 items-center">
               <Skeleton className="h-4 w-3/5" />
             </span>
-            <Skeleton className="mt-1.5 size-2 shrink-0 rounded-full" />
+            <Skeleton className="mt-2 size-2 shrink-0 rounded-full" />
           </div>
-          <div className="mb-3 flex h-[19.5px] items-center gap-1.5">
-            <Skeleton className="h-3.5 w-8" />
-            <Skeleton className="h-3.5 w-8" />
+          <div className="flex min-h-6 items-center gap-1.5">
+            <Skeleton className="h-5 w-14" />
+            <Skeleton className="h-5 w-24" />
           </div>
-          <div className="mb-3 flex h-[16.8px] items-center gap-1.5">
-            <Skeleton className="h-2.5 w-14" />
-            <Skeleton className="h-3 w-2" />
-          </div>
-          <div className="flex items-center justify-between">
+          <div className="mt-auto flex items-center justify-between">
             <Skeleton className="h-3 w-6" />
             <Skeleton className="size-[30px] rounded-lg" />
           </div>
