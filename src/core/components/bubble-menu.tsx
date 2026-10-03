@@ -5,7 +5,7 @@ import type { Editor } from "@tiptap/react"
 import { NodeRangeSelection } from "@tiptap/extension-node-range"
 import {
   CheckIcon,
-  ChevronRightIcon,
+  ChevronDownIcon,
   CodeIcon,
   Heading1Icon,
   Heading2Icon,
@@ -22,10 +22,10 @@ import { cn } from "@/core/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/ui/popover"
 import { preventFocus } from "@/core/components/prevent-focus"
 
-// Bubble de formato (spec .scratch/editor-notion-ux, historia 4; mockup 07). Panel Notion:
-// fila de bloque arriba (muestra el tipo actual y convierte — el usuario lo eligió sobre el
-// contrato del grill, que lo dejaba en el menú slash/bloque) + grilla de formato inline con
-// estado activo neutro (fondo muted + hairline, sin color de marca) y dots de color bajo los
+// Bubble de formato (spec .scratch/editor-notion-ux, historia 4). Toolbar de UNA fila (variante A
+// del prototipo, elegida sobre panel por secciones y menú de comandos): select de bloque a la
+// izquierda (muestra el tipo actual y convierte — el usuario lo eligió sobre el contrato del
+// grill, que lo dejaba en el menú slash/bloque) + marks inline con estado activo neutro (fondo muted + hairline, sin color de marca) y dots de color bajo los
 // botones de A/H. Color y highlight son marks oficiales (textStyle/Highlight); los attrs
 // persisten la cadena var(--p-*) y el CSS la resuelve por tema (paleta bicolor en index.css).
 
@@ -44,23 +44,27 @@ export const PALETTE = [
 
 // Constante de módulo: BubbleMenu despacha un meta-transaction si cambia el objeto options
 // (identidad), así que un literal en JSX re-dispachearía en cada render del editor.
-const BUBBLE_OPTIONS = { placement: "top", offset: 8 } as const
+// top-start: anclado al inicio de la selección — formatear (p.ej. code, que ensancha el texto)
+// no recentra ni mueve el bubble.
+const BUBBLE_OPTIONS = { placement: "top-start", offset: 8 } as const
 
 // Clases compartidas de los botones de la grilla: hover con el accent del UI; activo =
 // mismo fondo + hairline inset (mockup 07), sin color de marca.
 const btnCls =
-  "group relative grid h-[34px] w-full place-items-center rounded-[7px] text-fg-secondary outline-none transition-colors hover:bg-muted hover:text-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground data-[state=on]:shadow-[inset_0_0_0_1px_var(--border)]"
+  "group relative grid h-[32px] w-[32px] place-items-center rounded-[7px] text-fg-secondary outline-none transition-colors hover:bg-muted hover:text-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground data-[state=on]:shadow-[inset_0_0_0_1px_var(--border)]"
 
 // Dot de color bajo el glifo: pinta el color activo de la ficha (calibrado por tema).
 function ColorDot({ color }: { color: string }) {
   return (
     <span
       data-testid="color-dot"
-      className="absolute bottom-[3px] left-1/2 h-[8px] w-[9px] -translate-x-1/2 rounded-[4px] border-[1.5px] border-popover"
+      className="absolute -top-[3px] -right-[5px] size-[9px] rounded-full border-[1.5px] border-popover"
       style={{ backgroundColor: color }}
     />
   )
 }
+
+const Sep = () => <span aria-hidden className="mx-0.5 h-[18px] w-px shrink-0 bg-border" />
 
 // ── Fila de bloque: muestra el tipo actual y abre la conversión ────────────────
 
@@ -359,6 +363,7 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
       >
         <CodeIcon />
       </button>
+      <Sep />
       <ColorPopover
         kind="color"
         active={active.color}
@@ -370,13 +375,16 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
       >
         <button
           type="button"
-          className={cn(btnCls, "pb-[7px]")}
+          className={cn(btnCls, "flex w-auto items-center gap-0.5 px-1.5")}
           aria-label="Color de letra"
           title="Color de letra"
           onMouseDown={preventFocus}
         >
-          <span className="text-[15px] leading-none font-extrabold">A</span>
-          {active.color && <ColorDot color={active.color} />}
+          <span className="relative grid size-4 place-items-center">
+            <span className="text-[15px] leading-none font-extrabold">A</span>
+            {active.color && <ColorDot color={active.color} />}
+          </span>
+          <ChevronDownIcon size={11} className="text-muted-foreground" />
         </button>
       </ColorPopover>
       <ColorPopover
@@ -390,15 +398,19 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
       >
         <button
           type="button"
-          className={cn(btnCls, "pb-[3px]")}
+          className={cn(btnCls, "flex w-auto items-center gap-0.5 px-1.5")}
           aria-label="Resaltado"
           title="Resaltado (mod+shift+h)"
           onMouseDown={preventFocus}
         >
-          <HighlighterIcon />
-          {active.highlight && <ColorDot color={active.highlight} />}
+          <span className="relative grid size-4 place-items-center">
+            <HighlighterIcon />
+            {active.highlight && <ColorDot color={active.highlight} />}
+          </span>
+          <ChevronDownIcon size={11} className="text-muted-foreground" />
         </button>
       </ColorPopover>
+      <Sep />
       <button
         type="button"
         className={btnCls}
@@ -427,9 +439,9 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
       <div
         onMouseDown={preventFocus}
         data-testid="bubble-menu"
-        className="w-[236px] overflow-hidden rounded-[10px] border border-border bg-popover shadow-md"
+        className="flex items-center gap-0.5 rounded-full border border-border bg-popover p-1 shadow-md"
       >
-        {/* Fila de bloque (mockup 07): label del tipo actual + conversión en popover. */}
+        {/* Select de bloque: label del tipo actual + conversión en popover. */}
         <Popover
           open={turnOpen}
           onOpenChange={(o) => {
@@ -442,13 +454,13 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
               type="button"
               data-testid="turn-into"
               aria-label="Convertir bloque"
-              className="flex w-[236px] items-center gap-2.5 rounded-t-[9px] border-b border-border px-3 py-[9px] text-left text-[13.5px] font-semibold outline-none transition-colors hover:bg-muted"
+              className="flex h-[32px] items-center gap-[7px] rounded-full pr-2.5 pl-3 text-[13px] font-semibold whitespace-nowrap outline-none transition-colors hover:bg-muted"
             >
               <span className="text-muted-foreground">
-                <TypeIcon size={17} />
+                <TypeIcon size={16} />
               </span>
               {active.block}
-              <ChevronRightIcon size={15} className="ml-auto text-muted-foreground" />
+              <ChevronDownIcon size={14} className="text-muted-foreground" />
             </button>
           </PopoverTrigger>
           <PopoverContent
@@ -481,8 +493,8 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
             </div>
           </PopoverContent>
         </Popover>
-        {/* Grilla 4×2: A B I S / code H ✕. */}
-        <div className="grid grid-cols-4 gap-[2px] p-1">{toggles}</div>
+        <Sep />
+        {toggles}
       </div>
     </BubbleMenu>
   )
