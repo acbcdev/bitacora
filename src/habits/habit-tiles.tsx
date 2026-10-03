@@ -16,6 +16,7 @@ import {
   clearTimer,
   finishTimer,
   pausedValue,
+  formatClock,
   shownClock,
   shownSeconds,
   startTimer,
@@ -224,7 +225,9 @@ function HabitTile({
   const met = meets(h.kind, total, h.target)
   const over = h.kind === "bad" && !met
   const pct = Math.min(100, (total / Math.max(h.target, 1)) * 100)
-  const r: Run = { running, clock, paused: h.metric === "time" && !running && total > 0 && !met }
+  const paused = h.metric === "time" && !running && total > 0 && !met
+  // Pausado = el mismo reloj, congelado en lo guardado (total viene en segundos).
+  const r: Run = { running, clock: clock ?? (paused ? formatClock(total) : null), paused }
   const isActive = running || (h.metric === "check" && total > 0)
 
   return (

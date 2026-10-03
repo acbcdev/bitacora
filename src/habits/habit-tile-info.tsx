@@ -1,4 +1,4 @@
-import { Check, Flame, Minus, Pause } from "lucide-react"
+import { Check, Flame, Minus } from "lucide-react"
 import type { ReactNode } from "react"
 import { cn } from "@/core/lib/utils"
 import { HabitDots } from "@/habits/habit-dots"
@@ -35,20 +35,18 @@ const LABEL: Record<HabitMetric, (h: Habit, t: number, r: Run) => ReactNode> = {
       <>
         <span
           aria-hidden
-          className="size-[5px] shrink-0 animate-pulse rounded-full bg-brand-strong"
+          className={cn(
+            "size-[5px] shrink-0 rounded-full",
+            r.running ? "animate-pulse bg-brand-strong" : "bg-current",
+          )}
         />
-        <span className="text-[13px] font-medium text-brand-fg">{r.clock}</span>
+        <span className={cn("text-[13px] font-medium", r.running && "text-brand-fg")}>
+          {r.clock}
+        </span>
         <span className="opacity-70">/{Math.round(h.target / 60)}</span>
       </>
     ) : (
-      <>
-        {ratio(h, t)} min
-        {/* El ‖ ámbar es lo único que separa "empezaste y frenaste" de "nunca arrancaste": el
-            número solo no lo dice, porque 0/20 y 7/20 se dibujan igual. */}
-        {r.paused && (
-          <Pause size={8} fill="currentColor" strokeWidth={0} className="text-warning" />
-        )}
-      </>
+      <>{ratio(h, t)} min</>
     ),
 }
 
@@ -95,12 +93,7 @@ export function HabitTileInfo({
         {h.name}
       </button>
       <span className="flex items-center gap-1.5 font-mono text-[11px] leading-none text-muted-foreground">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 tabular-nums",
-            r.paused && "text-fg-secondary",
-          )}
-        >
+        <span className={cn("inline-flex items-center gap-1 tabular-nums")}>
           {LABEL[h.metric](h, total, r)}
           {h.kind === "bad" && h.metric !== "time" && <Minus size={11} className="opacity-60" />}
         </span>

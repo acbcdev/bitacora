@@ -91,9 +91,12 @@ export function shownSeconds(amountSec: number, t: Timer, now = Date.now()) {
   return amountSec + elapsedSeconds(t, now)
 }
 
-export function shownClock(amountSec: number, t: Timer, now = Date.now()) {
-  const s = shownSeconds(amountSec, t, now)
+export function formatClock(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
+}
+
+export function shownClock(amountSec: number, t: Timer, now = Date.now()) {
+  return formatClock(shownSeconds(amountSec, t, now))
 }
 
 // Lo que hay que escribir al pausar. `null` = menos de 1s, no hay nada que sumar.
