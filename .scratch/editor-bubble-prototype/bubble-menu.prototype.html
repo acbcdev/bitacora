@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<title>PROTOTYPE — bubble menu del editor (throwaway)</title>
+<!--
+  PROTOTYPE — tirar después de elegir. Pregunta: "¿cómo debería verse/estructurarse el bubble
+  de formato al seleccionar texto?" 3 variantes estructuralmente distintas, mismo estado.
+  Abrir: open .scratch/editor-bubble-prototype/bubble-menu.prototype.html
+  Teclas: ← → cambian variante · T cambia tema · click en la barra de abajo también.
+  URL: ?variant=A|B|C  (reload-stable). Tokens copiados de src/index.css.
+-->
+<style>
+  :root {
+    --background:#ffffff; --foreground:#0b0d0c; --popover:#ffffff; --muted:#eef0ee;
+    --muted-foreground:#868a86; --border:#e2e4e1; --fg-secondary:#484c49; --sel:#b9d6f7;
+    --p-gray:#787774; --p-gray-hl:#f1f1ef; --p-brown:#9f6b53; --p-brown-hl:#f4eeee;
+    --p-orange:#d9730d; --p-orange-hl:#fbecdd; --p-yellow:#cb912f; --p-yellow-hl:#fbf3db;
+    --p-green:#448361; --p-green-hl:#edf3ec; --p-blue:#337ea9; --p-blue-hl:#e7f3f8;
+    --p-violet:#9065b0; --p-violet-hl:#f4f0f7; --p-red:#d44c47; --p-red-hl:#fdebec;
+    --shadow:0 8px 24px rgba(0,0,0,.12), 0 1px 3px rgba(0,0,0,.08);
+  }
+  [data-theme="dark"] {
+    --background:#1c1c1c; --foreground:#f2f2f0; --popover:#232323; --muted:#2e2e2e;
+    --muted-foreground:#9a9c99; --border:#2f2f2f; --fg-secondary:#c3c5c2; --sel:#3f6fa8;
+    --p-gray:#9b9a97; --p-gray-hl:#444444; --p-brown:#b78a6d; --p-brown-hl:#584234;
+    --p-orange:#e07927; --p-orange-hl:#5e3f11; --p-yellow:#e5ae4d; --p-yellow-hl:#56440b;
+    --p-green:#66b180; --p-green-hl:#244e3a; --p-blue:#5ca4d6; --p-blue-hl:#17465a;
+    --p-violet:#b17dd2; --p-violet-hl:#412c56; --p-red:#ed766f; --p-red-hl:#5e201f;
+    --shadow:0 10px 30px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.03);
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--background); color:var(--foreground); font:16px/1.7 "Inter",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  main { max-width:680px; margin:0 auto; padding:140px 24px 160px; position:relative; }
+  h1 { font-size:34px; line-height:1.2; letter-spacing:-.02em; margin-bottom:28px; }
+  p { margin-bottom:18px; color:var(--foreground); }
+  #sel { background:var(--sel); border-radius:2px; padding:1px 0; }
+  #sel.b { font-weight:700 } #sel.i { font-style:italic } #sel.s { text-decoration:line-through }
+  /* estilo Notion: fuente chica, padding mínimo, rojo sobre fondo tenue */
+  /* knobs: --code-size (ancho del texto) y --code-pad (aire del fondo) */
+  #sel.c { --code-size:.8em; --code-pad:.15em; font-family:ui-monospace,Menlo,monospace; font-size:var(--code-size); padding:0 var(--code-pad); letter-spacing:-.01em; border-radius:4px; color:var(--p-red); background:var(--muted); -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+  #sel.h1 { font-size:28px; font-weight:700; line-height:1.3; display:inline-block }
+  #sel.quote { border-left:3px solid var(--foreground); padding-left:10px }
+
+  /* ---- bubble shell (compartido; lo que cambia es lo de adentro) ---- */
+  #bubble { white-space:nowrap; width:max-content; position:absolute; z-index:50; transform:translate(-50%,-100%); animation:pop .14s ease-out; }
+  @keyframes pop { from { opacity:0; transform:translate(-50%,-96%) scale(.97) } }
+  .panel { background:var(--popover); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); color:var(--foreground); font-size:13px; position:relative; }
+  .pop { position:absolute; background:var(--popover); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:6px; z-index:5; }
+  button { font:inherit; color:inherit; background:none; border:0; cursor:pointer; outline:none; }
+  svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  .mut { color:var(--muted-foreground); }
+  .tg { display:grid; place-items:center; height:32px; min-width:32px; border-radius:7px; color:var(--fg-secondary); transition:background .12s,color .12s; position:relative; }
+  .tg:hover { background:var(--muted); color:var(--foreground); }
+  .tg.on { background:var(--muted); color:var(--foreground); box-shadow:inset 0 0 0 1px var(--border); }
+  .sep { width:1px; height:18px; background:var(--border); margin:0 3px; flex:none; }
+  .row { display:flex; align-items:center; gap:10px; width:100%; padding:7px 10px; border-radius:7px; text-align:left; transition:background .12s; }
+  .row:hover { background:var(--muted); }
+  .row > span:first-child { width:18px; display:grid; place-items:center; flex:none; }
+  #bubble.below { transform:translate(-50%,0); animation-name:popb; }
+  @keyframes popb { from { opacity:0; transform:translate(-50%,-4%) scale(.97) } }
+  .row.on .chk { opacity:1 } .chk { opacity:0; margin-left:auto; }
+  kbd { margin-left:auto; font:11px ui-monospace,Menlo,monospace; color:var(--muted-foreground); letter-spacing:.04em; }
+  .sw { width:22px; height:22px; border-radius:50%; border:1px solid color-mix(in srgb,var(--foreground) 18%,transparent); transition:transform .1s; display:grid; place-items:center; font-weight:800; font-size:12px; }
+  .sw:hover { transform:scale(1.15) } .sw.on { box-shadow:0 0 0 2px var(--popover),0 0 0 3.5px var(--foreground); }
+  .swrow { display:flex; gap:6px; align-items:center; }
+  .dot { position:absolute; left:50%; bottom:3px; width:10px; height:3px; border-radius:2px; transform:translateX(-50%); }
+  .cap { font-size:10.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--muted-foreground); padding:2px 10px 6px; }
+  .grp { padding:8px 4px; } .grp + .grp { border-top:1px solid var(--border); }
+  .chip { padding:5px 10px; border-radius:999px; border:1px solid var(--border); font-size:12px; color:var(--fg-secondary); }
+  .chip:hover { background:var(--muted) } .chip.on { background:var(--foreground); color:var(--background); border-color:var(--foreground); }
+
+  /* ---- switcher (obviamente NO parte del diseño) ---- */
+  #switch { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); z-index:99; display:flex; align-items:center; gap:14px; background:#111; color:#fff; padding:8px 10px; border-radius:999px; font:13px ui-monospace,Menlo,monospace; box-shadow:0 6px 24px rgba(0,0,0,.4); border:1px solid #444; }
+  #switch button { width:28px; height:28px; border-radius:50%; background:#2a2a2a; color:#fff; }
+  #switch button:hover { background:#444 } #switch span { min-width:230px; text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Bitácora: un producto digital con IA personal</h1>
+  <p>Todo lo que construyo empieza como una nota suelta. Con el tiempo esas notas se vuelven hábitos, repasos y decisiones que quiero recordar sin tener que buscarlas.</p>
+  <p>Lo importante es que <span id="sel">seleccionar este texto y darle formato se sienta inmediato</span>, sin que el menú tape lo que estoy escribiendo ni me obligue a pensar dónde está cada cosa.</p>
+  <p>Después de eso seguimos con el resto del documento, las tablas, las imágenes y los bloques de código que ya existen en el editor.</p>
+  <div id="bubble"></div>
+</main>
+<div id="switch"><button id="prev">←</button><span id="label"></span><button id="next">→</button></div>
+
+<script>
+// ── iconos (trazos lucide-like, inline para no depender de nada) ────────────────
+const I = {
+  type:'<svg viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>',
+  chev:'<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>',
+  down:'<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
+  code:'<svg viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>',
+  hl:'<svg viewBox="0 0 24 24"><path d="m9 11-6 6v3h9l3-3M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>',
+  x:'<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  check:'<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+  h1:'<svg viewBox="0 0 24 24"><path d="M4 12h8M4 18V6M12 18V6M17 12l3-2v8"/></svg>',
+  h2:'<svg viewBox="0 0 24 24"><path d="M4 12h8M4 18V6M12 18V6M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1"/></svg>',
+  list:'<svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  todo:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4M13 6h8M13 18h8"/></svg>',
+  quote:'<svg viewBox="0 0 24 24"><path d="M17 6H3M21 12H8M21 18H8"/></svg>',
+  text:'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>',
+};
+const PALETTE = [
+  ['Gris','gray'],['Marrón','brown'],['Naranja','orange'],['Amarillo','yellow'],
+  ['Verde','green'],['Azul','blue'],['Violeta','violet'],['Rojo','red'],
+];
+const BLOCKS = [
+  ['Texto normal',I.type,''],['Encabezado 1',I.h1,'h1'],['Encabezado 2',I.h2,'h1'],
+  ['Lista con viñetas',I.list,''],['To-do',I.todo,''],['Cita',I.quote,'quote'],['Código',I.code,'c'],
+];
+
+// ── estado (en memoria; es lo único compartido entre variantes) ─────────────────
+const S = { b:false,i:false,s:false,c:false, color:null, hl:null, block:0, open:null };
+const sel = document.getElementById('sel'), bubble = document.getElementById('bubble');
+const txt = k => `var(--p-${k})`, bg = k => `var(--p-${k}-hl)`;
+
+function applyToText() {
+  sel.className = [S.b&&'b',S.i&&'i',S.s&&'s',S.c&&'c',BLOCKS[S.block][2]].filter(Boolean).join(' ');
+  sel.style.color = S.color ? txt(S.color) : '';
+  sel.style.background = S.hl ? bg(S.hl) : '';
+}
+const clearAll = () => Object.assign(S,{b:false,i:false,s:false,c:false,color:null,hl:null});
+
+// ── helpers de render ───────────────────────────────────────────────────────────
+const tg = (k,inner,label,on) => `<button class="tg ${on?'on':''}" data-act="${k}" title="${label}" aria-label="${label}">${inner}</button>`;
+const B = '<b style="font-size:15px">B</b>', It = '<i style="font:italic 15px Georgia,serif">I</i>',
+      St = '<b style="font-size:15px;text-decoration:line-through">S</b>';
+const A = c => `<b style="font-size:15px;${S.color?`color:${txt(S.color)}`:''}">A</b>`;
+function swatches(kind) {
+  return `<div class="swrow">${PALETTE.map(([n,k])=>{
+    const on = (kind==='color'?S.color:S.hl)===k;
+    const style = kind==='color' ? `background:var(--popover);color:${txt(k)}` : `background:${bg(k)}`;
+    return `<button class="sw ${on?'on':''}" data-act="${kind}:${k}" title="${n}" style="${style}">${kind==='color'?'A':''}</button>`;
+  }).join('')}</div>`;
+}
+const blockList = () => BLOCKS.map(([n,ic],i)=>`<button class="row ${i===S.block?'on':''}" data-act="block:${i}"><span class="mut">${ic}</span>${n}<span class="chk">${I.check}</span></button>`).join('');
+
+// ═══ VARIANTE A — Toolbar de una fila (pill horizontal, popovers anclados) ═══════
+// Jerarquía: bloque como "select" a la izquierda; marks agrupadas; color/hl con dot y caret.
+function VariantA() {
+  return `<div class="panel" style="display:flex;align-items:center;gap:2px;padding:4px;border-radius:999px">
+    <button class="tg" data-act="pop:block" style="width:auto;padding:0 10px 0 12px;display:flex;gap:7px;border-radius:999px;font-weight:600;font-size:13px;">
+      <span class="mut">${BLOCKS[S.block][1]}</span>${BLOCKS[S.block][0]}<span class="mut">${I.down}</span></button>
+    <span class="sep"></span>
+    ${tg('b',B,'Negrita',S.b)}${tg('i',It,'Itálica',S.i)}${tg('s',St,'Tachado',S.s)}${tg('c',I.code,'Código',S.c)}
+    <span class="sep"></span>
+    <button class="tg" data-act="pop:color" style="width:auto;padding:0 6px;display:flex;gap:2px">${A()}<span class="mut" style="transform:scale(.8)">${I.down}</span>${S.color?`<i class="dot" style="background:${txt(S.color)}"></i>`:''}</button>
+    <button class="tg" data-act="pop:hl" style="width:auto;padding:0 6px;display:flex;gap:2px">${I.hl}<span class="mut" style="transform:scale(.8)">${I.down}</span>${S.hl?`<i class="dot" style="background:${bg(S.hl)};border:1px solid var(--border)"></i>`:''}</button>
+    <span class="sep"></span>${tg('clear',I.x,'Limpiar formato',false)}
+    ${S.open==='block'?`<div class="pop" style="top:calc(100% + 8px);left:0;width:210px">${blockList()}</div>`:''}
+    ${S.open==='color'?`<div class="pop" style="top:calc(100% + 8px);left:50%;transform:translateX(-30%)"><div class="cap">Color de letra</div>${swatches('color')}</div>`:''}
+    ${S.open==='hl'?`<div class="pop" style="top:calc(100% + 8px);left:50%;transform:translateX(-10%)"><div class="cap">Resaltado</div>${swatches('hl')}</div>`:''}
+  </div>`;
+}
+
+// ═══ VARIANTE B — Panel por secciones (todo visible, CERO popovers de color) ═════
+// Jerarquía: bloque en chips → formato → paletas siempre expuestas. 1 click para cualquier cosa.
+function VariantB() {
+  return `<div class="panel" style="width:292px">
+    <div class="grp"><div class="cap">Bloque</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;padding:0 6px">
+        ${[0,1,3,5,6].map(i=>`<button class="chip ${i===S.block?'on':''}" data-act="block:${i}">${BLOCKS[i][0].replace('Encabezado ','H').replace('Lista con viñetas','Lista')}</button>`).join('')}
+      </div></div>
+    <div class="grp"><div class="cap">Formato</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:0 6px">
+        ${tg('b',B,'Negrita',S.b)}${tg('i',It,'Itálica',S.i)}${tg('s',St,'Tachado',S.s)}${tg('c',I.code,'Código',S.c)}</div></div>
+    <div class="grp"><div class="cap" style="display:flex;justify-content:space-between">Letra ${S.color?`<button data-act="color:${S.color}" class="mut" style="text-transform:none;letter-spacing:0">quitar</button>`:''}</div>
+      <div style="padding:0 10px">${swatches('color')}</div>
+      <div class="cap" style="padding-top:12px;display:flex;justify-content:space-between">Fondo ${S.hl?`<button data-act="hl:${S.hl}" class="mut" style="text-transform:none;letter-spacing:0">quitar</button>`:''}</div>
+      <div style="padding:0 10px">${swatches('hl')}</div></div>
+    <button class="row mut" data-act="clear" style="border-radius:0 0 11px 11px;border-top:1px solid var(--border);padding:9px 14px;font-size:12.5px">${I.x}Limpiar formato<kbd>⌘\\</kbd></button>
+  </div>`;
+}
+
+// ═══ VARIANTE C — Menú de comandos (lista vertical con label + atajo, submenús) ══
+// Jerarquía: texto > icono. Enseña los atajos; cada fila dice qué hace. Estilo menú contextual.
+function VariantC() {
+  const r = (k,ic,label,on,short) => `<button class="row ${on?'on':''}" data-act="${k}"><span class="mut">${ic}</span>${label}${short?`<kbd>${short}</kbd>`:''}<span class="chk" style="${short?'margin-left:10px':''}">${I.check}</span></button>`;
+  const sub = (k,ic,label,cur) => `<button class="row" data-act="pop:${k}"><span class="mut">${ic}</span>${label}${cur?`<i style="width:10px;height:10px;border-radius:50%;background:${cur};border:1px solid var(--border);margin-left:6px"></i>`:''}<span class="mut" style="margin-left:auto">${I.chev}</span></button>`;
+  return `<div class="panel" style="width:236px;padding:5px">
+    ${sub('block',BLOCKS[S.block][1],BLOCKS[S.block][0],null)}
+    <div style="height:1px;background:var(--border);margin:4px 2px"></div>
+    ${r('b',B,'Negrita',S.b,'⌥⌘B')}${r('i',It,'Itálica',S.i,'⌘I')}${r('s',St,'Tachado',S.s,'⇧⌘X')}${r('c',I.code,'Código',S.c,'⌘E')}
+    <div style="height:1px;background:var(--border);margin:4px 2px"></div>
+    ${sub('color',A(),'Color de letra',S.color&&txt(S.color))}${sub('hl',I.hl,'Resaltado',S.hl&&bg(S.hl))}
+    <div style="height:1px;background:var(--border);margin:4px 2px"></div>
+    ${r('clear',I.x,'Limpiar formato',false,'⌘\\')}
+    ${S.open==='block'?`<div class="pop" style="left:calc(100% + 6px);top:0;width:210px">${blockList()}</div>`:''}
+    ${S.open==='color'?`<div class="pop" style="left:calc(100% + 6px);top:100px"><div class="cap">Color de letra</div>${swatches('color')}</div>`:''}
+    ${S.open==='hl'?`<div class="pop" style="left:calc(100% + 6px);top:134px"><div class="cap">Resaltado</div>${swatches('hl')}</div>`:''}
+  </div>`;
+}
+
+// ── wiring ──────────────────────────────────────────────────────────────────────
+const VARIANTS = [['A','Toolbar de una fila',VariantA],['B','Panel por secciones',VariantB],['C','Menú de comandos',VariantC]];
+let cur = Math.max(0, VARIANTS.findIndex(v => v[0] === new URLSearchParams(location.search).get('variant')));
+
+function position() {
+  const r = sel.getBoundingClientRect(), m = document.querySelector('main').getBoundingClientRect();
+  // flip: si no entra arriba (variantes altas B/C), se abre debajo de la selección
+  const below = r.top < bubble.offsetHeight + 24;
+  bubble.classList.toggle('below', below);
+  bubble.style.left = (r.left + r.width/2 - m.left) + 'px';
+  bubble.style.top  = (below ? r.bottom - m.top + 10 : r.top - m.top - 10) + 'px';
+}
+function render(animate) {
+  bubble.innerHTML = VARIANTS[cur][2]();
+  if (animate) { bubble.style.animation='none'; void bubble.offsetWidth; bubble.style.animation=''; }
+  else bubble.style.animation='none';
+  applyToText();
+  // el bubble se ancla UNA vez (carga / cambio de variante / resize); formatear no lo mueve
+  if (animate || !bubble.style.left) position();
+  document.getElementById('label').textContent = `${VARIANTS[cur][0]} — ${VARIANTS[cur][1]}`;
+}
+function setVariant(i) {
+  cur = (i + VARIANTS.length) % VARIANTS.length; S.open = null;
+  history.replaceState(null,'','?variant='+VARIANTS[cur][0]); render(true);
+}
+bubble.addEventListener('mousedown', e => e.preventDefault()); // el bubble nunca roba la selección
+bubble.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const [k,v] = el.dataset.act.split(':');
+  if (k==='pop') S.open = S.open===v ? null : v;
+  else if (k==='color'||k==='hl') { S[k] = S[k]===v ? null : v; S.open = null; }
+  else if (k==='block') { S.block = +v; S.open = null; }
+  else if (k==='clear') { clearAll(); S.open = null; }
+  else { S[k] = !S[k]; }
+  render(false);
+});
+document.addEventListener('mousedown', e => { if (S.open && !bubble.contains(e.target)) { S.open=null; render(false); } });
+document.addEventListener('keydown', e => {
+  if (e.key==='ArrowLeft') setVariant(cur-1);
+  else if (e.key==='ArrowRight') setVariant(cur+1);
+  else if (e.key==='Escape' && S.open) { S.open=null; render(false); }
+  else if (e.key.toLowerCase()==='t') { const h=document.documentElement; h.dataset.theme = h.dataset.theme==='dark'?'light':'dark'; }
+});
+document.getElementById('prev').onclick = () => setVariant(cur-1);
+document.getElementById('next').onclick = () => setVariant(cur+1);
+addEventListener('resize', position);
+render(true);
+</script>
+</body>
+</html>
