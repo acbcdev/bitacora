@@ -480,3 +480,119 @@ test("cursor cambia a ew-resize mientras se arrastra y vuelve", async () => {
   expect(document.documentElement.style.cursor).toBe("")
   expect(document.body.style.userSelect).toBe("")
 })
+
+// ── Zoom, atajos y acciones ──────────────────────────────────────────────────
+
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
+vi.mock("@/core/components/editor-lightbox-utils", async (orig) => ({
+  ...(await orig<typeof import("@/core/components/editor-lightbox-utils")>()),
+  downloadImage: vi.fn(),
+  copyImage: vi.fn(),
+}))
+
+const three = [{ src: "https://a.png" }, { src: "https://b.png" }, { src: "https://c.png" }]
+
+function renderLightbox(images = three, onIndexChange = vi.fn()) {
+  render(
+    <EditorLightbox
+      images={images}
+      index={0}
+      open
+      onOpenChange={() => {}}
+      onIndexChange={onIndexChange}
+    />,
+  )
+  return onIndexChange
+}
+
+// jsdom no carga imágenes: simula naturalWidth/Height y dispara load.
+function loadImg(w = 570, h = 300) {
+  const img = document.querySelector<HTMLImageElement>('[data-slot="lightbox-content"] img')!
+  Object.defineProperty(img, "naturalWidth", { value: w, configurable: true })
+  Object.defineProperty(img, "naturalHeight", { value: h, configurable: true })
+  fireEvent.load(img)
+  return img
+}
+
+test("1–8 saltan a la imagen N (ignora N > count) y 9 va a la última", () => {
+  const onIndexChange = renderLightbox()
+  fireEvent.keyDown(window, { key: "3" })
+  expect(onIndexChange).toHaveBeenCalledWith(2)
+  onIndexChange.mockClear()
+  fireEvent.keyDown(window, { key: "4" })
+  expect(onIndexChange).not.toHaveBeenCalled()
+  fireEvent.keyDown(window, { key: "9" })
+  expect(onIndexChange).toHaveBeenCalledWith(2)
+})
+
+test("Z alterna fit ↔ 100%, 0 vuelve a fit", () => {
+  renderLightbox()
+  loadImg()
+  // jsdom innerWidth 1024 → fit = min(921/570, 576/300, 2) ≈ 162%
+  expect(screen.getByText("162%")).toBeInTheDocument()
+  fireEvent.keyDown(window, { key: "z" })
+  expect(screen.getByText("100%")).toBeInTheDocument()
+  fireEvent.keyDown(window, { key: "+" })
+  expect(screen.getByText("125%")).toBeInTheDocument()
+  fireEvent.keyDown(window, { key: "0" })
+  expect(screen.getByText("162%")).toBeInTheDocument()
+})
+
+test("click en la imagen alterna zoom", () => {
+  renderLightbox()
+  const img = loadImg()
+  fireEvent.click(img)
+  expect(screen.getByText("100%")).toBeInTheDocument()
+  fireEvent.click(img)
+  expect(screen.getByText("162%")).toBeInTheDocument()
+})
+
+test("el zoom se resetea al cambiar de imagen", () => {
+  const { rerender } = render(
+    <EditorLightbox
+      images={three}
+      index={0}
+      open
+      onOpenChange={() => {}}
+      onIndexChange={() => {}}
+    />,
+  )
+  loadImg()
+  fireEvent.keyDown(window, { key: "z" })
+  expect(screen.getByText("100%")).toBeInTheDocument()
+  rerender(
+    <EditorLightbox
+      images={three}
+      index={1}
+      open
+      onOpenChange={() => {}}
+      onIndexChange={() => {}}
+    />,
+  )
+  loadImg()
+  expect(screen.getByText("162%")).toBeInTheDocument()
+})
+
+test("D y C llaman helpers; si fallan toastean error", async () => {
+  const { downloadImage, copyImage } = await import("@/core/components/editor-lightbox-utils")
+  const { toast } = await import("sonner")
+  vi.mocked(downloadImage).mockRejectedValueOnce(new Error("x"))
+  vi.mocked(copyImage).mockResolvedValueOnce(undefined)
+  renderLightbox()
+
+  fireEvent.keyDown(window, { key: "d" })
+  expect(downloadImage).toHaveBeenCalledWith("https://a.png", undefined)
+  await waitFor(() => expect(toast.error).toHaveBeenCalledWith("No se pudo descargar la imagen"))
+
+  fireEvent.keyDown(window, { key: "c" })
+  expect(copyImage).toHaveBeenCalledWith("https://a.png")
+  await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Imagen copiada"))
+})
+
+test("cmd+C no se intercepta", async () => {
+  const { copyImage } = await import("@/core/components/editor-lightbox-utils")
+  vi.mocked(copyImage).mockClear()
+  renderLightbox()
+  fireEvent.keyDown(window, { key: "c", metaKey: true })
+  expect(copyImage).not.toHaveBeenCalled()
+})
