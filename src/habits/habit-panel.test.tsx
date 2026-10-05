@@ -70,8 +70,9 @@ test("semana: corregir la semana pasada escribe el total en la fila del lunes", 
   fireEvent.click(screen.getByLabelText("Corregir Gym"))
   fireEvent.click(await screen.findByLabelText("Período anterior"))
 
-  // La celda pasada muestra el rango numérico, no un día con nombre.
-  await screen.findByText(/\d{1,2} – \d{1,2} \w+/)
+  // La celda pasada muestra el rango numérico, no un día con nombre. Si la semana cruza de mes
+  // ("28 sept – 4 oct") el primer extremo lleva mes también.
+  await screen.findByText(/\d{1,2}( \w+)? – \d{1,2} \w+/)
 
   fireEvent.change(screen.getByLabelText(/Cantidad de/), { target: { value: "2" } })
 
