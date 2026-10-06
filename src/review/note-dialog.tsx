@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactElement } from "react"
 import { useHotkeys } from "react-hotkeys-hook"
 import { Maximize2 } from "lucide-react"
-import { Editor } from "@/core/components/editor"
-import { useUpdateNote } from "@/notes/notes.api"
+import { useNoteDraft } from "@/notes/notes.api"
+import { NoteBody } from "@/notes/note-body"
 import { NoteActions } from "@/notes/note-actions"
 import { Button } from "@/core/ui/button"
 import { Drialog, DrialogContent, DrialogTitle } from "@/core/ui/drialog"
 import { Kbd } from "@/core/ui/kbd"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
-import type { Notebook, Note, TiptapDoc } from "@/core/types/database"
+import type { Notebook, Note } from "@/core/types/database"
+
+// El textarea del título ES el DrialogTitle: mantiene el título accesible de Radix.
+const wrapTitle = (el: ReactElement) => <DrialogTitle asChild>{el}</DrialogTitle>
 
 // La nota de Repaso en grande, estilo "página" (Notion-like): todo en flujo normal dentro de una
 // columna centrada, sin header/footer fijos — solo el expand flota arriba a la izquierda.
@@ -43,30 +46,15 @@ export function NoteDialog({
   const [confirming, setConfirming] = useState(false)
   const scroller = useRef<HTMLDivElement>(null)
 
-  // Edición en el dialog: autosave debounced (800ms) sobre la misma nota. El doc en vivo vive en
-  // el ref para que copiar/exportar (NoteActions) vea el tipeo reciente, no el del snapshot.
-  const updateNote = useUpdateNote()
-  const noteRef = useRef(note)
-  useEffect(() => {
-    noteRef.current = note
-  })
-  const pending = useRef<{ id: string; content: TiptapDoc } | null>(null)
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // Autosave, título y doc en vivo: el mismo borrador que la pantalla Nota (ADR 0021). `open`
+  // hace que el hook guarde al cerrar, también en cierres programáticos (borrar, expandir).
+  const draft = useNoteDraft(note.id, open)
 
-  function flush() {
-    clearTimeout(timer.current)
-    const p = pending.current
-    pending.current = null
-    if (p) updateNote.mutate({ id: p.id, title: noteRef.current.title, content: p.content })
+  // Guardar ANTES de avanzar (ADR 0020): el id cambia y el hook también guardaría, pero explícito.
+  function markRead() {
+    draft.flush()
+    onMarkRead()
   }
-
-  // Al cambiar de nota (Enter "leído y siguiente", borrar) o desmontar: guardar lo pendiente
-  // con el id de la nota en que se tipeó. deps=[note.id] a propósito: flush lee solo refs.
-  useEffect(
-    () => () => flush(),
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- deps=[note.id] a propósito: flush lee solo refs.
-    [note.id],
-  )
 
   // Gate de "Enter marca leído": recién se arma cuando el botón "Marcar leído" (al final del
   // contenido) es visible — evita marcar leído sin haber llegado a leerlo.
@@ -82,9 +70,9 @@ export function NoteDialog({
   // marcaría leído una nota que estás por borrar y mete basura en read_log.
   useHotkeys(
     "enter",
-    onMarkRead,
+    markRead,
     { preventDefault: true, enabled: open && readyToMark && !marked && !confirming },
-    [onMarkRead, open, readyToMark, marked, confirming],
+    [markRead, open, readyToMark, marked, confirming],
   )
 
   // mod+enter expande la nota (misma acción que el botón Maximize2). Vive acá — no en Review —
@@ -95,13 +83,8 @@ export function NoteDialog({
     confirming,
   ])
 
-  const handleOpenChange = (o: boolean) => {
-    if (!o) flush()
-    onOpenChange(o)
-  }
-
   return (
-    <Drialog open={open} onOpenChange={handleOpenChange}>
+    <Drialog open={open} onOpenChange={onOpenChange}>
       <DrialogContent
         showCloseButton={false}
         // Foco al contenedor scrolleable (no al primer botón) → ↑/↓, PageUp/Down y Space
@@ -125,8 +108,8 @@ export function NoteDialog({
             <Maximize2 className="size-3.5" />
           </Button>
           <NoteActions
-            note={note}
-            content={() => pending.current?.content ?? note.content}
+            note={{ ...note, title: draft.title }}
+            content={draft.getDoc}
             confirming={confirming}
             onConfirmingChange={setConfirming}
             onDeleted={onDeleted}
@@ -147,20 +130,7 @@ export function NoteDialog({
                 · {reads === 0 ? "sin repasos" : `${reads} ${reads === 1 ? "repaso" : "repasos"}`}
               </span>
             </p>
-            <DrialogTitle className="mb-8 text-2xl font-bold tracking-tight text-pretty sm:text-3xl">
-              {note.title || "(sin título)"}
-            </DrialogTitle>
-            {/* key={note.id}: con editable=true no hay effect que refresque el contenido al cambiar
-                de nota — remonta el editor por nota. flush() arriba cuida el autosave pendiente. */}
-            <Editor
-              key={note.id}
-              content={note.content}
-              onChange={(d) => {
-                pending.current = { id: note.id, content: d }
-                clearTimeout(timer.current)
-                timer.current = setTimeout(flush, 800)
-              }}
-            />
+            <NoteBody draft={draft} titleWrap={wrapTitle} />
             <div className="mt-10 flex items-center justify-end gap-4 border-t pt-6 sm:justify-between">
               <span className="hidden text-xs text-muted-foreground sm:block">
                 {marked ? (
@@ -174,7 +144,7 @@ export function NoteDialog({
                 )}
               </span>
               {/* ref: gate de Enter — el hotkey se arma cuando este botón es visible */}
-              <Button ref={setMarkReadBtn} size="lg" disabled={marked} onClick={onMarkRead}>
+              <Button ref={setMarkReadBtn} size="lg" disabled={marked} onClick={markRead}>
                 {marked ? "Leído" : "Leído y siguiente"}
               </Button>
             </div>

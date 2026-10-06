@@ -53,3 +53,8 @@ de `NoteEditor` (textarea de título, paste smart, paste global, type-to-focus, 
 parpadea skeleton; tipear y Esc/Enter/borrar no pierde el último tipeo.
 
 ## Comments
+
+- 2026-10-05 impl: `placeholderData` desde snapshot **omitido** — el snapshot son `NoteRef` SIN `content`
+  (`core/store/types.ts`); sembrar content vacío arriesga que el autosave pise la nota. Review ya
+  pide `useNote(id)` y monta el diálogo recién con `openNote`, igual que antes.
+  Hint del footer ya decía "→" (spec review-arrow-nav), se conserva.
