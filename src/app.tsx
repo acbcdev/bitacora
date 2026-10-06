@@ -91,7 +91,7 @@ function Shell({ user }: { user: AuthUser }) {
     setCollapsed((c) => !c)
   }
 
-  // Teclado global: ⌘K, ? y la secuencia G+H / G+C. Space/J/K son de cada pantalla.
+  // Teclado global: ⌘K, ? y la secuencia G+H / G+C. Space/←/→ son de cada pantalla.
   // ⌘K funciona incluso dentro de inputs/contenteditable, el resto no (default de la lib).
   useHotkeys("mod+k", () => setPalette((p) => !p), {
     enableOnFormTags: true,

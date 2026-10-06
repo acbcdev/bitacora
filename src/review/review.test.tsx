@@ -66,12 +66,12 @@ function renderReview(seed: Partial<Snapshot> = {}) {
   return renderApp(<Review />, baseSeed(seed))
 }
 
-test("J/K delegan sin tocar read_log", async () => {
+test("←/→ delegan sin tocar read_log", async () => {
   const { store } = renderReview()
   await screen.findByText("Nota uno")
-  fireEvent.keyDown(document, { code: "KeyK" })
+  fireEvent.keyDown(document, { code: "ArrowRight" })
   await screen.findByText("Nota dos")
-  fireEvent.keyDown(document, { code: "KeyJ" })
+  fireEvent.keyDown(document, { code: "ArrowLeft" })
   await screen.findByText("Nota uno")
   expect((await store.snapshot()).reads).toHaveLength(0)
 })
@@ -93,8 +93,8 @@ test("Enter abre nota sin marcar; Enter en dialog gateado a IntersectionObserver
 test("Flashcard Enter revela y Correcto idempotente sin avanzar", async () => {
   const { store } = renderReview()
   await screen.findByText("Nota uno")
-  fireEvent.keyDown(document, { code: "KeyK" })
-  fireEvent.keyDown(document, { code: "KeyK" })
+  fireEvent.keyDown(document, { code: "ArrowRight" })
+  fireEvent.keyDown(document, { code: "ArrowRight" })
   await screen.findByText("Pregunta uno")
   expect(screen.queryByTestId("editor")).not.toBeInTheDocument()
   fireEvent.keyDown(document, { code: "Enter" })
@@ -155,9 +155,9 @@ test("Cargar más descongela: trae el 4to tras marcar", async () => {
   expect((await store.snapshot()).reads).toHaveLength(1)
   expect(screen.getByText("2 / 3")).toBeInTheDocument()
   expect(screen.queryByText("Nota cuatro")).not.toBeInTheDocument()
-  fireEvent.keyDown(document, { code: "KeyK" })
+  fireEvent.keyDown(document, { code: "ArrowRight" })
   await screen.findByText("Nota tres")
-  fireEvent.keyDown(document, { code: "KeyK" })
+  fireEvent.keyDown(document, { code: "ArrowRight" })
   await screen.findByText("Batch terminado.")
   fireEvent.click(screen.getByRole("button", { name: "Cargar más" }))
   await screen.findByText("Nota dos")
@@ -169,8 +169,8 @@ test("Cargar más descongela: trae el 4to tras marcar", async () => {
 test("con ConfirmDelete abierto, Enter no queda capturado por Repaso", async () => {
   const { store } = renderReview()
   await screen.findByText("Nota uno")
-  fireEvent.keyDown(document, { code: "KeyK" })
-  fireEvent.keyDown(document, { code: "KeyK" })
+  fireEvent.keyDown(document, { code: "ArrowRight" })
+  fireEvent.keyDown(document, { code: "ArrowRight" })
   await screen.findByText("Pregunta uno")
   fireEvent.click(screen.getByRole("button", { name: "Revelar respuesta" }))
   fireEvent.click(screen.getByRole("button", { name: "Borrar flashcard" }))

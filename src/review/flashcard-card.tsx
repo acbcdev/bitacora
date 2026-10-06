@@ -70,7 +70,7 @@ export function FlashcardCard({
             <span>
               {marked ? (
                 <>
-                  Listo — <Kbd>K</Kbd> para la siguiente
+                  Listo — <Kbd>→</Kbd> para la siguiente
                 </>
               ) : (
                 "Elegí correcto / parcial / incorrecto abajo"
@@ -82,10 +82,10 @@ export function FlashcardCard({
             </span>
           )}
           <span>
-            <Kbd>J</Kbd> volver
+            <Kbd>←</Kbd> volver
           </span>
           <span>
-            <Kbd>K</Kbd> siguiente
+            <Kbd>→</Kbd> siguiente
           </span>
         </div>
         <div className="flex flex-wrap justify-end gap-2">

@@ -5,7 +5,7 @@ import type { NotebookRow } from "@/core/types/database"
 // Nav por teclado sobre la página actual: J/K (+ Left/Right) mueven la selección, Enter abre
 // (mismo destino que el click), E edita, Delete/Backspace borra (misma confirmación de siempre).
 // Pasarse del borde salta de página. enabled: !embed — dentro de Repaso esta lista es
-// secundaria, J/K/Enter ya los usa la cola.
+// secundaria, ←/→/Enter ya los usa la cola.
 export function useNotebookHotkeys({
   embed,
   rows,

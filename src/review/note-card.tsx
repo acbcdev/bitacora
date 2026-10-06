@@ -76,7 +76,7 @@ export function NoteCard({
             onClick={onPrev}
           >
             <Kbd aria-hidden className="max-md:hidden">
-              J
+              ←
             </Kbd>
             Volver
           </Button>
@@ -86,7 +86,7 @@ export function NoteCard({
             onClick={onNext}
           >
             <Kbd aria-hidden className="max-md:hidden">
-              K
+              →
             </Kbd>
             Siguiente
           </Button>

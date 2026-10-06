@@ -58,7 +58,7 @@ limit 3;
 
 ### Pantallas (3, y solo 3)
 
-1. **Repaso** — la que abre 2–3×/día. Nota grande. `Space` = marcar leído (insert en `read_log`) + siguiente. `J/K` = saltar sin contar.
+1. **Repaso** — la que abre 2–3×/día. Nota grande. `Space` = marcar leído (insert en `read_log`) + siguiente. `←/→` = saltar sin contar.
 2. **Cursos** — lista con estado, progreso derivado, fechas.
 3. **Nota** — editor Tiptap.
 

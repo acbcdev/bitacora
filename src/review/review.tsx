@@ -22,10 +22,10 @@ import { ReviewStats } from "@/review/review-stats"
 import { HabitTiles } from "@/habits/habit-tiles"
 
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
-//   Enter = abrir la nota (adentro, Enter otra vez = leído + siguiente) · J = volver · K = siguiente.
+//   Enter = abrir la nota (adentro, Enter otra vez = leído + siguiente) · ← = volver · → = siguiente.
 // Desde la card de una nota NO se marca leído: ahí solo se ve el preview. Eso vive en el dialog,
 // gateado a haber llegado al final (CONTEXT.md), y desde ahí sí avanza. El footer de la card es
-// navegación y nada más — los mismos J/K como botones, que sin teclado son la única salida.
+// navegación y nada más — las mismas ←/→ como botones, que sin teclado son la única salida.
 // Debajo del repaso va la tira de hábitos y después la lista de notebooks embebida, como en el diseño.
 export function Review() {
   const { isLoading } = useReviewQueue()
@@ -113,8 +113,8 @@ export function Review() {
   // "Focus" del menú de acciones vive en NoteActions (única superficie que lo usaba desde el
   // dialog): cruza el seam de useFocusMode con focusHref — sin props perforados por acá.
 
-  useSafeHotkeys("j", prev, { preventDefault: true, enabled: keysEnabled }, [prev, keysEnabled]) // volver
-  useSafeHotkeys("k", next, { preventDefault: true, enabled: keysEnabled }, [next, keysEnabled]) // siguiente, sin contar
+  useSafeHotkeys("left", prev, { preventDefault: true, enabled: keysEnabled }, [prev, keysEnabled]) // volver
+  useSafeHotkeys("right", next, { preventDefault: true, enabled: keysEnabled }, [next, keysEnabled]) // siguiente, sin contar
 
   if (isLoading || forceLoading())
     return (

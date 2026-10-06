@@ -165,7 +165,7 @@ export function NoteDialog({
               <span className="hidden text-xs text-muted-foreground sm:block">
                 {marked ? (
                   <>
-                    Listo — <Kbd>K</Kbd> para la siguiente
+                    Listo — <Kbd>→</Kbd> para la siguiente
                   </>
                 ) : (
                   <>
