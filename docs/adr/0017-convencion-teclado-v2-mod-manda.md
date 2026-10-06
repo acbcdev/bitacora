@@ -1,6 +1,7 @@
 # ADR 0017 — Convención de teclado v2: "las letras escriben, mod+ manda"
 
 **Status:** Accepted
+**Enmendado por:** ADR 0022 (Repaso: `J`/`K` bare → `←`/`→`)
 
 ## Contexto
 
