@@ -19,4 +19,4 @@ Los hints `<Kbd>` de las cards y el dialog muestran las flechas.
 
 - Ninguna letra a-z es bare en Repaso: el modelo mental de 0017 queda sin excepciones de letra.
 - `Enter`, `Space`/chords `g>…` y `N`/`E`/`Del` de Cursos no cambian.
-- El índice de Notebook conserva `J/K` (+ flechas) en `notebook-hotkeys.ts`; fuera de alcance acá.
+- Divergencia previa, fuera de alcance: 0017 manda el índice de Notebook a `⌘J/⌘K`, pero `notebook-hotkeys.ts` todavía tiene `J/K` bare. En Repaso no importa: la lista embebida corre con `enabled: !embed`.
