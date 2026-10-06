@@ -10,10 +10,12 @@ import type { useNoteDraft } from "@/notes/notes.api"
 export function NoteBody({
   draft,
   large = false,
+  titleSize = "text-4xl",
   titleWrap = (el) => el,
 }: {
   draft: ReturnType<typeof useNoteDraft>
   large?: boolean
+  titleSize?: string
   titleWrap?: (title: ReactElement) => ReactElement
 }) {
   const { note, title, onTitleChange, onDocChange, flush } = draft
@@ -92,7 +94,7 @@ export function NoteBody({
             onBlur={flush}
             aria-label="Título"
             placeholder="Título"
-            className="field-sizing-content w-full resize-none bg-transparent text-4xl font-semibold tracking-tighter text-pretty outline-none placeholder:text-muted-foreground"
+            className={`field-sizing-content w-full resize-none bg-transparent ${titleSize} font-semibold tracking-tighter text-pretty outline-none placeholder:text-muted-foreground`}
           />,
         )}
       </div>

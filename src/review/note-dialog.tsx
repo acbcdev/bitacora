@@ -130,7 +130,11 @@ export function NoteDialog({
                 · {reads === 0 ? "sin repasos" : `${reads} ${reads === 1 ? "repaso" : "repasos"}`}
               </span>
             </p>
-            <NoteBody draft={draft} titleWrap={wrapTitle} />
+            <NoteBody
+              draft={draft}
+              titleWrap={wrapTitle}
+              titleSize="text-5xl! leading-tight! font-semibold!"
+            />
             <div className="mt-10 flex items-center justify-end gap-4 border-t pt-6 sm:justify-between">
               <span className="hidden text-xs text-muted-foreground sm:block">
                 {marked ? (
