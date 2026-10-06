@@ -1,6 +1,6 @@
 # Un solo Borrador de nota: `useNoteDraft` + `NoteBody` sirven a pantalla y diálogo
 
-**Status:** to-do
+**Status:** done
 **Origen:** review `architecture-review-20260929` candidato 2 · grill 2026-10-01 · re-grill 2026-10-05
 **Decisión cerrada:** ADR 0021 (extiende ADR 0015) + enmienda 2026-10-05
 
