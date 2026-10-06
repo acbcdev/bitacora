@@ -56,18 +56,20 @@ export function useUpdateNote() {
 // Agregar move-up/down si el orden manual se vuelve necesario — hoy el append alcanza.
 
 // Borrador editable de una nota: título + doc + autosave debounced. Lo comparten la pantalla Nota
-// y el panel de edición de la pantalla Notebook — sin botón guardar (keyboard-first).
-export function useNoteDraft(id: string | undefined) {
-  const { data: note, isLoading } = useNote(id)
+// y el panel de edición de la pantalla Notebook — sin botón guardar (keyboard-first). También el
+// dialog de Repaso (ADR 0021): `open=false` guarda lo pendiente (cerrar no pierde tipeo).
+export function useNoteDraft(id: string | null | undefined, open = true) {
+  const { data: note, isLoading } = useNote(id ?? undefined)
   const update = useUpdateNote()
   const [title, setTitle] = useState("")
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const doc = useRef<TiptapDoc>(EMPTY_DOC)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const dirty = useRef(false)
   const latest = useRef({ id, title })
 
   // El ref no se muta durante el render (React puede descartar ese trabajo): se sincroniza
-  // post-commit. save() solo corre desde timers/eventos, siempre después del effect.
+  // post-commit. flush() solo corre desde timers/eventos, siempre después del effect.
   useEffect(() => {
     latest.current = { id, title }
   })
@@ -85,13 +87,24 @@ export function useNoteDraft(id: string | undefined) {
   }, [note?.id])
   // oxlint-enable react-hooks/exhaustive-deps
 
-  // Cambiar de nota con un save pendiente perdería el tipeo: cancelar el timer y guardar ya.
-  useEffect(() => () => clearTimeout(timer.current), [id])
+  // Cambiar de nota (o desmontar) con un save pendiente perdería el tipeo: guardar ya. Este cleanup
+  // corre antes de que `latest` se sincronice, así que flush() ve el id de la nota tipeada.
+  // oxlint-disable-next-line react-hooks/exhaustive-deps -- deps=[id] a propósito: flush lee solo refs.
+  useEffect(() => () => flush(), [id])
 
-  function save() {
+  // Cerrar (open baja) guarda lo pendiente.
+  useEffect(() => {
+    if (!open) flush()
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- flush lee solo refs.
+  }, [open])
+
+  // Guarda solo si hay tipeo sin guardar: cerrar/cambiar de nota sin editar no toca updated_at.
+  function flush() {
+    clearTimeout(timer.current)
+    if (!dirty.current) return
+    dirty.current = false
     const { id: noteId, title: t } = latest.current
     if (!noteId) return
-    clearTimeout(timer.current)
     update.mutate(
       { id: noteId, title: t, content: doc.current },
       { onSuccess: () => setSavedAt(new Date().toLocaleTimeString()) },
@@ -99,8 +112,9 @@ export function useNoteDraft(id: string | undefined) {
   }
 
   function schedule() {
+    dirty.current = true
     clearTimeout(timer.current)
-    timer.current = setTimeout(save, 800)
+    timer.current = setTimeout(flush, 800)
   }
 
   return {
@@ -108,7 +122,7 @@ export function useNoteDraft(id: string | undefined) {
     isLoading,
     title,
     savedAt,
-    save,
+    flush,
     onTitleChange: (t: string) => {
       setTitle(t)
       schedule()

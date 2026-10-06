@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from "react"
 import { useHotkeys } from "react-hotkeys-hook"
 import { Maximize2 } from "lucide-react"
 import { Editor } from "@/core/components/editor"
-import { useUpdateNote } from "@/notes/notes.api"
+import { useNoteDraft } from "@/notes/notes.api"
 import { NoteActions } from "@/notes/note-actions"
 import { Button } from "@/core/ui/button"
 import { Drialog, DrialogContent, DrialogTitle } from "@/core/ui/drialog"
 import { Kbd } from "@/core/ui/kbd"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
-import type { Notebook, Note, TiptapDoc } from "@/core/types/database"
+import type { Notebook, Note } from "@/core/types/database"
 
 // La nota de Repaso en grande, estilo "página" (Notion-like): todo en flujo normal dentro de una
 // columna centrada, sin header/footer fijos — solo el expand flota arriba a la izquierda.
@@ -43,30 +43,11 @@ export function NoteDialog({
   const [confirming, setConfirming] = useState(false)
   const scroller = useRef<HTMLDivElement>(null)
 
-  // Edición en el dialog: autosave debounced (800ms) sobre la misma nota. El doc en vivo vive en
-  // el ref para que copiar/exportar (NoteActions) vea el tipeo reciente, no el del snapshot.
-  const updateNote = useUpdateNote()
-  const noteRef = useRef(note)
-  useEffect(() => {
-    noteRef.current = note
-  })
-  const pending = useRef<{ id: string; content: TiptapDoc } | null>(null)
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
-
-  function flush() {
-    clearTimeout(timer.current)
-    const p = pending.current
-    pending.current = null
-    if (p) updateNote.mutate({ id: p.id, title: noteRef.current.title, content: p.content })
-  }
-
-  // Al cambiar de nota (Enter "leído y siguiente", borrar) o desmontar: guardar lo pendiente
-  // con el id de la nota en que se tipeó. deps=[note.id] a propósito: flush lee solo refs.
-  useEffect(
-    () => () => flush(),
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- deps=[note.id] a propósito: flush lee solo refs.
-    [note.id],
-  )
+  // Edición en el dialog: mismo borrador que la pantalla Nota (ADR 0021). `open=false` guarda lo
+  // pendiente; cambiar de nota (Enter "leído y siguiente", borrar) o desmontar también.
+  const draft = useNoteDraft(note.id, open)
+  const loaded = !!draft.note
+  const title = loaded ? draft.title : note.title
 
   // Gate de "Enter marca leído": recién se arma cuando el botón "Marcar leído" (al final del
   // contenido) es visible — evita marcar leído sin haber llegado a leerlo.
@@ -95,13 +76,8 @@ export function NoteDialog({
     confirming,
   ])
 
-  const handleOpenChange = (o: boolean) => {
-    if (!o) flush()
-    onOpenChange(o)
-  }
-
   return (
-    <Drialog open={open} onOpenChange={handleOpenChange}>
+    <Drialog open={open} onOpenChange={onOpenChange}>
       <DrialogContent
         showCloseButton={false}
         // Foco al contenedor scrolleable (no al primer botón) → ↑/↓, PageUp/Down y Space
@@ -125,8 +101,8 @@ export function NoteDialog({
             <Maximize2 className="size-3.5" />
           </Button>
           <NoteActions
-            note={note}
-            content={() => pending.current?.content ?? note.content}
+            note={{ ...note, title }}
+            content={() => (loaded ? draft.getDoc() : note.content)}
             confirming={confirming}
             onConfirmingChange={setConfirming}
             onDeleted={onDeleted}
@@ -147,20 +123,20 @@ export function NoteDialog({
                 · {reads === 0 ? "sin repasos" : `${reads} ${reads === 1 ? "repaso" : "repasos"}`}
               </span>
             </p>
-            <DrialogTitle className="mb-8 text-2xl font-bold tracking-tight text-pretty sm:text-3xl">
-              {note.title || "(sin título)"}
+            <DrialogTitle asChild>
+              <textarea
+                rows={1}
+                value={title}
+                onChange={(e) => draft.onTitleChange(e.target.value)}
+                onBlur={draft.flush}
+                aria-label="Título"
+                placeholder="(sin título)"
+                className="field-sizing-content mb-8 w-full resize-none bg-transparent text-2xl font-bold tracking-tight text-pretty outline-none placeholder:text-muted-foreground sm:text-3xl"
+              />
             </DrialogTitle>
             {/* key={note.id}: con editable=true no hay effect que refresque el contenido al cambiar
-                de nota — remonta el editor por nota. flush() arriba cuida el autosave pendiente. */}
-            <Editor
-              key={note.id}
-              content={note.content}
-              onChange={(d) => {
-                pending.current = { id: note.id, content: d }
-                clearTimeout(timer.current)
-                timer.current = setTimeout(flush, 800)
-              }}
-            />
+                de nota — remonta el editor por nota. El hook cuida el autosave pendiente. */}
+            <Editor key={note.id} content={note.content} onChange={draft.onDocChange} />
             <div className="mt-10 flex items-center justify-end gap-4 border-t pt-6 sm:justify-between">
               <span className="hidden text-xs text-muted-foreground sm:block">
                 {marked ? (

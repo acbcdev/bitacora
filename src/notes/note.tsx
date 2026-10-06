@@ -32,7 +32,7 @@ export function NoteEditor({
   embedded?: boolean
 }) {
   const navigate = useNavigate()
-  const { note, isLoading, title, savedAt, onTitleChange, onDocChange, save, getDoc } =
+  const { note, isLoading, title, savedAt, onTitleChange, onDocChange, flush, getDoc } =
     useNoteDraft(id)
   const { data: notebooks = [] } = useNotebooks()
   const { data: stats = EMPTY_READ_STATS } = useSnapshot((s) => readStats(s))
@@ -167,7 +167,7 @@ export function NoteEditor({
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
           onPaste={onTitlePaste}
-          onBlur={save}
+          onBlur={flush}
           aria-label="Título"
           placeholder="Título"
           className="field-sizing-content w-full resize-none bg-transparent text-4xl font-semibold tracking-tighter text-pretty outline-none placeholder:text-muted-foreground"
