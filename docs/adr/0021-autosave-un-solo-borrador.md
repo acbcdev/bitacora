@@ -42,3 +42,12 @@ Edición concurrente real (dos superficies sobre la misma nota a la vez) — des
 - `pnpm test src/notes` — el hook sigue verde, ahora con el caso del diálogo cubierto (flush al cerrar, reset por id).
 - `pnpm test src/review/review.test.tsx` — editar en el diálogo autosavea y marca leída sin perder el flush.
 - `pnpm test` — baseline verde.
+
+## Enmienda 2026-10-05 (re-grill)
+
+La decisión original unificaba la **regla** pero no la **superficie**: con "título siempre editable", el diálogo habría copiado el pegamento de `NoteEditor` (textarea, paste smart, type-to-focus).
+
+- **Se agrega `NoteBody({ draft })`** (título + `Editor` + paste + type-to-focus), compartido. `NoteEditor` y `NoteDialog` quedan como chrome. Sin `typeToFocus?`: el diálogo nunca tuvo letras bare (J/K viven solo en la lista de Repaso y migran a ←/→ en `.scratch/review-arrow-nav/`, enmienda de ADR 0017).
+- **Bug latente en 0015, arreglado acá:** el cleanup de `useNoteDraft` al cambiar de id solo cancelaba el timer, no guardaba. Ahora guarda el draft saliente. Sin esto la unificación regresionaba el diálogo.
+- **`open` solo dispara flush** en true→false; el hook es dueño del flush al cerrar (cubre cierres programáticos). La interfaz expone `flush()` (reemplaza `save()`), que el Enter de ADR 0020 llama antes de `advance`.
+- **`useNote` usa el snapshot como `placeholderData`** para que "leído y siguiente" siga instantáneo.
