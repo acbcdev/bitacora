@@ -30,6 +30,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    exclude: ["e2e/**", "node_modules/**"],
     setupFiles: "./src/test/setup.ts",
     // Tests corren sin Supabase por defecto (hasSupabaseEnv = false) para que localStore
     // testee el branch "sin env". El .env real existe localmente pero no debe filtrarse a tests.

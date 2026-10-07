@@ -1,6 +1,6 @@
 # E2E mínimo: smoke del flujo crítico
 
-**Status:** needs-triage
+**Status:** done
 
 ## Problema
 
