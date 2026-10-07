@@ -1,6 +1,6 @@
 # Separar secretos de servicio del .env de Vite
 
-**Status:** needs-triage
+**Status:** done
 
 ## Problema
 
@@ -20,3 +20,13 @@ todo lo que toca `import.meta.env`.
   servicio NUNCA en el `.env` que lee Vite.
 - Chequear quién lee `NOTION_TOKEN`/`SERVICE_ROLE` hoy (probablemente los scripts de import)
   y apuntarlos al archivo nuevo.
+
+## Resolución
+
+Reducido por decisión del spec: grep verificó que nadie lee `SUPABASE_SERVICE_ROLE_KEY` ni
+`NOTION_TOKEN` (solo aparecen en docs). Sin `.env.server`. `.env.example` ahora solo tiene
+las dos `VITE_*` + comentario de que los secretos de servicio nunca van en el `.env` de Vite.
+
+Pasos manuales pendientes (usuario):
+1. Borrar `SUPABASE_SERVICE_ROLE_KEY` y `NOTION_TOKEN` del `.env` real (gitignoreado).
+2. Revocar el token de Notion en su panel de integraciones.
