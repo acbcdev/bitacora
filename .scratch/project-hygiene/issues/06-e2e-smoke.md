@@ -18,3 +18,15 @@ Un solo smoke e2e, no una suite:
    (necesita credenciales de test — decidir ahí si vale la pena o queda local-only).
 
 No agregar más specs hasta que el smoke pruebe su valor.
+
+## Decisiones (grill 2026-10-06)
+
+- **Modo local** (ADR 0011): el spec siembra `bita-storage=local` en `localStorage`
+  (`page.addInitScript`). Sin login, sin credenciales, sin cuenta de test. El paso "login" del
+  fix esperado se cae.
+- **Aislamiento:** `webServer` en puerto propio (`pnpm dev --port 5199 --strictPort`,
+  `reuseExistingServer: false`). `localStorage` es por origen y Playwright usa contexto vacío:
+  no toca la sesión del dev server normal.
+- **Límite aceptado:** cubre editor → draft → `localStore.save` (código compartido, ADR 0015/0021).
+  NO cubre `supabaseStore` (red, RLS, target congelado de ADR 0009).
+- Local-only, fuera de CI y de pre-commit. Un solo spec.

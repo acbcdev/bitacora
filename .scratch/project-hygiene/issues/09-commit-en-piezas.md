@@ -1,6 +1,6 @@
 # Commit en piezas el diff acumulado
 
-**Status:** needs-triage
+**Status:** done
 
 ## Problema
 

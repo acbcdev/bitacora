@@ -1,6 +1,6 @@
 # Lazy-load de datos de iconos/emojis (import() dinámico)
 
-**Status:** needs-triage
+**Status:** wontfix
 
 ## Problema
 
@@ -18,3 +18,8 @@ En el picker que los importa, cambiar el import estático por `import()` dinámi
 - Confirmar en `pnpm build` que aparecen chunks separados y el main baja.
 
 Riesgo bajo: son datos puros sin side effects.
+
+## Cierre (grill 2026-10-06)
+
+Won't-do. Premisa falsa: `notebook-icon.tsx` importa `PRESET_ICONS` en el render de listas, así que
+no es lazy-able. Emojis: 8.5 KB gzip (1.4% del bundle), y `icon-picker` los usa sincrónico.

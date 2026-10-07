@@ -23,3 +23,25 @@ Auditoría de puntos a mejorar sobre sandbox limpio (lint ✅, typecheck ✅, 28
 ## No hacer
 
 - Nada de esto merece librería nueva ni refactor grande salvo 04 (y ese, solo si el próximo feature vuelve a tocar ese archivo).
+
+## Decisiones (grill 2026-10-06)
+
+Objetivo: dejar features pulidas ANTES de pushear. Push (08) es el cierre, no el arranque.
+
+**Orden:** 01 → 05 → 02 → 06 → 08.
+
+- **01:** `notebook-create-note` arreglado (SELECT_MS 1000). `outline` e `icon-picker` anotados sin causa probada, a atacar si reaparecen en CI.
+- **09:** ya resuelto (git clean, ADRs y `.scratch/` trackeados). Cerrar.
+- **08:** hoy 17 commits ahead (el "33" estaba viejo). Va al final; correr `pnpm test` a mano antes del push.
+- **05:** se acepta el riesgo de pre-commit sin tests hasta el primer CI verde.
+- **02:** workflow del issue casi tal cual; no se puede validar hasta el push.
+- **03:** nadie lee `SERVICE_ROLE`/`NOTION_TOKEN` (import de Notion ya resuelto). Se reduce a borrar ambas del `.env` + revocar el token en Notion. Sin `.env.server`.
+- **06:** se hace antes del push. Un solo spec, modo localStorage en puerto aparte (5199), fuera de CI. Ver issue.
+- **07:** wontfix (ver issue). Medido: ambos módulos ~14.5 KB de 595 KB gzip.
+- **04:** sin cambios, criterio del issue (solo si el próximo feature toca el archivo).
+
+## Nota: recursos pesados candidatos a lazy (sin issue)
+
+Medido en `pnpm build` 2026-10-06: **un solo chunk, 1.94 MB / 595 KB gzip**; PWA precachea ~2 MB.
+Si el primer load empieza a doler, la palanca real es split por ruta (`React.lazy` por pantalla),
+no por datos estáticos. No hacer hasta que duela.
