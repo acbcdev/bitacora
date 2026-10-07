@@ -25,7 +25,12 @@ export type Run = { running: boolean; clock: string | null; paused: boolean }
 
 // El dato del tile sale de la métrica, no del kind: un object-map, no un switch.
 const LABEL: Record<HabitMetric, (h: Habit, t: number, r: Run) => ReactNode> = {
-  check: (_h, t) => (t > 0 ? <Check size={14} strokeWidth={3} className="text-brand-fg" /> : "hoy"),
+  // Ancho fijo (3ch = "hoy"): el ✓ es más angosto y arrastraba "· 1/día" a la izquierda al marcar.
+  check: (_h, t) => (
+    <span className="inline-flex w-[3ch] items-center">
+      {t > 0 ? <Check size={14} strokeWidth={3} className="text-brand-fg" /> : "hoy"}
+    </span>
+  ),
   count: ratio,
   // Corriendo el dato pasa a reloj: `7/20 min` cambia una vez cada 60 segundos y se lee congelado,
   // que es justo lo contrario de lo que querés ver con el cronómetro andando.
@@ -92,7 +97,7 @@ export function HabitTileInfo({
       >
         {h.name}
       </button>
-      <span className="flex items-center gap-1.5 font-mono text-[11px] leading-none text-muted-foreground">
+      <span className="flex h-3.5 items-center gap-1.5 font-mono text-[11px] leading-none text-muted-foreground">
         <span className={cn("inline-flex items-center gap-1 tabular-nums")}>
           {LABEL[h.metric](h, total, r)}
           {h.kind === "bad" && h.metric !== "time" && <Minus size={11} className="opacity-60" />}
