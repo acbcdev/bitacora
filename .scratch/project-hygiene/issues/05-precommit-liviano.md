@@ -1,6 +1,6 @@
 # Pre-commit más liviano: full suite a CI
 
-**Status:** needs-triage
+**Status:** done (pre-commit sin tests; suite completa en CI, issues/02)
 
 ## Problema
 

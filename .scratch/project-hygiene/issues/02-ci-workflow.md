@@ -1,6 +1,8 @@
 # CI: workflow mínimo de GitHub Actions
 
-**Status:** needs-triage
+**Status:** done
+
+> Nota: creado `.github/workflows/ci.yml` (push + PR a main) tal cual el ticket. pnpm se resuelve desde `devEngines.packageManager`.
 
 ## Problema
 
