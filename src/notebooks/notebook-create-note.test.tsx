@@ -6,7 +6,7 @@ import { Notebook } from "@/notebooks/notebook"
 
 // Latencia de cada SELECT. Alta a propósito y muy por encima del polling de waitFor (50ms): es lo
 // que distingue "navegó con lo que ya tenía" de "esperó un roundtrip más" (ADR 0008).
-const SELECT_MS = 400
+const SELECT_MS = 1000
 
 const note = (over: Record<string, unknown>) => ({
   title: "",
@@ -94,7 +94,9 @@ function renderNotebook() {
 
 test("⌘N abre la nota nueva sin esperar ningún SELECT, y no rebota a la primera", async () => {
   renderNotebook()
-  await waitFor(() => expect(screen.getByTestId("note-id")).toHaveTextContent("n1"))
+  await waitFor(() => expect(screen.getByTestId("note-id")).toHaveTextContent("n1"), {
+    timeout: SELECT_MS * 2,
+  })
 
   const t0 = Date.now()
   // ctrlKey: true — jsdom reporta un userAgent sin "mac", "mod" resuelve a ctrlKey acá.
@@ -109,6 +111,6 @@ test("⌘N abre la nota nueva sin esperar ningún SELECT, y no rebota a la prime
 
   // Cuando aterriza el refetch de fondo, la URL sigue en la nota nueva: sin sembrar la lista, el
   // efecto de auto-corrección de Notebook rebota a la primera nota del notebook.
-  await new Promise((r) => setTimeout(r, SELECT_MS * 2))
+  await new Promise((r) => setTimeout(r, SELECT_MS + 500))
   expect(screen.getByTestId("note-id")).toHaveTextContent("n2")
 })
