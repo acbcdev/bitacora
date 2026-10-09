@@ -36,7 +36,7 @@ Objetivo: dejar features pulidas ANTES de pushear. Push (08) es el cierre, no el
 - **05:** se acepta el riesgo de pre-commit sin tests hasta el primer CI verde.
 - **02:** workflow del issue casi tal cual; no se puede validar hasta el push.
 - **03:** nadie lee `SERVICE_ROLE`/`NOTION_TOKEN` (import de Notion ya resuelto). Se reduce a borrar ambas del `.env` + revocar el token en Notion. Sin `.env.server`.
-- **06:** se hace antes del push. Un solo spec, modo localStorage en puerto aparte (5199), fuera de CI. Ver issue.
+- **06:** se hace antes del push. Un solo spec, modo localStorage en puerto aparte (5198), fuera de CI. Ver issue.
 - **07:** wontfix (ver issue). Medido: ambos módulos ~14.5 KB de 595 KB gzip.
 - **04:** sin cambios, criterio del issue (solo si el próximo feature toca el archivo).
 

@@ -5,10 +5,10 @@ import { defineConfig, devices } from "@playwright/test"
 export default defineConfig({
   testDir: "e2e",
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  use: { baseURL: "http://localhost:5199" },
+  use: { baseURL: "http://localhost:5198" },
   webServer: {
-    command: "pnpm dev --port 5199 --strictPort",
-    url: "http://localhost:5199",
+    command: "pnpm dev --port 5198 --strictPort",
+    url: "http://localhost:5198",
     reuseExistingServer: false,
   },
 })

@@ -24,7 +24,7 @@ No agregar más specs hasta que el smoke pruebe su valor.
 - **Modo local** (ADR 0011): el spec siembra `bita-storage=local` en `localStorage`
   (`page.addInitScript`). Sin login, sin credenciales, sin cuenta de test. El paso "login" del
   fix esperado se cae.
-- **Aislamiento:** `webServer` en puerto propio (`pnpm dev --port 5199 --strictPort`,
+- **Aislamiento:** `webServer` en puerto propio (`pnpm dev --port 5198 --strictPort`,
   `reuseExistingServer: false`). `localStorage` es por origen y Playwright usa contexto vacío:
   no toca la sesión del dev server normal.
 - **Límite aceptado:** cubre editor → draft → `localStore.save` (código compartido, ADR 0015/0021).
