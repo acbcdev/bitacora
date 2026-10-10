@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useState } from "react"
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
@@ -26,17 +26,21 @@ import { forceLoading } from "@/core/lib/sample"
 import { useNotebooks } from "@/notebooks/notebooks.api"
 import { usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
 import { useAllNoteRefs } from "@/notes/notes.api"
-import { Settings } from "@/settings/settings"
 import { store } from "@/core/store"
 import type { AuthUser } from "@/core/store/types"
 import { mod } from "@/core/lib/utils"
 import { useFocusMode } from "@/core/lib/hooks/use-focus-mode"
-import { Notebook } from "@/notebooks/notebook"
+import { NoteSkeleton } from "@/core/components/skeletons"
 import { Notebooks } from "@/notebooks/notebooks"
 import { ErrorBoundary } from "@/core/components/error-boundary"
 import { Login } from "@/login/login"
-import { Note } from "@/notes/note"
 import { Review } from "@/review/review"
+
+// Code splitting por ruta: tiptap/lowlight (el grueso del bundle) solo baja al abrir un notebook/nota.
+// Review es la home → eager. Named exports → el .then adapta a { default }.
+const Notebook = lazy(() => import("@/notebooks/notebook").then((m) => ({ default: m.Notebook })))
+const Note = lazy(() => import("@/notes/note").then((m) => ({ default: m.Note })))
+const Settings = lazy(() => import("@/settings/settings").then((m) => ({ default: m.Settings })))
 
 export function App() {
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -228,21 +232,23 @@ function Shell({ user }: { user: AuthUser }) {
               pero NO al cambiar de nota dentro del notebook (/notebook/:id/:noteId) — con pathname
               completo el Notebook entero (lista de notas incluida) se remontaba en cada J/K. */}
           <ErrorBoundary key={pathname.split("/").slice(1, 3).join("/")}>
-            <Routes>
-              <Route path="/" element={<Review />} />
-              <Route path="/notebooks" element={<Notebooks />} />
-              <Route
-                path="/notebook/:id"
-                element={<Notebook focus={focus} onToggleFocus={exit} />}
-              />
-              <Route
-                path="/notebook/:id/:noteId"
-                element={<Notebook focus={focus} onToggleFocus={exit} />}
-              />
-              {/* Solo para notas sin notebook (note.notebook_id null) — con notebook, la ruta principal
+            <Suspense fallback={<NoteSkeleton />}>
+              <Routes>
+                <Route path="/" element={<Review />} />
+                <Route path="/notebooks" element={<Notebooks />} />
+                <Route
+                  path="/notebook/:id"
+                  element={<Notebook focus={focus} onToggleFocus={exit} />}
+                />
+                <Route
+                  path="/notebook/:id/:noteId"
+                  element={<Notebook focus={focus} onToggleFocus={exit} />}
+                />
+                {/* Solo para notas sin notebook (note.notebook_id null) — con notebook, la ruta principal
                   es /notebook/:id/:noteId de arriba. */}
-              <Route path="/note/:id" element={<Note focus={focus} onToggleFocus={exit} />} />
-            </Routes>
+                <Route path="/note/:id" element={<Note focus={focus} onToggleFocus={exit} />} />
+              </Routes>
+            </Suspense>
           </ErrorBoundary>
         </main>
 
@@ -252,11 +258,13 @@ function Shell({ user }: { user: AuthUser }) {
         {palette && <CommandPalette onClose={() => setPalette(false)} actions={actions()} />}
         {cheat && <Cheatsheet onClose={() => setCheat(false)} />}
         {settings && (
-          <Settings
-            onClose={() => setSettings(false)}
-            dark={dark}
-            onToggleTheme={() => setDark((d) => !d)}
-          />
+          <Suspense fallback={null}>
+            <Settings
+              onClose={() => setSettings(false)}
+              dark={dark}
+              onToggleTheme={() => setDark((d) => !d)}
+            />
+          </Suspense>
         )}
         <Toaster theme={dark ? "dark" : "light"} />
       </SidebarProvider>

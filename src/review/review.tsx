@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { ReviewSkeleton } from "@/core/components/skeletons"
@@ -17,7 +17,6 @@ import { forceLoading } from "@/core/lib/sample"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { Notebooks } from "@/notebooks/notebooks"
 import { ReviewEmpty } from "@/review/review-empty"
-import { NoteDialog } from "@/review/note-dialog"
 import { ReviewStats } from "@/review/review-stats"
 import { HabitTiles } from "@/habits/habit-tiles"
 
@@ -27,6 +26,11 @@ import { HabitTiles } from "@/habits/habit-tiles"
 // gateado a haber llegado al final (CONTEXT.md), y desde ahí sí avanza. El footer de la card es
 // navegación y nada más — las mismas ←/→ como botones, que sin teclado son la única salida.
 // Debajo del repaso va la tira de hábitos y después la lista de notebooks embebida, como en el diseño.
+// El diálogo arrastra el editor (tiptap): se baja recién al abrir una nota.
+const NoteDialog = lazy(() =>
+  import("@/review/note-dialog").then((m) => ({ default: m.NoteDialog })),
+)
+
 export function Review() {
   const { isLoading } = useReviewQueue()
   const session = useReviewSession()
@@ -185,20 +189,22 @@ export function Review() {
       </Card>
 
       {note && note.kind === "note" && openNote && (
-        <NoteDialog
-          note={openNote}
-          notebook={notebook}
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          marked={marked}
-          reads={reads}
-          onMarkRead={markReadAndNext}
-          onExpand={openExpanded}
-          onDeleted={() => {
-            setDialogOpen(false)
-            next()
-          }}
-        />
+        <Suspense fallback={null}>
+          <NoteDialog
+            note={openNote}
+            notebook={notebook}
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            marked={marked}
+            reads={reads}
+            onMarkRead={markReadAndNext}
+            onExpand={openExpanded}
+            onDeleted={() => {
+              setDialogOpen(false)
+              next()
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Los hábitos van entre el repaso y Notebooks: a la vista en la pantalla que ya se abre
