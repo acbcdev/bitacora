@@ -164,8 +164,9 @@ function HabitTile({
     <div
       className={cn(
         "group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-card px-3.5 py-3",
-        // E ghost fuerte: 0.82 → 1 + borde, sin el lavado muted de antes
-        "opacity-[0.82] hover:opacity-100 hover:border-[#3a3a3a] hover:bg-[#252525] transition-[opacity,border-color,background-color] duration-200",
+        // E ghost fuerte: 0.82 → 1 + borde, sin el lavado muted de antes. Sólo en dark: sobre
+        // blanco la opacidad lava el texto hacia el fondo y el muted cae bajo AA.
+        "dark:opacity-[0.82] hover:opacity-100 hover:border-input transition-[opacity,border-color] duration-200",
         h.kind === "bad" && !over && "border-dashed",
         over ? "border-destructive text-destructive" : "border-border",
       )}
