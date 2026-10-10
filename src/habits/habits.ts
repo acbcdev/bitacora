@@ -53,5 +53,7 @@ export const cellPct = (cell: DayCell) =>
 // es verde, pasarse es rojo. Cero = extremo rojo, sin excepciones.
 export const cellColor = (kind: Habit["kind"], pct: number) => {
   const done = Math.round(kind === "good" ? pct : 100 - pct)
-  return `color-mix(in oklab, var(--brand) ${done}%, var(--destructive))`
+  // oklch, no oklab: oklab cruza verde→rojo por el gris (intermedios café); oklch rota el hue
+  // por amarillo/ámbar, que se lee como progreso.
+  return `color-mix(in oklch, var(--brand) ${done}%, var(--destructive))`
 }
