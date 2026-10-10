@@ -41,7 +41,7 @@ export function HabitTileActions({
           "shrink-0",
           isActive
             ? "bg-brand text-brand-foreground hover:bg-brand"
-            : "bg-brand-soft text-brand-fg hover:bg-brand-soft hover:brightness-110",
+            : "bg-brand-soft text-brand-fg hover:bg-[color-mix(in_oklch,var(--brand-soft),var(--brand)_16%)]",
           // Hint visual de guardado, NO guard duro: disabled bloquearía el tap siguiente y el
           // onMutate ya serializa los taps encolados (ui-principles 4).
           pending && "opacity-60",
