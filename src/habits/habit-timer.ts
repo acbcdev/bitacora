@@ -119,7 +119,13 @@ export function finishTimer(name: string, seconds: number) {
   const mins = Math.round(seconds / 60)
   toast.success(`${name} — ${mins} min listos`)
   if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-    // oxlint-disable-next-line no-new -- la notificación es puro efecto, no hay nada que guardar
-    new Notification("Bitácora", { body: `Terminaste tus ${mins} min de ${name}.` })
+    const body = `Terminaste tus ${mins} min de ${name}.`
+    // Chrome Android tira "Illegal constructor" con `new Notification` — ahí sólo vale vía SW.
+    // Sin SW registrado (dev en desktop) cae al constructor, que en desktop sí anda.
+    void navigator.serviceWorker?.getRegistration().then((reg) => {
+      if (reg) return reg.showNotification("Bitácora", { body })
+      // oxlint-disable-next-line no-new -- la notificación es puro efecto, no hay nada que guardar
+      new Notification("Bitácora", { body })
+    })
   }
 }
