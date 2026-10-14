@@ -52,7 +52,7 @@ export function NoteCard({
         <h1 className="mb-2.5 line-clamp-2 min-h-[2lh] text-[44px] leading-[1.1] font-normal tracking-[-0.035em] text-pretty dark:font-light">
           {item.title || "(sin título)"}
         </h1>
-        <p className="line-clamp-3 min-h-[3lh] text-muted-foreground">
+        <p className="line-clamp-3 min-h-[3lh] max-w-[70ch] text-muted-foreground">
           {openNote && (docToPlainText(openNote.content) || <em>Nota sin contenido todavía.</em>)}
         </p>
       </div>
@@ -80,15 +80,8 @@ export function NoteCard({
           >
             <ArrowLeft />
           </Button>
-          {/* kbd en botón sólido: tinte del propio texto, se adapta a cualquier fondo (spec). */}
           <Button className="h-13 px-7.5 text-[15px]" onClick={onNext}>
             Siguiente
-            <Kbd
-              aria-hidden
-              className="bg-[color-mix(in_oklab,currentColor_10%,transparent)] text-current opacity-70 max-md:hidden"
-            >
-              →
-            </Kbd>
           </Button>
         </div>
       </div>

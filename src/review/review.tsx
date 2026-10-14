@@ -143,7 +143,7 @@ export function Review() {
       <Card
         className={cn(
           // La card que importa (ADR 0023): --hero sube por luminancia en dark y por sombra en light.
-          "relative mb-8 rounded-[32px] bg-hero py-7 shadow-hero",
+          "relative mb-8 rounded-2xl bg-hero py-7 shadow-hero",
         )}
       >
         {done || !note ? (
@@ -153,7 +153,7 @@ export function Review() {
             onLoadMore={() => session.loadMore()}
           />
         ) : (
-          <div className="mx-auto w-full max-w-3xl px-4 sm:px-8">
+          <div className="w-full px-5 sm:px-10">
             {note.kind === "note" ? (
               <NoteCard
                 item={note}
