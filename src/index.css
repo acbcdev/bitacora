@@ -93,19 +93,19 @@
   --shadow-card: var(--card-shadow);
   --shadow-hero: var(--hero-shadow);
 
-  /* DS: radius-sm 8px (botones, chips, inputs) · radius-md 12px (paneles). */
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  /* Forma D (ADR 0023): xs barras · sm kbd · md ítems de menú · lg inputs/popovers (pill a h-8) ·
+     xl cards y tiles · 2xl card de repaso. Botones, chips y sidebar = rounded-full. */
+  --radius-xs: 2px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
 }
 
 /* Tema claro — hueso. */
 :root {
-  --radius: 0.5rem;
+  --radius: 1rem;
 
   --background: #f3f3f0;
   --foreground: #111113;
@@ -312,7 +312,7 @@
     content: "";
     position: absolute;
     inset: -4px -8px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     background: var(--muted);
     z-index: -1;
   }

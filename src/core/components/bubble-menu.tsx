@@ -51,7 +51,7 @@ const BUBBLE_OPTIONS = { placement: "top-start", offset: 8 } as const
 // Clases compartidas de los botones de la grilla: hover con el accent del UI; activo =
 // mismo fondo + hairline inset (mockup 07), sin color de marca.
 const btnCls =
-  "group relative grid h-[32px] w-[32px] place-items-center rounded-[7px] text-fg-secondary outline-none transition-colors hover:bg-muted hover:text-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground data-[state=on]:shadow-[inset_0_0_0_1px_var(--border)]"
+  "group relative grid h-[32px] w-[32px] place-items-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-muted hover:text-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground data-[state=on]:shadow-[inset_0_0_0_1px_var(--border)]"
 
 // Dot de color bajo el glifo: pinta el color activo de la ficha (calibrado por tema).
 function ColorDot({ color }: { color: string }) {

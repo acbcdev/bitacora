@@ -121,9 +121,9 @@ const ADD_W = 28
 
 // Botón + en píldora: se estira a lo largo de toda la fila/columna (hit area grande).
 const addCls =
-  "pointer-events-auto absolute grid place-items-center rounded-[10px] border border-popover bg-popover text-fg-secondary shadow-sm hover:bg-muted hover:text-foreground"
+  "pointer-events-auto absolute grid place-items-center rounded-md border border-popover bg-popover text-fg-secondary shadow-sm hover:bg-muted hover:text-foreground"
 const ctlCls =
-  "pointer-events-auto absolute grid size-[18px] place-items-center rounded-[4px] border border-popover bg-popover text-fg-secondary shadow-sm hover:bg-muted hover:text-foreground"
+  "pointer-events-auto absolute grid size-[18px] place-items-center rounded-sm border border-popover bg-popover text-fg-secondary shadow-sm hover:bg-muted hover:text-foreground"
 
 const itemIcon = "size-3.5 text-fg-secondary"
 
