@@ -12,7 +12,7 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: "bg-muted text-fg-secondary [a]:hover:bg-secondary",
-        destructive: "bg-destructive/15 text-destructive",
+        destructive: "bg-muted text-destructive",
         outline: "border-input text-fg-secondary [a]:hover:bg-muted",
       },
     },

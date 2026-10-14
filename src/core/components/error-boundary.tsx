@@ -52,7 +52,7 @@ export function ErrorFallback({ error, reset }: FallbackProps) {
       className="flex min-h-[50vh] flex-col items-center justify-center p-8 text-center"
     >
       <div className="flex max-w-md flex-col items-center gap-4">
-        <span className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+        <span className="flex size-10 items-center justify-center rounded-full bg-muted text-destructive">
           <TriangleAlert size={20} />
         </span>
         <h2 className="text-lg font-semibold tracking-tight">Algo salió mal</h2>
