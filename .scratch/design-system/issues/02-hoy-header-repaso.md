@@ -1,6 +1,6 @@
 # Header Hoy y card de repaso con lenguaje D
 
-Status: ready-for-agent
+Status: resolved
 Blocked by: 01
 
 ## Qué

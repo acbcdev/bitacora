@@ -1,6 +1,6 @@
 # Tiles de hábito: bloque sobre hatch
 
-Status: ready-for-agent
+Status: resolved
 Blocked by: 01
 
 ## Qué

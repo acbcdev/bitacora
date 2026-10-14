@@ -1,6 +1,6 @@
 # Tokens del lenguaje D en index.css
 
-Status: ready-for-agent
+Status: resolved
 
 ## Qué
 
