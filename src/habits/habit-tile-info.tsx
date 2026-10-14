@@ -9,10 +9,10 @@ import type { Habit, HabitMetric } from "@/core/types/database"
 // "7/0" no quiere decir nada: con techo cero cualquier registro ya es pasarse, así que va el
 // número solo. Con techo > 0 la fracción sí informa cuánto te pasaste.
 // Para time, t y h.target vienen en segundos (0011) — se muestran en min.
+const zeroCeiling = (h: Habit) => h.kind === "bad" && displayTarget(h) === 0
+
 const ratio = (h: Habit, t: number) =>
-  h.kind === "bad" && displayTarget(h) === 0
-    ? `${displayAmount(h, t)}`
-    : `${displayAmount(h, t)}/${displayTarget(h)}`
+  zeroCeiling(h) ? `${displayAmount(h, t)}` : `${displayAmount(h, t)}/${displayTarget(h)}`
 
 // Los tres estados vivos de un `time`. "Pausado" NO es un dato nuevo: pausar ya escribe los
 // minutos en habit_log y borra el cronómetro (habit-timer.ts), así que sale de lo que ya hay —
@@ -23,18 +23,14 @@ export type Run = { running: boolean; clock: string | null; paused: boolean }
 // pasaste — solo en texto e ícono, nunca relleno (ADR 0023).
 export type Tone = "over" | "done" | "clean" | "off" | "idle"
 
-export const tileTone = (h: Habit, total: number, met: boolean): Tone =>
-  h.kind === "bad"
-    ? !met
-      ? "over"
-      : total === 0
-        ? "clean"
-        : "idle"
-    : met
-      ? "done"
-      : total === 0
-        ? "off"
-        : "idle"
+export const tileTone = (h: Habit, total: number, met: boolean): Tone => {
+  if (h.kind === "bad") {
+    if (!met) return "over"
+    return total === 0 ? "clean" : "idle"
+  }
+  if (met) return "done"
+  return total === 0 ? "off" : "idle"
+}
 
 const TONE: Record<Tone, string> = {
   over: "text-destructive",
@@ -45,13 +41,13 @@ const TONE: Record<Tone, string> = {
 }
 
 // Etiqueta corta junto al nombre: dice en qué estado está, el número grande dice cuánto.
-const LAB: Record<HabitMetric, (h: Habit, t: number) => ReactNode> = {
+const LABEL: Record<HabitMetric, (h: Habit, t: number) => ReactNode> = {
   check: (_h, t) => (t > 0 ? <Check size={14} strokeWidth={3} /> : "hoy"),
   count: ratio,
   time: (h, t) => `${ratio(h, t)} min`,
 }
 
-function Lab({ h, total, r, tone }: { h: Habit; total: number; r: Run; tone: Tone }) {
+function StatusLabel({ h, total, r, tone }: { h: Habit; total: number; r: Run; tone: Tone }) {
   // Corriendo el dato pasa a reloj con punto que pulsa; pausado = punto fijo.
   if (r.running)
     return (
@@ -61,7 +57,8 @@ function Lab({ h, total, r, tone }: { h: Habit; total: number; r: Run; tone: Ton
       </span>
     )
   // Pasarse gana a "pausado": un `bad` time sobre el techo también cumple paused (!met).
-  if (tone === "over") return <span>+{displayAmount(h, total - h.target)}</span>
+  if (tone === "over")
+    return <span className="text-destructive">+{displayAmount(h, total - h.target)}</span>
   if (r.paused)
     return (
       <span className="inline-flex items-center gap-1.5">
@@ -70,7 +67,15 @@ function Lab({ h, total, r, tone }: { h: Habit; total: number; r: Run; tone: Ton
       </span>
     )
   if (tone === "clean") return <span className="text-signal">limpio</span>
-  return <span className={cn(tone === "done" && "text-signal")}>{LAB[h.metric](h, total)}</span>
+  // Cumplido = check verde en toda métrica (spec "Hábito"); count/time suman su fracción.
+  if (tone === "done")
+    return (
+      <span className="inline-flex items-center gap-1 text-signal">
+        <Check role="img" aria-label="cumplido" size={14} strokeWidth={3} />
+        {h.metric !== "check" && LABEL[h.metric](h, total)}
+      </span>
+    )
+  return <span>{LABEL[h.metric](h, total)}</span>
 }
 
 // Tres gestos, tres verbos. "Cortar" mentía: el click sobre un cronómetro corriendo GUARDA los
@@ -99,7 +104,7 @@ export function HabitTileInfo({
   onQuick: () => void
 }) {
   return (
-    <span className={cn("flex min-w-0 flex-1 flex-col gap-1.5", tone === "over" && TONE.over)}>
+    <span className="flex min-w-0 flex-1 flex-col gap-1.5">
       <button
         type="button"
         onClick={onQuick}
@@ -115,7 +120,7 @@ export function HabitTileInfo({
           tone !== "over" && "text-muted-foreground",
         )}
       >
-        <Lab h={h} total={total} r={r} tone={tone} />
+        <StatusLabel h={h} total={total} r={r} tone={tone} />
       </span>
     </span>
   )
@@ -135,7 +140,7 @@ export function HabitTileValue({
   r: Run
   tone: Tone
 }) {
-  const sub = h.kind === "bad" && displayTarget(h) === 0 ? "" : `/${displayTarget(h)}${unit(h)}`
+  const sub = zeroCeiling(h) ? "" : `/${displayTarget(h)}${unit(h)}`
   return (
     <>
       {/* 40px en 300 dark / 400 light: claro sobre oscuro engorda, oscuro sobre claro adelgaza. */}
