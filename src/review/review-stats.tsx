@@ -5,7 +5,8 @@ import { DAILY_GOAL, HISTORY_DAYS, type ComplianceDay } from "@/core/store/deriv
 const DATE = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long" })
 
 // Cumplimiento diario (CONTEXT.md) en barras finas: altura = cumplidos/total (piso 12%), verde
-// SOLO si cumplió todo — hoy incluido. Hoy sin cumplir va en fg-secondary para marcarlo sin mentir verde.
+// SOLO si cumplió todo — hoy incluido. Hoy sin cumplir va en fg-secondary para marcarlo sin mentir verde;
+// días parciales en muted (track sobre bg da 1.35:1, invisible).
 function DailyBars({ days }: { days: ComplianceDay[] }) {
   return (
     <span
@@ -18,12 +19,12 @@ function DailyBars({ days }: { days: ComplianceDay[] }) {
           key={i}
           style={{ height: `${met ? (met / total) * 100 : 12}%` }}
           className={cn(
-            "w-1 rounded-[2px]",
+            "w-1 rounded-xs",
             total > 0 && met === total
               ? "bg-signal"
               : i === days.length - 1
                 ? "bg-fg-secondary"
-                : "bg-track",
+                : "bg-muted-foreground",
           )}
         />
       ))}
