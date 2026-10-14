@@ -28,7 +28,7 @@ const LABEL: Record<HabitMetric, (h: Habit, t: number, r: Run) => ReactNode> = {
   // Ancho fijo (3ch = "hoy"): el ✓ es más angosto y arrastraba "· 1/día" a la izquierda al marcar.
   check: (_h, t) => (
     <span className="inline-flex w-[3ch] items-center">
-      {t > 0 ? <Check size={14} strokeWidth={3} className="text-brand-fg" /> : "hoy"}
+      {t > 0 ? <Check size={14} strokeWidth={3} className="text-signal" /> : "hoy"}
     </span>
   ),
   count: ratio,
@@ -42,12 +42,10 @@ const LABEL: Record<HabitMetric, (h: Habit, t: number, r: Run) => ReactNode> = {
           aria-hidden
           className={cn(
             "size-[5px] shrink-0 rounded-full",
-            r.running ? "animate-pulse bg-brand-strong" : "bg-current",
+            r.running ? "animate-pulse bg-signal" : "bg-current",
           )}
         />
-        <span className={cn("text-[13px] font-medium", r.running && "text-brand-fg")}>
-          {r.clock}
-        </span>
+        <span className={cn("text-[13px] font-medium", r.running && "text-signal")}>{r.clock}</span>
         <span className="opacity-70">/{Math.round(h.target / 60)}</span>
       </>
     ) : (
@@ -92,7 +90,7 @@ export function HabitTileInfo({
         aria-pressed={h.metric === "check" ? total > 0 : undefined}
         className={cn(
           "block w-fit max-w-full cursor-pointer truncate rounded-sm text-left text-[14px] font-semibold leading-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-          met && h.kind === "good" && "text-brand-fg",
+          met && h.kind === "good" && "text-signal",
         )}
       >
         {h.name}

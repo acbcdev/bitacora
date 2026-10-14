@@ -43,7 +43,7 @@ export function Login() {
         <Card className="gap-5 p-6 sm:p-8">
           {sent ? (
             <>
-              <p className="flex items-center gap-2 text-sm font-medium text-brand-fg">
+              <p className="flex items-center gap-2 text-sm font-medium text-signal">
                 <Check />
                 Link enviado
               </p>

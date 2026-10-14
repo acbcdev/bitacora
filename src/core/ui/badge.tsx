@@ -4,15 +4,14 @@ import { Slot } from "radix-ui"
 
 import { cn } from "@/core/lib/utils"
 
-// Badge del DS: 11px uppercase, tracking-wide, radius-sm. No es pill.
+// Badge del DS: 11px uppercase, tracking-wide, pill. Sin relleno de color: el estado va en el
+// texto (`text-signal`/`text-warning`) sobre el chip neutro (ADR 0023).
 const badgeVariants = cva(
-  "group/badge inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-lg border border-transparent px-2 py-[3px] text-2xs font-medium tracking-wide whitespace-nowrap uppercase transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive [&>svg]:pointer-events-none [&>svg]:size-3!",
+  "group/badge inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-[3px] text-2xs font-medium tracking-wide whitespace-nowrap uppercase transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive [&>svg]:pointer-events-none [&>svg]:size-3!",
   {
     variants: {
       variant: {
         default: "bg-muted text-fg-secondary [a]:hover:bg-secondary",
-        brand: "bg-brand-soft text-brand-fg",
-        warning: "bg-warning-bg text-warning",
         destructive: "bg-destructive/15 text-destructive",
         outline: "border-input text-fg-secondary [a]:hover:bg-muted",
       },

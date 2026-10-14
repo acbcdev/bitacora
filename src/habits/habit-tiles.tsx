@@ -178,7 +178,7 @@ function HabitTile({
         />
       </span>
 
-      {/* Título E ícono disparan la acción primaria (igual que el botón brand); la línea de
+      {/* Título E ícono disparan la acción primaria (igual que el botón de acción); la línea de
           meta/frecuencia y los dots siguen sin ser clickeables. */}
       <button
         type="button"
@@ -188,7 +188,7 @@ function HabitTile({
         className={cn(
           "relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[10px] text-fg-secondary transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
           "bg-muted",
-          running && "bg-brand-soft text-brand-fg",
+          running && "text-signal",
           r.paused && "ring-1 ring-input",
         )}
       >

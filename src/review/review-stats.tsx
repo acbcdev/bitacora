@@ -23,7 +23,7 @@ function ReadHistory({ byDay }: { byDay?: Map<string, number> }) {
             n === 0
               ? undefined
               : {
-                  backgroundColor: `color-mix(in oklab, var(--brand) ${Math.round(25 + Math.min(1, n / DAILY_GOAL) * 75)}%, var(--muted))`,
+                  backgroundColor: `color-mix(in oklab, var(--foreground) ${Math.round(25 + Math.min(1, n / DAILY_GOAL) * 75)}%, var(--muted))`,
                 }
           }
           className={cn(
@@ -58,7 +58,7 @@ export function ReviewStats({
             primer píxel de hover es ruido. */}
         <Tooltip delayDuration={400}>
           <TooltipTrigger className="inline-flex cursor-default items-center gap-1.5 rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
-            <Flame size={14} className="text-brand-fg" />
+            <Flame size={14} className="text-signal" />
             <span className="mono">
               {streak} {streak === 1 ? "día" : "días"}
             </span>

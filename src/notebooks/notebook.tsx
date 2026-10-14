@@ -62,7 +62,7 @@ function freshness(last: string | null | undefined, now = new Date()) {
   if (d === null) return null
   return {
     label: `hace ${d}d`,
-    cls: d <= 7 ? "text-brand-fg" : d >= 30 ? "text-warning" : "text-muted-foreground",
+    cls: d <= 7 ? "text-signal" : d >= 30 ? "text-warning" : "text-muted-foreground",
   }
 }
 
@@ -265,14 +265,11 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
               </DropdownMenu>
             </div>
             <div className="mt-2.5 flex items-center gap-1.5">
-              {/* Chips: estado (verde si activo), cantidad, y % repasado a la derecha en muted. */}
-              <Badge
-                variant={notebook.status === "active" ? "brand" : "default"}
-                className="rounded-full normal-case"
-              >
+              {/* Chips: estado (texto verde si activo), cantidad, y % repasado a la derecha en muted. */}
+              <Badge className={cn("normal-case", notebook.status === "active" && "text-signal")}>
                 ● {STATUS[notebook.status]}
               </Badge>
-              <Badge className="rounded-full normal-case">{notes.length} notas</Badge>
+              <Badge className="normal-case">{notes.length} notas</Badge>
               <span className="mono-dim ml-auto text-[10px]">{pct}% repasado</span>
             </div>
           </div>

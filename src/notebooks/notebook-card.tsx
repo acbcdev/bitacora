@@ -37,8 +37,7 @@ export function NotebookCard({
     <Card
       data-active={active}
       onClick={() => onOpen(c)}
-      // Light: --card = --background, sin ring la card desaparece; el muted pleno pesa demasiado.
-      className="group cursor-pointer gap-3.5 p-5 ring-border transition-colors hover:bg-sunken data-[active=true]:bg-sunken dark:ring-0 dark:hover:bg-muted dark:data-[active=true]:bg-muted"
+      className="group cursor-pointer gap-3.5 p-5 transition-colors hover:bg-sunken data-[active=true]:bg-sunken dark:hover:bg-muted dark:data-[active=true]:bg-muted"
     >
       <div className="flex items-start gap-3">
         <NotebookIcon icon={c.icon} className="size-8 shrink-0 text-muted-foreground" />

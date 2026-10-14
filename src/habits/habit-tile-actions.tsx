@@ -36,12 +36,13 @@ export function HabitTileActions({
         aria-label={quickLabel}
         aria-pressed={h.metric === "check" ? total > 0 : undefined}
         // ghost traía dark:hover:bg-muted/50 y hover:text-foreground: el hover le pisaba el
-        // color brand entero. Con default sólo queda hover:bg para pisar — el color nunca cambia.
+        // color entero. Con default sólo queda hover:bg para pisar — el color nunca cambia.
+        // Monocromo (ADR 0023): activo = primario sólido, reposo = chip neutro.
         className={cn(
           "shrink-0",
           isActive
-            ? "bg-brand text-brand-foreground hover:bg-brand"
-            : "bg-brand-soft text-brand-fg hover:bg-[color-mix(in_oklch,var(--brand-soft),var(--brand)_16%)]",
+            ? "bg-primary text-primary-foreground hover:bg-primary"
+            : "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_8%)]",
           // Hint visual de guardado, NO guard duro: disabled bloquearía el tap siguiente y el
           // onMutate ya serializa los taps encolados (ui-principles 4).
           pending && "opacity-60",

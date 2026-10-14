@@ -101,7 +101,7 @@ export function Settings({
                     onClick={() => setStorageMode(mode)}
                     className={cn(
                       "flex items-start gap-3 rounded-lg border p-3 text-left transition-colors",
-                      current ? "border-brand bg-brand/5" : "hover:bg-accent",
+                      current ? "border-foreground bg-muted" : "hover:bg-accent",
                       disabled && "cursor-not-allowed opacity-50 hover:bg-transparent",
                     )}
                   >

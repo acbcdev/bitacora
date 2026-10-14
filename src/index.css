@@ -1,17 +1,18 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/archivo";
+@import "@fontsource-variable/inter-tight";
 @import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
 
-/* Tokens del design system "Bitácora" (claude.ai/design → _ds/tokens/*.css) mapeados sobre los
-   slots de shadcn, para que los componentes copiados sigan andando sin tocarlos.
+/* Tokens del lenguaje D (ADR 0023, .scratch/design-system/spec.md) mapeados sobre los slots de
+   shadcn, para que los componentes copiados sigan andando sin tocarlos. Monocromo + una señal:
+   jerarquía por luminancia (dark) o sombra (light), nunca por color.
    Dark es el default del diseño: index.html arranca con class="dark" en <html>. */
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: "Archivo Variable", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter Tight Variable", -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Consolas, monospace;
 
   /* Escala tipográfica del DS (11 → 64px). */
@@ -78,16 +79,18 @@
   --color-background: var(--background);
 
   /* Tokens del DS sin slot en shadcn. */
-  --color-brand: var(--brand);
-  --color-brand-strong: var(--brand-strong);
-  --color-brand-soft: var(--brand-soft);
-  --color-brand-fg: var(--brand-fg);
-  --color-brand-foreground: var(--brand-foreground);
+  --color-signal: var(--signal);
   --color-warning: var(--warning);
-  --color-warning-bg: var(--warning-bg);
+  --color-hero: var(--hero);
+  --color-track: var(--track);
+  --color-hatch: var(--hatch);
   --color-fg-secondary: var(--fg-secondary);
   --color-sunken: var(--sunken);
   --color-border-strong: var(--border-strong);
+
+  /* Light: la jerarquía sale de sombra. Dark: de luminancia (sombra none). */
+  --shadow-card: var(--card-shadow);
+  --shadow-hero: var(--hero-shadow);
 
   /* DS: radius-sm 8px (botones, chips, inputs) · radius-md 12px (paneles). */
   --radius-sm: calc(var(--radius) * 0.6);
@@ -99,39 +102,39 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Tema claro. */
+/* Tema claro — hueso. */
 :root {
   --radius: 0.5rem;
 
-  --background: #fafafa;
+  --background: #f3f3f0;
   --foreground: #111113;
   --card: #ffffff;
   --card-foreground: #111113;
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  --hero: #ffffff;
+  --hero-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px rgb(0 0 0 / 0.07);
   --popover: #ffffff;
   --popover-foreground: #111113;
   --primary: #111113;
   --primary-foreground: #ffffff;
-  --secondary: #f1f1f3;
+  --secondary: #efefeb;
   --secondary-foreground: #111113;
-  --muted: #f1f1f3;
-  --muted-foreground: #62646a; /* ~6:1 sobre blanco; #868a86 daba ~3.5:1, bajo AA */
-  --accent: #f1f1f3;
+  --muted: #efefeb;
+  --muted-foreground: #5c5e63;
+  --accent: #efefeb;
   --accent-foreground: #111113;
-  --destructive: #a3372a;
-  --border: #e5e5e8;
-  --input: #d4d4d9;
+  --destructive: #c2362b;
+  --border: #deded9;
+  --input: #deded9;
   --ring: #111113;
 
-  --fg-secondary: #45464b;
-  --sunken: #f4f4f6;
-  --border-strong: #2a2a2e;
-  --brand: #16915a;
-  --brand-strong: #0f7347;
-  --brand-soft: #e6f4ec;
-  --brand-fg: #0f6b42;
-  --brand-foreground: #ffffff;
-  --warning: #96661f;
-  --warning-bg: #f3ead6;
+  --fg-secondary: #2b2c2f;
+  --sunken: #ebebe7;
+  --border-strong: #2b2c2f;
+  --track: #e4e4df;
+  --hatch: #f0f0ec;
+  --signal: #15803d;
+  --warning: #c9962b;
 
   /* Paleta del editor (bubble, historia 4): bicolor por tema — letra y fondo calibrados por
      contraste sobre el fondo del tema. Los marks persisten la cadena var() y el tema la resuelve. */
@@ -152,47 +155,47 @@
   --p-red: #d44c47;
   --p-red-hl: #fdebec;
 
-  --sidebar: #f4f4f6;
+  --sidebar: #ebebe7;
   --sidebar-foreground: #111113;
   --sidebar-primary: #111113;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ebebee;
+  --sidebar-accent: #deded9;
   --sidebar-accent-foreground: #111113;
-  --sidebar-border: #e5e5e8;
-  --sidebar-ring: #8a8b90;
+  --sidebar-border: #deded9;
+  --sidebar-ring: #5c5e63;
 }
 
-/* Tema oscuro — el default del diseño (grafito profundo, acento verde). */
+/* Tema oscuro — carbón, el default del diseño. */
 .dark {
-  --background: #1c1c1c;
-  --foreground: #f2f2f0;
-  --card: #232323;
-  --card-foreground: #f2f2f0;
-  --popover: #232323;
-  --popover-foreground: #f2f2f0;
-  --primary: #f0f0f0;
-  --primary-foreground: #242424;
-  --secondary: #2e2e2e;
-  --secondary-foreground: #f2f2f0;
-  --muted: #2e2e2e;
-  --muted-foreground: #9a9c99;
-  --accent: #2e2e2e;
-  --accent-foreground: #f2f2f0;
-  --destructive: #d98274;
-  --border: #2f2f2f;
-  --input: #3e3e3e;
-  --ring: #f2f2f0;
+  --background: #131315;
+  --foreground: #f2f2f2;
+  --card: #1b1b1d;
+  --card-foreground: #f2f2f2;
+  --card-shadow: none;
+  --hero: #242427;
+  --hero-shadow: none;
+  --popover: #1b1b1d;
+  --popover-foreground: #f2f2f2;
+  --primary: #f2f2f2;
+  --primary-foreground: #0b0b0c;
+  --secondary: #27272a;
+  --secondary-foreground: #f2f2f2;
+  --muted: #27272a;
+  --muted-foreground: #8a8c90;
+  --accent: #27272a;
+  --accent-foreground: #f2f2f2;
+  --destructive: #f07a70;
+  --border: #232326;
+  --input: #2d2d31;
+  --ring: #f2f2f2;
 
-  --fg-secondary: #c3c5c2;
-  --sunken: #161616;
-  --border-strong: #d8d8d8;
-  --brand: #37a873;
-  --brand-strong: #4dbd88;
-  --brand-soft: #1f2f24;
-  --brand-fg: #74cba0;
-  --brand-foreground: #0f1f17;
+  --fg-secondary: #c9cacc;
+  --sunken: #0e0e10;
+  --border-strong: #c9cacc;
+  --track: #2d2d31;
+  --hatch: #222225;
+  --signal: #35c26b;
   --warning: #d5a75f;
-  --warning-bg: #383023;
 
   /* Paleta del editor en dark: letra más clara/luminosa, highlight en versión oscura saturada
      — calibrados para legibilidad sobre grafito. */
@@ -213,14 +216,14 @@
   --p-red: #ed766f;
   --p-red-hl: #5e201f;
 
-  --sidebar: #1c1c1c;
-  --sidebar-foreground: #f2f2f0;
-  --sidebar-primary: #f0f0f0;
-  --sidebar-primary-foreground: #242424;
-  --sidebar-accent: #2e2e2e;
-  --sidebar-accent-foreground: #f2f2f0;
-  --sidebar-border: #2f2f2f;
-  --sidebar-ring: #9a9c99;
+  --sidebar: #0e0e10;
+  --sidebar-foreground: #f2f2f2;
+  --sidebar-primary: #f2f2f2;
+  --sidebar-primary-foreground: #0b0b0c;
+  --sidebar-accent: #27272a;
+  --sidebar-accent-foreground: #f2f2f2;
+  --sidebar-border: #232326;
+  --sidebar-ring: #8a8c90;
 }
 
 @layer base {
@@ -385,10 +388,10 @@
 /* Links (extensión Link de StarterKit, autolink): preflight les saca color/subrayado — sin esto
    una URL detectada se ve igual que el texto. */
 .tiptap-host .ProseMirror a {
-  @apply text-brand underline decoration-brand/40 underline-offset-2;
+  @apply text-foreground underline decoration-muted-foreground/60 underline-offset-2;
 }
 .tiptap-host .ProseMirror a:hover {
-  @apply decoration-brand;
+  @apply decoration-foreground;
 }
 .tiptap-host .ProseMirror code {
   @apply rounded bg-muted px-[0.15em] font-mono text-[0.8em] tracking-[-0.01em] text-[var(--p-red)];
@@ -402,7 +405,7 @@
   @apply bg-transparent p-0 text-[length:inherit] tracking-normal text-inherit;
 }
 /* Syntax highlighting (lowlight/highlight.js). Paleta propia estilo Vercel/Geist: no son los
-   tokens de marca del tema — una paleta de sintaxis necesita más hues que brand/warning. */
+   tokens del tema — una paleta de sintaxis necesita más hues que signal/warning. */
 .tiptap-host {
   --code-comment: #6e6e6e;
   --code-keyword: #d1005e;
@@ -453,8 +456,8 @@
   background-color: color-mix(in oklab, var(--destructive) 15%, transparent);
 }
 .tiptap-host .ProseMirror pre .hljs-addition {
-  color: var(--brand);
-  background-color: color-mix(in oklab, var(--brand) 15%, transparent);
+  color: var(--signal);
+  background-color: color-mix(in oklab, var(--signal) 15%, transparent);
 }
 .tiptap-host .ProseMirror pre .hljs-emphasis {
   @apply italic;
