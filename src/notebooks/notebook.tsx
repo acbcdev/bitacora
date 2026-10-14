@@ -15,6 +15,7 @@ import {
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { NotebookForm } from "@/notebooks/notebook-form"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
+import { STATUS, STATUS_DOT } from "@/notebooks/notebook-status"
 import { NoteActions } from "@/notes/note-actions"
 import { NoteSkeleton } from "@/core/components/skeletons"
 import { Badge } from "@/core/ui/badge"
@@ -46,7 +47,6 @@ import { useSnapshot } from "@/core/lib/snapshot"
 import { EMPTY_READ_STATS, lastEditedNote, readStats } from "@/core/store/derive"
 import { cn } from "@/core/lib/utils"
 import { store } from "@/core/store"
-import type { NotebookStatus } from "@/core/types/database"
 
 // Variant E ("UI Bitácora", .scratch/sidebar-redesign): el título usa todo el ancho de la fila;
 // frescura y menú viven en una pastilla absoluta al pie derecho que los tapa (bg-inherit: siempre
@@ -64,12 +64,6 @@ function freshness(last: string | null | undefined, now = new Date()) {
     label: `hace ${d}d`,
     cls: d <= 7 ? "text-signal" : d >= 30 ? "text-warning" : "text-muted-foreground",
   }
-}
-
-const STATUS: Record<NotebookStatus, string> = {
-  active: "activo",
-  paused: "pausado",
-  done: "hecho",
 }
 
 // Pantalla Notebook: la nota a la izquierda (NoteEditor embedded, notes/06: mismo componente que
@@ -265,9 +259,13 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
               </DropdownMenu>
             </div>
             <div className="mt-2.5 flex items-center gap-1.5">
-              {/* Chips: estado (texto verde si activo), cantidad, y % repasado a la derecha en muted. */}
-              <Badge className={cn("normal-case", notebook.status === "active" && "text-signal")}>
-                ● {STATUS[notebook.status]}
+              {/* Chips: estado (dot + texto del color del estado), cantidad, y % repasado en muted. */}
+              <Badge className={cn("normal-case", STATUS[notebook.status].cls)}>
+                <i
+                  aria-hidden
+                  className={cn("size-1.5 rounded-full", STATUS_DOT[notebook.status])}
+                />
+                {STATUS[notebook.status].label}
               </Badge>
               <Badge className="normal-case">{notes.length} notas</Badge>
               <span className="mono-dim ml-auto text-[10px]">{pct}% repasado</span>

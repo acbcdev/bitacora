@@ -86,7 +86,7 @@ export function NotebookTable({
                 {c.area || "—"}
               </TableCell>
               <TableCell className="px-3 py-3">
-                <Badge className={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
+                <Badge className={STATUS[c.status].cls}>{STATUS[c.status].label}</Badge>
               </TableCell>
               <TableCell className="mono px-3 py-3">{c.rounds}</TableCell>
               <TableCell className="mono px-3 py-3 text-right">{c.notes}</TableCell>

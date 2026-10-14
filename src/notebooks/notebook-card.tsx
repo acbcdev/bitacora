@@ -48,7 +48,7 @@ export function NotebookCard({
           <TooltipTrigger asChild>
             <span className={`mt-2 size-2 shrink-0 rounded-full ${STATUS_DOT[c.status]}`} />
           </TooltipTrigger>
-          <TooltipContent className="capitalize">{STATUS[c.status][0]}</TooltipContent>
+          <TooltipContent className="capitalize">{STATUS[c.status].label}</TooltipContent>
         </Tooltip>
       </div>
       <div className="flex min-h-6 flex-wrap gap-1.5">
