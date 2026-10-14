@@ -415,8 +415,9 @@ export function dailyCompliance(snap: Snapshot, now = new Date()) {
     const day = dayKey(d)
     const alive = daily.filter((h) => dayKey(new Date(h.created_at)) <= day)
     const met = alive.filter((h) => {
-      const amount = snap.habitLog.find((r) => r.habit_id === h.id && r.day === day)?.amount ?? 0
-      return meets(h.kind, amount, frozenTarget(snap.habitLog, h.id, day, h.target))
+      // Sin fila: amount 0 contra la meta viva — misma regla que frozenTarget.
+      const row = snap.habitLog.find((r) => r.habit_id === h.id && r.day === day)
+      return meets(h.kind, row?.amount ?? 0, row?.target ?? h.target)
     }).length
     return { met, total: alive.length }
   })
