@@ -1,4 +1,4 @@
-import { cellPct, dotColor } from "@/habits/habits"
+import { cellColor } from "@/habits/habits"
 import type { DayCell } from "@/core/store/derive"
 import type { Habit } from "@/core/types/database"
 
@@ -9,14 +9,7 @@ export function HabitDots({ h, dots }: { h: Habit; dots: DayCell[] }) {
       {dots.map((cell, idx) => (
         <i
           key={idx}
-          // Hoy sin registro = track: en un `bad` el 0 invertido pintaría "limpio" antes de que
-          // el día termine.
-          style={{
-            backgroundColor:
-              idx === dots.length - 1 && cell.amount === 0
-                ? "var(--track)"
-                : dotColor(h.kind, cellPct(cell)),
-          }}
+          style={{ backgroundColor: cellColor(h.kind, cell, idx === dots.length - 1) }}
           className="size-2 rounded-full"
         />
       ))}

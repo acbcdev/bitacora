@@ -1,4 +1,4 @@
-import { deriveHabit, dotColor, periodKey, type HabitLogRow } from "@/habits/habits"
+import { cellColor, deriveHabit, dotColor, periodKey, type HabitLogRow } from "@/habits/habits"
 import type { Habit } from "@/core/types/database"
 
 // Jueves 20 de agosto de 2026, mediodía. La semana en curso va del lun 17 al dom 23; la anterior,
@@ -237,5 +237,23 @@ describe("dotColor", () => {
     expect(dotColor("bad", 0)).toBe("color-mix(in oklab, var(--foreground) 100%, var(--track))")
     expect(dotColor("bad", 25)).toBe("color-mix(in oklab, var(--foreground) 75%, var(--track))")
     expect(dotColor("bad", 100)).toBe("var(--track)")
+  })
+})
+
+describe("cellColor", () => {
+  const cell = (amount: number, target = 2) =>
+    ({ amount, target }) as Parameters<typeof cellColor>[1]
+  test("hoy sin registro = --track aunque un bad en 0 sea limpio", () => {
+    expect(cellColor("bad", cell(0), true)).toBe("var(--track)")
+  })
+  test("día pasado de un bad en 0 = limpio, tinta plena", () => {
+    expect(cellColor("bad", cell(0), false)).toBe(
+      "color-mix(in oklab, var(--foreground) 100%, var(--track))",
+    )
+  })
+  test("hoy con registro sigue la mezcla proporcional", () => {
+    expect(cellColor("good", cell(1), true)).toBe(
+      "color-mix(in oklab, var(--foreground) 50%, var(--track))",
+    )
   })
 })

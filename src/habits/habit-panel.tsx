@@ -11,8 +11,7 @@ import {
 import { dayKey } from "@/core/lib/day"
 import {
   SERIES,
-  dotColor,
-  cellPct,
+  cellColor,
   dayAt,
   displayAmount,
   fromDisplay,
@@ -77,18 +76,13 @@ export function HabitHistory({ habit, state }: { habit: Habit; state: HabitState
       // Días: gap más chico → cada celda un pelín más ancha (7 celdas vs 4-5 de semana/mes).
       className={habit.period === "day" ? "flex w-full gap-[2px]" : "flex w-full gap-1"}
     >
-      {state.days.map((cell, n) =>
-        // Hoy sin resaltado; gris mientras está vacío, color al registrar — igual que los dots.
-        n === state.days.length - 1 && cell.amount === 0 ? (
-          <span key={n} className="h-7 flex-1 rounded-[3px] bg-track" />
-        ) : (
-          <span
-            key={n}
-            style={{ backgroundColor: dotColor(habit.kind, cellPct(cell)) }}
-            className="h-7 flex-1 rounded-[3px]"
-          />
-        ),
-      )}
+      {state.days.map((cell, n) => (
+        <span
+          key={n}
+          style={{ backgroundColor: cellColor(habit.kind, cell, n === state.days.length - 1) }}
+          className="h-7 flex-1 rounded-[3px]"
+        />
+      ))}
     </div>
   )
 }

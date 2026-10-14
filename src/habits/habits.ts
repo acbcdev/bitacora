@@ -57,3 +57,8 @@ export const dotColor = (kind: Habit["kind"], pct: number) => {
     ? "var(--track)"
     : `color-mix(in oklab, var(--foreground) ${done}%, var(--track))`
 }
+
+// Color de una celda de serie (dots 7d e historial). Hoy sin registro = --track: en un `bad` el 0
+// invertido pintaría "limpio" antes de que el día termine.
+export const cellColor = (kind: Habit["kind"], cell: DayCell, isToday: boolean) =>
+  isToday && cell.amount === 0 ? "var(--track)" : dotColor(kind, cellPct(cell))
