@@ -1,6 +1,7 @@
 import { Card } from "@/core/ui/card"
 import { Skeleton } from "@/core/ui/skeleton"
 import { readSample } from "@/core/lib/sample"
+import { HISTORY_DAYS } from "@/core/store/derive"
 
 // Placeholders con la forma del contenido real, no rectángulos genéricos. Se muestran solo en el
 // primer fetch: con datos en caché TanStack deja `isLoading` en false y no pasan por acá.
@@ -59,6 +60,7 @@ export function HabitsSkeleton() {
   const count = readSample().habits
   return (
     <div className="mb-8">
+      {/* Cabecera: "Hábitos" · N/M cumplidos · ver todos · + Nuevo */}
       <div className="mb-3 flex h-8 items-center gap-3">
         <Skeleton className="h-5 w-[91px]" />
         <Skeleton className="h-3 w-24" />
@@ -67,24 +69,32 @@ export function HabitsSkeleton() {
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-3">
         {Array.from({ length: count }, (_, i) => (
+          // Mismo bloque que HabitTile vacío: hatch + card de 140px, así la tira no salta al cargar.
           <div
             key={i}
-            className="relative flex items-center gap-3 overflow-hidden rounded-xl border bg-card px-3.5 py-3"
+            className="hatch relative flex min-h-[140px] flex-col justify-between gap-3 overflow-hidden rounded-xl bg-card p-4 shadow-card"
           >
-            <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px] bg-muted" />
-            <Skeleton className="size-10 shrink-0 rounded-[10px]" />
-            <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <Skeleton className="h-3.5 w-24" />
-              <Skeleton className="h-[11px] w-3/5" />
-              <span className="flex gap-[3px] pt-0.5">
-                {Array.from({ length: 7 }, (__, d) => (
-                  <Skeleton key={d} className="h-[5px] flex-1 rounded-full" />
-                ))}
+            {/* Arriba: ícono redondo · nombre + estado · botón de acción rápida */}
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-9 shrink-0 rounded-full" />
+              <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-3 w-10" />
               </span>
-            </span>
-            <span className="flex w-[66px] shrink-0 justify-end">
-              <Skeleton className="size-9 rounded-lg" />
-            </span>
+              <Skeleton className="size-9 shrink-0" />
+            </div>
+            {/* Abajo: número grande (40px) y pie con meta a la izquierda, dots 7d a la derecha */}
+            <div className="flex flex-col gap-3">
+              <Skeleton className="h-10 w-16" />
+              <span className="flex items-center justify-between gap-2">
+                <Skeleton className="h-[11px] w-20" />
+                <span className="flex gap-1">
+                  {Array.from({ length: 7 }, (__, d) => (
+                    <Skeleton key={d} className="size-2 rounded-full" />
+                  ))}
+                </span>
+              </span>
+            </div>
           </div>
         ))}
       </div>
@@ -133,41 +143,65 @@ export function SidebarGroupSkeleton({
 export function ReviewSkeleton() {
   return (
     <>
-      <div className="mb-4 flex h-[18.7px] items-center justify-between">
-        <Skeleton className="h-3 w-[118px]" />
+      {/* ReviewStats: fecha (eyebrow) · racha · barras de cumplimiento 14d · leídas hoy.
+          La fila mide h-7 por las DailyBars. */}
+      <div className="mb-4 flex h-7 items-center justify-between">
+        <Skeleton className="h-2.5 w-[150px]" />
         <div className="flex items-center gap-6">
-          <Skeleton className="h-3.5 w-16" />
+          <span className="flex items-center gap-1.5">
+            <Skeleton className="size-3.5 rounded-full" />
+            <Skeleton className="h-3.5 w-12" />
+          </span>
+          <span className="flex items-end gap-2">
+            <span className="flex h-7 items-end gap-[3px]">
+              {Array.from({ length: HISTORY_DAYS }, (_, i) => (
+                <Skeleton key={i} className="h-full w-1 rounded-xs" />
+              ))}
+            </span>
+            <Skeleton className="h-[11px] w-11" />
+          </span>
           <Skeleton className="h-3.5 w-[101px]" />
         </div>
       </div>
+      {/* Progress de la meta diaria */}
       <Skeleton className="mb-8 h-0.5 w-full" />
 
-      <Card className="mb-8 py-6">
-        <div className="mx-auto w-full max-w-3xl px-4 sm:px-8">
-          <div className="mb-2 flex h-[39px] items-start justify-between gap-3">
-            <Skeleton className="h-4 w-[290px]" />
-            <Skeleton className="h-4 w-9" />
+      {/* Hero card (NoteCard): mismo radio, padding y sombra que la real */}
+      <Card className="mb-8 rounded-2xl bg-hero py-7 shadow-hero">
+        <div className="w-full px-5 sm:px-10">
+          {/* Eyebrow: ícono + nombre del notebook · posición en la cola (min-h 2lh) */}
+          <div className="mb-2 flex h-[28.6px] items-start justify-between gap-3">
+            <span className="flex h-[14.3px] items-center gap-1.5">
+              <Skeleton className="size-3.5 rounded-xs" />
+              <Skeleton className="h-2.5 w-28" />
+            </span>
+            <Skeleton className="h-3 w-9" />
           </div>
           <div className="mb-6">
-            <div className="mb-1.5 flex h-[101.2px] items-start">
-              <div className="flex h-[50.6px] w-3/4 items-center">
-                <Skeleton className="h-9 w-full" />
-              </div>
+            {/* Título 44px × 2 líneas (lh 1.1 = 48.4px), mb-2.5 */}
+            <div className="mb-2.5 flex flex-col">
+              {["85%", "55%"].map((w) => (
+                <div key={w} className="flex h-[48.4px] items-center">
+                  <Skeleton className="h-9" style={{ width: w }} />
+                </div>
+              ))}
             </div>
-            {[100, 92, 80].map((w) => (
-              <div key={w} className="flex h-[19.5px] items-center">
-                <Skeleton className="h-3.5" style={{ width: `${w}%` }} />
+            {/* Preview del cuerpo: 3 líneas de text-base (lh 22.5px) */}
+            {["100%", "92%", "70%"].map((w) => (
+              <div key={w} className="flex h-[22.5px] items-center">
+                <Skeleton className="h-3.5" style={{ width: w }} />
               </div>
             ))}
           </div>
+          {/* Footer: atajos Abrir / Vista expandida (md+) · ← y Siguiente (h-13) */}
           <div className="mt-8 flex items-center justify-end border-t pt-5 md:justify-between">
             <div className="hidden gap-2 md:flex">
               <Skeleton className="h-8 w-[94px]" />
-              <Skeleton className="h-8 w-[195px]" />
+              <Skeleton className="h-8 w-[170px]" />
             </div>
             <div className="flex gap-2">
-              <Skeleton className="h-8 w-[85px]" />
-              <Skeleton className="h-8 w-[104px]" />
+              <Skeleton className="size-13" />
+              <Skeleton className="h-13 w-[130px]" />
             </div>
           </div>
         </div>
@@ -175,6 +209,7 @@ export function ReviewSkeleton() {
 
       <HabitsSkeleton />
 
+      {/* Notebooks embebido: título + contador, toolbar (buscar · estado · orden · vista · nuevo) */}
       <div className="mb-6 flex h-[31.2px] items-center gap-3">
         <Skeleton className="h-5 w-[129px]" />
         <Skeleton className="h-3 w-[86px]" />
