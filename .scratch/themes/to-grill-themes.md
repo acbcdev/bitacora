@@ -1,6 +1,8 @@
 # Themes (multi-preset) — to-grill
 
-**Status:** abierto — falta decidir qué significa. El hogar ya existe (Settings dialog, 2026-08-25).
+**Status:** resuelto (2026-10-13) — theme = dark/light, nada más. Las paletas son las de ADR 0023
+(lenguaje D: carbón / hueso); un preset extra requiere enmendar ese ADR. `papel-tinta.md` y
+`terminal.md` quedan como ideas archivadas, sin spec.
 
 Ideas de temas concretos en este dir: `papel-tinta.md`, `terminal.md`.
 
