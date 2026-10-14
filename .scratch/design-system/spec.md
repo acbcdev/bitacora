@@ -44,20 +44,22 @@ y el concepto de hábitos), el modo light "dark invertido" (ilegible).
 Ámbar de `paused` = **única excepción** a "monocromo + una señal": es categórico (escanear 59
 notebooks), no señal. Solo en dot y texto, nunca relleno. Sin `drop` (no existe en el schema).
 
-- **Forma:** botones/chips/ítems sidebar pill (999px) · tiles y cards 24px · card de repaso 32px · kbd 6px · barras 2px.
+- **Forma:** botones/chips/ítems sidebar pill (`rounded-full`) · tiles, cards y dialogs 24px (`xl`) · card de repaso 32px (`2xl`) ·
+  inputs/popovers 16px (`lg`, pill a h-8) · ítems de menú 12px (`md`) · kbd 6px (`sm`) · barras 2px (`xs`). Escala en
+  `@theme` de `index.css`; sin `rounded-[Npx]` sueltos.
 - **Tipo:** UI en Inter Tight · números en JetBrains Mono · título de repaso 44px y número de hábito 40px
   en **300 dark / 400 light** (irradiación: claro sobre oscuro engorda, oscuro sobre claro adelgaza).
 
 ## Reglas de componente
 
-- `kbd` dentro de botón sólido: `color-mix(in oklab, currentColor 10%, transparent)` — se adapta solo.
+- "Siguiente" sin kbd: solo el nombre. Card de repaso a todo el ancho (sin columna `max-w-3xl`); cuerpo con medida legible `70ch`, título libre.
 - Íconos siempre SVG (lucide), nunca glifos (`✓` cae en fuente de sistema y se ve como √).
 - Hábito: vacío = hatch · progreso = bloque a `pct` · cumplido = bloque lleno + check verde ·
   corriendo = punto verde que pulsa · pausado = bloque tenue + punto fijo · pasado = número rojo, sin relleno.
 - Header Hoy: fecha humana ("lunes 13 de octubre"), barras **inline** con etiqueta "14 días" (se
   borra el tooltip del 🔥). Las barras muestran el **Cumplimiento diario** de hábitos (ver
   `CONTEXT.md`), no lecturas: altura = `cumplidos / total` (piso 12% si 0 o sin hábitos), verde
-  **solo** si todos cumplidos — hoy incluido; hoy no cumplido = `--ink-2`, nunca verde. 🔥 racha de
+  **solo** si todos cumplidos — hoy incluido; hoy no cumplido = `--ink-2`, nunca verde; días parciales = `--muted-foreground` (`--track` da 1.35:1, invisible). 🔥 racha de
   lectura y `n/3` se quedan. (El prototipo pintaba hoy siempre verde: bug, no se copia.)
 - No mostrar datos que la app no tiene (la barra "18/25" y el delta "+3" del prototipo eran inventados).
 
