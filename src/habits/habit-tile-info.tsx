@@ -60,6 +60,8 @@ function Lab({ h, total, r, tone }: { h: Habit; total: number; r: Run; tone: Ton
         {r.clock}
       </span>
     )
+  // Pasarse gana a "pausado": un `bad` time sobre el techo también cumple paused (!met).
+  if (tone === "over") return <span>+{displayAmount(h, total - h.target)}</span>
   if (r.paused)
     return (
       <span className="inline-flex items-center gap-1.5">
@@ -67,7 +69,6 @@ function Lab({ h, total, r, tone }: { h: Habit; total: number; r: Run; tone: Ton
         pausado
       </span>
     )
-  if (tone === "over") return <span>+{displayAmount(h, total - h.target)}</span>
   if (tone === "clean") return <span className="text-signal">limpio</span>
   return <span className={cn(tone === "done" && "text-signal")}>{LAB[h.metric](h, total)}</span>
 }
