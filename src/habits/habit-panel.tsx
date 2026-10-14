@@ -11,7 +11,7 @@ import {
 import { dayKey } from "@/core/lib/day"
 import {
   SERIES,
-  cellColor,
+  dotColor,
   cellPct,
   dayAt,
   displayAmount,
@@ -66,7 +66,7 @@ const FMT_MONTH = new Intl.DateTimeFormat("es", { month: "long", year: "numeric"
 const PERIOD_NOUN: Record<HabitPeriod, string> = { day: "días", week: "semanas", month: "meses" }
 
 // La serie de períodos, a lo GitHub. Sin clicks: es un resumen, no un control. Color por pct de
-// la celda — la misma mezcla del dot y la barra del tile (ADR 0013), cero = rojo pleno.
+// la celda — la misma mezcla monocroma del dot (ADR 0023), cero = --track.
 export function HabitHistory({ habit, state }: { habit: Habit; state: HabitState }) {
   return (
     <div
@@ -80,11 +80,11 @@ export function HabitHistory({ habit, state }: { habit: Habit; state: HabitState
       {state.days.map((cell, n) =>
         // Hoy sin resaltado; gris mientras está vacío, color al registrar — igual que los dots.
         n === state.days.length - 1 && cell.amount === 0 ? (
-          <span key={n} className="h-7 flex-1 rounded-[3px] bg-muted" />
+          <span key={n} className="h-7 flex-1 rounded-[3px] bg-track" />
         ) : (
           <span
             key={n}
-            style={{ backgroundColor: cellColor(habit.kind, cellPct(cell)) }}
+            style={{ backgroundColor: dotColor(habit.kind, cellPct(cell)) }}
             className="h-7 flex-1 rounded-[3px]"
           />
         ),

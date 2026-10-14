@@ -1,56 +1,75 @@
-import { Check, Flame, Minus } from "lucide-react"
+import { Check, Circle, Flame } from "lucide-react"
 import type { ReactNode } from "react"
 import { cn } from "@/core/lib/utils"
 import { HabitDots } from "@/habits/habit-dots"
-import { goalText, streakText } from "@/habits/habits"
+import { displayAmount, displayTarget, goalText, streakText, unit } from "@/habits/habits"
 import type { DayCell } from "@/core/store/derive"
 import type { Habit, HabitMetric } from "@/core/types/database"
 
 // "7/0" no quiere decir nada: con techo cero cualquier registro ya es pasarse, así que va el
 // número solo. Con techo > 0 la fracción sí informa cuánto te pasaste.
 // Para time, t y h.target vienen en segundos (0011) — se muestran en min.
-const ratio = (h: Habit, t: number) => {
-  if (h.metric === "time") {
-    const mins = Math.floor(t / 60)
-    const targetMins = Math.round(h.target / 60)
-    return h.kind === "bad" && targetMins === 0 ? `${mins}` : `${mins}/${targetMins}`
-  }
-  return h.kind === "bad" && h.target === 0 ? `${t}` : `${t}/${h.target}`
-}
+const ratio = (h: Habit, t: number) =>
+  h.kind === "bad" && displayTarget(h) === 0
+    ? `${displayAmount(h, t)}`
+    : `${displayAmount(h, t)}/${displayTarget(h)}`
 
 // Los tres estados vivos de un `time`. "Pausado" NO es un dato nuevo: pausar ya escribe los
 // minutos en habit_log y borra el cronómetro (habit-timer.ts), así que sale de lo que ya hay —
 // algo hecho, nada corriendo, y todavía falta. Sin campo nuevo y sin migración.
 export type Run = { running: boolean; clock: string | null; paused: boolean }
 
-// El dato del tile sale de la métrica, no del kind: un object-map, no un switch.
-const LABEL: Record<HabitMetric, (h: Habit, t: number, r: Run) => ReactNode> = {
-  // Ancho fijo (3ch = "hoy"): el ✓ es más angosto y arrastraba "· 1/día" a la izquierda al marcar.
-  check: (_h, t) => (
-    <span className="inline-flex w-[3ch] items-center">
-      {t > 0 ? <Check size={14} strokeWidth={3} className="text-signal" /> : "hoy"}
-    </span>
-  ),
+// Estado visual del tile (spec "Hábito"). Una sola señal: verde = cumplido/vivo, rojo = te
+// pasaste — solo en texto e ícono, nunca relleno (ADR 0023).
+export type Tone = "over" | "done" | "clean" | "off" | "idle"
+
+export const tileTone = (h: Habit, total: number, met: boolean): Tone =>
+  h.kind === "bad"
+    ? !met
+      ? "over"
+      : total === 0
+        ? "clean"
+        : "idle"
+    : met
+      ? "done"
+      : total === 0
+        ? "off"
+        : "idle"
+
+const TONE: Record<Tone, string> = {
+  over: "text-destructive",
+  done: "text-signal",
+  clean: "",
+  off: "text-muted-foreground",
+  idle: "",
+}
+
+// Etiqueta corta junto al nombre: dice en qué estado está, el número grande dice cuánto.
+const LAB: Record<HabitMetric, (h: Habit, t: number) => ReactNode> = {
+  check: (_h, t) => (t > 0 ? <Check size={14} strokeWidth={3} /> : "hoy"),
   count: ratio,
-  // Corriendo el dato pasa a reloj: `7/20 min` cambia una vez cada 60 segundos y se lee congelado,
-  // que es justo lo contrario de lo que querés ver con el cronómetro andando.
-  // h.target para time viene en segundos — se muestra en min.
-  time: (h, t, r) =>
-    r.clock ? (
-      <>
-        <span
-          aria-hidden
-          className={cn(
-            "size-[5px] shrink-0 rounded-full",
-            r.running ? "animate-pulse bg-signal" : "bg-current",
-          )}
-        />
-        <span className={cn("text-[13px] font-medium", r.running && "text-signal")}>{r.clock}</span>
-        <span className="opacity-70">/{Math.round(h.target / 60)}</span>
-      </>
-    ) : (
-      <>{ratio(h, t)} min</>
-    ),
+  time: (h, t) => `${ratio(h, t)} min`,
+}
+
+function Lab({ h, total, r, tone }: { h: Habit; total: number; r: Run; tone: Tone }) {
+  // Corriendo el dato pasa a reloj con punto que pulsa; pausado = punto fijo.
+  if (r.running)
+    return (
+      <span className="inline-flex items-center gap-1.5 text-signal">
+        <i aria-hidden className="size-1.5 animate-pulse rounded-full bg-current" />
+        {r.clock}
+      </span>
+    )
+  if (r.paused)
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <i aria-hidden className="size-1.5 rounded-full bg-current" />
+        pausado
+      </span>
+    )
+  if (tone === "over") return <span>+{displayAmount(h, total - h.target)}</span>
+  if (tone === "clean") return <span className="text-signal">limpio</span>
+  return <span className={cn(tone === "done" && "text-signal")}>{LAB[h.metric](h, total)}</span>
 }
 
 // Tres gestos, tres verbos. "Cortar" mentía: el click sobre un cronómetro corriendo GUARDA los
@@ -64,53 +83,94 @@ export const quickLabel = (h: Habit, r: Run) =>
         ? `Registrar recaída de ${h.name}`
         : `Registrar ${h.name}`
 
-// Columna central del tile: el nombre (dispara la acción primaria) y la línea de dato/meta/streak.
-// Antes inline en habit-tiles.tsx; mismo JSX, extraído tal cual.
+// Cabecera del tile: el nombre (dispara la acción primaria) y la etiqueta de estado.
 export function HabitTileInfo({
   h,
-  state,
   total,
   r,
-  met,
+  tone,
   onQuick,
 }: {
   h: Habit
-  state: { streak: number; days: DayCell[] }
   total: number
   r: Run
-  met: boolean
+  tone: Tone
   onQuick: () => void
 }) {
   return (
-    <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+    <span className={cn("flex min-w-0 flex-1 flex-col gap-1.5", tone === "over" && TONE.over)}>
       <button
         type="button"
         onClick={onQuick}
         aria-label={quickLabel(h, r)}
         aria-pressed={h.metric === "check" ? total > 0 : undefined}
-        className={cn(
-          "block w-fit max-w-full cursor-pointer truncate rounded-sm text-left text-[14px] font-semibold leading-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-          met && h.kind === "good" && "text-signal",
-        )}
+        className="block w-fit max-w-full cursor-pointer truncate rounded-sm text-left text-[14px] font-medium leading-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         {h.name}
       </button>
-      <span className="flex h-3.5 items-center gap-1.5 font-mono text-[11px] leading-none text-muted-foreground">
-        <span className={cn("inline-flex items-center gap-1 tabular-nums")}>
-          {LABEL[h.metric](h, total, r)}
-          {h.kind === "bad" && h.metric !== "time" && <Minus size={11} className="opacity-60" />}
-        </span>
-        <span className="opacity-40">·</span>
-        <span className="truncate">{goalText(h)}</span>
-        {state.streak >= 2 && (
-          <span className="inline-flex items-center gap-1 text-[10px] tabular-nums">
-            <Flame size={10} />
-            {streakText(h, state.streak)}
-          </span>
+      <span
+        className={cn(
+          "flex h-3.5 items-center font-mono text-xs leading-none tabular-nums",
+          tone !== "over" && "text-muted-foreground",
+        )}
+      >
+        <Lab h={h} total={total} r={r} tone={tone} />
+      </span>
+    </span>
+  )
+}
+
+// Número grande + pie (meta, racha, dots 7d).
+export function HabitTileValue({
+  h,
+  state,
+  total,
+  r,
+  tone,
+}: {
+  h: Habit
+  state: { streak: number; days: DayCell[] }
+  total: number
+  r: Run
+  tone: Tone
+}) {
+  const sub = h.kind === "bad" && displayTarget(h) === 0 ? "" : `/${displayTarget(h)}${unit(h)}`
+  return (
+    <>
+      {/* 40px en 300 dark / 400 light: claro sobre oscuro engorda, oscuro sobre claro adelgaza. */}
+      <span
+        className={cn(
+          "flex items-baseline text-[40px] leading-none font-normal tracking-tighter tabular-nums dark:font-light",
+          TONE[tone],
+        )}
+      >
+        {h.metric === "check" ? (
+          total > 0 ? (
+            <Check aria-hidden className="size-[38px]" strokeWidth={2.25} />
+          ) : (
+            <Circle aria-hidden className="size-[38px]" strokeWidth={1.5} strokeDasharray="3 3" />
+          )
+        ) : (
+          <>
+            {r.running ? r.clock : displayAmount(h, total)}
+            <small className="ml-0.5 text-[13px] font-normal tracking-normal text-muted-foreground">
+              {sub}
+            </small>
+          </>
         )}
       </span>
-      {/* Dots 7d — color por pct de la celda, cero = rojo pleno (ADR 0013) */}
-      <HabitDots h={h} dots={state.days.slice(-7)} />
-    </span>
+      <span className="flex items-center justify-between gap-2 font-mono text-[11px] leading-none text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate">{goalText(h)}</span>
+          {state.streak >= 2 && (
+            <span className="inline-flex items-center gap-1 tabular-nums">
+              <Flame size={10} />
+              {streakText(h, state.streak)}
+            </span>
+          )}
+        </span>
+        <HabitDots h={h} dots={state.days.slice(-7)} />
+      </span>
+    </>
   )
 }

@@ -1,33 +1,25 @@
-import { cellColor, cellPct } from "@/habits/habits"
-import { cn } from "@/core/lib/utils"
+import { cellPct, dotColor } from "@/habits/habits"
 import type { DayCell } from "@/core/store/derive"
 import type { Habit } from "@/core/types/database"
 
-// Dots 7d — color por pct de la celda, cero = rojo pleno (ADR 0013)
+// Dots 7d — proporcionales y monocromos (ADR 0023): tinta a pct sobre --track, cero = --track.
 export function HabitDots({ h, dots }: { h: Habit; dots: DayCell[] }) {
   return (
-    <span className="flex gap-[3px] pt-0.5" aria-hidden>
-      {dots.map((cell, idx) => {
-        // Hoy sin resaltado; gris mientras está vacío, color en cuanto hay registro — pero
-        // nunca rojo: sin registro no hay recaída que pintar todavía.
-        if (idx === dots.length - 1)
-          return (
-            <i
-              key={idx}
-              style={{
-                backgroundColor: cell.amount > 0 ? cellColor(h.kind, cellPct(cell)) : undefined,
-              }}
-              className={cn("h-[5px] flex-1 rounded-full", cell.amount === 0 && "bg-muted")}
-            />
-          )
-        return (
-          <i
-            key={idx}
-            style={{ backgroundColor: cellColor(h.kind, cellPct(cell)) }}
-            className="h-[5px] flex-1 rounded-full"
-          />
-        )
-      })}
+    <span className="flex gap-1" aria-hidden>
+      {dots.map((cell, idx) => (
+        <i
+          key={idx}
+          // Hoy sin registro = track: en un `bad` el 0 invertido pintaría "limpio" antes de que
+          // el día termine.
+          style={{
+            backgroundColor:
+              idx === dots.length - 1 && cell.amount === 0
+                ? "var(--track)"
+                : dotColor(h.kind, cellPct(cell)),
+          }}
+          className="size-2 rounded-full"
+        />
+      ))}
     </span>
   )
 }

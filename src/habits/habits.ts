@@ -49,11 +49,11 @@ export const streakText = (h: Pick<Habit, "period">, streak: number) =>
 export const cellPct = (cell: DayCell) =>
   Math.min(100, (cell.amount / Math.max(cell.target, 1)) * 100)
 
-// Mezcla rojo↔verde por pct (color-mix, ADR 0013). En `bad` la escala va al revés: limpio (0)
-// es verde, pasarse es rojo. Cero = extremo rojo, sin excepciones.
-export const cellColor = (kind: Habit["kind"], pct: number) => {
+// Dot monocromo proporcional (ADR 0023, enmienda 0013 §2–3): tinta a pct sobre --track. En `bad`
+// la escala va al revés (limpio = tinta plena, techo = track). Cero = --track, sin rojo.
+export const dotColor = (kind: Habit["kind"], pct: number) => {
   const done = Math.round(kind === "good" ? pct : 100 - pct)
-  // oklch, no oklab: oklab cruza verde→rojo por el gris (intermedios café); oklch rota el hue
-  // por amarillo/ámbar, que se lee como progreso.
-  return `color-mix(in oklch, var(--signal) ${done}%, var(--destructive))`
+  return done === 0
+    ? "var(--track)"
+    : `color-mix(in oklab, var(--foreground) ${done}%, var(--track))`
 }

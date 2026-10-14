@@ -1,4 +1,4 @@
-import { deriveHabit, periodKey, type HabitLogRow } from "@/habits/habits"
+import { deriveHabit, dotColor, periodKey, type HabitLogRow } from "@/habits/habits"
 import type { Habit } from "@/core/types/database"
 
 // Jueves 20 de agosto de 2026, mediodía. La semana en curso va del lun 17 al dom 23; la anterior,
@@ -223,4 +223,19 @@ test("timer dentro de la misma semana: el total semanal incluye el día de inici
   const now = new Date(2026, 7, 20, 0, 19)
 
   expect(deriveHabit(h, rows, now).total).toBe(50 * 60)
+})
+
+// Dot monocromo proporcional (ADR 0023): foreground a pct sobre --track; bad invierte; cero = track.
+describe("dotColor", () => {
+  test("good a mitad = 50% foreground sobre track", () => {
+    expect(dotColor("good", 50)).toBe("color-mix(in oklab, var(--foreground) 50%, var(--track))")
+  })
+  test("good en cero = --track pelado", () => {
+    expect(dotColor("good", 0)).toBe("var(--track)")
+  })
+  test("bad invierte: limpio = foreground pleno, techo = track", () => {
+    expect(dotColor("bad", 0)).toBe("color-mix(in oklab, var(--foreground) 100%, var(--track))")
+    expect(dotColor("bad", 25)).toBe("color-mix(in oklab, var(--foreground) 75%, var(--track))")
+    expect(dotColor("bad", 100)).toBe("var(--track)")
+  })
 })

@@ -2,14 +2,20 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Pause, Plus, Target } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { HabitTileActions } from "@/habits/habit-tile-actions"
-import { HabitTileInfo, quickLabel, type Run } from "@/habits/habit-tile-info"
+import {
+  HabitTileInfo,
+  HabitTileValue,
+  quickLabel,
+  tileTone,
+  type Run,
+} from "@/habits/habit-tile-info"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { todayKey } from "@/core/lib/day"
 import { HabitsSkeleton } from "@/core/components/skeletons"
 import { forceLoading, saveSample } from "@/core/lib/sample"
 import { cn } from "@/core/lib/utils"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
-import { cellColor, deriveHabit, meets, type HabitState } from "@/habits/habits"
+import { deriveHabit, meets, type HabitState } from "@/habits/habits"
 import { useHabitLog, useHabits, useSetDay } from "@/habits/habits.api"
 import { HabitsDialog } from "@/habits/habits-dialog"
 import { formatClock } from "@/habits/habit-timer"
@@ -20,14 +26,6 @@ import type { Habit } from "@/core/types/database"
 // repaso y la lista de Notebooks, que es donde el usuario ya entra 2–3 veces por día.
 
 type Entry = { h: Habit; state: HabitState }
-
-// La barra no tiene color propio: se MEZCLA — rojo lo que falta, verde lo hecho. En un `bad` la
-// escala va al revés (llenarse es perder), y el rojo del techo pasado sale de la misma fórmula
-// (pct = 100 → done = 0), sin caso especial.
-// Va SÓLIDA. Antes esto era un relleno de fondo rebajado al 30% contra --card… en un tile que nunca
-// pintaba --card: se mezclaba contra un color que no estaba abajo y quedaba casi invisible. En 3px
-// no hay texto encima que proteger, así que no hay nada que rebajar.
-// pct de la celda ya viene listo; la mezcla es la misma del dot (ADR 0013).
 
 export function HabitTiles() {
   const { data: habits = [] } = useHabits()
@@ -153,64 +151,63 @@ function HabitTile({
   onQuick: () => void
 }) {
   const met = meets(h.kind, total, h.target)
-  const over = h.kind === "bad" && !met
+  const tone = tileTone(h, total, met)
   const pct = Math.min(100, (total / Math.max(h.target, 1)) * 100)
+  // Cumplido = bloque lleno; pasado = sin relleno (solo el número en rojo).
+  const block = tone === "over" ? 0 : tone === "done" ? 100 : pct
   const paused = h.metric === "time" && !running && total > 0 && !met
   // Pausado = el mismo reloj, congelado en lo guardado (total viene en segundos).
   const r: Run = { running, clock: clock ?? (paused ? formatClock(total) : null), paused }
   const isActive = running || (h.metric === "check" && total > 0)
 
   return (
-    <div
-      className={cn(
-        "group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-card px-3.5 py-3",
-        // E ghost fuerte: 0.82 → 1 + borde, sin el lavado muted de antes. Sólo en dark: sobre
-        // blanco la opacidad lava el texto hacia el fondo y el muted cae bajo AA.
-        "dark:opacity-[0.82] hover:opacity-100 hover:border-input transition-[opacity,border-color] duration-200",
-        h.kind === "bad" && !over && "border-dashed",
-        over ? "border-destructive text-destructive" : "border-border",
-      )}
-    >
-      <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px] bg-muted">
-        <span
-          style={{ width: `${pct}%`, backgroundColor: cellColor(h.kind, pct) }}
-          className="block h-full transition-[width,background-color] duration-300"
-        />
-      </span>
-
-      {/* Título E ícono disparan la acción primaria (igual que el botón de acción); la línea de
-          meta/frecuencia y los dots siguen sin ser clickeables. */}
-      <button
-        type="button"
-        onClick={onQuick}
-        aria-label={quickLabel(h, r)}
-        aria-pressed={h.metric === "check" ? total > 0 : undefined}
+    // Bloque que sube sobre hatch (spec, ADR 0023): vacío = hatch, progreso = bloque a pct.
+    <div className="hatch relative flex min-h-[140px] flex-col justify-between gap-3 overflow-hidden rounded-[24px] bg-card p-4 shadow-card">
+      <span
+        aria-hidden
+        style={{ height: `${block}%` }}
         className={cn(
-          "relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[10px] text-fg-secondary transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-          "bg-muted",
-          running && "text-signal",
-          r.paused && "ring-1 ring-input",
+          "absolute inset-x-0 bottom-0 rounded-[24px] bg-habit-block transition-[height] duration-300",
+          paused && "opacity-60",
         )}
-      >
-        {running ? (
-          <Pause size={18} fill="currentColor" strokeWidth={0} />
-        ) : (
-          <NotebookIcon icon={h.icon} fallback={Target} className="size-6" />
-        )}
-      </button>
-
-      <HabitTileInfo h={h} state={state} total={total} r={r} met={met} onQuick={onQuick} />
-
-      <HabitTileActions
-        h={h}
-        state={state}
-        total={total}
-        running={running}
-        isActive={isActive}
-        pending={pending}
-        quickLabel={quickLabel(h, r)}
-        onQuick={onQuick}
       />
+
+      <div className="relative flex items-center gap-3">
+        {/* Ícono, nombre y botón disparan la acción primaria; meta y dots no son clickeables. */}
+        <button
+          type="button"
+          onClick={onQuick}
+          aria-label={quickLabel(h, r)}
+          aria-pressed={h.metric === "check" ? total > 0 : undefined}
+          className={cn(
+            "flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-muted text-fg-secondary transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+            running && "text-signal",
+          )}
+        >
+          {running ? (
+            <Pause size={16} fill="currentColor" strokeWidth={0} />
+          ) : (
+            <NotebookIcon icon={h.icon} fallback={Target} className="size-5" />
+          )}
+        </button>
+
+        <HabitTileInfo h={h} total={total} r={r} tone={tone} onQuick={onQuick} />
+
+        <HabitTileActions
+          h={h}
+          state={state}
+          total={total}
+          running={running}
+          isActive={isActive}
+          pending={pending}
+          quickLabel={quickLabel(h, r)}
+          onQuick={onQuick}
+        />
+      </div>
+
+      <div className="relative flex flex-col gap-3">
+        <HabitTileValue h={h} state={state} total={total} r={r} tone={tone} />
+      </div>
     </div>
   )
 }

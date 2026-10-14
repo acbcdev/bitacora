@@ -84,6 +84,7 @@
   --color-hero: var(--hero);
   --color-track: var(--track);
   --color-hatch: var(--hatch);
+  --color-habit-block: var(--habit-block);
   --color-fg-secondary: var(--fg-secondary);
   --color-sunken: var(--sunken);
   --color-border-strong: var(--border-strong);
@@ -133,6 +134,8 @@
   --border-strong: #2b2c2f;
   --track: #e4e4df;
   --hatch: #f0f0ec;
+  --hatch-w: 1.5px;
+  --habit-block: #e9e9e4;
   --signal: #15803d;
   --warning: #c9962b;
 
@@ -194,6 +197,8 @@
   --border-strong: #c9cacc;
   --track: #2d2d31;
   --hatch: #222225;
+  --hatch-w: 2px;
+  --habit-block: var(--hero);
   --signal: #35c26b;
   --warning: #d5a75f;
 
@@ -310,6 +315,14 @@
     border-radius: 8px;
     background: var(--muted);
     z-index: -1;
+  }
+  /* Hatch = "lo que falta" (tile de hábito vacío). Grosor 2px dark / 1.5px light. */
+  .hatch {
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--hatch) 0 var(--hatch-w),
+      transparent var(--hatch-w) 9px
+    );
   }
   .mono {
     @apply font-mono text-xs text-fg-secondary;
