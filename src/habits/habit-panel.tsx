@@ -80,7 +80,7 @@ export function HabitHistory({ habit, state }: { habit: Habit; state: HabitState
         <span
           key={n}
           style={{ backgroundColor: cellColor(habit.kind, cell, n === state.days.length - 1) }}
-          className="h-7 flex-1 rounded-[3px]"
+          className="h-7 flex-1 rounded-xs"
         />
       ))}
     </div>
@@ -185,7 +185,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
 
       <DropoverContent
         title={habit.name}
-        className="flex flex-col gap-5 rounded-2xl p-5 shadow-xl md:w-92 md:gap-5 md:p-6 max-md:min-h-[60vh] max-md:rounded-t-[20px] max-md:px-5 max-md:pb-10 max-md:pt-3"
+        className="flex flex-col gap-5 rounded-xl p-5 shadow-xl md:w-92 md:gap-5 md:p-6 max-md:min-h-[60vh] max-md:rounded-t-xl max-md:px-5 max-md:pb-10 max-md:pt-3"
       >
         <p className="eyebrow leading-none">
           {habit.name} · {goalText(habit)}

@@ -162,12 +162,12 @@ function HabitTile({
 
   return (
     // Bloque que sube sobre hatch (spec, ADR 0023): vacío = hatch, progreso = bloque a pct.
-    <div className="hatch relative flex min-h-[140px] flex-col justify-between gap-3 overflow-hidden rounded-[24px] bg-card p-4 shadow-card">
+    <div className="group hatch relative flex min-h-[140px] flex-col justify-between gap-3 overflow-hidden rounded-xl bg-card p-4 shadow-card">
       <span
         aria-hidden
         style={{ height: `${block}%` }}
         className={cn(
-          "absolute inset-x-0 bottom-0 rounded-[24px] bg-habit-block transition-[height] duration-300",
+          "absolute inset-x-0 bottom-0 rounded-xl bg-habit-block transition-[height] duration-300",
           paused && "opacity-60",
         )}
       />
