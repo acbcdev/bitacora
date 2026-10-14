@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { Button } from "@/core/ui/button"
 import { Kbd, KbdGroup } from "@/core/ui/kbd"
@@ -47,7 +48,8 @@ export function NoteCard({
         <span className="mono-dim shrink-0 whitespace-nowrap">{position}</span>
       </div>
       <div key={item.id} className="note-in mb-6">
-        <h1 className="mb-1.5 line-clamp-2 min-h-[2lh] text-3xl font-semibold tracking-tight text-pretty">
+        {/* 44px liviano: 400 en light, 300 en dark — claro sobre oscuro engorda (irradiación). */}
+        <h1 className="mb-2.5 line-clamp-2 min-h-[2lh] text-[44px] leading-[1.1] font-normal tracking-[-0.035em] text-pretty dark:font-light">
           {item.title || "(sin título)"}
         </h1>
         <p className="line-clamp-3 min-h-[3lh] text-muted-foreground">
@@ -68,27 +70,25 @@ export function NoteCard({
             Vista expandida
           </Button>
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
-            className={cn(FOOTER_BTN, "max-md:h-10 max-md:px-4")}
+            aria-label="Anterior"
+            className={cn(FOOTER_BTN, "size-13 border-foreground/10")}
             disabled={isFirst}
             onClick={onPrev}
           >
-            <Kbd aria-hidden className="max-md:hidden">
-              ←
-            </Kbd>
-            Volver
+            <ArrowLeft />
           </Button>
-          <Button
-            variant="ghost"
-            className={cn(FOOTER_BTN, "max-md:h-10 max-md:px-4")}
-            onClick={onNext}
-          >
-            <Kbd aria-hidden className="max-md:hidden">
+          {/* kbd en botón sólido: tinte del propio texto, se adapta a cualquier fondo (spec). */}
+          <Button className="h-13 px-7.5 text-[15px]" onClick={onNext}>
+            Siguiente
+            <Kbd
+              aria-hidden
+              className="bg-[color-mix(in_oklab,currentColor_10%,transparent)] text-current opacity-70 max-md:hidden"
+            >
               →
             </Kbd>
-            Siguiente
           </Button>
         </div>
       </div>
