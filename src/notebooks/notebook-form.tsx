@@ -79,7 +79,7 @@ export function NotebookForm({
               <IconPicker
                 icon={icon}
                 onChange={setIcon}
-                className="size-9 rounded-[10px] bg-secondary border-border hover:bg-accent shrink-0"
+                className="size-9 rounded-md bg-secondary border-border hover:bg-accent shrink-0"
               />
               <label htmlFor="notebook-name" className="sr-only">
                 Nombre
