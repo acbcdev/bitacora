@@ -11,7 +11,7 @@ import { useReviewSession } from "@/review/review-session"
 import { FlashcardCard } from "@/review/flashcard-card"
 import { NoteCard } from "@/review/note-card"
 import { useSnapshot } from "@/core/lib/snapshot"
-import { DAILY_GOAL, EMPTY_READ_STATS, readStats } from "@/core/store/derive"
+import { dailyCompliance, DAILY_GOAL, EMPTY_READ_STATS, readStats } from "@/core/store/derive"
 import { cn } from "@/core/lib/utils"
 import { forceLoading } from "@/core/lib/sample"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
@@ -36,6 +36,7 @@ export function Review() {
   const session = useReviewSession()
   const { data: notebooks = [] } = useNotebooks()
   const { data: stats = EMPTY_READ_STATS } = useSnapshot((s) => readStats(s))
+  const { data: days = [] } = useSnapshot((s) => dailyCompliance(s))
   const delFlashcard = useDeleteNote()
   const navigate = useNavigate()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -130,7 +131,7 @@ export function Review() {
 
   return (
     <div className="fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8">
-      <ReviewStats streak={streak} readToday={readToday} byDay={stats?.byDay} />
+      <ReviewStats streak={streak} readToday={readToday} days={days} />
 
       <Progress
         value={donePct}
@@ -141,10 +142,8 @@ export function Review() {
       {/* `relative`: el target de abrir es un overlay sobre la Card entera (abajo). */}
       <Card
         className={cn(
-          "relative mb-8 py-6",
-          // Mismo hover que las cards de Notebooks (notebooks.tsx), un poco más suave: sobre 1120px de
-          // superficie el --muted sólido pesa demasiado.
-          note?.kind === "note" && !done && "transition-colors hover:bg-muted/55",
+          // La card que importa (ADR 0023): --hero sube por luminancia en dark y por sombra en light.
+          "relative mb-8 rounded-[32px] bg-hero py-7 shadow-hero",
         )}
       >
         {done || !note ? (

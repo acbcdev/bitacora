@@ -186,7 +186,7 @@ export function reviewQueue(snap: Snapshot, limit: number): NoteRef[] {
 // Meta diaria = el batch de review_queue() (migrations/0003). El diseño muestra "leídas hoy N/M".
 export const DAILY_GOAL = 3
 
-// Ventana del hover de la racha. Misma que la de hábitos: más atrás es un calendario, otra UI.
+// Ventana de las barras del header de Hoy: más atrás es un calendario, otra UI.
 export const HISTORY_DAYS = 14
 
 export type NoteReads = { count: number; last: string | null }
@@ -223,16 +223,6 @@ export function readStats(snap: Snapshot, now = new Date()): ReadStats {
   }
 
   return { today: byDay.get(dayKey(now)) ?? 0, streak, byNote, byDay }
-}
-
-// Los últimos HISTORY_DAYS días en orden, con los huecos en cero: la grilla necesita las celdas
-// vacías, y byDay sólo tiene los días que existieron.
-export function lastDays(byDay: Map<string, number> | undefined, now = new Date()) {
-  return Array.from({ length: HISTORY_DAYS }, (_, i) => {
-    const d = new Date(now)
-    d.setDate(d.getDate() - (HISTORY_DAYS - 1 - i))
-    return byDay?.get(dayKey(d)) ?? 0
-  })
 }
 
 // El `target` que le corresponde a un día del log: si la fila YA existe vale el suyo —congelado—,
@@ -412,4 +402,22 @@ export function habitState(snap: Snapshot, habitId: string, now = new Date()): H
   const habit = snap.habits.find((h) => h.id === habitId)
   if (!habit) return null
   return deriveHabit(habit, snap.habitLog, now)
+}
+
+// Cumplimiento diario (CONTEXT.md): las barras del header de Hoy. Por día, hábitos `day` vivos ese
+// día (creados ese día o antes) y cuántos cumplieron contra el target congelado. Semanales y
+// mensuales no entran: no hay una convención honesta para partirlos por día (ADR 0013).
+export function dailyCompliance(snap: Snapshot, now = new Date()) {
+  const daily = snap.habits.filter((h) => h.period === "day")
+  return Array.from({ length: HISTORY_DAYS }, (_, i) => {
+    const d = new Date(now)
+    d.setDate(d.getDate() - (HISTORY_DAYS - 1 - i))
+    const day = dayKey(d)
+    const alive = daily.filter((h) => dayKey(new Date(h.created_at)) <= day)
+    const met = alive.filter((h) => {
+      const amount = snap.habitLog.find((r) => r.habit_id === h.id && r.day === day)?.amount ?? 0
+      return meets(h.kind, amount, frozenTarget(snap.habitLog, h.id, day, h.target))
+    }).length
+    return { met, total: alive.length }
+  })
 }
