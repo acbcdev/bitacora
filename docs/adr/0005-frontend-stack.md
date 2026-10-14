@@ -29,7 +29,7 @@ recurrente** de esta app, no un lujo → Query es la herramienta correcta desde 
 
 ## Lo que NO se hace (anti over-engineering)
 
-- **Sin design system formal:** no tokens propios, no Storybook, no biblioteca de componentes
+- **Sin design system formal** (_tokens: enmendado por ADR 0023_)**:** no tokens propios, no Storybook, no biblioteca de componentes
   documentada. Es una app de 3 pantallas personal — un design system sería 40h de yak-shaving
   contra el simplicity-first. Las guías visuales viven en `docs/ui-principles.md` (un doc corto),
   no en un sistema.

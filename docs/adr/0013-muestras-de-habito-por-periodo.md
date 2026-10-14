@@ -1,6 +1,6 @@
 # ADR 0013 — Muestras de hábito por período (serie única, dot proporcional, racha con unidad)
 
-**Status:** Accepted
+**Status:** Accepted — §2–3 enmendados en el color por ADR 0023 (dot proporcional pero monocromo)
 
 ## Contexto
 
