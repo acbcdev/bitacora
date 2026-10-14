@@ -1,14 +1,12 @@
 import { Flame } from "lucide-react"
 import { cn } from "@/core/lib/utils"
-import { DAILY_GOAL, HISTORY_DAYS } from "@/core/store/derive"
-
-type Day = { met: number; total: number }
+import { DAILY_GOAL, HISTORY_DAYS, type ComplianceDay } from "@/core/store/derive"
 
 const DATE = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long" })
 
 // Cumplimiento diario (CONTEXT.md) en barras finas: altura = cumplidos/total (piso 12%), verde
-// SOLO si cumplió todo — hoy incluido. Hoy sin cumplir va en ink-2 para marcarlo sin mentir verde.
-function DailyBars({ days }: { days: Day[] }) {
+// SOLO si cumplió todo — hoy incluido. Hoy sin cumplir va en fg-secondary para marcarlo sin mentir verde.
+function DailyBars({ days }: { days: ComplianceDay[] }) {
   return (
     <span
       role="img"
@@ -41,14 +39,14 @@ export function ReviewStats({
 }: {
   streak: number
   readToday: number
-  days: Day[]
+  days: ComplianceDay[]
 }) {
   return (
     <div className="mb-4 flex items-center justify-between">
       <p className="eyebrow">Hoy · {DATE.format(new Date()).replace(",", "")}</p>
       <div className="flex items-center gap-6">
         <span className="inline-flex items-center gap-1.5">
-          <Flame size={14} className="text-signal" />
+          <Flame size={14} className={streak > 0 ? "text-signal" : "text-muted-foreground"} />
           <span className="mono">
             {streak} {streak === 1 ? "día" : "días"}
           </span>

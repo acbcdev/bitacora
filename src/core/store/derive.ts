@@ -407,7 +407,9 @@ export function habitState(snap: Snapshot, habitId: string, now = new Date()): H
 // Cumplimiento diario (CONTEXT.md): las barras del header de Hoy. Por día, hábitos `day` vivos ese
 // día (creados ese día o antes) y cuántos cumplieron contra el target congelado. Semanales y
 // mensuales no entran: no hay una convención honesta para partirlos por día (ADR 0013).
-export function dailyCompliance(snap: Snapshot, now = new Date()) {
+export type ComplianceDay = { met: number; total: number }
+
+export function dailyCompliance(snap: Snapshot, now = new Date()): ComplianceDay[] {
   const daily = snap.habits.filter((h) => h.period === "day")
   return Array.from({ length: HISTORY_DAYS }, (_, i) => {
     const d = new Date(now)
