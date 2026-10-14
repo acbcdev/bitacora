@@ -1,8 +1,8 @@
 import {
+  dailyCompliance,
   notebookNotes,
   notebooksPage,
   frozenTarget,
-  lastDays,
   lastEditedNote,
   liveNotebooks,
   noteRefs,
@@ -10,7 +10,7 @@ import {
   reviewQueue,
   type NotebooksQuery,
 } from "@/core/store/derive"
-import type { Notebook } from "@/core/types/database"
+import type { Habit, Notebook } from "@/core/types/database"
 import type { NoteRef, ReadRow, Snapshot } from "@/core/store/types"
 
 // `derive.ts` es donde vive TODA la derivación del dominio, y la comparten los dos adapters. Es
@@ -254,7 +254,7 @@ describe("frozenTarget", () => {
   })
 })
 
-describe("readStats / lastDays", () => {
+describe("readStats", () => {
   const now = new Date("2026-07-24T20:00:00")
   const at = (day: string, h = "10:00:00") => `2026-07-${day}T${h}`
 
@@ -290,25 +290,68 @@ describe("readStats / lastDays", () => {
     )
     expect(s.byNote.get("n1")).toEqual({ count: 3, last: at("24", "09:00:00") })
   })
+})
 
-  test("lastDays devuelve 14 días en orden, con huecos en cero y hoy al final", () => {
-    const s = readStats(
-      snapshot({
-        reads: [
-          read("n1", at("24")),
-          read("n2", at("24", "11:00:00")),
-          read("n3", at("22")),
-          // primer día de la ventana (14 días = desde el 11)
-          read("n4", at("11")),
-        ],
-      }),
-      now,
+describe("dailyCompliance", () => {
+  // Hoy = 13 oct 2026 al mediodía local; la ventana termina hoy (índice 13).
+  const now = new Date(2026, 9, 13, 12)
+  const createdAt = (d: number) => new Date(2026, 9, d, 9).toISOString()
+  const habit = (over: Partial<Habit> = {}): Habit => ({
+    id: "h",
+    user_id: "u1",
+    name: "Hábito",
+    icon: null,
+    kind: "good",
+    metric: "count",
+    target: 3,
+    period: "day",
+    days: null,
+    deleted_at: null,
+    created_at: createdAt(1),
+    ...over,
+  })
+  const row = (habit_id: string, day: string, amount: number, target = 3) => ({
+    habit_id,
+    day,
+    amount,
+    target,
+  })
+
+  test("día mixto: good cumplido + bad sin log cumplen, good parcial no", () => {
+    const snap = snapshot({
+      habits: [
+        habit({ id: "ok" }),
+        habit({ id: "partial" }),
+        habit({ id: "bad", kind: "bad", target: 0 }),
+      ],
+      habitLog: [row("ok", "2026-10-12", 3), row("partial", "2026-10-12", 1)],
+    })
+    expect(dailyCompliance(snap, now)[12]).toEqual({ met: 2, total: 3 })
+  })
+
+  test("se puntúa contra el target congelado de la fila, no la meta viva", () => {
+    const snap = snapshot({
+      habits: [habit({ id: "h", target: 5 })],
+      habitLog: [row("h", "2026-10-12", 3, 3)],
+    })
+    expect(dailyCompliance(snap, now)[12]).toEqual({ met: 1, total: 1 })
+  })
+
+  test("un hábito creado después del día no cuenta ese día", () => {
+    const snap = snapshot({ habits: [habit({ id: "h", kind: "bad", created_at: createdAt(12) })] })
+    const days = dailyCompliance(snap, now)
+    expect(days[11]).toEqual({ met: 0, total: 0 }) // 11 oct
+    expect(days[12]).toEqual({ met: 1, total: 1 }) // 12 oct, día de creación
+  })
+
+  test("hábitos semanales no entran", () => {
+    const snap = snapshot({ habits: [habit({ id: "w", period: "week", kind: "bad" })] })
+    expect(dailyCompliance(snap, now)[13]).toEqual({ met: 0, total: 0 })
+  })
+
+  test("sin hábitos diarios: 14 días en cero", () => {
+    expect(dailyCompliance(snapshot(), now)).toEqual(
+      Array.from({ length: 14 }, () => ({ met: 0, total: 0 })),
     )
-    const days = lastDays(s.byDay, now)
-    expect(days).toHaveLength(14)
-    expect(days.at(-1)).toBe(2) // hoy, 24
-    expect(days.at(-2)).toBe(0) // 23, hueco
-    expect(days.at(-3)).toBe(1) // 22
-    expect(days[0]).toBe(1) // 11
   })
 })
