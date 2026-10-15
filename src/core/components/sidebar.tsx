@@ -3,18 +3,21 @@ import {
   Check,
   ChevronRight,
   ChevronsUpDown,
+  HardDrive,
   LogOut,
   Settings as SettingsIcon,
   Moon,
   MoreHorizontal,
   Pin,
   PinOff,
+  Plus,
   RotateCcw,
   Sun,
 } from "lucide-react"
 import { NavLink } from "react-router-dom"
 import { SidebarGroupSkeleton } from "@/core/components/skeletons"
 import { readSample, saveSample } from "@/core/lib/sample"
+import { store } from "@/core/store"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { toggleNotebookDone, useUpdateNotebook } from "@/notebooks/notebooks.api"
 import { togglePinnedNotebook, usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
@@ -91,6 +94,7 @@ export function Sidebar({
       },
     })
   }, [loading, pinned.length, active.length, recent.length, fijadoOpen, activosOpen, recientesOpen])
+  const local = store.mode === "local"
   const ThemeIcon = dark ? Sun : Moon
   const themeLabel = dark ? "Tema claro" : "Tema oscuro"
 
@@ -105,7 +109,7 @@ export function Sidebar({
             stroke="currentColor"
             strokeWidth="2.4"
             strokeLinecap="round"
-            className="size-5"
+            className="size-6"
           >
             <path d="M7 15c0-5 4-8.5 9-8.5s9 3.5 9 8.5" />
             <path d="M7 15c0 2.8-1.6 4-3 5.2M25 15c0 2.8 1.6 4 3 5.2" />
@@ -113,12 +117,26 @@ export function Sidebar({
             <circle cx="12.8" cy="11.5" r="1.3" fill="currentColor" stroke="none" />
             <circle cx="19.2" cy="11.5" r="1.3" fill="currentColor" stroke="none" />
           </svg>
-          <span className="text-base font-semibold tracking-tight">Bitácora</span>
+          <span className="text-lg font-semibold tracking-tight">Bitácora</span>
         </NavLink>
         <SidebarTrigger />
       </SidebarHeader>
 
       <SidebarContent>
+        {/* Fijo arriba y siempre visible (estilo "Chat nuevo"): con 0 notebooks es lo único que hay,
+            así el sidebar vacío no queda en blanco. En el rail queda el ícono con tooltip. */}
+        <SidebarGroup className="pb-0">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Nuevo notebook" className={ROW}>
+                <NavLink to="/notebooks?new=1">
+                  <Plus />
+                  <span>Nuevo notebook</span>
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
         {/* `min-h-0` para que este bloque sea el que se achica y scrollea: sin eso el footer
             (menú de cuenta) se va abajo del viewport cuando hay muchos notebooks. */}
         <div className="flex min-h-0 flex-col overflow-y-auto">
@@ -161,11 +179,22 @@ export function Sidebar({
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" tooltip={email}>
+                <SidebarMenuButton size="lg" tooltip={local ? "Modo local" : email}>
+                  {/* Modo local: el "email" es el placeholder "local", así que en vez de una "L"
+                      sin sentido se dice dónde viven los datos. */}
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent font-medium uppercase">
-                    {email.charAt(0)}
+                    {local ? <HardDrive className="size-4" /> : email.charAt(0)}
                   </span>
-                  <span className="truncate">{email}</span>
+                  {local ? (
+                    <span className="grid leading-tight">
+                      <span className="truncate">Modo local</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        Solo en este navegador
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="truncate">{email}</span>
+                  )}
                   <ChevronsUpDown className="ml-auto" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
