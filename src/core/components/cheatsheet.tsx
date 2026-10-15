@@ -56,16 +56,17 @@ export function Cheatsheet({ onClose }: { onClose: () => void }) {
         className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:w-4xl"
       >
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 sm:px-12 sm:py-10">
-          <div className="mx-auto max-w-md">
+          <div className="mx-auto max-w-3xl">
             <div className="mb-8 flex items-center justify-between">
               <DialogTitle className="text-2xl font-bold tracking-tight text-pretty">
                 Atajos de teclado
               </DialogTitle>
               <Kbd>esc</Kbd>
             </div>
-            <div className="flex flex-col gap-7">
+            {/* columns, no grid: balancea las alturas solo y un grupo nunca se parte en dos. */}
+            <div className="gap-x-12 sm:columns-2">
               {GROUPS.map(([group, items]) => (
-                <div key={group}>
+                <div key={group} className="break-inside-avoid pb-7 last:pb-0">
                   <p className="eyebrow mb-3">{group}</p>
                   <div className="flex flex-col gap-2.5">
                     {items.map(([key, label]) => (
