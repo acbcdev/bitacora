@@ -9,7 +9,7 @@ import { useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
 import type { NotebookInput } from "@/core/store/types"
 import type { Notebook as NotebookRow, NotebookStatus } from "@/core/types/database"
 
-export const PAGE_SIZE = 24
+export const PAGE_SIZE = 12
 
 // Payload del toggle "Marcar finalizado / Reabrir notebook", compartido por el sidebar y la
 // pantalla Notebook. Reabrir limpia `finished_at` — si no, un notebook activo quedaría con fecha de fin.

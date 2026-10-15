@@ -149,15 +149,15 @@ const many = (n: number) =>
     created_at: `2026-01-${String(n - i).padStart(2, "0")}`,
   }))
 
-test("la página trae 24 filas y Siguiente pide la que sigue", async () => {
+test("la página trae 12 filas y Siguiente pide la que sigue", async () => {
   state.notebooks = many(30)
   renderNotebooks()
   await screen.findByText("Notebook 0")
 
-  expect(screen.queryByText("Notebook 24")).toBeNull()
+  expect(screen.queryByText("Notebook 12")).toBeNull()
   fireEvent.click(screen.getByRole("link", { name: "Go to next page" }))
 
-  await screen.findByText("Notebook 24")
+  await screen.findByText("Notebook 12")
   expect(screen.queryByText("Notebook 0")).toBeNull()
 })
 
@@ -167,7 +167,7 @@ test("ir a la página 2 y volver por número", async () => {
   await screen.findByText("Notebook 0")
 
   fireEvent.click(screen.getByRole("link", { name: "2" }))
-  await screen.findByText("Notebook 24")
+  await screen.findByText("Notebook 12")
 
   fireEvent.click(screen.getByRole("link", { name: "1" }))
   await screen.findByText("Notebook 0")
@@ -180,7 +180,7 @@ test("buscar vuelve a la página 1 y el total sale del server", async () => {
   expect(screen.getByText("30 notebooks")).toBeInTheDocument()
 
   fireEvent.click(screen.getByRole("link", { name: "2" }))
-  await screen.findByText("Notebook 24")
+  await screen.findByText("Notebook 12")
 
   // El debounce del buscador es de 300ms; findBy* espera hasta 1s.
   fireEvent.change(screen.getByPlaceholderText("Buscar notebook…"), {
