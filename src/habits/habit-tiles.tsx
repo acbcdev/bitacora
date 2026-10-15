@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Pause, Plus, Target } from "lucide-react"
 import { Button } from "@/core/ui/button"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/core/ui/empty"
 import { HabitTileActions } from "@/habits/habit-tile-actions"
 import {
   HabitTileInfo,
@@ -120,6 +121,17 @@ export function HabitTiles() {
             onQuick={() => quick(e)}
           />
         ))}
+        {entries.length === 0 && (
+          <Empty className="hatch col-span-full rounded-xl bg-card py-10 shadow-card">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Target />
+              </EmptyMedia>
+              <EmptyTitle>Sin hábitos.</EmptyTitle>
+              <EmptyDescription>Creá uno con Nuevo.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
       </div>
 
       {/* El dígito no se dibuja: mismo trato que g>1..9, que monta hotkeys invisibles y vive en el
