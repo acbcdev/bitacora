@@ -52,7 +52,7 @@ import { store } from "@/core/store"
 // frescura y menú viven en una pastilla absoluta al pie derecho que los tapa (bg-inherit: siempre
 // matchea el bg de la fila, transparente/muted/activo) — el título gana ancho cuando no hay rótulo.
 const NOTE_ROW =
-  "group/note relative flex h-8 items-center rounded-lg px-2.5 text-[13px] text-fg-secondary hover:bg-muted data-[active=true]:bg-muted data-[active=true]:text-foreground"
+  "group/note flex h-8 items-center rounded-lg px-2.5 text-[13px] text-fg-secondary hover:bg-muted data-[active=true]:bg-muted data-[active=true]:text-foreground"
 
 // Frescura por nota: el rótulo y su color. ≤7d verde (recién repasada), ≥30d amarillo (se está
 // enfriando), null = nunca repasada → celda vacía (sin ruido). El repaso vive en Home/Repaso:
@@ -288,21 +288,27 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
           </div>
 
           <div className="flex flex-col gap-px px-2 py-1.5 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-2">
-            {visible.map((n, i) => {
+            {visible.map((n) => {
               const f = freshness(stats?.byNote.get(n.id)?.last)
               return (
                 <div key={n.id} data-active={n.id === selected?.id} className={NOTE_ROW}>
                   <button
                     onClick={() => select(n)}
-                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg text-left"
+                    className="flex min-w-0 flex-1 items-center rounded-lg text-left"
                   >
-                    <span className="mono-dim text-[10px]">{String(i + 1).padStart(2, "0")}</span>
                     <span className="truncate">{n.title || "(sin título)"}</span>
                   </button>
-                  {/* Pastilla absoluta al pie derecho: frescura a la vista, menú ⋯ al hover. Sin
-                      título tapado que robe clics: pointer-events-none en la pastilla, auto en el
-                      menú. El `pr-2.5` alinea el ⋯ con el padding de la fila. */}
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center bg-inherit pr-2.5 pl-5">
+                  {/* Frescura a la vista, menú ⋯ al hover. En el flujo (no absoluta): el título se
+                      encoge y su `truncate` pone el `…` antes de la pastilla en vez de quedar tapado.
+                      Sin rótulo ni hover la pastilla mide 0 y el título usa todo el ancho. */}
+                  <div
+                    className={cn(
+                      "flex shrink-0 items-center",
+                      f
+                        ? "pl-2"
+                        : "group-focus-within/note:pl-2 group-hover/note:pl-2 group-has-[[aria-expanded=true]]/note:pl-2",
+                    )}
+                  >
                     <span
                       className={cn(
                         "mono text-[10px]",
@@ -312,7 +318,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                     >
                       {f?.label}
                     </span>
-                    <span className="pointer-events-auto hidden group-focus-within/note:grid group-has-[[aria-expanded=true]]/note:grid group-hover/note:grid">
+                    <span className="hidden group-focus-within/note:grid group-has-[[aria-expanded=true]]/note:grid group-hover/note:grid">
                       <NoteActions
                         note={n}
                         // El índice lista refs sin content: se pide la nota entera recién al
