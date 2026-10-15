@@ -6,6 +6,7 @@ import { NoteSkeleton } from "@/core/components/skeletons"
 import { NoteActions } from "@/notes/note-actions"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
+import { alt, mod } from "@/core/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useNotebooks } from "@/notebooks/notebooks.api"
 import { useNoteDraft } from "@/notes/notes.api"
@@ -38,11 +39,14 @@ export function NoteEditor({
   // Global en esta vista: por default react-hotkeys-hook ignora teclas con foco en
   // input/textarea/contentEditable (para no interferir mientras escribís). Acá se fuerza para
   // Esc y mod+, porque el foco está siempre en el título o el editor. El `f` bare se retiró con
-  // la regla v2 (ADR 0017): las letras escriben, focus mode queda en ⌘F solo.
+  // la regla v2 (ADR 0017): las letras escriben. Focus mode en ⌘⇧F, no ⌘F: ese es el find del
+  // browser (ADR 0024).
   const globalScope = { enableOnFormTags: true, enableOnContentEditable: true }
-  // Toggle (⌘F entra y sale): el esc del fullscreen/chrome y el del editor lo maneja el hook
+  // Toggle (⌘⇧F entra y sale): el esc del fullscreen/chrome y el del editor lo maneja el hook
   // y su URL — ya no hay hotkey de escape propio acá.
-  useHotkeys("mod+f", onToggleFocus, { ...globalScope, preventDefault: true }, [onToggleFocus])
+  useHotkeys("mod+shift+f", onToggleFocus, { ...globalScope, preventDefault: true }, [
+    onToggleFocus,
+  ])
 
   if (isLoading) return <NoteSkeleton />
   if (!note) return <p className="p-8 text-muted-foreground">Nota no encontrada.</p>
@@ -101,11 +105,11 @@ export function NoteEditor({
 
       {!focus && (
         <p className="pt-10 text-center text-xs text-muted-foreground">
-          <Kbd>⌘F</Kbd> focus mode
+          <Kbd>{mod("Shift+F")}</Kbd> focus mode
           {embedded && (
             <>
               {" "}
-              · <Kbd>⌘J</Kbd>/<Kbd>⌘K</Kbd> entre notas
+              · <Kbd>{alt("J")}</Kbd>/<Kbd>{alt("K")}</Kbd> entre notas
             </>
           )}{" "}
           · autosave activado

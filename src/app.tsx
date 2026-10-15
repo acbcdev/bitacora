@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react"
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom"
+import { Route, Routes, useLocation, useMatch, useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
   Notebook as LucideNotebook,
@@ -25,7 +25,7 @@ import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { forceLoading } from "@/core/lib/sample"
 import { useNotebooks } from "@/notebooks/notebooks.api"
 import { usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
-import { useAllNoteRefs } from "@/notes/notes.api"
+import { useAllNoteRefs, useCreateNote } from "@/notes/notes.api"
 import { store } from "@/core/store"
 import type { AuthUser } from "@/core/store/types"
 import { mod } from "@/core/lib/utils"
@@ -61,7 +61,7 @@ export function App() {
   return <Shell user={user} />
 }
 
-// Shell del diseño: sidebar + main scrolleable + overlays (⌘K, ?). En focus mode (tecla F)
+// Shell del diseño: sidebar + main scrolleable + overlays (⌘K, ⌘/). En focus mode (⌘⇧F)
 // desaparece todo el chrome y queda sola la nota.
 function Shell({ user }: { user: AuthUser }) {
   const navigate = useNavigate()
@@ -69,6 +69,9 @@ function Shell({ user }: { user: AuthUser }) {
   const { data: notebooks = [], isLoading: notebooksLoading } = useNotebooks()
   const { data: notes = [] } = useAllNoteRefs()
   const pinnedIds = usePinnedNotebookIds()
+  // "Nueva nota" en la palette solo dentro de un notebook: ⌘N es del browser (ADR 0024).
+  const notebookId = useMatch("/notebook/:id/*")?.params.id
+  const createNote = useCreateNote()
 
   const [palette, setPalette] = useState(false)
   const [cheat, setCheat] = useState(false)
@@ -145,6 +148,19 @@ function Shell({ user }: { user: AuthUser }) {
         icon: <Plus />,
         run: () => navigate("/notebooks?new=1"),
       },
+      ...(notebookId
+        ? [
+            {
+              group: "Acciones",
+              label: "Nueva nota",
+              icon: <Plus />,
+              run: () =>
+                createNote.mutate(notebookId, {
+                  onSuccess: (note) => navigate(`/notebook/${notebookId}/${note.id}`),
+                }),
+            },
+          ]
+        : []),
       ...notebooks.map((c) => ({
         group: "Notebooks",
         label: c.name,
@@ -172,7 +188,7 @@ function Shell({ user }: { user: AuthUser }) {
       {
         group: "Vista",
         label: "Focus mode",
-        kbd: "F",
+        kbd: mod("Shift+F"),
         icon: <Maximize2 />,
         run: () => enter(),
       },

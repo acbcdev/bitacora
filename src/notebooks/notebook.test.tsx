@@ -186,10 +186,9 @@ test("entrar al notebook abre la última editada, sin reordenar el índice", asy
   ])
 })
 
-// mod+j / mod+k: alias forzado (enableOnContentEditable) para navegar entre notas con el foco
-// adentro del editor — j,k solos se desactivan ahí por default de la lib. ctrlKey: true porque
-// jsdom reporta un userAgent sin "mac", así que "mod" resuelve a ctrlKey acá, no metaKey.
-test("mod+k / mod+j mueven entre notas del notebook", async () => {
+// alt+j / alt+k (ADR 0024): forzado (enableOnContentEditable) para navegar entre notas con el
+// foco adentro del editor. No mod+: ⌘K es la palette.
+test("alt+k / alt+j mueven entre notas del notebook", async () => {
   state.notes = [
     {
       id: "n1",
@@ -213,12 +212,12 @@ test("mod+k / mod+j mueven entre notas del notebook", async () => {
   const { container } = renderNotebook()
   await screen.findByText("Nota 1")
 
-  fireEvent.keyDown(document, { code: "KeyK", ctrlKey: true })
+  fireEvent.keyDown(document, { code: "KeyK", altKey: true })
   await waitFor(() =>
     expect(container.querySelector('[data-active="true"]')?.textContent).toContain("Nota 2"),
   )
 
-  fireEvent.keyDown(document, { code: "KeyJ", ctrlKey: true })
+  fireEvent.keyDown(document, { code: "KeyJ", altKey: true })
   await waitFor(() =>
     expect(container.querySelector('[data-active="true"]')?.textContent).toContain("Nota 1"),
   )

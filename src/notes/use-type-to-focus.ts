@@ -3,7 +3,7 @@ import type { EditorHandle } from "@/core/components/editor"
 
 // Type-to-focus (ADR 0017, regla v2 "las letras escriben, mod+ manda"): en una pantalla con
 // editor (Nota standalone, Notebook embebido), un keydown de letra a-z con el editor desenfocado
-// enfoca el editor y la letra entra. Sin excepciones — ni F (focus mode queda sólo en ⌘F).
+// enfoca el editor y la letra entra. Sin excepciones — ni F (focus mode queda sólo en ⌘⇧F).
 //
 // No es un hotkey de react-hotkeys-hook: la lib no matchea "cualquier letra", y acá la letra no
 // dispara una acción sino que tiene que SEGUIR su curso (el editor, ya enfocado, recibe el mismo
@@ -15,7 +15,7 @@ export function useTypeToFocus(editorRef: React.RefObject<EditorHandle | null>) 
     }
 
     async function onKey(e: KeyboardEvent) {
-      // mod/alt/ctrl tienen su propia tecla asignada (⌘F, ⌘N, ⌘J/K, ⌘K palette): no escribir.
+      // mod/alt/ctrl tienen su propia tecla asignada (⌘⇧F, ⌥J/K, ⌘K palette): no escribir.
       if (e.metaKey || e.ctrlKey || e.altKey) return
       // Una letra, y sólo una (mayúscula incluida): Enter/Esc/flechas quedan al navegador — no
       // son acciones de app acá.

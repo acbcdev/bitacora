@@ -13,3 +13,4 @@ export const isMac = (ua = typeof navigator === "undefined" ? "" : navigator.use
 export const MOD = isMac() ? "⌘" : "Ctrl"
 
 export const mod = (key: string) => `${MOD}+${key}`
+export const alt = (key: string) => `${isMac() ? "⌥" : "Alt"}+${key}`

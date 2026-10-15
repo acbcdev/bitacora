@@ -1,4 +1,4 @@
-import { mod } from "@/core/lib/utils"
+import { alt, mod } from "@/core/lib/utils"
 import { Dialog, DialogContent, DialogTitle } from "@/core/ui/dialog"
 import { Kbd } from "@/core/ui/kbd"
 
@@ -18,15 +18,16 @@ const GROUPS: [string, [string, string][]][] = [
   [
     "Repaso",
     [
-      ["J", "Volver, sin contar"],
-      ["K", "Siguiente, sin contar"],
+      ["← / →", "Volver / siguiente, sin contar"],
+      ["Enter", "Abrir la nota / marcar leída"],
+      [mod("Enter"), "Expandir la nota"],
       ["H luego 1-9", "Registrar el hábito N de la tira"],
     ],
   ],
   [
     "Notebooks",
     [
-      ["J / K", "Moverse por la lista"],
+      ["J / K  ·  ← / →", "Moverse por la lista"],
       ["Enter", "Abrir el notebook seleccionado"],
       ["E", "Editar el notebook seleccionado"],
       ["Delete", "Borrar el notebook seleccionado"],
@@ -37,9 +38,9 @@ const GROUPS: [string, [string, string][]][] = [
   [
     "Nota",
     [
-      ["F", `Focus mode (${mod("F")} si estás escribiendo)`],
-      ["J / K", `Moverse entre notas (${mod("J")} / ${mod("K")} si estás escribiendo)`],
-      ["N", "Nueva nota"],
+      [mod("Shift+F"), "Focus mode"],
+      [`${alt("J")} / ${alt("K")}`, "Moverse entre notas del notebook"],
+      ["/", "Buscar en el índice"],
       ["Esc", "Salir de focus"],
     ],
   ],

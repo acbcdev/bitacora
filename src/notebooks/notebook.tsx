@@ -118,11 +118,10 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
     }
   }, [id, noteId, selected, isLoading, navigate])
 
-  // Nav del índice entre notas, en mod+ (regla v2, ADR 0017): las letras escriben en el editor,
-  // así que los bare j/k/left/right/n de la v1 murieron — las acciones de app van forzadas con
-  // enableOnContentEditable para andar también con el foco adentro del editor.
+  // Nav del índice entre notas en alt+J/K (ADR 0024): ⌘K es la palette y ⌘←/→ es inicio/fin de
+  // línea en el editor. Forzado con enableOnContentEditable para andar con el foco en el editor.
   // Se mueven sobre las notas VISIBLES (el filtro de búsqueda): saltar a una fila escondida
-  // se sentiría como un bug.
+  // se sentiría como un bug. Nueva nota no tiene tecla: ⌘N es del browser (ADR 0024).
   function step(dir: "back" | "forward") {
     const i = visible.findIndex((n) => n.id === selected?.id)
     const target =
@@ -130,23 +129,16 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
     if (target) select(target)
   }
   useSafeHotkeys(
-    "mod+j,mod+left",
+    "alt+j",
     () => step("back"),
     { enableOnContentEditable: true, preventDefault: true },
     [visible, selected],
   )
   useSafeHotkeys(
-    "mod+k,mod+right",
+    "alt+k",
     () => step("forward"),
     { enableOnContentEditable: true, preventDefault: true },
     [visible, selected],
-  )
-  // Nueva nota es deliberada aunque estés escribiendo: mod+n con alias forzado.
-  useSafeHotkeys(
-    "mod+n",
-    () => createNote.mutate(id!, { onSuccess: (note) => navigate(`/notebook/${id}/${note.id}`) }),
-    { enableOnContentEditable: true, preventDefault: true },
-    [id, createNote],
   )
 
   const read = notes.filter((n) => (stats?.byNote.get(n.id)?.count ?? 0) > 0).length
@@ -344,13 +336,12 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
               className="w-full"
               onClick={() =>
                 createNote.mutate(id!, {
-                  onSuccess: (newId) => navigate(`/notebook/${id}/${newId}`),
+                  onSuccess: (note) => navigate(`/notebook/${id}/${note.id}`),
                 })
               }
             >
               <Plus />
               Nueva nota
-              <Kbd className="ml-auto">⌘N</Kbd>
             </Button>
           </div>
 
