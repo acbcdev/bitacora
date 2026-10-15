@@ -143,7 +143,7 @@ export function Review() {
       <Card
         className={cn(
           // La card que importa (ADR 0023): --hero sube por luminancia en dark y por sombra en light.
-          "relative mb-8 rounded-2xl bg-hero py-7 shadow-hero",
+          "relative mb-8 rounded-2xl bg-hero py-5 shadow-hero",
         )}
       >
         {done || !note ? (

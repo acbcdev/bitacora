@@ -167,7 +167,7 @@ export function ReviewSkeleton() {
       <Skeleton className="mb-8 h-0.5 w-full" />
 
       {/* Hero card (NoteCard): mismo radio, padding y sombra que la real */}
-      <Card className="mb-8 rounded-2xl bg-hero py-7 shadow-hero">
+      <Card className="mb-8 rounded-2xl bg-hero py-5 shadow-hero">
         <div className="w-full px-5 sm:px-10">
           {/* Eyebrow: ícono + nombre del notebook · posición en la cola (min-h 2lh) */}
           <div className="mb-2 flex h-[28.6px] items-start justify-between gap-3">
@@ -177,7 +177,7 @@ export function ReviewSkeleton() {
             </span>
             <Skeleton className="h-3 w-9" />
           </div>
-          <div className="mb-6">
+          <div className="mb-5">
             {/* Título 44px × 2 líneas (lh 1.1 = 48.4px), mb-2.5 */}
             <div className="mb-2.5 flex flex-col">
               {["85%", "55%"].map((w) => (
@@ -186,15 +186,15 @@ export function ReviewSkeleton() {
                 </div>
               ))}
             </div>
-            {/* Preview del cuerpo: 3 líneas de text-base (lh 22.5px) */}
-            {["100%", "92%", "70%"].map((w) => (
+            {/* Preview del cuerpo: 5 líneas de text-base (lh 22.5px) */}
+            {["100%", "96%", "92%", "88%", "70%"].map((w) => (
               <div key={w} className="flex h-[22.5px] items-center">
                 <Skeleton className="h-3.5" style={{ width: w }} />
               </div>
             ))}
           </div>
           {/* Footer: atajos Abrir / Vista expandida (md+) · ← y Siguiente (h-13) */}
-          <div className="mt-8 flex items-center justify-end border-t pt-5 md:justify-between">
+          <div className="mt-2 flex items-center justify-end border-t pt-5 md:justify-between">
             <div className="hidden gap-2 md:flex">
               <Skeleton className="h-8 w-[94px]" />
               <Skeleton className="h-8 w-[170px]" />

@@ -47,17 +47,17 @@ export function NoteCard({
         </p>
         <span className="mono-dim shrink-0 whitespace-nowrap">{position}</span>
       </div>
-      <div key={item.id} className="note-in mb-6">
-        {/* 44px liviano: 400 en light, 300 en dark — claro sobre oscuro engorda (irradiación). */}
-        <h1 className="mb-2.5 line-clamp-2 min-h-[2lh] text-[44px] leading-[1.1] font-normal tracking-[-0.035em] text-pretty dark:font-light">
+      <div key={item.id} className="note-in mb-5">
+        {/* 44px: 550 en light, 450 en dark — claro sobre oscuro engorda (irradiación). */}
+        <h1 className="mb-2.5 line-clamp-2 min-h-[2lh] text-[44px] leading-[1.1] font-[550] tracking-[-0.035em] text-pretty dark:font-[450]">
           {item.title || "(sin título)"}
         </h1>
-        <p className="line-clamp-3 min-h-[3lh] max-w-[70ch] text-muted-foreground">
+        <p className="line-clamp-5 min-h-[5lh] max-w-[70ch] text-muted-foreground">
           {openNote && (docToPlainText(openNote.content) || <em>Nota sin contenido todavía.</em>)}
         </p>
       </div>
 
-      <div className="relative z-10 mt-8 flex items-center justify-end border-t pt-5 md:justify-between">
+      <div className="relative z-10 mt-2 flex items-center justify-end border-t pt-5 md:justify-between">
         <div className="hidden flex-wrap items-center gap-2 text-xs text-muted-foreground md:flex">
           <Button variant="ghost" className={FOOTER_BTN} onClick={onOpen}>
             <Kbd aria-hidden>Enter</Kbd>
