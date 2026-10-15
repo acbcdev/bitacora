@@ -30,7 +30,7 @@ export function Login() {
   return (
     // dvh, no screen: en iOS 100vh incluye la zona bajo la barra del navegador y empuja el
     // bloque "Probar sin cuenta" fuera del primer viewport.
-    <div className="grid min-h-dvh place-items-center px-6 py-10">
+    <div className="grid min-h-dvh grid-cols-1 place-items-center px-6 py-10">
       <div className="fade-in flex w-95 max-w-full flex-col gap-8">
         <div>
           <h1 className="text-3xl font-semibold tracking-tighter">Bitácora</h1>
@@ -93,15 +93,10 @@ export function Login() {
         {/* La puerta al modo local. Vive acá y no sólo en Ajustes porque el caso que resuelve es
             justamente el de alguien que todavía no tiene cuenta: probar la app sin registrarse.
             Recarga (setStorageMode) y arranca contra el navegador. */}
-        <div className="flex flex-col gap-3">
-          <Button variant="ghost" onClick={() => setStorageMode("local")} className="h-11">
-            <HardDrive />
-            Probar sin cuenta — todo en este navegador
-          </Button>
-          <div className="flex justify-between">
-            <span className="mono-dim">Sin contraseña — magic link</span>
-          </div>
-        </div>
+        <Button variant="ghost" onClick={() => setStorageMode("local")} className="h-11">
+          <HardDrive />
+          Probar sin cuenta — todo en este navegador
+        </Button>
       </div>
     </div>
   )
