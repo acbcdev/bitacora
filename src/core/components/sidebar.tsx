@@ -52,14 +52,10 @@ const ACTIVE =
   "aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-accent-foreground"
 
 // Fila del sidebar: más alta y con texto más grande que el default del registry (h-8/text-sm).
-// El `size-8!` del modo colapsado gana igual, así que el rail de iconos no cambia.
 const ROW = "h-10 text-base [&_svg]:size-5"
 
-// Lo que solo tiene sentido con el sidebar abierto: en el rail de iconos no hay ancho para texto.
-const EXPANDED_ONLY = "group-data-[collapsible=icon]:hidden"
-
-// Sidebar del diseño: nav de 2 items + notebooks activos + menú de cuenta al pie. Colapsable a rail de
-// iconos (chrome mínimo, ui-principles #3). El estado colapsado lo controla App.
+// Sidebar del diseño: nav de 2 items + notebooks activos + menú de cuenta al pie. Colapsado se oculta
+// entero (offcanvas, chrome mínimo, ui-principles #3). El estado colapsado lo controla App.
 export function Sidebar({
   notebooks,
   loading,
@@ -99,9 +95,9 @@ export function Sidebar({
   const themeLabel = dark ? "Tema claro" : "Tema oscuro"
 
   return (
-    <SidebarRoot collapsible="icon">
-      <SidebarHeader className="flex-row items-center justify-between gap-0 pt-4 pr-2 pb-2 pl-4 group-data-[collapsible=icon]:px-2">
-        <NavLink to="/" aria-label="Inicio" className={`flex items-center gap-2 ${EXPANDED_ONLY}`}>
+    <SidebarRoot collapsible="offcanvas">
+      <SidebarHeader className="flex-row items-center justify-between gap-0 pt-4 pr-2 pb-2 pl-4">
+        <NavLink to="/" aria-label="Inicio" className="flex items-center gap-2">
           {/* Inline y no <img>: el svg usa currentColor, así hereda el color en dark mode. */}
           <svg
             viewBox="0 0 32 32"
@@ -124,11 +120,11 @@ export function Sidebar({
 
       <SidebarContent>
         {/* Fijo arriba y siempre visible (estilo "Chat nuevo"): con 0 notebooks es lo único que hay,
-            así el sidebar vacío no queda en blanco. En el rail queda el ícono con tooltip. */}
+            así el sidebar vacío no queda en blanco. */}
         <SidebarGroup className="pb-0">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Nuevo notebook" className={ROW}>
+              <SidebarMenuButton asChild className={ROW}>
                 <NavLink to="/notebooks?new=1">
                   <Plus />
                   <span>Nuevo notebook</span>
@@ -141,11 +137,11 @@ export function Sidebar({
             (menú de cuenta) se va abajo del viewport cuando hay muchos notebooks. */}
         <div className="flex min-h-0 flex-col overflow-y-auto">
           {loading ? (
-            <div className={EXPANDED_ONLY}>
+            <>
               <SidebarGroupSkeleton label="Fijado" {...sample.pinned} />
               <SidebarGroupSkeleton label="Activos" {...sample.active} />
               <SidebarGroupSkeleton label="Recientes" {...sample.recent} />
-            </div>
+            </>
           ) : (
             <>
               <NotebookGroup
@@ -179,7 +175,7 @@ export function Sidebar({
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" tooltip={local ? "Modo local" : email}>
+                <SidebarMenuButton size="lg">
                   {/* Modo local: el "email" es el placeholder "local", así que en vez de una "L"
                       sin sentido se dice dónde viven los datos. */}
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent font-medium uppercase">
@@ -290,7 +286,7 @@ function NotebookMenuItem({ notebook, pinned }: { notebook: Notebook; pinned: bo
       </SidebarMenuButton>
       {/* `data-[state=open]` mantiene las acciones visibles mientras el menú está abierto: si no,
           al mover el mouse al dropdown la fila pierde el hover y los botones desaparecen. */}
-      <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5 opacity-0 group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 group-has-data-[state=open]/menu-item:opacity-100 group-data-[collapsible=icon]:hidden">
+      <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5 opacity-0 group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 group-has-data-[state=open]/menu-item:opacity-100">
         <Button
           variant="ghost"
           size="icon-xs"
