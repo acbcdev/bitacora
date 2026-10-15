@@ -67,12 +67,15 @@ function StatusLabel({ h, total, r, tone }: { h: Habit; total: number; r: Run; t
       </span>
     )
   if (tone === "clean") return <span className="text-signal">limpio</span>
-  // Cumplido = check verde en toda métrica (spec "Hábito"); count/time suman su fracción.
+  // Cumplido = check verde en count/time, junto a su fracción. En check el ✓ grande ya está en
+  // el hero: acá va texto para no repetirlo.
   if (tone === "done")
-    return (
+    return h.metric === "check" ? (
+      <span className="text-signal">hecho</span>
+    ) : (
       <span className="inline-flex items-center gap-1 text-signal">
         <Check role="img" aria-label="cumplido" size={14} strokeWidth={3} />
-        {h.metric !== "check" && LABEL[h.metric](h, total)}
+        {LABEL[h.metric](h, total)}
       </span>
     )
   return <span>{LABEL[h.metric](h, total)}</span>
@@ -133,12 +136,14 @@ export function HabitTileValue({
   total,
   r,
   tone,
+  onQuick,
 }: {
   h: Habit
   state: { streak: number; days: DayCell[] }
   total: number
   r: Run
   tone: Tone
+  onQuick: () => void
 }) {
   const sub = zeroCeiling(h) ? "" : `/${displayTarget(h)}${unit(h)}`
   return (
@@ -151,11 +156,20 @@ export function HabitTileValue({
         )}
       >
         {h.metric === "check" ? (
-          total > 0 ? (
-            <Check aria-hidden className="size-[38px]" strokeWidth={2.25} />
-          ) : (
-            <Circle aria-hidden className="size-[38px]" strokeWidth={1.5} strokeDasharray="3 3" />
-          )
+          // En check el hero ES la marca: clickeable como el nombre y el botón.
+          <button
+            type="button"
+            onClick={onQuick}
+            aria-label={quickLabel(h, r)}
+            aria-pressed={total > 0}
+            className="cursor-pointer rounded-full focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            {total > 0 ? (
+              <Check aria-hidden className="size-[38px]" strokeWidth={2.25} />
+            ) : (
+              <Circle aria-hidden className="size-[38px]" strokeWidth={1.5} strokeDasharray="3 3" />
+            )}
+          </button>
         ) : (
           <>
             {r.running ? r.clock : displayAmount(h, total)}

@@ -29,6 +29,18 @@ test("doble tap rápido en check: toggle 0→1→0", async () => {
   await waitFor(() => expect(chip()).toHaveAttribute("aria-pressed", "false"))
 })
 
+// Check cumplido: el hero (✓ grande) también togglea, y el label dice "hecho" en vez de otro ✓.
+test("check: click en el hero marca y el label dice hecho", async () => {
+  const h = habit({ name: "Leer", metric: "check", target: 1, period: "day" })
+  renderApp(<HabitTiles />, { habits: [h], habitLog: [] })
+  await screen.findByText("Leer")
+
+  const hero = () => screen.getAllByRole("button", { name: "Registrar Leer" }).at(-1)!
+  fireEvent.click(hero())
+  await screen.findByText("hecho")
+  expect(hero()).toHaveAttribute("aria-pressed", "true")
+})
+
 // Spec "Hábito": cumplido = bloque lleno + check verde — también en count/time, no solo check.
 test("count cumplido muestra el check verde", async () => {
   const h = habit({ name: "Agua", metric: "count", target: 3 })

@@ -1,4 +1,4 @@
-import { Check, Pause, Play, Plus } from "lucide-react"
+import { Pause, Play, Plus, RotateCcw } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { HabitPanel } from "@/habits/habit-panel"
 import { cn } from "@/core/lib/utils"
@@ -57,7 +57,8 @@ export function HabitTileActions({
         ) : h.metric === "count" ? (
           <Plus className="size-3.5" strokeWidth={2.2} />
         ) : total > 0 ? (
-          <Check className="size-3.5" strokeWidth={3} />
+          // El hero ya marca cumplido: el botón dice lo que hace, deshacer (como el sidebar).
+          <RotateCcw className="size-3.5" strokeWidth={2.2} />
         ) : (
           <span className="size-3.5 rounded-full border-2 border-current opacity-60" />
         )}

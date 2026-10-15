@@ -158,7 +158,8 @@ function HabitTile({
   const paused = h.metric === "time" && !running && total > 0 && !met
   // Pausado = el mismo reloj, congelado en lo guardado (total viene en segundos).
   const r: Run = { running, clock: clock ?? (paused ? formatClock(total) : null), paused }
-  const isActive = running || (h.metric === "check" && total > 0)
+  // Check cumplido ya no es "activo": el hero lleva la marca y el botón pasa a deshacer.
+  const isActive = running
 
   return (
     // Bloque que sube sobre hatch (spec, ADR 0023): vacío = hatch, progreso = bloque a pct.
@@ -173,7 +174,7 @@ function HabitTile({
       />
 
       <div className="relative flex items-center gap-3">
-        {/* Ícono, nombre y botón disparan la acción primaria; meta y dots no son clickeables. */}
+        {/* Ícono, nombre, botón (y el hero en check) disparan la acción primaria; meta y dots no. */}
         <button
           type="button"
           onClick={onQuick}
@@ -206,7 +207,7 @@ function HabitTile({
       </div>
 
       <div className="relative flex flex-col gap-3">
-        <HabitTileValue h={h} state={state} total={total} r={r} tone={tone} />
+        <HabitTileValue h={h} state={state} total={total} r={r} tone={tone} onQuick={onQuick} />
       </div>
     </div>
   )
