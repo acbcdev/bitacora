@@ -143,7 +143,9 @@ export function Review() {
       <Card
         className={cn(
           // La card que importa (ADR 0023): --hero sube por luminancia en dark y por sombra en light.
-          "relative mb-8 rounded-2xl bg-hero py-5 shadow-hero",
+          "relative mb-8 rounded-2xl py-5",
+          // Vacío no es "la card que importa": baja a hatch ("lo que falta"), igual que los tiles.
+          done || !note ? "hatch bg-card shadow-card" : "bg-hero shadow-hero",
         )}
       >
         {done || !note ? (

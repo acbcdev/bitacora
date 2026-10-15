@@ -179,3 +179,9 @@ test("con ConfirmDelete abierto, Enter no queda capturado por Repaso", async () 
   expect(notPrevented).toBe(true)
   expect((await store.snapshot()).reads).toHaveLength(0)
 })
+
+test("sin notas: invita a escribir, sin Cargar más", async () => {
+  renderReview({ notes: [] })
+  await screen.findByText("Sin notas todavía.")
+  expect(screen.queryByRole("button", { name: "Cargar más" })).toBeNull()
+})
