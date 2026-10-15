@@ -239,10 +239,10 @@ function Shell({ user }: { user: AuthUser }) {
           />
         )}
         <main className="min-w-0 flex-1 overflow-y-auto">
-          {/* En mobile el Sidebar es un Sheet cerrado: su propio trigger vive adentro y no se ve
-              hasta abrirlo. Este de acá afuera es el único modo de abrirlo. En flujo normal, no
-              fixed: así no se pisa con el h1 de cada pantalla. */}
-          <SidebarTrigger className="mt-2 ml-2 md:hidden" />
+          {/* El trigger del Sidebar vive adentro: en mobile (Sheet cerrado) y en desktop colapsado
+              (offcanvas) no se ve. Este de acá afuera es el único modo de abrirlo. En flujo normal,
+              no fixed: así no se pisa con el h1 de cada pantalla. */}
+          <SidebarTrigger className={`mt-4 ml-4 ${collapsed && !focus ? "" : "md:hidden"}`} />
           {/* ErrorBoundary por sección: un crash en Review/Notebook/Note no mata el sidebar.
               key con sólo los 2 primeros segmentos resetea al navegar a otra pantalla o notebook,
               pero NO al cambiar de nota dentro del notebook (/notebook/:id/:noteId) — con pathname
