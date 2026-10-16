@@ -87,7 +87,7 @@ test("Enter abre nota sin marcar; Enter en dialog gateado a IntersectionObserver
   fireEvent.keyDown(document, { code: "Enter" })
   await screen.findByText("Nota dos")
   expect((await store.snapshot()).reads).toEqual([expect.objectContaining({ note_id: "n1" })])
-  expect(screen.getByText("2 / 3")).toBeInTheDocument()
+  expect(screen.getByText("2 / 2")).toBeInTheDocument()
 })
 
 test("Flashcard Enter revela y Correcto idempotente sin avanzar", async () => {
@@ -108,7 +108,7 @@ test("Flashcard Enter revela y Correcto idempotente sin avanzar", async () => {
   expect(await screen.findByText("Pregunta uno")).toBeInTheDocument()
 })
 
-test("Cargar más descongela: trae el 4to tras marcar", async () => {
+test("sesión continua: pasa de 3 sin corte, i / vistas, fin sin Cargar más", async () => {
   const { store } = renderReview({
     notes: [
       note({
@@ -146,24 +146,27 @@ test("Cargar más descongela: trae el 4to tras marcar", async () => {
     ] as unknown as Snapshot["notes"],
   })
   await screen.findByText("Nota uno")
-  expect(screen.getByText("1 / 3")).toBeInTheDocument()
+  expect(screen.queryByText(/ \/ /)).toBeNull() // una sola vista: sin contador
   fireEvent.click(screen.getByRole("button", { name: /Nota uno/ }))
   fireEvent.click(
     within(await screen.findByRole("dialog")).getByRole("button", { name: "Leído y siguiente" }),
   )
   await screen.findByText("Nota dos")
   expect((await store.snapshot()).reads).toHaveLength(1)
-  expect(screen.getByText("2 / 3")).toBeInTheDocument()
-  expect(screen.queryByText("Nota cuatro")).not.toBeInTheDocument()
+  expect(screen.getByText("2 / 2")).toBeInTheDocument()
   fireEvent.keyDown(document, { code: "ArrowRight" })
   await screen.findByText("Nota tres")
   fireEvent.keyDown(document, { code: "ArrowRight" })
-  await screen.findByText("Batch terminado.")
-  fireEvent.click(screen.getByRole("button", { name: "Cargar más" }))
-  await screen.findByText("Nota dos")
-  expect(screen.getByText("1 / 3")).toBeInTheDocument()
-  await waitFor(() => expect(screen.getByText("Nota dos")).toBeInTheDocument())
-  expect(await screen.findByText("Nota dos")).toBeInTheDocument()
+  await screen.findByText("Nota cuatro") // el 4to: ya no hay batch de 3
+  expect(screen.getByText("4 / 4")).toBeInTheDocument()
+  fireEvent.keyDown(document, { code: "ArrowLeft" })
+  await screen.findByText("Nota tres")
+  expect(screen.getByText("3 / 4")).toBeInTheDocument()
+  fireEvent.keyDown(document, { code: "ArrowRight" })
+  await screen.findByText("Nota cuatro")
+  fireEvent.keyDown(document, { code: "ArrowRight" })
+  await screen.findByText("Repasaste todo.")
+  expect(screen.queryByRole("button", { name: "Cargar más" })).toBeNull()
 })
 
 test("con ConfirmDelete abierto, Enter no queda capturado por Repaso", async () => {

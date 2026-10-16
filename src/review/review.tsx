@@ -173,11 +173,7 @@ export function Review() {
         )}
       >
         {done || !note ? (
-          <ReviewEmpty
-            count={session.length}
-            readToday={readToday}
-            onLoadMore={() => session.loadMore()}
-          />
+          <ReviewEmpty count={session.length} readToday={readToday} />
         ) : (
           <div className="w-full px-5 sm:px-10">
             {note.kind === "note" ? (

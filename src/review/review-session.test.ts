@@ -55,7 +55,6 @@ describe("useReviewSession", () => {
     h.queue.current = [ref("n1"), ref("n2"), ref("n3")]
     const { result } = session()
     expect(result.current.index).toBe(0)
-    expect(result.current.position).toBe("1 / 3")
     act(() => result.current.prev())
     expect(result.current.index).toBe(0)
     act(() => result.current.next())
@@ -71,6 +70,37 @@ describe("useReviewSession", () => {
     expect(result.current.index).toBe(2)
     expect(result.current.done).toBe(false)
     expect(result.current.item?.id).toBe("n3")
+  })
+
+  test("cola > 3 sin corte: next recorre todas y done recién al final", () => {
+    h.queue.current = ["a", "b", "c", "d", "e"].map((id) => ref(id))
+    const { result } = session()
+    const ids: string[] = []
+    while (!result.current.done) {
+      ids.push(result.current.item!.id)
+      act(() => result.current.next())
+    }
+    expect(ids).toEqual(["a", "b", "c", "d", "e"])
+    expect(result.current.length).toBe(5)
+  })
+
+  test("marcar leído no reordena la cola congelada", () => {
+    h.queue.current = [ref("a"), ref("b"), ref("c")]
+    const { result, rerender } = session()
+    act(() => result.current.mark())
+    h.queue.current = [ref("b"), ref("c"), ref("a")] // derived re-ordenado tras el read
+    rerender()
+    expect(result.current.item?.id).toBe("a")
+    act(() => result.current.next())
+    expect(result.current.item?.id).toBe("b")
+    act(() => result.current.next())
+    expect(result.current.item?.id).toBe("c")
+  })
+
+  test("loadMore ya no existe", () => {
+    h.queue.current = [ref("a")]
+    const { result } = session()
+    expect("loadMore" in result.current).toBe(false)
   })
 
   test("cola vacía arranca done", () => {
@@ -97,22 +127,6 @@ describe("useReviewSession", () => {
     expect(result.current.revealed).toBe(true)
     act(() => result.current.prev())
     expect(result.current.revealed).toBe(false)
-  })
-
-  test("loadMore descongela y resetea index/revealed", () => {
-    h.queue.current = [ref("n1"), ref("n2")]
-    const { result } = session()
-    act(() => result.current.next())
-    act(() => result.current.reveal())
-    expect(result.current.index).toBe(1)
-    expect(result.current.revealed).toBe(true)
-    act(() => result.current.loadMore([ref("n10"), ref("n11"), ref("n12"), ref("n13")]))
-    expect(result.current.length).toBe(4)
-    expect(result.current.index).toBe(0)
-    expect(result.current.item?.id).toBe("n10")
-    expect(result.current.revealed).toBe(false)
-    expect(result.current.position).toBe("1 / 4")
-    expect(result.current.done).toBe(false)
   })
 
   test("mark idempotente no duplica el repaso", () => {
@@ -178,15 +192,18 @@ describe("useReviewSession", () => {
     expect(result.current.revealed).toBe(false)
   })
 
-  test("position refleja index+1 / length", () => {
+  test("position = i / vistas: vacía con una vista, ← no achica vistas", () => {
     h.queue.current = [ref("a"), ref("b"), ref("c")]
     const { result } = session()
-    expect(result.current.position).toBe("1 / 3")
+    expect(result.current.position).toBe("")
     act(() => result.current.next())
-    expect(result.current.position).toBe("2 / 3")
+    expect(result.current.position).toBe("2 / 2")
+    act(() => result.current.prev())
+    expect(result.current.position).toBe("1 / 2")
+    act(() => result.current.next())
     act(() => result.current.next())
     expect(result.current.position).toBe("3 / 3")
     act(() => result.current.next())
-    expect(result.current.position).toBe("")
+    expect(result.current.position).toBe("") // done
   })
 })
