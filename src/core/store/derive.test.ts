@@ -195,7 +195,7 @@ describe("reviewQueue", () => {
         read("leida-vieja", "2026-01-01T10:00:00Z"),
       ],
     })
-    expect(reviewQueue(snap, 3).map((n) => n.id)).toEqual(["nunca", "leida-vieja", "leida-hoy"])
+    expect(reviewQueue(snap).map((n) => n.id)).toEqual(["nunca", "leida-vieja", "leida-hoy"])
   })
 
   test("de una nota leída varias veces manda la ÚLTIMA lectura, no la primera", () => {
@@ -207,7 +207,7 @@ describe("reviewQueue", () => {
         read("b", "2026-03-01T10:00:00Z"),
       ],
     })
-    expect(reviewQueue(snap, 3).map((n) => n.id)).toEqual(["b", "a"])
+    expect(reviewQueue(snap).map((n) => n.id)).toEqual(["b", "a"])
   })
 
   test("deja afuera las notas sin notebook y las de un notebook que ya no está", () => {
@@ -219,7 +219,7 @@ describe("reviewQueue", () => {
         note({ id: "de-notebook-muerto", notebook_id: "otro" }),
       ],
     })
-    expect(reviewQueue(snap, 9).map((n) => n.id)).toEqual(["ok"])
+    expect(reviewQueue(snap).map((n) => n.id)).toEqual(["ok"])
   })
 
   test("el status del notebook NO filtra: paused y done entran igual", () => {
@@ -227,17 +227,17 @@ describe("reviewQueue", () => {
       notebooks: [notebook({ id: "a", status: "paused" }), notebook({ id: "b", status: "done" })],
       notes: [note({ id: "n1", notebook_id: "a" }), note({ id: "n2", notebook_id: "b" })],
     })
-    expect(reviewQueue(snap, 9)).toHaveLength(2)
+    expect(reviewQueue(snap)).toHaveLength(2)
   })
 
   test("las flashcards entran a la cola (sólo se mezclan por antigüedad)", () => {
     const snap = snapshot({ notes: [note({ id: "n" }), note({ id: "f", kind: "flashcard" })] })
-    expect(reviewQueue(snap, 9)).toHaveLength(2)
+    expect(reviewQueue(snap)).toHaveLength(2)
   })
 
-  test("corta en el límite", () => {
+  test("sin límite: devuelve la cola completa", () => {
     const snap = snapshot({ notes: Array.from({ length: 10 }, (_, i) => note({ id: `n${i}` })) })
-    expect(reviewQueue(snap, 3)).toHaveLength(3)
+    expect(reviewQueue(snap)).toHaveLength(10)
   })
 })
 

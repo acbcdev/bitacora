@@ -163,7 +163,7 @@ export function notebooksPage(
 // Diferencia consciente con la RPC: ante empate de fecha, acá desempata `created_at` y después
 // `id`. La RPC no desempataba, así que el orden lo elegía Postgres. Determinista es mejor que
 // fiel a un no-determinismo.
-export function reviewQueue(snap: Snapshot, limit: number): NoteRef[] {
+export function reviewQueue(snap: Snapshot): NoteRef[] {
   const perNote = readsByNote(snap.reads)
   const live = new Set(snap.notebooks.map((c) => c.id))
 
@@ -180,7 +180,6 @@ export function reviewQueue(snap: Snapshot, limit: number): NoteRef[] {
       }
       return a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)
     })
-    .slice(0, limit)
 }
 
 // Meta diaria = el batch de review_queue() (migrations/0003). El diseño muestra "leídas hoy N/M".

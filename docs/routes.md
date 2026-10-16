@@ -9,7 +9,7 @@ Fuente de verdad del routing. Si agregás una ruta, actualizá acá y en `src/ap
 
 | Path | Component | Archivo | Notas |
 |---|---|---|---|
-| `/` | `<Review />` | `src/review/review.tsx` | Repaso: cola `derive.reviewQueue(snapshot, 3)` (notas + flashcards mezcladas), congelada al montar. `Enter` abre dialog, `J`/`K` navega sin contar |
+| `/` | `<Review />` | `src/review/review.tsx` | Repaso: cola `derive.reviewQueue(snapshot)` completa (notas + flashcards mezcladas), congelada al montar y servida de a una. `Enter` abre dialog, `J`/`K` navega sin contar |
 | `/courses` | `<Courses />` | `src/courses/courses.tsx` | Lista cursos con estado/progreso derivado. `?new=1` abre form creación |
 | `/course/:id` | `<Course />` | `src/courses/course.tsx` | Curso + sus notas (`kind='note'`). Botón "Generar flashcards" + % retención |
 | `/course/:id/:noteId` | `<Course />` | `src/courses/course.tsx` | Misma pantalla, nota enfocada. Con `?focus=1` entra en focus mode |
