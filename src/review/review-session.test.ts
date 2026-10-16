@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   // Sin EMPTY_READ_STATS acá: vi.hoisted corre antes de los imports del módulo.
   stats: { current: { today: 0, streak: 0, byNote: new Map(), byDay: new Map() } as ReadStats },
   markMutate: vi.fn(),
+  useNote: vi.fn((_id?: string) => ({})),
 }))
 
 vi.mock("@/review/review.api", () => ({
@@ -19,7 +20,7 @@ vi.mock("@/review/review.api", () => ({
   useMarkRead: () => ({ mutate: h.markMutate }),
 }))
 // El prefetch de la siguiente (useNote) es IO: su efecto se testea en review.test.tsx.
-vi.mock("@/notes/notes.api", () => ({ useNote: () => ({}) }))
+vi.mock("@/notes/notes.api", () => ({ useNote: (id?: string) => h.useNote(id) }))
 vi.mock("@/core/lib/snapshot", () => ({
   useSnapshot: () => ({ data: h.stats.current }),
 }))
@@ -97,6 +98,18 @@ describe("useReviewSession", () => {
     expect(result.current.item?.id).toBe("b")
     act(() => result.current.next())
     expect(result.current.item?.id).toBe("c")
+  })
+
+  test("el prefetch no suma a vistas", () => {
+    h.queue.current = [ref("a"), ref("b"), ref("c")]
+    const { result } = session()
+    expect(h.useNote).toHaveBeenLastCalledWith("b") // b ya se pidió…
+    expect(result.current.position).toBe("") // …pero vistas sigue en 1
+    act(() => result.current.next())
+    expect(h.useNote).toHaveBeenLastCalledWith("c")
+    expect(result.current.position).toBe("2 / 2")
+    act(() => result.current.prev())
+    expect(result.current.position).toBe("1 / 2")
   })
 
   test("loadMore ya no existe", () => {

@@ -27,9 +27,9 @@ export function useReviewSession(): ReviewSession {
   const markRead = useMarkRead()
 
   const [frozen, setFrozen] = useState<NoteRef[]>([])
-  const [index, setIndex] = useState(0)
-  // vistas = maxIndex + 1: con la cola congelada, el índice más alto alcanzado basta (ADR 0025).
-  const [maxIndex, setMaxIndex] = useState(0)
+  // vistas = max + 1: con la cola congelada, el índice más alto alcanzado basta (ADR 0025).
+  // Juntos en un estado: next() sube los dos en el mismo update.
+  const [{ index, max }, setCursor] = useState({ index: 0, max: 0 })
   const [revealed, setRevealed] = useState(false)
   const [markedIds, setMarkedIds] = useState<ReadonlySet<string>>(() => new Set<string>())
 
@@ -39,15 +39,13 @@ export function useReviewSession(): ReviewSession {
 
   useEffect(() => {
     setRevealed(false)
-    setMaxIndex((m) => Math.max(m, index))
   }, [index])
 
   const item = frozen[index] ?? null
   // Prefetch de la siguiente (una sola adelante, misma query ["note", id]). No toca vistas.
   useNote(frozen[index + 1]?.id)
   const done = frozen.length === 0 || index >= frozen.length
-  const seen = Math.min(Math.max(maxIndex, index), frozen.length - 1) + 1
-  const position = done || seen <= 1 ? "" : `${index + 1} / ${seen}`
+  const position = done || max === 0 ? "" : `${index + 1} / ${max + 1}`
   const marked = !!item && markedIds.has(item.id)
   const reads = item ? (stats.byNote.get(item.id)?.count ?? 0) : 0
 
@@ -65,11 +63,15 @@ export function useReviewSession(): ReviewSession {
   )
 
   const next = useCallback(() => {
-    setIndex((i) => Math.min(i + 1, frozen.length))
+    setCursor((c) => {
+      const i = Math.min(c.index + 1, frozen.length)
+      // El fin de cola (i = length) no es una nota vista.
+      return { index: i, max: Math.max(c.max, Math.min(i, frozen.length - 1)) }
+    })
   }, [frozen])
 
   const prev = useCallback(() => {
-    setIndex((i) => Math.max(i - 1, 0))
+    setCursor((c) => ({ ...c, index: Math.max(c.index - 1, 0) }))
   }, [])
 
   return {
