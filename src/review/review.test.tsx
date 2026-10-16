@@ -249,3 +249,78 @@ test("prefetch: al mostrar la nota i ya se pidió la i+1; ← es instantáneo", 
   fireEvent.keyDown(document, { code: "ArrowLeft" })
   expect(screen.getByText("Cuerpo uno")).toBeInTheDocument() // sync: ya en cache
 })
+
+// store.note demorado para un id: la nota completa de ese id no llega hasta `release()`.
+function gateNote(gatedId: string) {
+  let release!: () => void
+  const gate = new Promise<void>((r) => (release = r))
+  const real = appStore.note.bind(appStore)
+  const spy = vi.spyOn(appStore, "note").mockImplementation(async (id) => {
+    if (id === gatedId) await gate
+    return real(id)
+  })
+  return { spy, release: () => act(() => release()) }
+}
+
+test("flashcard → nota demorada: el placeholder nunca es la flashcard (no filtra la respuesta)", async () => {
+  const { release } = gateNote("n2")
+  renderReview({
+    notes: [
+      note({ id: "n1", title: "Nota uno", created_at: "2026-01-01T00:00:01Z" }),
+      note({
+        id: "f1",
+        title: "Pregunta uno",
+        kind: "flashcard",
+        content: doc("Respuesta secreta"),
+        created_at: "2026-01-01T00:00:02Z",
+      }),
+      note({ id: "n2", title: "Nota dos", created_at: "2026-01-01T00:00:03Z" }),
+    ] as unknown as Snapshot["notes"],
+  })
+  await screen.findByText("Nota uno")
+  fireEvent.keyDown(document, { code: "ArrowRight" })
+  fireEvent.click(await screen.findByRole("button", { name: "Revelar respuesta" }))
+  await screen.findByText("Respuesta secreta")
+  fireEvent.keyDown(document, { code: "ArrowRight" })
+  expect(screen.queryByText("Pregunta uno")).toBeNull()
+  expect(screen.queryByText("Respuesta secreta")).toBeNull()
+  release()
+  await screen.findByText("Nota dos")
+})
+
+test("placeholder: la card entera es la anterior (notebook, posición, ←), no mezclada", async () => {
+  const { release } = gateNote("n2")
+  renderReview({
+    notebooks: [
+      notebook({ id: "c1", name: "Primero", created_at: "2026-01-01" }),
+      notebook({ id: "c2", name: "Segundo", created_at: "2026-01-02" }),
+    ],
+    notes: [
+      note({ id: "n1", title: "Nota uno", notebook_id: "c1", created_at: "2026-01-01T00:00:01Z" }),
+      note({ id: "n2", title: "Nota dos", notebook_id: "c2", created_at: "2026-01-01T00:00:02Z" }),
+    ] as unknown as Snapshot["notes"],
+  })
+  const card = () => screen.getByRole("button", { name: /^Abrir Nota/ }).parentElement!
+  await screen.findByText("Nota uno")
+  fireEvent.keyDown(document, { code: "ArrowRight" })
+  expect(within(card()).getByText("Nota uno")).toBeInTheDocument()
+  expect(within(card()).getByText("Primero")).toBeInTheDocument()
+  expect(within(card()).queryByText("Segundo")).toBeNull()
+  expect(within(card()).queryByText("2 / 2")).toBeNull()
+  expect(within(card()).getByRole("button", { name: "Anterior" })).toBeDisabled()
+  release()
+  await within(card()).findByText("Nota dos")
+  expect(within(card()).getByText("Segundo")).toBeInTheDocument()
+  expect(within(card()).getByText("2 / 2")).toBeInTheDocument()
+  expect(within(card()).getByRole("button", { name: "Anterior" })).toBeEnabled()
+})
+
+test("primera carga sin nota completa: skeleton, no una card con título vacío", async () => {
+  const { spy, release } = gateNote("n1")
+  renderReview()
+  await waitFor(() => expect(spy).toHaveBeenCalledWith("n1"))
+  expect(screen.queryByRole("button", { name: /^Abrir/ })).toBeNull()
+  expect(screen.queryByText("Gym")).toBeNull() // pantalla en skeleton
+  release()
+  await screen.findByText("Nota uno")
+})

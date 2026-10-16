@@ -41,15 +41,31 @@ export function Review() {
   const navigate = useNavigate()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const note = session.item
+  const item = session.item
   // El snapshot trae las notas sin `content`: el documento de la que se está mirando se pide
-  // aparte, y sólo de esa (más la siguiente, que prefetchea la sesión). `shown` mantiene la
-  // anterior mientras llega la nueva: la card pinta título y extracto juntos, sin skeleton.
-  // El dialog y la flashcard sólo usan la nota real, nunca el placeholder.
-  const { data: shown, isPlaceholderData } = useNote(note?.id, { keepPrevious: true })
-  const openNote = isPlaceholderData ? undefined : shown
+  // aparte, y sólo de esa (más la siguiente, que prefetchea la sesión). El dialog y la flashcard
+  // sólo usan la nota real, nunca el placeholder.
+  const { data: full, isPlaceholderData } = useNote(item?.id, { keepPrevious: true })
+  const openNote = isPlaceholderData ? undefined : full
+  // La card de nota: mientras la nueva no llega, la anterior ENTERA (título, extracto, notebook,
+  // posición, ←), sin skeleton (ADR 0025). Sólo si la anterior era nota: con una flashcard la
+  // NoteCard pintaría pregunta y respuesta sin revelar. Sin anterior (primera carga) → skeleton.
+  // `lastCard` se ajusta durante el render (patrón React "estado de renders previos"), sin effect.
+  const settled =
+    item?.kind === "note" && openNote
+      ? { note: openNote, position: session.position, isFirst: session.index === 0 }
+      : null
+  const [lastCard, setLastCard] = useState(settled)
+  const noteCard = item?.kind === "note" ? (settled ?? lastCard) : null
+  if (
+    noteCard?.note !== lastCard?.note ||
+    noteCard?.position !== lastCard?.position ||
+    noteCard?.isFirst !== lastCard?.isFirst
+  )
+    setLastCard(noteCard)
+  const cardNote = noteCard?.note
   const marked = session.marked
-  const notebook = notebooks.find((c) => c.id === note?.notebook_id)
+  const notebook = notebooks.find((c) => c.id === (cardNote ?? item)?.notebook_id)
   const readToday = stats?.today ?? 0
   const streak = stats?.streak ?? 0
   const donePct = Math.min(100, (readToday / DAILY_GOAL) * 100)
@@ -62,7 +78,7 @@ export function Review() {
   const cardRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const [listFocused, setListFocused] = useState(false)
-  const loading = isLoading || forceLoading()
+  const loading = isLoading || forceLoading() || (item?.kind === "note" && !cardNote)
   useEffect(() => {
     const card = cardRef.current
     const list = listRef.current
@@ -109,12 +125,12 @@ export function Review() {
   // Flashcard sin revelar → revela. Flashcard revelada → sin acción, la autoevaluación es
   // explícita (3 botones).
   const onEnter = useCallback(() => {
-    if (note?.kind === "flashcard") {
+    if (item?.kind === "flashcard") {
       if (!revealed) session.reveal()
       return
     }
     setDialogOpen(true)
-  }, [note, revealed, session])
+  }, [item, revealed, session])
 
   // enabled: dos hotkeys "enter" prendidos a la vez disparan los dos. Con el dialog abierto Enter
   // es suyo (gateado a haber scrolleado hasta el final); con el ConfirmDelete de una flashcard
@@ -131,10 +147,10 @@ export function Review() {
   // Cuando el dialog está abierto, el hotkey vive en NoteDialog (raw useHotkeys) porque
   // useSafeHotkeys se bloquea solo con cualquier dialog abierto (incluido el propio).
   const openExpanded = useCallback(() => {
-    if (!note || note.kind !== "note") return
+    if (!item || item.kind !== "note") return
     setDialogOpen(false)
-    navigate(note.notebook_id ? `/notebook/${note.notebook_id}/${note.id}` : `/note/${note.id}`)
-  }, [note, navigate])
+    navigate(item.notebook_id ? `/notebook/${item.notebook_id}/${item.id}` : `/note/${item.id}`)
+  }, [item, navigate])
 
   useSafeHotkeys("mod+enter", openExpanded, { preventDefault: true, enabled: keysEnabled }, [
     openExpanded,
@@ -172,27 +188,27 @@ export function Review() {
           // La card que importa (ADR 0023): --hero sube por luminancia en dark y por sombra en light.
           "relative mb-8 rounded-2xl py-5",
           // Vacío no es "la card que importa": baja a hatch ("lo que falta"), igual que los tiles.
-          done || !note ? "hatch bg-card shadow-card" : "bg-hero shadow-hero",
+          done || !item ? "hatch bg-card shadow-card" : "bg-hero shadow-hero",
         )}
       >
-        {done || !note ? (
+        {done || !item ? (
           <ReviewEmpty count={session.length} readToday={readToday} />
         ) : (
           <div className="w-full px-5 sm:px-10">
-            {note.kind === "note" ? (
+            {item.kind === "note" ? (
               <NoteCard
-                note={shown}
+                note={cardNote}
                 notebook={notebook}
-                position={session.position}
+                position={noteCard!.position}
                 onOpen={() => setDialogOpen(true)}
                 onOpenExpanded={openExpanded}
                 onPrev={prev}
                 onNext={next}
-                isFirst={session.index === 0}
+                isFirst={noteCard!.isFirst}
               />
             ) : (
               <FlashcardCard
-                item={note}
+                item={item}
                 notebook={notebook}
                 openNote={openNote}
                 position={session.position}
@@ -204,14 +220,14 @@ export function Review() {
                 onNext={next}
                 confirmingDelete={confirmingDelete}
                 onConfirmingChange={setConfirmingDelete}
-                onDelete={() => delFlashcard.mutate(note.id, { onSuccess: next })}
+                onDelete={() => delFlashcard.mutate(item.id, { onSuccess: next })}
               />
             )}
           </div>
         )}
       </Card>
 
-      {note && note.kind === "note" && openNote && (
+      {item?.kind === "note" && openNote && (
         <Suspense fallback={null}>
           <NoteDialog
             note={openNote}
