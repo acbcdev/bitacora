@@ -105,6 +105,9 @@ test("J/K mueven la selección y Enter navega al notebook seleccionado", async (
 
   // El sort "recientes" desempata por created_at desc en la RPC — "Notebook dos" (2026-01-02) queda
   // primero que "Notebook uno" (2026-01-01), sin repasos que cambien el orden acá.
+  // El cursor arranca oculto: la primera tecla sólo lo muestra, sin moverlo.
+  expect(container.querySelector('[data-active="true"]')).toBeNull()
+  fireEvent.keyDown(document, { code: "KeyK" })
   expect(container.querySelector('[data-active="true"]')?.textContent).toContain("Notebook dos")
 
   fireEvent.keyDown(document, { code: "KeyK" })
@@ -119,6 +122,9 @@ test("E abre el form de editar el notebook seleccionado", async () => {
   await screen.findByText("Notebook móvil")
 
   fireEvent.keyDown(document, { code: "KeyE" })
+  expect(screen.queryByText("Editar notebook")).toBeNull() // sin cursor visible no actúa
+  fireEvent.keyDown(document, { code: "KeyJ" })
+  fireEvent.keyDown(document, { code: "KeyE" })
   await screen.findByText("Editar notebook")
 })
 
@@ -126,6 +132,7 @@ test("Delete abre la confirmación de borrado del notebook seleccionado", async 
   renderNotebooks()
   await screen.findByText("Notebook móvil")
 
+  fireEvent.keyDown(document, { code: "KeyJ" })
   fireEvent.keyDown(document, { code: "Backspace" })
   await screen.findByText("¿Borrar “Notebook móvil”?")
 })

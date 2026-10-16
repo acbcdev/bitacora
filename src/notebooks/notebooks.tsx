@@ -19,7 +19,8 @@ import type { Notebook, NotebookRow } from "@/core/types/database"
 // Pantalla Notebooks (screen 2) como database view del diseño: buscar, filtrar por estado, ordenar,
 // y alternar tabla / tarjetas. Búsqueda, filtro, orden y paginado los resuelve la función pura
 // `derive.notebooksPage` sobre el snapshot — el cliente sólo guarda el estado de los controles.
-export function Notebooks({ embed }: { embed?: boolean }) {
+// hotkeys: embebida en Repaso las teclas de la lista se prenden sólo cuando Review se las cede.
+export function Notebooks({ embed, hotkeys = !embed }: { embed?: boolean; hotkeys?: boolean }) {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const del = useDeleteNotebook()
@@ -58,11 +59,11 @@ export function Notebooks({ embed }: { embed?: boolean }) {
   // "slash", no "/": la lib matchea por e.code (ver comentario de mod+slash en app.tsx).
   useSafeHotkeys("slash", () => searchRef.current?.focus(), {
     preventDefault: true,
-    enabled: !embed,
+    enabled: hotkeys,
   })
 
-  useNotebookHotkeys({
-    embed,
+  const cursor = useNotebookHotkeys({
+    enabled: hotkeys,
     rows,
     selected: filters.selected,
     page: filters.page,
@@ -112,7 +113,7 @@ export function Notebooks({ embed }: { embed?: boolean }) {
       ) : view === "tabla" && !isMobile ? (
         <NotebookTable
           rows={rows}
-          selected={filters.selected}
+          selected={hotkeys && cursor ? filters.selected : -1}
           filtering={filtering}
           onOpen={(nb) => navigate(`/notebook/${nb.id}`)}
           onEdit={setEditing}
@@ -124,7 +125,7 @@ export function Notebooks({ embed }: { embed?: boolean }) {
             <NotebookCard
               key={c.id}
               notebook={c}
-              active={i === filters.selected}
+              active={hotkeys && cursor && i === filters.selected}
               onOpen={(nb) => navigate(`/notebook/${nb.id}`)}
               onEdit={setEditing}
               onDelete={(id) => del.mutate(id)}
