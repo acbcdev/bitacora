@@ -9,7 +9,7 @@ pierde el color `brand↔destructive` y el "cero = rojo pleno".
 ## Contexto
 
 `src/index.css` ya era un design system de tokens (mapeado sobre slots shadcn) aunque ADR 0005
-dijera lo contrario. El rediseño D (`.scratch/design-system/spec.md`, prototipo en branch
+dijera lo contrario. El rediseño D (`docs/design-system.md`, prototipo en branch
 `prototype/design-system`) cambia el lenguaje: la jerarquía sale de luminancia/sombra, no de color.
 
 ## Decisión

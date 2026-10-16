@@ -1,7 +1,5 @@
 # Design system v2 — lenguaje visual "D"
 
-Status: ready-for-human
-
 ## Pregunta que se respondió
 
 ¿Qué lenguaje visual adopta Bitácora? Se tomó el **concepto** de 6 referencias (Dribbble: apps de

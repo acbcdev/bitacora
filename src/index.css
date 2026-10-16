@@ -6,7 +6,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Tokens del lenguaje D (ADR 0023, .scratch/design-system/spec.md) mapeados sobre los slots de
+/* Tokens del lenguaje D (ADR 0023, docs/design-system.md) mapeados sobre los slots de
    shadcn, para que los componentes copiados sigan andando sin tocarlos. Monocromo + una señal:
    jerarquía por luminancia (dark) o sombra (light), nunca por color.
    Dark es el default del diseño: index.html arranca con class="dark" en <html>. */
