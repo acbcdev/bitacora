@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { ReviewSkeleton } from "@/core/components/skeletons"
@@ -54,7 +54,30 @@ export function Review() {
   const revealed = session.revealed
   // Dos hotkeys "enter" prendidos a la vez disparan los dos: los hotkeys de la pantalla se apagan
   // juntos cuando hay dialog/confirm de borrado abierto (ver comentario en cada uso).
-  const keysEnabled = !confirmingDelete && !dialogOpen
+  // ←/→/Enter los comparten la cola y la lista de notebooks embebida: los tiene la sección con
+  // más px visibles. intersectionRect ya viene recortado por el scroll de <main>.
+  const cardRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const [listFocused, setListFocused] = useState(false)
+  const loading = isLoading || forceLoading()
+  useEffect(() => {
+    const card = cardRef.current
+    const list = listRef.current
+    if (!card || !list) return
+    const visible = new Map<Element, number>()
+    // ponytail: thresholds cada 5%, en una lista muy alta el cambio salta con ~100px de retraso
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) visible.set(e.target, e.intersectionRect.height)
+        setListFocused((visible.get(list) ?? 0) > (visible.get(card) ?? 0))
+      },
+      { threshold: Array.from({ length: 21 }, (_, i) => i / 20) },
+    )
+    io.observe(card)
+    io.observe(list)
+    return () => io.disconnect()
+  }, [loading])
+  const keysEnabled = !confirmingDelete && !dialogOpen && !listFocused
 
   // Cada ítem nuevo arranca sin el diálogo de borrado y sin la nota abierta.
   // revealed lo resetea la sesión en su effect de index.
@@ -121,7 +144,7 @@ export function Review() {
   useSafeHotkeys("left", prev, { preventDefault: true, enabled: keysEnabled }, [prev, keysEnabled]) // volver
   useSafeHotkeys("right", next, { preventDefault: true, enabled: keysEnabled }, [next, keysEnabled]) // siguiente, sin contar
 
-  if (isLoading || forceLoading())
+  if (loading)
     return (
       <div className="fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8">
         <ReviewSkeleton />
@@ -141,6 +164,7 @@ export function Review() {
 
       {/* `relative`: el target de abrir es un overlay sobre la Card entera (abajo). */}
       <Card
+        ref={cardRef}
         className={cn(
           // La card que importa (ADR 0023): --hero sube por luminancia en dark y por sombra en light.
           "relative mb-8 rounded-2xl py-5",
@@ -212,7 +236,9 @@ export function Review() {
           2–3×/día, sin competirle el lugar a la nota. */}
       <HabitTiles />
 
-      <Notebooks embed />
+      <div ref={listRef}>
+        <Notebooks embed hotkeys={listFocused} />
+      </div>
     </div>
   )
 }
