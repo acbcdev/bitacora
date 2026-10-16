@@ -18,6 +18,8 @@ vi.mock("@/review/review.api", () => ({
   useReviewQueue: () => ({ data: h.queue.current }),
   useMarkRead: () => ({ mutate: h.markMutate }),
 }))
+// El prefetch de la siguiente (useNote) es IO: su efecto se testea en review.test.tsx.
+vi.mock("@/notes/notes.api", () => ({ useNote: () => ({}) }))
 vi.mock("@/core/lib/snapshot", () => ({
   useSnapshot: () => ({ data: h.stats.current }),
 }))

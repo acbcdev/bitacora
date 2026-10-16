@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { store } from "@/core/store"
 import { notebookNotes, noteRefs } from "@/core/store/derive"
@@ -23,11 +23,13 @@ export function useAllNoteRefs() {
 
 // La única lectura que NO sale del snapshot: el documento Tiptap de una nota. Se pide por id y se
 // cachea aparte, así abrir una nota no arrastra el content de las otras 1.499.
-export function useNote(id: string | undefined) {
+// keepPrevious: mientras llega la nueva queda la anterior (la card de Repaso, ADR 0025).
+export function useNote(id: string | undefined, { keepPrevious = false } = {}) {
   return useQuery({
     queryKey: ["note", id],
     enabled: !!id,
     queryFn: () => store.note(id!),
+    placeholderData: keepPrevious ? keepPreviousData : undefined,
   })
 }
 

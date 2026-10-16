@@ -43,8 +43,11 @@ export function Review() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const note = session.item
   // El snapshot trae las notas sin `content`: el documento de la que se está mirando se pide
-  // aparte, y sólo de esa. Abrir Repaso ya no baja tres docs Tiptap para mostrar uno.
-  const { data: openNote } = useNote(note?.id)
+  // aparte, y sólo de esa (más la siguiente, que prefetchea la sesión). `shown` mantiene la
+  // anterior mientras llega la nueva: la card pinta título y extracto juntos, sin skeleton.
+  // El dialog y la flashcard sólo usan la nota real, nunca el placeholder.
+  const { data: shown, isPlaceholderData } = useNote(note?.id, { keepPrevious: true })
+  const openNote = isPlaceholderData ? undefined : shown
   const marked = session.marked
   const notebook = notebooks.find((c) => c.id === note?.notebook_id)
   const readToday = stats?.today ?? 0
@@ -178,9 +181,8 @@ export function Review() {
           <div className="w-full px-5 sm:px-10">
             {note.kind === "note" ? (
               <NoteCard
-                item={note}
+                note={shown}
                 notebook={notebook}
-                openNote={openNote}
                 position={session.position}
                 onOpen={() => setDialogOpen(true)}
                 onOpenExpanded={openExpanded}

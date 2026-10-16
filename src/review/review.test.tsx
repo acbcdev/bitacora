@@ -1,7 +1,9 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { Review } from "@/review/review"
 import { notebook, habit, note, renderApp } from "@/test/harness"
+import { store as appStore } from "@/core/store"
 import type { Snapshot } from "@/core/store/types"
+import type { TiptapDoc } from "@/core/types/database"
 
 vi.mock("@/core/store", async () => {
   const { localStore } = await import("@/core/store/local-store")
@@ -61,6 +63,8 @@ function baseSeed(over: Partial<Snapshot> = {}): Snapshot {
     ...over,
   } as Snapshot
 }
+
+afterEach(() => vi.restoreAllMocks())
 
 function renderReview(seed: Partial<Snapshot> = {}) {
   return renderApp(<Review />, baseSeed(seed))
@@ -187,4 +191,61 @@ test("sin notas: invita a escribir, sin Cargar más", async () => {
   renderReview({ notes: [] })
   await screen.findByText("Sin notas todavía.")
   expect(screen.queryByRole("button", { name: "Cargar más" })).toBeNull()
+})
+
+function doc(text: string) {
+  return {
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+  } as unknown as TiptapDoc
+}
+
+function twoNotesWithContent(): Partial<Snapshot> {
+  return {
+    notes: [
+      note({
+        id: "n1",
+        title: "Nota uno",
+        content: doc("Cuerpo uno"),
+        created_at: "2026-01-01T00:00:01Z",
+      }),
+      note({
+        id: "n2",
+        title: "Nota dos",
+        content: doc("Cuerpo dos"),
+        created_at: "2026-01-01T00:00:02Z",
+      }),
+    ] as unknown as Snapshot["notes"],
+  }
+}
+
+test("card desde nota completa: con store.note demorado, el título nuevo no llega antes que su contenido", async () => {
+  let release!: () => void
+  const gate = new Promise<void>((r) => (release = r))
+  const real = appStore.note.bind(appStore)
+  vi.spyOn(appStore, "note").mockImplementation(async (id) => {
+    if (id === "n2") await gate
+    return real(id)
+  })
+  renderReview(twoNotesWithContent())
+  await screen.findByText("Cuerpo uno")
+  fireEvent.keyDown(document, { code: "ArrowRight" })
+  // keep previous data: sigue la anterior, sin skeleton y sin el título nuevo suelto
+  expect(screen.getByText("Nota uno")).toBeInTheDocument()
+  expect(screen.getByText("Cuerpo uno")).toBeInTheDocument()
+  expect(screen.queryByText("Nota dos")).toBeNull()
+  act(() => release())
+  await screen.findByText("Nota dos")
+  expect(screen.getByText("Cuerpo dos")).toBeInTheDocument()
+})
+
+test("prefetch: al mostrar la nota i ya se pidió la i+1; ← es instantáneo", async () => {
+  const spy = vi.spyOn(appStore, "note")
+  renderReview(twoNotesWithContent())
+  await screen.findByText("Cuerpo uno")
+  await waitFor(() => expect(spy).toHaveBeenCalledWith("n2"))
+  fireEvent.keyDown(document, { code: "ArrowRight" })
+  await screen.findByText("Cuerpo dos")
+  fireEvent.keyDown(document, { code: "ArrowLeft" })
+  expect(screen.getByText("Cuerpo uno")).toBeInTheDocument() // sync: ya en cache
 })

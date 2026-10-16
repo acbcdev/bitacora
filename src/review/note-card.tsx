@@ -5,14 +5,12 @@ import { Kbd, KbdGroup } from "@/core/ui/kbd"
 import { docToPlainText } from "@/core/lib/tiptap-markdown"
 import { cn, MOD } from "@/core/lib/utils"
 import type { Notebook, Note } from "@/core/types/database"
-import type { NoteRef } from "@/core/store/types"
 
 const FOOTER_BTN = "hover:bg-input dark:hover:bg-input"
 
 type Props = {
-  item: NoteRef
+  note?: Note // la nota completa: título y extracto llegan juntos (ADR 0025)
   notebook?: Notebook
-  openNote?: Note
   position: string
   onOpen: () => void
   onOpenExpanded: () => void
@@ -22,9 +20,8 @@ type Props = {
 }
 
 export function NoteCard({
-  item,
+  note,
   notebook,
-  openNote,
   position,
   onOpen,
   onOpenExpanded,
@@ -37,7 +34,7 @@ export function NoteCard({
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`Abrir ${item.title || "nota sin título"}`}
+        aria-label={`Abrir ${note?.title || "nota sin título"}`}
         className="absolute inset-0 cursor-pointer focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset focus-visible:outline-none"
       />
       <div className="mb-2 flex min-h-[2lh] items-start justify-between gap-3">
@@ -47,13 +44,13 @@ export function NoteCard({
         </p>
         <span className="mono-dim shrink-0 whitespace-nowrap">{position}</span>
       </div>
-      <div key={item.id} className="note-in mb-5">
+      <div key={note?.id} className="note-in mb-5">
         {/* 44px: 550 en light, 450 en dark — claro sobre oscuro engorda (irradiación). */}
         <h1 className="mb-2.5 line-clamp-2 min-h-[2lh] text-[44px] leading-[1.1] font-[550] tracking-[-0.035em] text-pretty dark:font-[450]">
-          {item.title || "(sin título)"}
+          {note && (note.title || "(sin título)")}
         </h1>
         <p className="line-clamp-5 min-h-[5lh] max-w-[70ch] text-muted-foreground">
-          {openNote && (docToPlainText(openNote.content) || <em>Nota sin contenido todavía.</em>)}
+          {note && (docToPlainText(note.content) || <em>Nota sin contenido todavía.</em>)}
         </p>
       </div>
 

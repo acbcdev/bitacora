@@ -4,6 +4,7 @@ import type { NoteRef } from "@/core/store/types"
 import { EMPTY_READ_STATS, readStats } from "@/core/store/derive"
 import { useSnapshot } from "@/core/lib/snapshot"
 import { useMarkRead, useReviewQueue } from "@/review/review.api"
+import { useNote } from "@/notes/notes.api"
 
 export type ReviewSession = {
   readonly item: NoteRef | null
@@ -42,6 +43,8 @@ export function useReviewSession(): ReviewSession {
   }, [index])
 
   const item = frozen[index] ?? null
+  // Prefetch de la siguiente (una sola adelante, misma query ["note", id]). No toca vistas.
+  useNote(frozen[index + 1]?.id)
   const done = frozen.length === 0 || index >= frozen.length
   const seen = Math.min(Math.max(maxIndex, index), frozen.length - 1) + 1
   const position = done || seen <= 1 ? "" : `${index + 1} / ${seen}`
