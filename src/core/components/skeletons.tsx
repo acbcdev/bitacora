@@ -138,6 +138,50 @@ export function SidebarGroupSkeleton({
   )
 }
 
+// Contenido de la hero card de Repaso (NoteCard). Lo usa también Repaso adentro de su Card
+// cuando la nota completa todavía no llegó y no hay card anterior: la página queda montada.
+export function ReviewCardSkeleton() {
+  return (
+    <div className="w-full px-5 sm:px-10">
+      {/* Eyebrow: ícono + nombre del notebook · posición en la cola (min-h 2lh) */}
+      <div className="mb-2 flex h-[28.6px] items-start justify-between gap-3">
+        <span className="flex h-[14.3px] items-center gap-1.5">
+          <Skeleton className="size-3.5 rounded-xs" />
+          <Skeleton className="h-2.5 w-28" />
+        </span>
+        <Skeleton className="h-3 w-9" />
+      </div>
+      <div className="mb-5">
+        {/* Título 44px × 2 líneas (lh 1.1 = 48.4px), mb-2.5 */}
+        <div className="mb-2.5 flex flex-col">
+          {["85%", "55%"].map((w) => (
+            <div key={w} className="flex h-[48.4px] items-center">
+              <Skeleton className="h-9" style={{ width: w }} />
+            </div>
+          ))}
+        </div>
+        {/* Preview del cuerpo: 5 líneas de text-base (lh 22.5px) */}
+        {["100%", "96%", "92%", "88%", "70%"].map((w) => (
+          <div key={w} className="flex h-[22.5px] items-center">
+            <Skeleton className="h-3.5" style={{ width: w }} />
+          </div>
+        ))}
+      </div>
+      {/* Footer: atajos Abrir / Vista expandida (md+) · ← y Siguiente (h-13) */}
+      <div className="mt-2 flex items-center justify-end border-t pt-5 md:justify-between">
+        <div className="hidden gap-2 md:flex">
+          <Skeleton className="h-8 w-[94px]" />
+          <Skeleton className="h-8 w-[170px]" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="size-13" />
+          <Skeleton className="h-13 w-[130px]" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Pantalla Hoy completa: stats, meta, card de repaso, hábitos y notebooks (cabecera, toolbar,
 // tarjetas), con las mismas medidas que el contenido real para que al cargar no salte nada.
 export function ReviewSkeleton() {
@@ -168,43 +212,7 @@ export function ReviewSkeleton() {
 
       {/* Hero card (NoteCard): mismo radio, padding y sombra que la real */}
       <Card className="mb-8 rounded-2xl bg-hero py-5 shadow-hero">
-        <div className="w-full px-5 sm:px-10">
-          {/* Eyebrow: ícono + nombre del notebook · posición en la cola (min-h 2lh) */}
-          <div className="mb-2 flex h-[28.6px] items-start justify-between gap-3">
-            <span className="flex h-[14.3px] items-center gap-1.5">
-              <Skeleton className="size-3.5 rounded-xs" />
-              <Skeleton className="h-2.5 w-28" />
-            </span>
-            <Skeleton className="h-3 w-9" />
-          </div>
-          <div className="mb-5">
-            {/* Título 44px × 2 líneas (lh 1.1 = 48.4px), mb-2.5 */}
-            <div className="mb-2.5 flex flex-col">
-              {["85%", "55%"].map((w) => (
-                <div key={w} className="flex h-[48.4px] items-center">
-                  <Skeleton className="h-9" style={{ width: w }} />
-                </div>
-              ))}
-            </div>
-            {/* Preview del cuerpo: 5 líneas de text-base (lh 22.5px) */}
-            {["100%", "96%", "92%", "88%", "70%"].map((w) => (
-              <div key={w} className="flex h-[22.5px] items-center">
-                <Skeleton className="h-3.5" style={{ width: w }} />
-              </div>
-            ))}
-          </div>
-          {/* Footer: atajos Abrir / Vista expandida (md+) · ← y Siguiente (h-13) */}
-          <div className="mt-2 flex items-center justify-end border-t pt-5 md:justify-between">
-            <div className="hidden gap-2 md:flex">
-              <Skeleton className="h-8 w-[94px]" />
-              <Skeleton className="h-8 w-[170px]" />
-            </div>
-            <div className="flex gap-2">
-              <Skeleton className="size-13" />
-              <Skeleton className="h-13 w-[130px]" />
-            </div>
-          </div>
-        </div>
+        <ReviewCardSkeleton />
       </Card>
 
       <HabitsSkeleton />

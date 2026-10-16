@@ -284,6 +284,7 @@ test("flashcard → nota demorada: el placeholder nunca es la flashcard (no filt
   fireEvent.keyDown(document, { code: "ArrowRight" })
   expect(screen.queryByText("Pregunta uno")).toBeNull()
   expect(screen.queryByText("Respuesta secreta")).toBeNull()
+  expect(screen.getByText("Gym")).toBeInTheDocument() // skeleton sólo en la card
   release()
   await screen.findByText("Nota dos")
 })
@@ -315,12 +316,11 @@ test("placeholder: la card entera es la anterior (notebook, posición, ←), no 
   expect(within(card()).getByRole("button", { name: "Anterior" })).toBeEnabled()
 })
 
-test("primera carga sin nota completa: skeleton, no una card con título vacío", async () => {
-  const { spy, release } = gateNote("n1")
+test("primera carga sin nota completa: skeleton en la card, la página queda montada", async () => {
+  const { release } = gateNote("n1")
   renderReview()
-  await waitFor(() => expect(spy).toHaveBeenCalledWith("n1"))
-  expect(screen.queryByRole("button", { name: /^Abrir/ })).toBeNull()
-  expect(screen.queryByText("Gym")).toBeNull() // pantalla en skeleton
+  await screen.findByText("Gym") // hábitos montados: no es el skeleton de página
+  expect(screen.queryByRole("button", { name: /^Abrir/ })).toBeNull() // ni card con título vacío
   release()
   await screen.findByText("Nota uno")
 })

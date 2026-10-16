@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { ReviewSkeleton } from "@/core/components/skeletons"
+import { ReviewCardSkeleton, ReviewSkeleton } from "@/core/components/skeletons"
 import { Card } from "@/core/ui/card"
 import { Progress } from "@/core/ui/progress"
 import { useNotebooks } from "@/notebooks/notebooks.api"
@@ -78,7 +78,7 @@ export function Review() {
   const cardRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const [listFocused, setListFocused] = useState(false)
-  const loading = isLoading || forceLoading() || (item?.kind === "note" && !cardNote)
+  const loading = isLoading || forceLoading()
   useEffect(() => {
     const card = cardRef.current
     const list = listRef.current
@@ -193,6 +193,8 @@ export function Review() {
       >
         {done || !item ? (
           <ReviewEmpty count={session.length} readToday={readToday} />
+        ) : item.kind === "note" && !noteCard ? (
+          <ReviewCardSkeleton />
         ) : (
           <div className="w-full px-5 sm:px-10">
             {item.kind === "note" ? (
