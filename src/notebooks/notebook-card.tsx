@@ -37,7 +37,7 @@ export function NotebookCard({
     <Card
       data-active={active}
       onClick={() => onOpen(c)}
-      className="group cursor-pointer gap-3.5 p-5 transition-colors hover:bg-sunken data-[active=true]:bg-sunken dark:hover:bg-muted dark:data-[active=true]:bg-muted"
+      className="group cursor-pointer gap-3.5 p-5 transition-colors hover:bg-sunken dark:hover:bg-muted data-[active=true]:outline-3 data-[active=true]:outline-offset-2 data-[active=true]:outline-ring/50"
     >
       <div className="flex items-start gap-3">
         <NotebookIcon icon={c.icon} className="size-8 shrink-0 text-muted-foreground" />

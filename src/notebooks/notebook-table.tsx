@@ -63,10 +63,10 @@ export function NotebookTable({
             <TableRow
               key={c.id}
               data-active={i === selected}
-              className="group cursor-pointer data-[active=true]:bg-muted"
+              className="group cursor-pointer data-[active=true]:outline-3 data-[active=true]:-outline-offset-3 data-[active=true]:outline-ring/50"
               onClick={() => onOpen(c)}
             >
-              <TableCell className="sticky left-0 z-10 max-w-80 bg-card px-3 py-3 font-medium whitespace-normal group-hover:bg-muted/50 group-data-[active=true]:bg-muted/50">
+              <TableCell className="sticky left-0 z-10 max-w-80 bg-card px-3 py-3 font-medium whitespace-normal group-hover:bg-muted/50">
                 <span className="flex items-start gap-2">
                   <ChevronRight size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
                   <NotebookIcon icon={c.icon} className="mt-0.5 shrink-0 text-muted-foreground" />
