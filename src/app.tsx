@@ -238,11 +238,14 @@ function Shell({ user }: { user: AuthUser }) {
             onSettings={() => setSettings(true)}
           />
         )}
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        <main className="relative min-w-0 flex-1 overflow-y-auto">
           {/* El trigger del Sidebar vive adentro: en mobile (Sheet cerrado) y en desktop colapsado
-              (offcanvas) no se ve. Este de acá afuera es el único modo de abrirlo. En flujo normal,
-              no fixed: así no se pisa con el h1 de cada pantalla. */}
-          <SidebarTrigger className={`mt-4 ml-4 ${collapsed && !focus ? "" : "md:hidden"}`} />
+              (offcanvas) no se ve. Este de acá afuera es el único modo de abrirlo. En mobile va en
+              flujo normal (si no, se pisa con el h1); en desktop absolute: el contenido está centrado
+              con max-w, la esquina queda libre y no empuja la pantalla hacia abajo al colapsar. */}
+          <SidebarTrigger
+            className={`mt-4 ml-4 md:absolute md:top-4 md:left-4 md:z-10 md:m-0 ${collapsed && !focus ? "" : "md:hidden"}`}
+          />
           {/* ErrorBoundary por sección: un crash en Review/Notebook/Note no mata el sidebar.
               key con sólo los 2 primeros segmentos resetea al navegar a otra pantalla o notebook,
               pero NO al cambiar de nota dentro del notebook (/notebook/:id/:noteId) — con pathname
