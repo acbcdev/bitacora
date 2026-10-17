@@ -131,7 +131,9 @@ export type Store = {
     getUser(): Promise<AuthUser | null>
     // Devuelve el unsubscribe. En local no hay nada que escuchar: no-op.
     onChange(cb: (user: AuthUser | null) => void): () => void
+    // Manda el código OTP por mail; verify lo canjea por la sesión.
     signIn(email: string): Promise<void>
+    verify(email: string, code: string): Promise<void>
     // Devuelve true si efectivamente se salió. En local sin env de Supabase no hay a dónde ir.
     signOut(): Promise<boolean>
   }
