@@ -56,8 +56,8 @@ notebooks), no señal. Solo en dot y texto, nunca relleno. Sin `drop` (no existe
   corriendo = punto verde que pulsa · pausado = bloque tenue + punto fijo · pasado = número rojo, sin relleno.
 - Header Hoy: fecha humana ("lunes 13 de octubre"), barras **inline** con etiqueta "14 días" (se
   borra el tooltip del 🔥). Las barras muestran el **Cumplimiento diario** de hábitos (ver
-  `CONTEXT.md`), no lecturas: altura = `cumplidos / total` (piso 12% si 0 o sin hábitos), verde
-  **solo** si todos cumplidos — hoy incluido; hoy no cumplido = `--ink-2`, nunca verde; días parciales = `--muted-foreground` (`--track` da 1.35:1, invisible). 🔥 racha de
+  `CONTEXT.md`), no lecturas: altura = progreso ponderado (piso 12%), verde
+  **solo** si todos los diarios cumplidos — hoy incluido; hoy no cumplido = `--ink-2`, nunca verde; días parciales = `--muted-foreground` (`--track` da 1.35:1, invisible). 🔥 racha de
   lectura y `n/3` se quedan. (El prototipo pintaba hoy siempre verde: bug, no se copia.)
 - No mostrar datos que la app no tiene (la barra "18/25" y el delta "+3" del prototipo eran inventados).
 
