@@ -186,14 +186,20 @@ function HabitTile({
       />
 
       <div className="relative flex items-center gap-3">
-        {/* Ícono, nombre, botón (y el hero en check) disparan la acción primaria; meta y dots no. */}
+        {/* Toda la fila es UNA zona de click (stretched button): ícono y nombre quedan debajo y el
+            hit target es el ancho entero. Mouse-only — teclado y lector usan el botón de la derecha,
+            que ya hace lo mismo; sin esto eran 3 tab stops con el mismo label. El panel (z encima)
+            sigue abriendo lo suyo. */}
         <button
           type="button"
+          tabIndex={-1}
+          aria-hidden
           onClick={onQuick}
-          aria-label={quickLabel(h, r)}
-          aria-pressed={h.metric === "check" ? total > 0 : undefined}
+          className="absolute -inset-1.5 cursor-pointer rounded-lg"
+        />
+        <span
           className={cn(
-            "flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-muted text-fg-secondary transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+            "flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-fg-secondary transition-colors",
             running && "text-signal",
           )}
         >
@@ -202,9 +208,9 @@ function HabitTile({
           ) : (
             <NotebookIcon icon={h.icon} fallback={Target} className="size-5" />
           )}
-        </button>
+        </span>
 
-        <HabitTileInfo h={h} total={total} r={r} tone={tone} onQuick={onQuick} />
+        <HabitTileInfo h={h} total={total} r={r} tone={tone} />
 
         <HabitTileActions
           h={h}

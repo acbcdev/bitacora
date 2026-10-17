@@ -92,31 +92,21 @@ export const quickLabel = (h: Habit, r: Run) =>
         ? `Registrar recaída de ${h.name}`
         : `Registrar ${h.name}`
 
-// Cabecera del tile: el nombre (dispara la acción primaria) y la etiqueta de estado.
+// Cabecera del tile: nombre + etiqueta de estado. El click lo pone la fila entera (HabitTile).
 export function HabitTileInfo({
   h,
   total,
   r,
   tone,
-  onQuick,
 }: {
   h: Habit
   total: number
   r: Run
   tone: Tone
-  onQuick: () => void
 }) {
   return (
     <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-      <button
-        type="button"
-        onClick={onQuick}
-        aria-label={quickLabel(h, r)}
-        aria-pressed={h.metric === "check" ? total > 0 : undefined}
-        className="block w-fit max-w-full cursor-pointer truncate rounded-sm text-left text-[14px] font-medium leading-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-      >
-        {h.name}
-      </button>
+      <span className="block truncate text-[14px] font-medium leading-none">{h.name}</span>
       <span
         className={cn(
           "flex h-3.5 items-center font-mono text-xs leading-none tabular-nums",
@@ -148,28 +138,24 @@ export function HabitTileValue({
   const sub = zeroCeiling(h) ? "" : `/${displayTarget(h)}${unit(h)}`
   return (
     <>
-      {/* 40px en 300 dark / 400 light: claro sobre oscuro engorda, oscuro sobre claro adelgaza. */}
-      <span
+      {/* 40px en 300 dark / 400 light: claro sobre oscuro engorda, oscuro sobre claro adelgaza.
+          El hero es zona de click en toda métrica (mouse-only, igual que la fila de arriba). */}
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden
+        onClick={onQuick}
         className={cn(
-          "flex items-baseline text-[40px] leading-none font-normal tracking-tighter tabular-nums dark:font-light",
+          "flex w-fit cursor-pointer items-baseline text-[40px] leading-none font-normal tracking-tighter tabular-nums dark:font-light",
           TONE[tone],
         )}
       >
         {h.metric === "check" ? (
-          // En check el hero ES la marca: clickeable como el nombre y el botón.
-          <button
-            type="button"
-            onClick={onQuick}
-            aria-label={quickLabel(h, r)}
-            aria-pressed={total > 0}
-            className="cursor-pointer rounded-full focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-          >
-            {total > 0 ? (
-              <Check aria-hidden className="size-[38px]" strokeWidth={2.25} />
-            ) : (
-              <Circle aria-hidden className="size-[38px]" strokeWidth={1.5} strokeDasharray="3 3" />
-            )}
-          </button>
+          total > 0 ? (
+            <Check className="size-[38px]" strokeWidth={2.25} />
+          ) : (
+            <Circle className="size-[38px]" strokeWidth={1.5} strokeDasharray="3 3" />
+          )
         ) : (
           <>
             {r.running ? r.clock : displayAmount(h, total)}
@@ -178,7 +164,7 @@ export function HabitTileValue({
             </small>
           </>
         )}
-      </span>
+      </button>
       <span className="flex items-center justify-between gap-2 font-mono text-[11px] leading-none text-muted-foreground">
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate">{goalText(h)}</span>

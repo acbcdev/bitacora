@@ -27,7 +27,7 @@ export function HabitTileActions({
   onQuick: () => void
 }) {
   return (
-    <span className="flex shrink-0 items-center gap-1.5">
+    <span className="relative flex shrink-0 items-center gap-1.5">
       <HabitPanel habit={h} state={state} />
       <Button
         type="button"
