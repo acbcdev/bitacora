@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react"
-import { Route, Routes, useLocation, useMatch, useNavigate } from "react-router-dom"
+import { Navigate, Route, Routes, useLocation, useMatch, useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
   Notebook as LucideNotebook,
@@ -33,18 +33,20 @@ import { useFocusMode } from "@/core/lib/hooks/use-focus-mode"
 import { NoteSkeleton } from "@/core/components/skeletons"
 import { Notebooks } from "@/notebooks/notebooks"
 import { ErrorBoundary } from "@/core/components/error-boundary"
-import { Login } from "@/login/login"
 import { Review } from "@/review/review"
 
 // Code splitting por ruta: tiptap/lowlight (el grueso del bundle) solo baja al abrir un notebook/nota.
 // Review es la home → eager. Named exports → el .then adapta a { default }.
 const Notebook = lazy(() => import("@/notebooks/notebook").then((m) => ({ default: m.Notebook })))
 const Note = lazy(() => import("@/notes/note").then((m) => ({ default: m.Note })))
+// Login también: quien ya tiene sesión nunca lo baja.
+const Login = lazy(() => import("@/login/login").then((m) => ({ default: m.Login })))
 const Settings = lazy(() => import("@/settings/settings").then((m) => ({ default: m.Settings })))
 
 export function App() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const { pathname, search } = useLocation()
 
   // El seam de auth es del Store, no de Supabase: en modo local `getUser()` resuelve enseguida con
   // el usuario del navegador y nunca se ve el Login.
@@ -57,7 +59,23 @@ export function App() {
   }, [])
 
   if (loading) return null
-  if (!user) return <Login />
+  // /login es la puerta: sin sesión todo cae ahí con ?next=<adónde iba>; con sesión, /login
+  // devuelve a ese destino. Así el deep link sobrevive al login.
+  const onLogin = pathname === "/login"
+  if (!user) {
+    if (!onLogin)
+      return <Navigate to={`/login?next=${encodeURIComponent(pathname + search)}`} replace />
+    return (
+      <Suspense fallback={null}>
+        <Login />
+      </Suspense>
+    )
+  }
+  if (onLogin) {
+    const next = new URLSearchParams(search).get("next") ?? "/"
+    // Sólo rutas internas: "//evil.com" o "https://…" no son destinos válidos.
+    return <Navigate to={next.startsWith("/") && !next.startsWith("//") ? next : "/"} replace />
+  }
   return <Shell user={user} />
 }
 
