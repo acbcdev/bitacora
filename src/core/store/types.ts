@@ -99,6 +99,7 @@ export type HabitInput = {
   target?: number
   period?: Habit["period"]
   days?: number[] | null
+  tracks?: Habit["tracks"]
 }
 
 // La fila de habit_log se escribe COMPLETA, con el `target` ya resuelto por quien llama

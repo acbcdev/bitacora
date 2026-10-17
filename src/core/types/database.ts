@@ -109,6 +109,7 @@ export type Database = {
           target: number
           period: HabitPeriod
           days: number[] | null // 0=dom … 6=sáb. Recordatorio, no regla (ADR 0009).
+          tracks: "reads" | null // log derivado de read_log, no de habit_log (migración 0014)
         } & Timestamps
         Insert: {
           id?: string
@@ -120,6 +121,7 @@ export type Database = {
           target?: number
           period?: HabitPeriod
           days?: number[] | null
+          tracks?: "reads" | null
           deleted_at?: string | null
           created_at?: string
         }

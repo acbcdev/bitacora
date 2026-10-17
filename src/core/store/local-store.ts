@@ -99,7 +99,15 @@ const DEFAULTS = {
     position: 0,
     imported: false,
   },
-  habits: { icon: null, kind: "good", metric: "check", target: 1, period: "day", days: null },
+  habits: {
+    icon: null,
+    kind: "good",
+    metric: "check",
+    target: 1,
+    period: "day",
+    days: null,
+    tracks: null,
+  },
 } as const
 
 // Renombre Course → Notebook (migración 0012, ADR 0014): la clave de localStorage y el campo

@@ -16,6 +16,7 @@ function habit(over: Partial<Habit> = {}): Habit {
     target: 1,
     period: "day",
     days: null,
+    tracks: null,
     deleted_at: null,
     created_at: "2026-01-01T12:00:00Z",
     ...over,

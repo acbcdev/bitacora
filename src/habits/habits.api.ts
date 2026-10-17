@@ -7,9 +7,12 @@ import type { HabitInput, HabitLogRow } from "@/core/store/types"
 
 // Hábitos vivos, en orden de creación. Ese orden es el de la tira y el del chord h>1..9: si algo
 // lo reordenara, h>2 sería otro hábito según el día.
+// El de lectura (`tracks`) no va: no se registra a mano, vive en el header de Hoy y en Ajustes.
 export function useHabits() {
   return useSnapshot((snap) =>
-    snap.habits.toSorted((a, b) => a.created_at.localeCompare(b.created_at)),
+    snap.habits
+      .filter((h) => !h.tracks)
+      .toSorted((a, b) => a.created_at.localeCompare(b.created_at)),
   )
 }
 

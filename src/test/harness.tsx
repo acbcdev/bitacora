@@ -64,6 +64,7 @@ export function habit(over: Partial<Habit> = {}): Habit {
     target: 1,
     period: "day",
     days: null,
+    tracks: null,
     deleted_at: null,
     created_at: nowIso(),
     ...over,
