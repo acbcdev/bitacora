@@ -42,7 +42,7 @@ function statsWith(counts: Record<string, number>): ReadStats {
   for (const [id, count] of Object.entries(counts)) {
     byNote.set(id, { count, last: "2026-01-01T00:00:00Z" })
   }
-  return { ...EMPTY_READ_STATS, byNote, byDay: new Map(), today: 0, streak: 0 }
+  return { ...EMPTY_READ_STATS, byNote, byDay: new Map(), today: 0 }
 }
 
 function session() {

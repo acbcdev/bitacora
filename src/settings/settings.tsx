@@ -7,12 +7,13 @@ import { setStorageMode } from "@/core/store/mode"
 import { cn } from "@/core/lib/utils"
 import type { StorageMode } from "@/core/store/types"
 import { playDoneSound } from "@/habits/sound"
+import { ReadGoalForm } from "@/review/read-goal-form"
 
 // Ajustes como Drialog y no como ruta: un overlay no reabre "solo 3 pantallas" (ui-principles),
 // mismo criterio que el dialog de hábitos. CONTEXT.md ya dejaba escrita esta dirección.
 //
 // Contenido: lo que hay, no lo que podría haber. Tema (que antes vivía sólo en el menú del
-// sidebar) y dónde se guardan los datos. Cuando haya un tercer ajuste real, entra acá.
+// sidebar), sonido, meta de lectura y dónde se guardan los datos.
 
 const MODES: {
   mode: StorageMode
@@ -79,6 +80,16 @@ export function Settings({
               <Volume2 />
               Probar
             </Button>
+          </section>
+
+          <section className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Meta de lectura</p>
+              <p className="text-sm text-muted-foreground">
+                Notas por día. La racha 🔥 cuenta los días que llegás.
+              </p>
+            </div>
+            <ReadGoalForm />
           </section>
 
           <section>

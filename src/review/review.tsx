@@ -11,13 +11,14 @@ import { useReviewSession } from "@/review/review-session"
 import { FlashcardCard } from "@/review/flashcard-card"
 import { NoteCard } from "@/review/note-card"
 import { useSnapshot } from "@/core/lib/snapshot"
-import { dailyCompliance, DAILY_GOAL, EMPTY_READ_STATS, readStats } from "@/core/store/derive"
+import { dailyCompliance, EMPTY_READ_STATS, readGoal, readStats } from "@/core/store/derive"
 import { cn } from "@/core/lib/utils"
 import { forceLoading } from "@/core/lib/sample"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { Notebooks } from "@/notebooks/notebooks"
 import { ReviewEmpty } from "@/review/review-empty"
 import { ReviewStats } from "@/review/review-stats"
+import { ReadGoalForm } from "@/review/read-goal-form"
 import { HabitTiles } from "@/habits/habit-tiles"
 
 // Pantalla Hoy / Repaso (screen 1) — la que abre 2–3×/día. Keyboard-first:
@@ -37,6 +38,7 @@ export function Review() {
   const { data: notebooks = [] } = useNotebooks()
   const { data: stats = EMPTY_READ_STATS } = useSnapshot((s) => readStats(s))
   const { data: days = [] } = useSnapshot((s) => dailyCompliance(s))
+  const { data: goal } = useSnapshot((s) => readGoal(s))
   const delFlashcard = useDeleteNote()
   const navigate = useNavigate()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -67,8 +69,7 @@ export function Review() {
   const marked = session.marked
   const notebook = notebooks.find((c) => c.id === (cardNote ?? item)?.notebook_id)
   const readToday = stats?.today ?? 0
-  const streak = stats?.streak ?? 0
-  const donePct = Math.min(100, (readToday / DAILY_GOAL) * 100)
+  const streak = goal?.streak ?? 0
   const reads = session.reads
   const revealed = session.revealed
   // Dos hotkeys "enter" prendidos a la vez disparan los dos: los hotkeys de la pantalla se apagan
@@ -173,13 +174,21 @@ export function Review() {
 
   return (
     <div className="fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8">
-      <ReviewStats streak={streak} readToday={readToday} days={days} />
+      <ReviewStats streak={streak} readToday={readToday} goal={goal?.target} days={days} />
 
-      <Progress
-        value={donePct}
-        className="mb-8 h-0.5"
-        aria-label={`Meta diaria de lectura: ${readToday} de ${DAILY_GOAL} notas`}
-      />
+      {/* Sin meta todavía (usuario nuevo): se pide acá, donde se usa. Después vive en Ajustes. */}
+      {goal ? (
+        <Progress
+          value={Math.min(100, (readToday / goal.target) * 100)}
+          className="mb-8 h-0.5"
+          aria-label={`Meta diaria de lectura: ${readToday} de ${goal.target} notas`}
+        />
+      ) : (
+        <Card className="mb-8 flex-row items-center justify-between gap-4 px-5 py-4">
+          <p className="text-sm">¿Cuántas notas querés leer por día?</p>
+          <ReadGoalForm />
+        </Card>
+      )}
 
       {/* `relative`: el target de abrir es un overlay sobre la Card entera (abajo). */}
       <Card

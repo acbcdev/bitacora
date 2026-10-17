@@ -1,23 +1,23 @@
 import { Flame } from "lucide-react"
 import { cn } from "@/core/lib/utils"
-import { DAILY_GOAL, HISTORY_DAYS, type ComplianceDay } from "@/core/store/derive"
+import { HISTORY_DAYS, type ComplianceDay } from "@/core/store/derive"
 
 const DATE = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long" })
 
-// Cumplimiento diario (CONTEXT.md) en barras finas: altura = cumplidos/total (piso 12%), verde
-// SOLO si cumplió todo — hoy incluido. Hoy sin cumplir va en fg-secondary para marcarlo sin mentir verde;
+// Cumplimiento diario (CONTEXT.md) en barras finas: altura = progress (piso 12%), verde SOLO si
+// cumplió todos los diarios — hoy incluido. Hoy sin cumplir va en fg-secondary para marcarlo sin mentir verde;
 // días parciales en muted (track sobre bg da 1.35:1, invisible).
 function DailyBars({ days }: { days: ComplianceDay[] }) {
   return (
     <span
       role="img"
-      aria-label={`Hábitos diarios cumplidos, últimos ${HISTORY_DAYS} días: ${days.map((d) => `${d.met}/${d.total}`).join(", ")}`}
+      aria-label={`Cumplimiento de hábitos, últimos ${HISTORY_DAYS} días: ${days.map((d) => `${Math.round(d.progress * 100)}%`).join(", ")}`}
       className="flex h-7 items-end gap-[3px]"
     >
-      {days.map(({ met, total }, i) => (
+      {days.map(({ met, total, progress }, i) => (
         <span
           key={i}
-          style={{ height: `${met ? (met / total) * 100 : 12}%` }}
+          style={{ height: `${Math.max(progress * 100, 12)}%` }}
           className={cn(
             "w-1 rounded-xs",
             total > 0 && met === total
@@ -36,10 +36,12 @@ function DailyBars({ days }: { days: ComplianceDay[] }) {
 export function ReviewStats({
   streak,
   readToday,
+  goal,
   days,
 }: {
   streak: number
   readToday: number
+  goal?: number
   days: ComplianceDay[]
 }) {
   return (
@@ -57,7 +59,8 @@ export function ReviewStats({
           <small className="mono-dim text-[11px]">{HISTORY_DAYS} días</small>
         </span>
         <span className="mono">
-          leídas hoy {readToday}/{DAILY_GOAL}
+          leídas hoy {readToday}
+          {goal && `/${goal}`}
         </span>
       </div>
     </div>
