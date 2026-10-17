@@ -1,4 +1,3 @@
-import type { AuthError } from "@supabase/supabase-js"
 import { getSupabase } from "@/core/lib/supabase"
 import type { Note } from "@/core/types/database"
 import type { Snapshot, Store, WriteInput, WriteResult, Writable } from "@/core/store/types"
@@ -11,28 +10,6 @@ import type { Snapshot, Store, WriteInput, WriteResult, Writable } from "@/core/
 //
 // Lo que sí sigue igual: RLS aplica (`supabase-js` habla PostgREST directo, sin ORM — ADR 0006),
 // el borrado es lógico (ADR 0002) y read_log es append-only.
-
-// auth-js con un 5xx hace JSON.stringify(Response) → el message llega como "{}". Traducimos por
-// `code`/`status` y dejamos el error crudo en consola; la causa real está en Dashboard → Logs → Auth.
-const AUTH_ERRORS: Record<string, string> = {
-  over_email_send_rate_limit: "Demasiados mails seguidos. Esperá unos minutos y probá de nuevo.",
-  email_address_not_authorized:
-    "El SMTP default de Supabase sólo manda a miembros del proyecto. Configurá un SMTP propio.",
-  email_address_invalid: "Ese email no es válido.",
-  otp_expired: "El código venció o es incorrecto. Pedí uno nuevo.",
-  over_request_rate_limit: "Demasiados intentos. Esperá unos minutos.",
-}
-
-function toAuthError(error: AuthError): Error {
-  console.error("[auth]", error.status, error.code, error)
-  if (error.code && AUTH_ERRORS[error.code]) return new Error(AUTH_ERRORS[error.code])
-  if (!error.status) return new Error("Sin conexión con Supabase.")
-  if (error.status >= 500)
-    return new Error(
-      `Supabase no pudo enviar el mail (${error.status}). Revisá SMTP y template en Logs → Auth.`,
-    )
-  return new Error(error.message)
-}
 
 export function supabaseStore(): Store {
   return {
@@ -49,16 +26,14 @@ export function supabaseStore(): Store {
         )
         return () => data.subscription.unsubscribe()
       },
-      // Código por mail en vez de magic link: se tipea en la misma pestaña/PWA, sin depender de
-      // qué browser abre el link. El mail sale del template "Magic Link" — tiene que usar
-      // {{ .Token }} (supabase/templates/magic_link.html; en prod, pegarlo en el dashboard).
       async signIn(email) {
-        const { error } = await getSupabase().auth.signInWithOtp({ email })
-        if (error) throw toAuthError(error)
-      },
-      async verify(email, code) {
-        const { error } = await getSupabase().auth.verifyOtp({ email, token: code, type: "email" })
-        if (error) throw toAuthError(error)
+        // emailRedirectTo al origin actual: el magic link vuelve a donde la app corre
+        // (localhost en dev, dominio en prod) sin hardcodear URLs.
+        const { error } = await getSupabase().auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: window.location.origin },
+        })
+        if (error) throw error
       },
       async signOut() {
         await getSupabase().auth.signOut()

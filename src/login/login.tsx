@@ -1,6 +1,5 @@
 import { useState } from "react"
-import { useSearchParams } from "react-router-dom"
-import { HardDrive, LoaderCircle } from "lucide-react"
+import { Check, HardDrive, LoaderCircle } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Card } from "@/core/ui/card"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/core/ui/field"
@@ -9,39 +8,20 @@ import { store } from "@/core/store"
 import { setStorageMode } from "@/core/store/mode"
 
 export function Login() {
-  // El paso vive en la URL (/login?code=<email>, conserva ?next): recargar no pierde el paso y "atrás" vuelve al mail.
-  const [params, setParams] = useSearchParams()
-  const sent = params.has("code")
-  const [email, setEmail] = useState(params.get("code") ?? "")
-  const [code, setCode] = useState("")
+  const [email, setEmail] = useState("")
+  const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Un solo submit para los dos pasos: sin código pide el mail, con código lo canjea. Al verificar,
-  // onAuthStateChange levanta la sesión y la app sale del Login sola.
-  async function submit(e: React.FormEvent) {
+  async function send(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
-      if (sent) {
-        // Con la sesión, App saca de /login hacia ?next.
-        await store.auth.verify(email, code)
-      } else {
-        await store.auth.signIn(email)
-        setParams((p) => {
-          p.set("code", email)
-          return p
-        })
-      }
+      await store.auth.signIn(email)
+      setSent(true)
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : sent
-            ? "Código inválido"
-            : "No se pudo enviar el código",
-      )
+      setError(err instanceof Error ? err.message : "No se pudo enviar el link")
     } finally {
       setLoading(false)
     }
@@ -61,34 +41,19 @@ export function Login() {
 
         {/* h-11 (44px): mínimo de tap target Apple/Google. p-6 en mobile, p-8 desde sm. */}
         <Card className="gap-5 p-6 sm:p-8">
-          <form onSubmit={submit}>
-            <FieldGroup>
-              {sent ? (
-                <Field data-invalid={!!error}>
-                  <FieldLabel htmlFor="code" className="eyebrow">
-                    Código
-                  </FieldLabel>
-                  <p className="text-sm text-fg-secondary">Te mandamos un código a {email}.</p>
-                  <Input
-                    id="code"
-                    required
-                    autoFocus
-                    // one-time-code: iOS/Android lo sugieren desde el mail/SMS sin copiar a mano.
-                    autoComplete="one-time-code"
-                    inputMode="numeric"
-                    // El largo lo define el proyecto (Email OTP Length, 6–10): no lo fijamos acá.
-                    pattern="[0-9]{6,10}"
-                    maxLength={10}
-                    enterKeyHint="go"
-                    aria-invalid={!!error}
-                    placeholder="Código"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                    className="h-11 text-md tracking-widest"
-                  />
-                  <FieldError>{error}</FieldError>
-                </Field>
-              ) : (
+          {sent ? (
+            <>
+              <p className="flex items-center gap-2 text-sm font-medium text-signal">
+                <Check />
+                Link enviado
+              </p>
+              <p className="text-sm text-fg-secondary">
+                Revisá {email || "tu mail"} y abrí el magic link.
+              </p>
+            </>
+          ) : (
+            <form onSubmit={send}>
+              <FieldGroup>
                 <Field data-invalid={!!error}>
                   <FieldLabel htmlFor="email" className="eyebrow">
                     Email
@@ -110,40 +75,19 @@ export function Login() {
                   />
                   <FieldError>{error}</FieldError>
                 </Field>
-              )}
-              <Button type="submit" size="lg" disabled={loading} className="h-11">
-                {loading ? (
-                  <>
-                    <LoaderCircle className="animate-spin" />
-                    {sent ? "Verificando…" : "Enviando…"}
-                  </>
-                ) : sent ? (
-                  "Entrar"
-                ) : (
-                  "Enviar código"
-                )}
-              </Button>
-              {sent && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setParams(
-                      (p) => {
-                        p.delete("code")
-                        return p
-                      },
-                      { replace: true },
-                    )
-                    setCode("")
-                    setError(null)
-                  }}
-                >
-                  Usar otro email
+                <Button type="submit" size="lg" disabled={loading} className="h-11">
+                  {loading ? (
+                    <>
+                      <LoaderCircle className="animate-spin" />
+                      Enviando…
+                    </>
+                  ) : (
+                    "Enviar magic link"
+                  )}
                 </Button>
-              )}
-            </FieldGroup>
-          </form>
+              </FieldGroup>
+            </form>
+          )}
         </Card>
 
         {/* La puerta al modo local. Vive acá y no sólo en Ajustes porque el caso que resuelve es

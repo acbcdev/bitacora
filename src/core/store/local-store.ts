@@ -191,9 +191,9 @@ export function localStore(): Store {
       onChange() {
         return () => {}
       },
-      // No hay a dónde mandar un código. En modo local nunca se llega al Login.
-      async signIn() {},
-      async verify() {},
+      async signIn() {
+        // No hay a dónde mandar un magic link. En modo local nunca se llega al Login.
+      },
       async signOut() {
         // "Cerrar sesión" en local no cierra nada: lo único que puede significar es volver a
         // Supabase. Sin env no hay a dónde volver, y decirlo es mejor que recargar en falso —

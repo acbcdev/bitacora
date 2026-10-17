@@ -146,7 +146,7 @@ habit_log(id, user_id, habit_id, day, amount, target)
    (`store.canGenerateFlashcards`), porque necesita la Edge Function.
 3. **Nota** — editor Tiptap.
 
-**Auth:** código OTP por mail (`signInWithOtp` + `verifyOtp`; template en `supabase/templates/magic_link.html`). En **modo local** no hay auth: el Login
+**Auth:** magic link (default de Supabase, cero código). En **modo local** no hay auth: el Login
 no se ve y `store.auth.getUser()` resuelve con el usuario del navegador. La app nunca ve el
 `Session` de `supabase-js` — el seam devuelve `AuthUser` (`{ email }`), ADR 0011.
 
