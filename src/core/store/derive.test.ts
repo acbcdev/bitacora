@@ -6,6 +6,7 @@ import {
   lastEditedNote,
   liveNotebooks,
   noteRefs,
+  readGoal,
   readStats,
   reviewQueue,
   type NotebooksQuery,
@@ -258,26 +259,8 @@ describe("readStats", () => {
   const now = new Date("2026-07-24T20:00:00")
   const at = (day: string, h = "10:00:00") => `2026-07-${day}T${h}`
 
-  test("racha cuenta días consecutivos y no se rompe si hoy todavía no leyó", () => {
-    // 22 y 23 sí, hoy (24) no → racha 2, hoy 0.
-    const s = readStats(snapshot({ reads: [read("n1", at("22")), read("n2", at("23"))] }), now)
-    expect(s.streak).toBe(2)
-    expect(s.today).toBe(0)
-  })
-
-  test("un hueco corta la racha; hoy suma", () => {
-    const s = readStats(
-      snapshot({
-        reads: [
-          read("n1", at("20")), // antes del hueco (21) — no cuenta
-          read("n2", at("22")),
-          read("n3", at("23")),
-          read("n4", at("24")),
-        ],
-      }),
-      now,
-    )
-    expect(s.streak).toBe(3)
+  test("today cuenta las lecturas de hoy", () => {
+    const s = readStats(snapshot({ reads: [read("n1", at("23")), read("n2", at("24"))] }), now)
     expect(s.today).toBe(1)
   })
 
@@ -306,6 +289,7 @@ describe("dailyCompliance", () => {
     target: 3,
     period: "day",
     days: null,
+    tracks: null,
     deleted_at: null,
     created_at: createdAt(1),
     ...over,
@@ -317,7 +301,7 @@ describe("dailyCompliance", () => {
     target,
   })
 
-  test("día mixto: good cumplido + bad sin log cumplen, good parcial no", () => {
+  test("día mixto: good cumplido + bad sin log cumplen, good parcial suma su fracción", () => {
     const snap = snapshot({
       habits: [
         habit({ id: "ok" }),
@@ -326,7 +310,17 @@ describe("dailyCompliance", () => {
       ],
       habitLog: [row("ok", "2026-10-12", 3), row("partial", "2026-10-12", 1)],
     })
-    expect(dailyCompliance(snap, now)[12]).toEqual({ met: 2, total: 3 })
+    const d = dailyCompliance(snap, now)[12]
+    expect(d).toMatchObject({ met: 2, total: 3 })
+    expect(d.progress).toBeCloseTo((1 + 1 / 3 + 1) / 3)
+  })
+
+  test("bad pasado del techo aporta 0, no fracción", () => {
+    const snap = snapshot({
+      habits: [habit({ id: "b", kind: "bad", target: 2 })],
+      habitLog: [row("b", "2026-10-12", 3, 2)],
+    })
+    expect(dailyCompliance(snap, now)[12]).toEqual({ met: 0, total: 1, progress: 0 })
   })
 
   test("se puntúa contra el target congelado de la fila, no la meta viva", () => {
@@ -334,24 +328,67 @@ describe("dailyCompliance", () => {
       habits: [habit({ id: "h", target: 5 })],
       habitLog: [row("h", "2026-10-12", 3, 3)],
     })
-    expect(dailyCompliance(snap, now)[12]).toEqual({ met: 1, total: 1 })
+    expect(dailyCompliance(snap, now)[12]).toEqual({ met: 1, total: 1, progress: 1 })
   })
 
   test("un hábito creado después del día no cuenta ese día", () => {
     const snap = snapshot({ habits: [habit({ id: "h", kind: "bad", created_at: createdAt(12) })] })
     const days = dailyCompliance(snap, now)
-    expect(days[11]).toEqual({ met: 0, total: 0 }) // 11 oct
-    expect(days[12]).toEqual({ met: 1, total: 1 }) // 12 oct, día de creación
+    expect(days[11]).toEqual({ met: 0, total: 0, progress: 0 }) // 11 oct
+    expect(days[12]).toEqual({ met: 1, total: 1, progress: 1 }) // 12 oct, día de creación
   })
 
-  test("hábitos semanales no entran", () => {
-    const snap = snapshot({ habits: [habit({ id: "w", period: "week", kind: "bad" })] })
-    expect(dailyCompliance(snap, now)[13]).toEqual({ met: 0, total: 0 })
+  // 13 oct 2026 es martes: van 2/7 de la semana. 3/semana → se esperan 6/7 a esta altura.
+  test("semanal: suma por ritmo del período con medio peso, fuera de met/total", () => {
+    const snap = snapshot({
+      habits: [habit({ id: "d" }), habit({ id: "w", period: "week" })],
+      habitLog: [row("d", "2026-10-13", 3), row("w", "2026-10-12", 3 / 7)],
+    })
+    const d = dailyCompliance(snap, now)[13]
+    expect(d).toMatchObject({ met: 1, total: 1 })
+    expect(d.progress).toBeCloseTo((1 + 0.5 * 0.5) / 1.5)
+  })
+
+  test("semanal: adelantado topa en 1; lo de la semana anterior (dom 11) no suma", () => {
+    const snap = snapshot({
+      habits: [habit({ id: "w", period: "week" })],
+      habitLog: [row("w", "2026-10-11", 3), row("w", "2026-10-12", 3 / 7)],
+    })
+    const days = dailyCompliance(snap, now)
+    expect(days[11].progress).toBe(1) // dom 11: 3 de 3 esperados
+    expect(days[13].progress).toBeCloseTo(0.5)
+  })
+
+  test("mensual pesa un cuarto", () => {
+    const snap = snapshot({
+      habits: [habit({ id: "d" }), habit({ id: "m", period: "month" })],
+      habitLog: [row("d", "2026-10-13", 3)],
+    })
+    expect(dailyCompliance(snap, now)[13].progress).toBeCloseTo(1 / 1.25)
   })
 
   test("sin hábitos diarios: 14 días en cero", () => {
     expect(dailyCompliance(snapshot(), now)).toEqual(
-      Array.from({ length: 14 }, () => ({ met: 0, total: 0 })),
+      Array.from({ length: 14 }, () => ({ met: 0, total: 0, progress: 0 })),
     )
+  })
+
+  test("leer notas es un hábito: sus filas salen de read_log, entra en la barra y la racha exige la meta", () => {
+    const at = (d: number) => new Date(2026, 9, d, 10).toISOString()
+    const snap = snapshot({
+      habits: [habit({ id: "r", tracks: "reads", target: 2 })],
+      // 11: 2 (cumple) · 12: 2 (cumple) · 13 (hoy): 1 (parcial, no corta)
+      reads: [at(11), at(11), at(12), at(12), at(13)].map((t, i) => read(`n${i}`, t)),
+    })
+    expect(
+      dailyCompliance(snap, now)
+        .slice(-3)
+        .map((d) => d.progress),
+    ).toEqual([1, 1, 0.5])
+    expect(readGoal(snap, now)).toMatchObject({ target: 2, streak: 2 })
+  })
+
+  test("sin hábito de lectura, readGoal es null (onboarding)", () => {
+    expect(readGoal(snapshot(), now)).toBeNull()
   })
 })

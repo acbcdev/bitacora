@@ -182,29 +182,23 @@ export function reviewQueue(snap: Snapshot): NoteRef[] {
     })
 }
 
-// Meta diaria = el batch de review_queue() (migrations/0003). El diseño muestra "leídas hoy N/M".
-export const DAILY_GOAL = 3
-
 // Ventana de las barras del header de Hoy: más atrás es un calendario, otra UI.
 export const HISTORY_DAYS = 14
 
 export type NoteReads = { count: number; last: string | null }
 export type ReadStats = {
   today: number
-  streak: number
   byNote: Map<string, NoteReads>
   byDay: Map<string, number>
 }
 
 export const EMPTY_READ_STATS: ReadStats = {
   today: 0,
-  streak: 0,
   byNote: new Map(),
   byDay: new Map(),
 }
 
-// Racha = días consecutivos con al menos un repaso. Si hoy todavía no leyó, la racha de ayer
-// sigue viva (no se rompe hasta que pasa el día completo sin leer).
+// La racha de lectura ya no vive acá: es la del hábito `tracks = 'reads'` (readGoal).
 export function readStats(snap: Snapshot, now = new Date()): ReadStats {
   const byDay = new Map<string, number>()
   for (const r of snap.reads) {
@@ -212,16 +206,7 @@ export function readStats(snap: Snapshot, now = new Date()): ReadStats {
     byDay.set(day, (byDay.get(day) ?? 0) + 1)
   }
   const byNote = readsByNote(snap.reads) as Map<string, NoteReads>
-
-  const cursor = new Date(now)
-  if (!byDay.has(dayKey(cursor))) cursor.setDate(cursor.getDate() - 1)
-  let streak = 0
-  while (byDay.has(dayKey(cursor))) {
-    streak++
-    cursor.setDate(cursor.getDate() - 1)
-  }
-
-  return { today: byDay.get(dayKey(now)) ?? 0, streak, byNote, byDay }
+  return { today: byDay.get(dayKey(now)) ?? 0, byNote, byDay }
 }
 
 // El `target` que le corresponde a un día del log: si la fila YA existe vale el suyo —congelado—,
@@ -396,30 +381,91 @@ export function deriveHabit(habit: Habit, rows: HabitLogRow[], now = new Date())
   }
 }
 
+// Leer notas es un hábito (`tracks = 'reads'`, migración 0014) cuyo log no se escribe: sus filas
+// salen de read_log, un día = cuántas notas se leyeron. Así racha y Cumplimiento diario lo tratan
+// igual que a cualquier `good count/day`, sin doble escritura.
+// ponytail: target vivo en todas las filas — cambiar la meta re-puntúa días viejos. Si molesta,
+// congelar escribiendo la fila en habit_log al marcar leído.
+export const readsHabit = (snap: Snapshot) => snap.habits.find((h) => h.tracks === "reads")
+
+function habitLog(snap: Snapshot): HabitLogRow[] {
+  const h = readsHabit(snap)
+  if (!h) return snap.habitLog
+  const rows = [...readStats(snap).byDay].map(([day, amount]) => ({
+    habit_id: h.id,
+    day,
+    amount,
+    target: h.target,
+  }))
+  return [...snap.habitLog, ...rows]
+}
+
 // Snapshot → HabitState. Un habit, un lugar: la firma es Snapshot como el resto de derive.
 export function habitState(snap: Snapshot, habitId: string, now = new Date()): HabitState | null {
   const habit = snap.habits.find((h) => h.id === habitId)
   if (!habit) return null
-  return deriveHabit(habit, snap.habitLog, now)
+  return deriveHabit(habit, habitLog(snap), now)
 }
 
-// Cumplimiento diario (CONTEXT.md): las barras del header de Hoy. Por día, hábitos `day` vivos ese
-// día (creados ese día o antes) y cuántos cumplieron contra el target congelado. Semanales y
-// mensuales no entran: no hay una convención honesta para partirlos por día (ADR 0013).
-export type ComplianceDay = { met: number; total: number }
+// La meta de lectura de Hoy. `null` = todavía no la configuró (onboarding).
+export function readGoal(snap: Snapshot, now = new Date()) {
+  const h = readsHabit(snap)
+  return h
+    ? { habit: h, target: h.target, streak: deriveHabit(h, habitLog(snap), now).streak }
+    : null
+}
+
+// Cumplimiento diario (CONTEXT.md): las barras del header de Hoy. Por día, los hábitos vivos ese
+// día (creados ese día o antes). `met/total` cuenta SOLO los `day` (el verde); `progress` es la
+// altura y suma a todos (ADR 0026).
+export type ComplianceDay = { met: number; total: number; progress: number }
+
+// Semana y mes pesan menos: un día es una fracción chica de su período.
+const WEIGHT: Record<HabitPeriod, number> = { day: 1, week: 0.5, month: 0.25 }
+
+// Qué fracción del período ya pasó al cerrar `d` (incluido): lun = 1/7, día 10 de un mes de 30 = 10/30.
+const elapsed: Record<HabitPeriod, (d: Date) => number> = {
+  day: () => 1,
+  week: (d) => (((d.getDay() + 6) % 7) + 1) / 7,
+  month: (d) => d.getDate() / new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(),
+}
 
 export function dailyCompliance(snap: Snapshot, now = new Date()): ComplianceDay[] {
-  const daily = snap.habits.filter((h) => h.period === "day")
+  const log = habitLog(snap)
   return Array.from({ length: HISTORY_DAYS }, (_, i) => {
     const d = new Date(now)
     d.setDate(d.getDate() - (HISTORY_DAYS - 1 - i))
     const day = dayKey(d)
-    const alive = daily.filter((h) => dayKey(new Date(h.created_at)) <= day)
-    const met = alive.filter((h) => {
-      // Sin fila: amount 0 contra la meta viva — misma regla que frozenTarget.
-      const row = snap.habitLog.find((r) => r.habit_id === h.id && r.day === day)
-      return meets(h.kind, row?.amount ?? 0, row?.target ?? h.target)
-    }).length
-    return { met, total: alive.length }
+    let met = 0
+    let total = 0
+    let sum = 0
+    let weight = 0
+    for (const h of snap.habits) {
+      if (dayKey(new Date(h.created_at)) > day) continue
+      // Lo acumulado del período HASTA ese día (en `day`, la fila del día), contra el target de la
+      // fila más nueva — sin filas, la meta viva (misma regla que frozenTarget).
+      const key = periodKey(d, h.period)
+      const rows = log.filter(
+        (r) => r.habit_id === h.id && r.day <= day && periodKey(parseDay(r.day), h.period) === key,
+      )
+      const amount = rows.reduce((s, r) => s + r.amount, 0)
+      const last = rows.reduce<HabitLogRow | undefined>(
+        (a, r) => (a && a.day > r.day ? a : r),
+        undefined,
+      )
+      const target = last?.target ?? h.target
+      const ok = meets(h.kind, amount, target)
+      if (h.period === "day") {
+        total++
+        if (ok) met++
+      }
+      // good: ritmo contra lo esperado a esa altura del período (en `day` = la meta entera).
+      // bad: binario — "medio recaí" no existe.
+      const expected = target * elapsed[h.period](d)
+      const p = h.kind === "bad" ? Number(ok) : expected > 0 ? Math.min(amount / expected, 1) : 1
+      sum += WEIGHT[h.period] * p
+      weight += WEIGHT[h.period]
+    }
+    return { met, total, progress: weight ? sum / weight : 0 }
   })
 }
