@@ -45,4 +45,4 @@ KaTeX JS (~76 KB gz de `katex.min.js`) y su CSS caen SOLO en `note-body` (lazy);
 contiene (grep `KaTeX parse error`). Fuentes `KaTeX_*` (~1.1 MB woff/woff2/ttf) se emiten como
 assets aparte, cargadas por el CSS bajo demanda.
 
-- Pendiente confirmar con el usuario: `$$x$$` pegado en medio de una línea queda texto literal (test lo fija).
+- Confirmado por el usuario 2026-10-19: `$$x$$` pegado en medio de una línea queda texto literal (test lo fija).
