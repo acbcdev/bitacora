@@ -114,8 +114,9 @@ export function docToMarkdown(doc: TiptapDoc): string {
   return blocks((doc.content as Node[]) ?? [])
 }
 
+// Ecuaciones (ADR 0018): el extracto muestra el LaTeX crudo, no desaparecen.
 function plainInline(nodes: Node[] = []): string {
-  return nodes.map((n) => n.text ?? "").join("")
+  return nodes.map((n) => n.text ?? String(n.attrs?.latex ?? "")).join("")
 }
 
 // Extracto sin formato (tarjetas de Repaso: note-card y flashcard-card): a diferencia de
@@ -137,6 +138,8 @@ function plainBlock(node: Node): string {
     case "tableHeader":
     case "tableCell":
       return plainBlocks(node.content ?? [])
+    case "blockMath":
+      return String(node.attrs?.latex ?? "")
     default:
       return plainInline(node.content)
   }
@@ -190,9 +193,13 @@ const QUOTE_RE = /^>\s?/
 const CALLOUT_RE = /^\[!(NOTE|WARNING|TIP)\]\s*$/i
 const BULLET_RE = /^[-*]\s+/
 const ORDERED_RE = /^\d+\.\s+/
+// Ecuación bloque: abre con `$$` al inicio de línea y cierra con `$$` al final de la misma u otra
+// línea (LaTeX multilínea del export, o `$$`/`$$` en líneas propias como pega ChatGPT).
+const BLOCK_MATH_OPEN_RE = /^\$\$[^$]*$/
+const BLOCK_MATH_CLOSE_RE = /^[^$]*\$\$\s*$/
 const BLOCK_MATH_RE = /^\$\$([^$]+)\$\$\s*$/
 const SPECIAL_LINE_RE = new RegExp(
-  [FENCE_RE, HEADING_RE, HR_RE, QUOTE_RE, BULLET_RE, ORDERED_RE, BLOCK_MATH_RE]
+  [FENCE_RE, HEADING_RE, HR_RE, QUOTE_RE, BULLET_RE, ORDERED_RE, BLOCK_MATH_RE, BLOCK_MATH_OPEN_RE]
     .map((r) => r.source)
     .join("|"),
 )
@@ -315,6 +322,22 @@ function parseBlocks(text: string): Node[] {
       continue
     }
 
+    if (BLOCK_MATH_OPEN_RE.test(line)) {
+      let end = i + 1
+      while (end < lines.length && !BLOCK_MATH_CLOSE_RE.test(lines[end])) end++
+      if (end < lines.length) {
+        const latex = lines
+          .slice(i, end + 1)
+          .join("\n")
+          .trim()
+          .slice(2, -2)
+          .trim()
+        result.push({ type: "blockMath", attrs: { latex } })
+        i = end + 1
+        continue
+      }
+    }
+
     if (HR_RE.test(line.trim())) {
       result.push({ type: "horizontalRule" })
       i++
@@ -368,7 +391,8 @@ function parseBlocks(text: string): Node[] {
       continue
     }
 
-    const paraLines: string[] = []
+    // La primera línea entra siempre: un `$$` sin cierre es especial pero cae acá como texto.
+    const paraLines: string[] = [lines[i++]]
     while (i < lines.length && lines[i].trim() !== "" && !SPECIAL_LINE_RE.test(lines[i])) {
       paraLines.push(lines[i++])
     }
