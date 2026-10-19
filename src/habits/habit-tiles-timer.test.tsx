@@ -168,7 +168,7 @@ test("hero con el timer corriendo amplía (no pausa); el número del zoom pausa;
   // El número del zoom pausa sin cerrar.
   fireEvent.click(within(zoom).getByText("20:00"))
   await waitFor(() => expect(localStorage.getItem("bita-timer")).toBe(null))
-  expect(screen.getByRole("dialog", { name: "Leer" })).toBeInTheDocument()
+  expect(screen.getByRole("dialog", { name: /^Leer.*pausado$/ })).toBeInTheDocument()
 
   fireEvent.keyDown(zoom, { key: "Escape" })
   await waitFor(() => expect(screen.queryByRole("dialog")).toBe(null))

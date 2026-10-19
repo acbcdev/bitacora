@@ -71,15 +71,19 @@ export function HabitZoom({
             )}
           />
 
-          <Dialog.Title className="absolute top-8 left-8 flex items-center gap-2 font-mono text-sm text-muted-foreground">
+          {/* Corriendo = verde que pulsa; pausado = gris + la palabra, mismo trato que el tile. */}
+          <Dialog.Title
+            className={cn(
+              "absolute top-8 left-8 flex items-center gap-2 font-mono text-sm",
+              r.running ? "text-signal" : "text-muted-foreground",
+            )}
+          >
             <i
               aria-hidden
-              className={cn(
-                "size-2 rounded-full",
-                r.running ? "animate-pulse bg-signal" : "bg-current",
-              )}
+              className={cn("size-2 rounded-full bg-current", r.running && "animate-pulse")}
             />
             {h.name}
+            {!r.running && <span>· pausado</span>}
           </Dialog.Title>
 
           <button
@@ -101,7 +105,10 @@ export function HabitZoom({
             tabIndex={-1}
             aria-hidden
             onClick={toggle}
-            className="relative flex items-baseline text-[min(24vw,42vh)] leading-none font-normal tracking-tighter tabular-nums dark:font-light"
+            className={cn(
+              "relative flex items-baseline text-[min(24vw,42vh)] leading-none font-normal tracking-tighter tabular-nums transition-colors dark:font-light",
+              !r.running && "text-muted-foreground",
+            )}
           >
             {r.clock ?? displayAmount(h, total)}
             <small className="ml-[0.15em] text-[0.12em] font-normal tracking-normal text-muted-foreground">
