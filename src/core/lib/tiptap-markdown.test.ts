@@ -1,4 +1,7 @@
-import { docToMarkdown, docToPlainText, markdownToDoc } from "@/core/lib/tiptap-markdown"
+import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details"
+import { BlockMath, InlineMath } from "@tiptap/extension-mathematics"
+import { Callout } from "@/core/components/callout"
+import { NODE, docToMarkdown, docToPlainText, markdownToDoc } from "@/core/lib/tiptap-markdown"
 import type { TiptapDoc } from "@/core/types/database"
 
 type TestNode = {
@@ -351,4 +354,15 @@ test("desplegable exporta summary en bold y el cuerpo debajo", () => {
   expect(docToMarkdown(doc)).toBe("**Título**\n\nuno\n\ndos")
   expect(docToPlainText(doc)).toBe("Título uno dos")
   expect((markdownToDoc("> texto").content?.[0] as TestNode | undefined)?.type).toBe("blockquote")
+})
+
+test("NODE coincide con el name de cada extensión", () => {
+  expect(NODE).toEqual({
+    details: Details.name,
+    detailsSummary: DetailsSummary.name,
+    detailsContent: DetailsContent.name,
+    callout: Callout.name,
+    blockMath: BlockMath.name,
+    inlineMath: InlineMath.name,
+  })
 })

@@ -17,7 +17,6 @@ import { BlockMath, InlineMath } from "@tiptap/extension-mathematics"
 import "katex/dist/katex.min.css"
 import { createLowlight, common } from "lowlight"
 import { Fragment, Slice } from "@tiptap/pm/model"
-import type { Node as PMNode } from "@tiptap/pm/model"
 import type { EditorView } from "@tiptap/pm/view"
 import { sinkListItem, liftListItem } from "@tiptap/pm/schema-list"
 import { Extension } from "@tiptap/react"
@@ -29,7 +28,8 @@ import { Desplegable } from "@/core/components/desplegable"
 import { Callout } from "@/core/components/callout"
 import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
-import { SlashMenu, isSlashMenuActive, promptLatex } from "@/core/components/slash-menu"
+import { SlashMenu, isSlashMenuActive } from "@/core/components/slash-menu"
+import { editLatex } from "@/core/components/ecuacion"
 import { FormatBubbleMenu } from "@/core/components/bubble-menu"
 import { TableHoverControls } from "@/core/components/table-controls"
 import { BlockControls } from "@/core/components/block-controls"
@@ -56,13 +56,6 @@ const FormatKeys = Extension.create({
     return { "Mod-\\": () => this.editor.commands.unsetAllMarks() }
   },
 })
-
-// Ecuación (editor-blocks/02): clic edita el LaTeX. Vacío o cancelar = no-op.
-function editLatex(view: EditorView | undefined, node: PMNode, pos: number) {
-  const latex = promptLatex(node.attrs.latex)
-  if (!view || !latex || latex === node.attrs.latex) return
-  view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, latex }))
-}
 
 const CodeBlock = CodeBlockLowlight.extend({
   addNodeView: () => ReactNodeViewRenderer(CodeBlockView),

@@ -1,5 +1,15 @@
-import { Details, DetailsContent } from "@tiptap/extension-details"
 import type { TiptapDoc } from "@/core/types/database"
+
+// Nombres de los nodos propios (Desplegable, Callout, Ecuación). Strings planos y no `X.name`:
+// este módulo no importa tiptap (lo usan pantallas fuera del chunk lazy del editor).
+export const NODE = {
+  details: "details",
+  detailsSummary: "detailsSummary",
+  detailsContent: "detailsContent",
+  callout: "callout",
+  blockMath: "blockMath",
+  inlineMath: "inlineMath",
+} as const
 
 // Serializa/parsea Markdown <-> documento Tiptap (JSON de StarterKit).
 // ponytail: cubre solo los nodos que el editor habilita (StarterKit). Nodo nuevo en el editor
@@ -18,7 +28,7 @@ function inline(nodes: Node[] = []): string {
     .map((n) => {
       if (n.type === "hardBreak") return "\n"
       // trim: con espacios en los bordes `$ x $` no cumple la regla pandoc y no vuelve a parsear.
-      if (n.type === "inlineMath") return `$${String(n.attrs?.latex ?? "").trim()}$`
+      if (n.type === NODE.inlineMath) return `$${String(n.attrs?.latex ?? "").trim()}$`
       let t = n.text ?? ""
       for (const m of n.marks ?? []) {
         if (m.type === "bold") t = `**${t}**`
@@ -57,12 +67,12 @@ function block(node: Node): string {
     case "blockquote":
       return quote(blocks(node.content ?? []))
     // GFM alert: `> [!NOTE]` + contenido citado. Ver CALLOUT_RE en el parser.
-    case "callout":
+    case NODE.callout:
       return quote(
         `[!${String(node.attrs?.kind ?? "note").toUpperCase()}]\n` + blocks(node.content ?? []),
       )
     // Desplegable: summary en bold + cuerpo debajo. Sin <details> (ADR 0018): no hay round-trip.
-    case Details.name: {
+    case NODE.details: {
       const [summary, body] = node.content ?? []
       // Texto plano: las marks propias del título romperían el bold (`****x****`).
       const title = plainInline(summary?.content)
@@ -70,7 +80,7 @@ function block(node: Node): string {
     }
     case "horizontalRule":
       return "---"
-    case "blockMath":
+    case NODE.blockMath:
       return `$$${String(node.attrs?.latex ?? "")}$$`
     case "table":
       return tableToMarkdown(node)
@@ -129,9 +139,9 @@ function plainBlock(node: Node): string {
     case "orderedList":
       return (node.content ?? []).map((item) => plainBlocks(item.content ?? [])).join(" ")
     case "blockquote":
-    case "callout":
-    case Details.name:
-    case DetailsContent.name:
+    case NODE.callout:
+    case NODE.details:
+    case NODE.detailsContent:
       return plainBlocks(node.content ?? [])
     // table/tableRow/tableHeader/tableCell se aplanan igual: cada nivel delega a plainBlocks.
     case "table":
@@ -139,7 +149,7 @@ function plainBlock(node: Node): string {
     case "tableHeader":
     case "tableCell":
       return plainBlocks(node.content ?? [])
-    case "blockMath":
+    case NODE.blockMath:
       return String(node.attrs?.latex ?? "")
     default:
       return plainInline(node.content)
@@ -180,7 +190,7 @@ function parseInline(text: string): Node[] {
       nodes.push({ type: "text", text: m[5], marks: [{ type: "strike" }] })
     else if (m[6] !== undefined || m[7] !== undefined)
       nodes.push({ type: "text", text: (m[6] ?? m[7])!, marks: [{ type: "italic" }] })
-    else if (m[8] !== undefined) nodes.push({ type: "inlineMath", attrs: { latex: m[8] } })
+    else if (m[8] !== undefined) nodes.push({ type: NODE.inlineMath, attrs: { latex: m[8] } })
     last = m.index + m[0].length
   }
   pushText(text.slice(last))
@@ -322,7 +332,7 @@ function parseBlocks(text: string): Node[] {
 
     const math = line.match(BLOCK_MATH_RE)
     if (math) {
-      result.push({ type: "blockMath", attrs: { latex: math[1] } })
+      result.push({ type: NODE.blockMath, attrs: { latex: math[1] } })
       i++
       continue
     }
@@ -337,7 +347,7 @@ function parseBlocks(text: string): Node[] {
           .trim()
           .slice(2, -2)
           .trim()
-        result.push({ type: "blockMath", attrs: { latex } })
+        result.push({ type: NODE.blockMath, attrs: { latex } })
         i = end + 1
         continue
       }
@@ -358,7 +368,7 @@ function parseBlocks(text: string): Node[] {
       result.push(
         kind
           ? {
-              type: "callout",
+              type: NODE.callout,
               attrs: { kind: kind.toLowerCase() },
               // `> [!NOTE]` solo: block+ exige un hijo, nodeFromJSON no valida.
               content: callout.length ? callout : [{ type: "paragraph" }],

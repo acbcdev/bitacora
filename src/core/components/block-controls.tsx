@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { ReactNode, RefObject } from "react"
-import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details"
 import { DragHandle } from "@tiptap/extension-drag-handle-react"
 import type { NestedOptions } from "@tiptap/extension-drag-handle"
 import { NodeRangeSelection } from "@tiptap/extension-node-range"
@@ -35,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/core/ui/dropdown-menu"
 import { preventFocus } from "@/core/components/prevent-focus"
+import { NODE } from "@/core/lib/tiptap-markdown"
 
 // Bloques: + ⋮⋮ en el margen izquierdo del bloque hovered (spec historia 6, issue 05).
 // El drag (reordenar, rango multi-bloque, línea guía en drop) lo maneja el plugin oficial
@@ -62,7 +62,7 @@ const NESTED_CONFIG: NestedOptions = {
     {
       id: "detailsParts",
       evaluate: ({ node }) =>
-        node.type.name === DetailsSummary.name || node.type.name === DetailsContent.name ? 1000 : 0,
+        node.type.name === NODE.detailsSummary || node.type.name === NODE.detailsContent ? 1000 : 0,
     },
   ],
 }
@@ -236,7 +236,7 @@ function blockAtY(view: EditorView, y: number): BlockTarget | null {
           // si se pide.
           const first = child.firstChild
           best =
-            first?.isBlock && child.childCount >= 1 && child.type.name !== Details.name
+            first?.isBlock && child.childCount >= 1 && child.type.name !== NODE.details
               ? (pick(child, pos + 1) ?? { node: child, pos })
               : { node: child, pos }
         }

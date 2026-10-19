@@ -8,7 +8,8 @@ import type { Range, Editor } from "@tiptap/react"
 import { uploadNoteImageWithToast } from "@/core/components/upload-note-image"
 import { setDesplegable } from "@/core/components/desplegable"
 import { CALLOUT_META } from "@/core/components/callout"
-import { CALLOUT_KINDS } from "@/core/lib/tiptap-markdown"
+import { promptLatex } from "@/core/components/ecuacion"
+import { CALLOUT_KINDS, NODE } from "@/core/lib/tiptap-markdown"
 import { Command, CommandEmpty, CommandItem, CommandList } from "@/core/ui/command"
 import {
   CodeIcon,
@@ -39,12 +40,6 @@ type SlashItem = {
   keywords: string
   icon: typeof Heading1Icon
   action: (args: SlashActionArgs) => void
-}
-
-// Ecuación: único punto de entrada del LaTeX (slash `/ecuacion` y clic para editar en editor.tsx).
-// ponytail: prompt nativo, sin preview en vivo; popover propio si molesta al estudiar.
-export function promptLatex(current?: string): string | null {
-  return window.prompt("LaTeX", current)
 }
 
 // El texto `/query` se borra antes de cada acción (deleteRange), como en Notion.
@@ -113,7 +108,7 @@ const SLASH_ITEMS: SlashItem[] = [
     keywords: `${CALLOUT_META[kind].label} ${CALLOUT_META[kind].keywords}`,
     icon: CALLOUT_META[kind].icon,
     action: ({ editor, range }: SlashActionArgs) =>
-      editor.chain().focus().deleteRange(range).wrapIn("callout", { kind }).run(),
+      editor.chain().focus().deleteRange(range).wrapIn(NODE.callout, { kind }).run(),
   })),
   {
     title: "Código",

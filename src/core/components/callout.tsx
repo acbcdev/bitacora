@@ -1,7 +1,7 @@
 import { Node, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react"
 import type { NodeViewProps } from "@tiptap/react"
 import { InfoIcon, LightbulbIcon, TriangleAlertIcon } from "lucide-react"
-import { CALLOUT_KINDS, type CalloutKind } from "@/core/lib/tiptap-markdown"
+import { CALLOUT_KINDS, NODE, type CalloutKind } from "@/core/lib/tiptap-markdown"
 
 // Callout (editor-blocks/03): nodo propio, no blockquote con attr (cita = texto de otro, callout =
 // comentario propio). El tipo lo dice SOLO el ícono lucide — sin color por tipo (ADR 0023), nunca
@@ -14,8 +14,6 @@ export const CALLOUT_META: Record<
   warning: { icon: TriangleAlertIcon, label: "aviso", keywords: "warning alerta" },
   tip: { icon: LightbulbIcon, label: "tip", keywords: "consejo idea" },
 }
-// Rota nota → aviso → tip → nota.
-const KIND_CYCLE = CALLOUT_KINDS
 
 function CalloutView({ node, editor, updateAttributes }: NodeViewProps) {
   const kind = node.attrs.kind as CalloutKind
@@ -28,8 +26,11 @@ function CalloutView({ node, editor, updateAttributes }: NodeViewProps) {
         disabled={!editor.isEditable}
         aria-label="Cambiar tipo de callout"
         className="callout-icon"
+        // Rota nota → aviso → tip → nota.
         onClick={() =>
-          updateAttributes({ kind: KIND_CYCLE[(KIND_CYCLE.indexOf(kind) + 1) % KIND_CYCLE.length] })
+          updateAttributes({
+            kind: CALLOUT_KINDS[(CALLOUT_KINDS.indexOf(kind) + 1) % CALLOUT_KINDS.length],
+          })
         }
       >
         <Icon className="size-4" />
@@ -40,7 +41,7 @@ function CalloutView({ node, editor, updateAttributes }: NodeViewProps) {
 }
 
 export const Callout = Node.create({
-  name: "callout",
+  name: NODE.callout,
   group: "block",
   content: "block+",
   defining: true,
