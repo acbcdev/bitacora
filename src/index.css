@@ -398,7 +398,7 @@
 .tiptap-host .ProseMirror blockquote {
   @apply border-l-2 border-input pl-4 text-fg-secondary italic;
 }
-/* Callout: gris suave para los tres tipos — el tipo lo dice el emoji, no el color (ADR 0023). */
+/* Callout: gris suave para los tres tipos — el tipo lo dice el ícono, no el color (ADR 0023). */
 .tiptap-host .ProseMirror .callout {
   @apply my-4 flex gap-3 rounded-lg bg-muted px-4 py-3;
 }
@@ -408,8 +408,8 @@
 .tiptap-host .ProseMirror .callout [data-node-view-content-react] > :last-child {
   @apply mb-0;
 }
-.tiptap-host .ProseMirror .callout-emoji {
-  @apply h-fit cursor-pointer leading-[inherit] select-none disabled:cursor-default;
+.tiptap-host .ProseMirror .callout-icon {
+  @apply mt-1 h-fit cursor-pointer text-fg-secondary select-none disabled:cursor-default;
 }
 /* Links (extensión Link de StarterKit, autolink): preflight les saca color/subrayado — sin esto
    una URL detectada se ve igual que el texto. */

@@ -187,7 +187,11 @@ const FENCE_RE = /^```(.*)$/
 const HEADING_RE = /^(#{1,6})\s+(.*)$/
 const HR_RE = /^(-{3,}|\*{3,}|_{3,})\s*$/
 const QUOTE_RE = /^>\s?/
-const CALLOUT_RE = /^\[!(NOTE|WARNING|TIP)\]\s*$/i
+// Tipos de Callout: única lista (nodo, slash, export y parse salen de acá). En este módulo y no en
+// callout.tsx para no arrastrar React/tiptap a los consumidores del markdown.
+export const CALLOUT_KINDS = ["note", "warning", "tip"] as const
+export type CalloutKind = (typeof CALLOUT_KINDS)[number]
+const CALLOUT_RE = new RegExp(`^\\[!(${CALLOUT_KINDS.join("|")})\\]\\s*$`, "i")
 const BULLET_RE = /^[-*]\s+/
 const ORDERED_RE = /^\d+\.\s+/
 const BLOCK_MATH_RE = /^\$\$([^$]+)\$\$\s*$/

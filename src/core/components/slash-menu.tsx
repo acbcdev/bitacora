@@ -7,6 +7,8 @@ import { ReactRenderer, Extension } from "@tiptap/react"
 import type { Range, Editor } from "@tiptap/react"
 import { uploadNoteImageWithToast } from "@/core/components/upload-note-image"
 import { setDesplegable } from "@/core/components/desplegable"
+import { CALLOUT_META } from "@/core/components/callout"
+import { CALLOUT_KINDS } from "@/core/lib/tiptap-markdown"
 import { Command, CommandEmpty, CommandItem, CommandList } from "@/core/ui/command"
 import {
   CodeIcon,
@@ -14,8 +16,6 @@ import {
   Heading2Icon,
   Heading3Icon,
   Image as ImageIcon,
-  InfoIcon,
-  LightbulbIcon,
   ListCollapseIcon,
   ListIcon,
   ListOrderedIcon,
@@ -24,7 +24,6 @@ import {
   QuoteIcon,
   SigmaIcon,
   TableIcon,
-  TriangleAlertIcon,
 } from "lucide-react"
 
 // Menú slash (spec .scratch/editor-notion-ux, historia 2). Detección de trigger/query =
@@ -101,28 +100,15 @@ const SLASH_ITEMS: SlashItem[] = [
       setDesplegable(editor)
     },
   },
-  // Callout (editor-blocks/03): envuelve el bloque del cursor; el tipo se rota después con el emoji.
-  {
-    title: "Nota",
-    keywords: "nota note callout info",
-    icon: InfoIcon,
-    action: ({ editor, range }) =>
-      editor.chain().focus().deleteRange(range).wrapIn("callout", { kind: "note" }).run(),
-  },
-  {
-    title: "Aviso",
-    keywords: "aviso warning callout alerta",
-    icon: TriangleAlertIcon,
-    action: ({ editor, range }) =>
-      editor.chain().focus().deleteRange(range).wrapIn("callout", { kind: "warning" }).run(),
-  },
-  {
-    title: "Tip",
-    keywords: "tip consejo callout idea",
-    icon: LightbulbIcon,
-    action: ({ editor, range }) =>
-      editor.chain().focus().deleteRange(range).wrapIn("callout", { kind: "tip" }).run(),
-  },
+  // Callout (editor-blocks/03): un ítem por tipo; envuelve el bloque del cursor. Título "Callout
+  // nota" y no "Nota" (choca con la entidad Nota en la búsqueda); `/nota` sigue por keyword.
+  ...CALLOUT_KINDS.map((kind) => ({
+    title: `Callout ${CALLOUT_META[kind].label}`,
+    keywords: `${CALLOUT_META[kind].label} ${CALLOUT_META[kind].keywords}`,
+    icon: CALLOUT_META[kind].icon,
+    action: ({ editor, range }: SlashActionArgs) =>
+      editor.chain().focus().deleteRange(range).wrapIn("callout", { kind }).run(),
+  })),
   {
     title: "Código",
     keywords: "codigo code codeblock bloque",

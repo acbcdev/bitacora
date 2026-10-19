@@ -215,13 +215,14 @@ test("seleccionar Cita convierte el bloque entero del cursor", async () => {
   })
 })
 
-// Callout (editor-blocks/03): /nota, /aviso, /tip envuelven el bloque; click en el emoji rota el
-// tipo y llega al JSON persistido (onChange).
+// Callout (editor-blocks/03): /nota, /aviso, /tip envuelven el bloque; el tipo lo dice un ícono
+// lucide (nunca emoji, docs/design-system.md); click en el ícono rota el tipo y llega al JSON
+// persistido (onChange).
 test.each([
-  ["nota", "note", "ℹ️"],
-  ["aviso", "warning", "⚠️"],
-  ["tip", "tip", "💡"],
-])("/%s envuelve el bloque en un Callout %s", async (query, kind, emoji) => {
+  ["nota", "note", "lucide-info"],
+  ["aviso", "warning", "lucide-triangle-alert"],
+  ["tip", "tip", "lucide-lightbulb"],
+])("/%s envuelve el bloque en un Callout %s", async (query, kind, icon) => {
   const { container, view, onChange } = await setup("hola")
   await openMenu(view, query)
   fireEvent.keyDown(view.dom as HTMLElement, { key: "Enter" })
@@ -232,26 +233,41 @@ test.each([
     expect(c?.attrs?.kind).toBe(kind)
     expect(JSON.stringify(c)).toContain("hola")
   })
-  expect(container.querySelector(".callout-emoji")?.textContent).toBe(emoji)
+  const button = container.querySelector(".callout-icon")!
+  expect(button.querySelector(`svg.${icon}`)).toBeInTheDocument()
+  expect(button.textContent).toBe("")
 })
 
-test("click en el emoji rota nota → aviso → tip → nota", async () => {
+// "Nota" a secas chocaría con la entidad Nota en la búsqueda del menú: título "Callout nota",
+// keyword `/nota` intacta.
+test("/nota lista el ítem como Callout nota", async () => {
+  const { view } = await setup()
+  const popup = await openMenu(view, "nota")
+  expect(items(popup)).toEqual(["Callout nota"])
+})
+
+test("click en el ícono rota nota → aviso → tip → nota y el tipo sobrevive recargar", async () => {
   const { container, view, onChange } = await setup("hola")
   await openMenu(view, "nota")
   fireEvent.keyDown(view.dom as HTMLElement, { key: "Enter" })
-  const emoji = await waitFor(() => {
-    const found = container.querySelector<HTMLElement>(".callout-emoji")
+  const button = await waitFor(() => {
+    const found = container.querySelector<HTMLElement>(".callout-icon")
     if (!found) throw new Error("callout no montado")
     return found
   })
-  const kind = () => {
-    const json = onChange.mock.lastCall?.[0] as TiptapDoc | undefined
-    return (json?.content?.[0] as { attrs?: { kind: string } } | undefined)?.attrs?.kind
-  }
-  for (const next of ["warning", "tip", "note"]) {
-    fireEvent.click(emoji)
+  const saved = () => onChange.mock.lastCall?.[0] as TiptapDoc
+  const kind = () => (saved().content?.[0] as { attrs?: { kind: string } } | undefined)?.attrs?.kind
+  for (const next of ["warning", "tip", "note", "warning"]) {
+    fireEvent.click(button)
     await waitFor(() => expect(kind()).toBe(next))
   }
+  // Recargar: el JSON guardado vuelve a montar un Callout aviso.
+  const reloaded = render(<Editor content={saved()} onChange={vi.fn()} />)
+  await waitFor(() =>
+    expect(
+      reloaded.container.querySelector(".callout-icon svg.lucide-triangle-alert"),
+    ).toBeInTheDocument(),
+  )
 })
 
 // ── On-select: inserciones parten el párrafo en el cursor ────────────────────

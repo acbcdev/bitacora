@@ -178,7 +178,7 @@ export function Editor({
       // To-do (Menú slash, historia 2): TaskList/TaskItem no vienen en StarterKit.
       TaskList,
       TaskItem.configure({ nested: true }),
-      // Callout (editor-blocks/03): nodo propio con node view (emoji clickeable).
+      // Callout (editor-blocks/03): nodo propio con node view (ícono clickeable).
       Callout,
       // Menú slash (historia 2): trigger `/`, popup cmdk en portal.
       SlashMenu,
