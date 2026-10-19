@@ -21,6 +21,7 @@ import { useHabitLog, useHabits, useSetDay } from "@/habits/habits.api"
 import { HabitsDialog } from "@/habits/habits-dialog"
 import { formatClock } from "@/habits/habit-timer"
 import { useHabitTimer } from "@/habits/use-habit-timer"
+import { HabitZoom } from "@/habits/habit-zoom"
 import type { Habit } from "@/core/types/database"
 
 // La tira de hábitos de la pantalla Hoy. Sin pantalla nueva (ui-principles): vive entre el card de
@@ -172,6 +173,9 @@ function HabitTile({
   const r: Run = { running, clock: clock ?? (paused ? formatClock(total) : null), paused }
   // Check cumplido ya no es "activo": el hero lleva la marca y el botón pasa a deshacer.
   const isActive = running
+  const [zoom, setZoom] = useState(false)
+  // Estable: HabitZoom lo tiene de dep y el tile repinta cada segundo con el timer.
+  const closeZoom = useCallback(() => setZoom(false), [])
 
   return (
     // Bloque que sube sobre hatch (spec, ADR 0023): vacío = hatch, progreso = bloque a pct.
@@ -225,8 +229,20 @@ function HabitTile({
       </div>
 
       <div className="relative flex flex-col gap-3">
-        <HabitTileValue h={h} state={state} total={total} r={r} tone={tone} onQuick={onQuick} />
+        <HabitTileValue
+          h={h}
+          state={state}
+          total={total}
+          r={r}
+          tone={tone}
+          // Corriendo, el hero amplía en vez de pausar: pausar ya está en la fila y en el botón.
+          onHero={running ? () => setZoom(true) : onQuick}
+        />
       </div>
+
+      {zoom && (
+        <HabitZoom h={h} total={total} r={r} block={block} onQuick={onQuick} onClose={closeZoom} />
+      )}
     </div>
   )
 }

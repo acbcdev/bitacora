@@ -1,7 +1,7 @@
 // Cross-midnight del Cronómetro sobre los tiles (spec habit-timer-attribution). La pausa y el
 // auto-finish acreditan TODO el elapsed al Día de atribución (startedDay), no al día de hoy.
 import { useEffect } from "react"
-import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { HabitTiles } from "@/habits/habit-tiles"
 import { finishTimer } from "@/habits/habit-timer"
 import { habit, habitLogRow, renderApp } from "@/test/harness"
@@ -151,4 +151,25 @@ test("timer viejo sin startedDay: la pausa igual acredita al día derivado de st
 test("finishTimer con valor en segundos anuncia minutos", () => {
   finishTimer("Leer", 21 * 60)
   expect(success).toHaveBeenCalledWith("Leer — 21 min listos")
+})
+
+test("hero con el timer corriendo amplía (no pausa); el número del zoom pausa; Esc cierra", async () => {
+  mountWithTimer({ habits: [timeHabit()], habitLog: [] })
+  await screen.findAllByRole("button", { name: "Pausar Leer" })
+  const hero = screen.getByText(
+    (_, el) => el?.tagName === "BUTTON" && !!el.textContent?.startsWith("20:00/"),
+  )
+  fireEvent.click(hero)
+
+  const zoom = await screen.findByRole("dialog", { name: "Leer" })
+  expect(zoom).toHaveTextContent("20:00/60 min")
+  expect(localStorage.getItem("bita-timer")).not.toBe(null)
+
+  // El número del zoom pausa sin cerrar.
+  fireEvent.click(within(zoom).getByText("20:00"))
+  await waitFor(() => expect(localStorage.getItem("bita-timer")).toBe(null))
+  expect(screen.getByRole("dialog", { name: "Leer" })).toBeInTheDocument()
+
+  fireEvent.keyDown(zoom, { key: "Escape" })
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBe(null))
 })

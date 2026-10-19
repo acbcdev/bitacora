@@ -126,14 +126,14 @@ export function HabitTileValue({
   total,
   r,
   tone,
-  onQuick,
+  onHero,
 }: {
   h: Habit
   state: { streak: number; days: DayCell[] }
   total: number
   r: Run
   tone: Tone
-  onQuick: () => void
+  onHero: () => void
 }) {
   const sub = zeroCeiling(h) ? "" : `/${displayTarget(h)}${unit(h)}`
   return (
@@ -144,7 +144,7 @@ export function HabitTileValue({
         type="button"
         tabIndex={-1}
         aria-hidden
-        onClick={onQuick}
+        onClick={onHero}
         className={cn(
           "flex w-fit cursor-pointer items-baseline text-[40px] leading-none font-normal tracking-tighter tabular-nums dark:font-light",
           TONE[tone],
