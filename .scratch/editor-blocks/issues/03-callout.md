@@ -1,6 +1,6 @@
 # Callout (nota / aviso / tip)
 
-Status: ready-for-agent
+Status: resolved
 
 ## Qué
 

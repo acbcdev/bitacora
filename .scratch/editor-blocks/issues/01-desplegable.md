@@ -1,6 +1,6 @@
 # Desplegable
 
-Status: ready-for-agent
+Status: resolved
 
 ## Qué
 

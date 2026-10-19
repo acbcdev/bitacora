@@ -1,6 +1,6 @@
 # Editor: bloques nuevos (desplegable, ecuación, callout)
 
-**Status:** ready-for-agent — grill 2026-10-18.
+**Status:** resolved — grill 2026-10-18.
 
 ## Origen
 

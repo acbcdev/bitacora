@@ -1,6 +1,6 @@
 # Ecuación (inline y bloque)
 
-Status: ready-for-agent
+Status: resolved
 
 ## Qué
 
