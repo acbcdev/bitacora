@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react"
 import { TextSelection } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { Editor } from "@/core/components/editor"
+import { docToMarkdown, markdownToDoc } from "@/core/lib/tiptap-markdown"
 import type { TiptapDoc } from "@/core/types/database"
 
 // Contrato del Menú slash (.scratch/editor-notion-ux/spec.md, historia 2):
@@ -268,6 +269,30 @@ test("click en el ícono rota nota → aviso → tip → nota y el tipo sobreviv
       reloaded.container.querySelector(".callout-icon svg.lucide-triangle-alert"),
     ).toBeInTheDocument(),
   )
+})
+
+test("el tipo rotado con el ícono sobrevive export a .md y parse de vuelta", async () => {
+  const onChange = vi.fn()
+  const note = {
+    type: "doc",
+    content: [
+      {
+        type: "callout",
+        attrs: { kind: "note" },
+        content: [{ type: "paragraph", content: [{ type: "text", text: "hola" }] }],
+      },
+    ],
+  } as TiptapDoc
+  const { container } = render(<Editor content={note} onChange={onChange} />)
+  const button = await waitFor(() => {
+    const found = container.querySelector<HTMLElement>(".callout-icon")
+    if (!found) throw new Error("callout no montado")
+    return found
+  })
+  fireEvent.click(button)
+  await waitFor(() => expect(onChange).toHaveBeenCalled())
+  const back = markdownToDoc(docToMarkdown(onChange.mock.lastCall![0] as TiptapDoc))
+  expect(back.content?.[0]).toMatchObject({ type: "callout", attrs: { kind: "warning" } })
 })
 
 // ── On-select: inserciones parten el párrafo en el cursor ────────────────────
