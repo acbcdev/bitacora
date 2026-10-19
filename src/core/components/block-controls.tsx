@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { ReactNode, RefObject } from "react"
+import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details"
 import { DragHandle } from "@tiptap/extension-drag-handle-react"
 import type { NestedOptions } from "@tiptap/extension-drag-handle"
 import { NodeRangeSelection } from "@tiptap/extension-node-range"
@@ -61,7 +62,7 @@ const NESTED_CONFIG: NestedOptions = {
     {
       id: "detailsParts",
       evaluate: ({ node }) =>
-        node.type.name === "detailsSummary" || node.type.name === "detailsContent" ? 1000 : 0,
+        node.type.name === DetailsSummary.name || node.type.name === DetailsContent.name ? 1000 : 0,
     },
   ],
 }
@@ -235,7 +236,7 @@ function blockAtY(view: EditorView, y: number): BlockTarget | null {
           // si se pide.
           const first = child.firstChild
           best =
-            first?.isBlock && child.childCount >= 1 && child.type.name !== "details"
+            first?.isBlock && child.childCount >= 1 && child.type.name !== Details.name
               ? (pick(child, pos + 1) ?? { node: child, pos })
               : { node: child, pos }
         }
