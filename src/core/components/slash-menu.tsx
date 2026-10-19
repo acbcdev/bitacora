@@ -42,6 +42,12 @@ type SlashItem = {
   action: (args: SlashActionArgs) => void
 }
 
+// Ecuación: único punto de entrada del LaTeX (slash `/ecuacion` y clic para editar en editor.tsx).
+// ponytail: prompt nativo, sin preview en vivo; popover propio si molesta al estudiar.
+export function promptLatex(current?: string): string | null {
+  return window.prompt("LaTeX", current)
+}
+
 // El texto `/query` se borra antes de cada acción (deleteRange), como en Notion.
 const SLASH_ITEMS: SlashItem[] = [
   {
@@ -136,8 +142,7 @@ const SLASH_ITEMS: SlashItem[] = [
     keywords: "ecuacion formula math latex katex",
     icon: SigmaIcon,
     action: ({ editor, range }) => {
-      // ponytail: prompt nativo, igual que el clic para editar en editor.tsx.
-      const latex = window.prompt("LaTeX")
+      const latex = promptLatex()
       const chain = editor.chain().focus().deleteRange(range)
       // pos explícito: sin él insertBlockMath lee la selección previa al deleteRange (fuera de rango).
       if (latex) chain.insertBlockMath({ latex, pos: range.from })

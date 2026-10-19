@@ -29,7 +29,7 @@ import { Desplegable } from "@/core/components/desplegable"
 import { Callout } from "@/core/components/callout"
 import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
-import { SlashMenu, isSlashMenuActive } from "@/core/components/slash-menu"
+import { SlashMenu, isSlashMenuActive, promptLatex } from "@/core/components/slash-menu"
 import { FormatBubbleMenu } from "@/core/components/bubble-menu"
 import { TableHoverControls } from "@/core/components/table-controls"
 import { BlockControls } from "@/core/components/block-controls"
@@ -57,10 +57,9 @@ const FormatKeys = Extension.create({
   },
 })
 
-// Ecuación (editor-blocks/02): clic edita el LaTeX. ponytail: prompt nativo, sin preview en vivo;
-// popover propio si el prompt molesta al estudiar. Vacío o cancelar = no-op.
+// Ecuación (editor-blocks/02): clic edita el LaTeX. Vacío o cancelar = no-op.
 function editLatex(view: EditorView | undefined, node: PMNode, pos: number) {
-  const latex = window.prompt("LaTeX", node.attrs.latex)
+  const latex = promptLatex(node.attrs.latex)
   if (!view || !latex || latex === node.attrs.latex) return
   view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, latex }))
 }
