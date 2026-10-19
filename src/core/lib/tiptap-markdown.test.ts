@@ -331,3 +331,24 @@ test("callout vacío o en minúsculas no rompe el schema (block+)", () => {
     { type: "callout", attrs: { kind: "note" }, content: [{ type: "paragraph" }] },
   ])
 })
+
+// Desplegable (editor-blocks/01): export best-effort, summary en bold + cuerpo debajo. Sin
+// <details> ni round-trip: `> ` pegado sigue siendo cita.
+test("desplegable exporta summary en bold y el cuerpo debajo", () => {
+  const p = (text: string) => ({ type: "paragraph", content: [{ type: "text", text }] })
+  const doc: TiptapDoc = {
+    type: "doc",
+    content: [
+      {
+        type: "details",
+        content: [
+          { type: "detailsSummary", content: [{ type: "text", text: "Título" }] },
+          { type: "detailsContent", content: [p("uno"), p("dos")] },
+        ],
+      },
+    ],
+  }
+  expect(docToMarkdown(doc)).toBe("**Título**\n\nuno\n\ndos")
+  expect(docToPlainText(doc)).toBe("Título uno dos")
+  expect((markdownToDoc("> texto").content?.[0] as TestNode | undefined)?.type).toBe("blockquote")
+})

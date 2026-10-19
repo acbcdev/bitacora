@@ -120,9 +120,9 @@ test("navegar más allá del alto visible scrollea el ítem seleccionado", async
 test("`/` al inicio de un bloque abre el popup con los ítems", async () => {
   const { view } = await setup()
   const popup = await openMenu(view, "")
-  // 15 ítems: Heading 1/2/3 + lista viñetas + numerada + to-do + cita + nota + aviso + tip +
-  // código + ecuación + divisor + tabla + imagen.
-  expect(items(popup)).toHaveLength(15)
+  // 16 ítems: Heading 1/2/3 + lista viñetas + numerada + to-do + cita + desplegable + nota +
+  // aviso + tip + código + ecuación + divisor + tabla + imagen.
+  expect(items(popup)).toHaveLength(16)
   expect(items(popup)).toContain("Heading 1")
   expect(items(popup)).toContain("Imagen")
 })
@@ -292,3 +292,72 @@ test("seleccionar Ecuación pide el LaTeX e inserta un bloque renderizado", asyn
   })
 })
 
+// ── Desplegable (editor-blocks/01) ───────────────────────────────────────────
+// Plegado = estado de vista: el node view alterna `is-open` + `hidden` en el DOM, sin
+// transacción → onChange no se llama (no ensucia el borrador).
+
+const details = (container: HTMLElement) =>
+  container.querySelector<HTMLElement>("[data-type=details]")
+const isOpen = (container: HTMLElement) => details(container)?.classList.contains("is-open")
+
+test("/desplegable envuelve el bloque y lo abre para escribir el cuerpo", async () => {
+  const { container, view, onChange } = await setup("hola")
+  await openMenu(view, "desplegable")
+  fireEvent.keyDown(view.dom as HTMLElement, { key: "Enter" })
+  await waitFor(() => {
+    const json = onChange.mock.lastCall?.[0] as TiptapDoc | undefined
+    const d = json?.content?.[0] as { type: string; content: { type: string }[] } | undefined
+    expect(d?.type).toBe("details")
+    expect(d?.content.map((n) => n.type)).toEqual(["detailsSummary", "detailsContent"])
+    expect(JSON.stringify(d?.content[1])).toContain("hola")
+  })
+  expect(isOpen(container)).toBe(true)
+  // Cursor en el título, listo para escribir.
+  expect(view.state.selection.$from.parent.type.name).toBe("detailsSummary")
+})
+
+test("`> ` + espacio crea Desplegable, no cita", async () => {
+  const { container, view } = await setup()
+  type(view, ">")
+  const { from } = view.state.selection
+  view.someProp("handleTextInput", (f) => f(view, from, from, " ", () => view.state.tr))
+  await waitFor(() => expect(isOpen(container)).toBe(true))
+  expect(view.state.doc.firstChild?.type.name).toBe("details")
+  expect(container.querySelector("blockquote")).toBeNull()
+})
+
+test("nota abre con los desplegables cerrados; plegar con mouse y teclado no ensucia", async () => {
+  const onChange = vi.fn()
+  const content = {
+    type: "doc",
+    content: [
+      {
+        type: "details",
+        content: [
+          { type: "detailsSummary", content: [{ type: "text", text: "Título" }] },
+          {
+            type: "detailsContent",
+            content: [{ type: "paragraph", content: [{ type: "text", text: "cuerpo" }] }],
+          },
+        ],
+      },
+      // Párrafo final: sin él, TrailingNode (StarterKit) lo agrega en la 1ra transacción y eso sí
+      // es docChanged — no el plegado.
+      { type: "paragraph" },
+    ],
+  } as TiptapDoc
+  const { container } = render(<Editor content={content} onChange={onChange} />)
+  const pm = await waitFor(() => container.querySelector<HTMLElement>(".ProseMirror")!)
+  const view = (pm as HTMLElement & { editor: { view: EditorView } }).editor.view
+  expect(isOpen(container)).toBe(false)
+  expect(container.querySelector("[data-type=detailsContent]")).toHaveAttribute("hidden")
+
+  fireEvent.click(details(container)!.querySelector(":scope > button")!)
+  expect(isOpen(container)).toBe(true)
+  expect(container.querySelector("[data-type=detailsContent]")).not.toHaveAttribute("hidden")
+
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 3)))
+  fireEvent.keyDown(view.dom as HTMLElement, { key: "Enter", ctrlKey: true, shiftKey: true })
+  expect(isOpen(container)).toBe(false)
+  expect(onChange).not.toHaveBeenCalled()
+})

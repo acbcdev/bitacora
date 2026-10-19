@@ -39,6 +39,7 @@ const GROUPS: [string, [string, string][]][] = [
     "Nota",
     [
       [mod("Shift+F"), "Focus mode"],
+      [mod("Shift+Enter"), "Plegar / desplegar el Desplegable del cursor"],
       [`${alt("J")} / ${alt("K")}`, "Moverse entre notas del notebook"],
       ["/", "Buscar en el índice"],
       ["Esc", "Salir de focus"],

@@ -68,14 +68,16 @@ const hidden = () => expect(handleRoot().style.visibility).toBe("hidden")
 const visible = () => expect(handleRoot().style.visibility).toBe("")
 
 const posOf = (view: EditorView, text: string) => {
-  const el = [...view.dom.querySelectorAll("p, h1, h2, h3")].find((p) => p.textContent === text)!
+  const el = [...view.dom.querySelectorAll("p, h1, h2, h3, summary")].find(
+    (p) => p.textContent === text,
+  )!
   return view.posAtDOM(el, 0)
 }
 
 async function hoverBlock(view: EditorView, text: string) {
   const pos = posOf(view, text)
   vi.spyOn(view, "posAtCoords").mockReturnValue({ pos: pos + 1, inside: -1 })
-  for (const el of view.dom.querySelectorAll("p, h1, h2, h3")) {
+  for (const el of view.dom.querySelectorAll("p, h1, h2, h3, summary")) {
     vi.spyOn(el, "getBoundingClientRect").mockReturnValue({
       top: 0,
       bottom: 24,
@@ -170,6 +172,27 @@ describe("menú del ⋮⋮", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Eliminar" }))
     await settle()
     await waitFor(() => expect(docTexts(onChange)).toEqual(["Uno", "Tres"]))
+  })
+
+  // Desplegable (editor-blocks/01): hover en el título agarra el bloque entero, no el summary.
+  test("el menú sobre el título de un Desplegable opera sobre el bloque entero", async () => {
+    const { view, onChange } = await setup({
+      type: "doc",
+      content: [
+        {
+          type: "details",
+          content: [
+            { type: "detailsSummary", content: [{ type: "text", text: "Título" }] },
+            { type: "detailsContent", content: [para("cuerpo")] },
+          ],
+        },
+        para("Fin"),
+      ],
+    } as TiptapDoc)
+    await openMenu(view, "Título")
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Eliminar" }))
+    await settle()
+    await waitFor(() => expect(docTexts(onChange)).toEqual(["Fin"]))
   })
 })
 

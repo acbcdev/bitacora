@@ -10,6 +10,7 @@ import TaskItem from "@tiptap/extension-task-item"
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table"
 import { NodeRange } from "@tiptap/extension-node-range"
 import { Bold } from "@tiptap/extension-bold"
+import Blockquote from "@tiptap/extension-blockquote"
 import { TextStyleKit } from "@tiptap/extension-text-style"
 import Highlight from "@tiptap/extension-highlight"
 import { BlockMath, InlineMath } from "@tiptap/extension-mathematics"
@@ -24,6 +25,7 @@ import type { TiptapDoc } from "@/core/types/database"
 import { uploadNoteImageWithToast } from "@/core/components/upload-note-image"
 import { markdownToDoc } from "@/core/lib/tiptap-markdown"
 import { CodeBlockView } from "@/core/components/code-block"
+import { Desplegable } from "@/core/components/desplegable"
 import { Callout } from "@/core/components/callout"
 import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
@@ -151,7 +153,11 @@ export function Editor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ codeBlock: false, bold: false, dropcursor: false }),
+      StarterKit.configure({ codeBlock: false, bold: false, dropcursor: false, blockquote: false }),
+      // `> ` + espacio es del Desplegable (editor-blocks/01): la cita queda solo por /cita. Pegar
+      // `> texto` sigue dando cita (eso es el parser de tiptap-markdown, no una input rule).
+      Blockquote.extend({ addInputRules: () => [] }),
+      ...Desplegable,
       EditorBold,
       CodeBlock,
       ResizableImage,

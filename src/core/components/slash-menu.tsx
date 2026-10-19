@@ -6,6 +6,7 @@ import type { EditorView } from "@tiptap/pm/view"
 import { ReactRenderer, Extension } from "@tiptap/react"
 import type { Range, Editor } from "@tiptap/react"
 import { uploadNoteImageWithToast } from "@/core/components/upload-note-image"
+import { setDesplegable } from "@/core/components/desplegable"
 import { Command, CommandEmpty, CommandItem, CommandList } from "@/core/ui/command"
 import {
   CodeIcon,
@@ -15,6 +16,7 @@ import {
   Image as ImageIcon,
   InfoIcon,
   LightbulbIcon,
+  ListCollapseIcon,
   ListIcon,
   ListOrderedIcon,
   ListTodoIcon,
@@ -89,6 +91,15 @@ const SLASH_ITEMS: SlashItem[] = [
     icon: QuoteIcon,
     action: ({ editor, range }) =>
       editor.chain().focus().deleteRange(range).toggleBlockquote().run(),
+  },
+  {
+    title: "Desplegable",
+    keywords: "desplegable details plegable colapsar",
+    icon: ListCollapseIcon,
+    action: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run()
+      setDesplegable(editor)
+    },
   },
   // Callout (editor-blocks/03): envuelve el bloque del cursor; el tipo se rota después con el emoji.
   {

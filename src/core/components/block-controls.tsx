@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { ReactNode, RefObject } from "react"
 import { DragHandle } from "@tiptap/extension-drag-handle-react"
+import type { NestedOptions } from "@tiptap/extension-drag-handle"
 import { NodeRangeSelection } from "@tiptap/extension-node-range"
 import { Node } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
@@ -51,6 +52,19 @@ const itemIcon = "size-4 text-fg-secondary"
 // un objeto nuevo por render re-registraba el plugin entero y re-escondía el asa
 // (visibility: hidden) en cada re-render del editor (autosave, refetch...).
 const POSITION_CONFIG = { placement: "left", strategy: "absolute" } as const
+
+// Desplegable (editor-blocks/01): summary y content son estructura (como tableRow/tableCell en
+// las reglas default), nunca target — hover en el título agarra el bloque entero; los bloques
+// del cuerpo siguen siendo arrastrables solos.
+const NESTED_CONFIG: NestedOptions = {
+  rules: [
+    {
+      id: "detailsParts",
+      evaluate: ({ node }) =>
+        node.type.name === "detailsSummary" || node.type.name === "detailsContent" ? 1000 : 0,
+    },
+  ],
+}
 
 // Bloque bajo el handle (hover del plugin) — el menú siempre opera sobre él.
 type BlockTarget = { node: Node; pos: number }
@@ -214,10 +228,14 @@ function blockAtY(view: EditorView, y: number): BlockTarget | null {
         const dist = Math.max(box.top - y, y - box.bottom, 0)
         if (dist < bestDist) {
           bestDist = dist
-          // Contenedor de bloques (lista, blockquote): anclar al hijo en esa altura.
+          // Contenedor de bloques (lista, blockquote): anclar al hijo en esa altura. El
+          // Desplegable no: su primer hijo es el summary, que no se mueve solo.
+          // ponytail: el gutter ancla el Desplegable entero; los bloques del cuerpo se agarran
+          // por hover sobre el contenido (regla NESTED_CONFIG). Descender a detailsContent
+          // si se pide.
           const first = child.firstChild
           best =
-            first?.isBlock && child.childCount >= 1
+            first?.isBlock && child.childCount >= 1 && child.type.name !== "details"
               ? (pick(child, pos + 1) ?? { node: child, pos })
               : { node: child, pos }
         }
@@ -531,7 +549,7 @@ export function BlockControls({
       <DragHandle
         editor={editor}
         className="block-drag-handle"
-        nested
+        nested={NESTED_CONFIG}
         // placement "left" centrado contra el virtual element de primera línea
         // (getReferencedVirtualElement): el asa queda alineada al principio del bloque.
         computePositionConfig={POSITION_CONFIG}
