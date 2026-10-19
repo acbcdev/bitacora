@@ -100,8 +100,24 @@ test("parse: $$ sin cierre queda texto", () => {
   ])
 })
 
-// Decisión: al pegar, $$x$$ en medio de una línea NO es ecuación (solo $…$ inline). Pendiente de
-// confirmar con el usuario — escribir $$x$$ sí la crea (input rule de Tiptap).
+test("round-trip: blockMath multilínea con `$` adentro", () => {
+  // `$` en la primera y la última línea: ahí es donde se decide apertura y cierre.
+  const latex =
+    "\\text{$f$} = \\begin{cases}\n0 & x \\text{ par} \\\\\n1 & \\text{si no, $x$}\n\\end{cases}"
+  const doc = { type: "doc", content: [{ type: "blockMath", attrs: { latex } }] } as TiptapDoc
+  expect(markdownToDoc(docToMarkdown(doc))).toEqual(doc)
+})
+
+test("round-trip: blockMath de una línea con `$` adentro", () => {
+  const doc = {
+    type: "doc",
+    content: [{ type: "blockMath", attrs: { latex: "\\text{$x$} = 1" } }],
+  } as TiptapDoc
+  expect(markdownToDoc(docToMarkdown(doc))).toEqual(doc)
+})
+
+// Decisión: al pegar, $$x$$ en medio de una línea NO es ecuación (solo $…$ inline); escribir
+// $$x$$ sí la crea (input rule de Tiptap).
 test("parse: $$x$$ en medio de una línea queda texto literal", () => {
   expect(markdownToDoc("antes $$x$$ después")).toEqual(
     para({ type: "text", text: "antes $$x$$ después" }),

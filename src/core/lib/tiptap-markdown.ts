@@ -208,13 +208,13 @@ export type CalloutKind = (typeof CALLOUT_KINDS)[number]
 const CALLOUT_RE = new RegExp(`^\\[!(${CALLOUT_KINDS.join("|")})\\]\\s*$`, "i")
 const BULLET_RE = /^[-*]\s+/
 const ORDERED_RE = /^\d+\.\s+/
-// Ecuación bloque: abre con `$$` al inicio de línea y cierra con `$$` al final de la misma u otra
-// línea (LaTeX multilínea del export, o `$$`/`$$` en líneas propias como pega ChatGPT).
-const BLOCK_MATH_OPEN_RE = /^\$\$[^$]*$/
-const BLOCK_MATH_CLOSE_RE = /^[^$]*\$\$\s*$/
-const BLOCK_MATH_RE = /^\$\$([^$]+)\$\$\s*$/
+// Ecuación bloque: abre una línea que empieza con `$$`; cierra la primera línea (la misma u otra)
+// que termina en `$$` — LaTeX multilínea del export, o `$$`/`$$` en líneas propias como pega
+// ChatGPT. `$` adentro vale (`\text{$x$}`). Sin cierre queda texto.
+const BLOCK_MATH_OPEN_RE = /^\$\$/
+const BLOCK_MATH_CLOSE_RE = /\$\$\s*$/
 const SPECIAL_LINE_RE = new RegExp(
-  [FENCE_RE, HEADING_RE, HR_RE, QUOTE_RE, BULLET_RE, ORDERED_RE, BLOCK_MATH_RE, BLOCK_MATH_OPEN_RE]
+  [FENCE_RE, HEADING_RE, HR_RE, QUOTE_RE, BULLET_RE, ORDERED_RE, BLOCK_MATH_OPEN_RE]
     .map((r) => r.source)
     .join("|"),
 )
@@ -330,16 +330,14 @@ function parseBlocks(text: string): Node[] {
       continue
     }
 
-    const math = line.match(BLOCK_MATH_RE)
-    if (math) {
-      result.push({ type: NODE.blockMath, attrs: { latex: math[1] } })
-      i++
-      continue
-    }
-
     if (BLOCK_MATH_OPEN_RE.test(line)) {
-      let end = i + 1
-      while (end < lines.length && !BLOCK_MATH_CLOSE_RE.test(lines[end])) end++
+      // La línea que abre también puede cerrar (`$$x$$`), pero no con su propio `$$` de apertura.
+      let end = i
+      while (
+        end < lines.length &&
+        !BLOCK_MATH_CLOSE_RE.test(end === i ? line.slice(2) : lines[end])
+      )
+        end++
       if (end < lines.length) {
         const latex = lines
           .slice(i, end + 1)
