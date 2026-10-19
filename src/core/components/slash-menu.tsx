@@ -13,12 +13,15 @@ import {
   Heading2Icon,
   Heading3Icon,
   Image as ImageIcon,
+  InfoIcon,
+  LightbulbIcon,
   ListIcon,
   ListOrderedIcon,
   ListTodoIcon,
   MinusIcon,
   QuoteIcon,
   TableIcon,
+  TriangleAlertIcon,
 } from "lucide-react"
 
 // Menú slash (spec .scratch/editor-notion-ux, historia 2). Detección de trigger/query =
@@ -85,6 +88,28 @@ const SLASH_ITEMS: SlashItem[] = [
     icon: QuoteIcon,
     action: ({ editor, range }) =>
       editor.chain().focus().deleteRange(range).toggleBlockquote().run(),
+  },
+  // Callout (editor-blocks/03): envuelve el bloque del cursor; el tipo se rota después con el emoji.
+  {
+    title: "Nota",
+    keywords: "nota note callout info",
+    icon: InfoIcon,
+    action: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).wrapIn("callout", { kind: "note" }).run(),
+  },
+  {
+    title: "Aviso",
+    keywords: "aviso warning callout alerta",
+    icon: TriangleAlertIcon,
+    action: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).wrapIn("callout", { kind: "warning" }).run(),
+  },
+  {
+    title: "Tip",
+    keywords: "tip consejo callout idea",
+    icon: LightbulbIcon,
+    action: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).wrapIn("callout", { kind: "tip" }).run(),
   },
   {
     title: "Código",

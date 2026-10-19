@@ -20,6 +20,7 @@ import type { TiptapDoc } from "@/core/types/database"
 import { uploadNoteImageWithToast } from "@/core/components/upload-note-image"
 import { markdownToDoc } from "@/core/lib/tiptap-markdown"
 import { CodeBlockView } from "@/core/components/code-block"
+import { Callout } from "@/core/components/callout"
 import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
 import { SlashMenu, isSlashMenuActive } from "@/core/components/slash-menu"
@@ -157,6 +158,8 @@ export function Editor({
       // To-do (Menú slash, historia 2): TaskList/TaskItem no vienen en StarterKit.
       TaskList,
       TaskItem.configure({ nested: true }),
+      // Callout (editor-blocks/03): nodo propio con node view (emoji clickeable).
+      Callout,
       // Menú slash (historia 2): trigger `/`, popup cmdk en portal.
       SlashMenu,
       // Bloques (historia 6): node-range para multi-bloque (click ⋮⋮ / Shift+click / drag).

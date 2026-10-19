@@ -59,12 +59,12 @@ const selected = (popup: Element) =>
 test("ArrowDown/ArrowUp mueven el ítem seleccionado con wrap", async () => {
   const { view } = await setup()
   const popup = await openMenu(view, "")
-  expect(items(popup)).toHaveLength(11)
+  expect(items(popup)).toHaveLength(14)
   expect(selected(popup)).toBe("Heading 1")
   fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowDown" })
   await waitFor(() => expect(selected(popup)).toBe("Heading 2"))
-  // Wrap: 10 flechas más desde el índice 1 → 11 ≡ 0 (mod 11), vuelve al primero.
-  for (let i = 0; i < 10; i++) fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowDown" })
+  // Wrap: 13 flechas más desde el índice 1 → 14 ≡ 0 (mod 14), vuelve al primero.
+  for (let i = 0; i < 13; i++) fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowDown" })
   await waitFor(() => expect(selected(popup)).toBe("Heading 1"))
   // Wrap hacia arriba: del primero va al último.
   fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowUp" })
@@ -119,9 +119,9 @@ test("navegar más allá del alto visible scrollea el ítem seleccionado", async
 test("`/` al inicio de un bloque abre el popup con los ítems", async () => {
   const { view } = await setup()
   const popup = await openMenu(view, "")
-  // 11 ítems: Heading 1/2/3 + lista viñetas + numerada + to-do + cita + código + divisor +
-  // tabla + imagen (la spec dice "(10)" pero enumera 11 — la enumeración es la lista operativa).
-  expect(items(popup)).toHaveLength(11)
+  // 14 ítems: Heading 1/2/3 + lista viñetas + numerada + to-do + cita + nota + aviso + tip +
+  // código + divisor + tabla + imagen.
+  expect(items(popup)).toHaveLength(14)
   expect(items(popup)).toContain("Heading 1")
   expect(items(popup)).toContain("Imagen")
 })
@@ -212,6 +212,45 @@ test("seleccionar Cita convierte el bloque entero del cursor", async () => {
     const json = onChange.mock.lastCall?.[0] as TiptapDoc | undefined
     expect((json?.content?.[0] as { type: string } | undefined)?.type).toBe("blockquote")
   })
+})
+
+// Callout (editor-blocks/03): /nota, /aviso, /tip envuelven el bloque; click en el emoji rota el
+// tipo y llega al JSON persistido (onChange).
+test.each([
+  ["nota", "note", "ℹ️"],
+  ["aviso", "warning", "⚠️"],
+  ["tip", "tip", "💡"],
+])("/%s envuelve el bloque en un Callout %s", async (query, kind, emoji) => {
+  const { container, view, onChange } = await setup("hola")
+  await openMenu(view, query)
+  fireEvent.keyDown(view.dom as HTMLElement, { key: "Enter" })
+  await waitFor(() => {
+    const json = onChange.mock.lastCall?.[0] as TiptapDoc | undefined
+    const c = json?.content?.[0] as { type: string; attrs?: { kind: string } } | undefined
+    expect(c?.type).toBe("callout")
+    expect(c?.attrs?.kind).toBe(kind)
+    expect(JSON.stringify(c)).toContain("hola")
+  })
+  expect(container.querySelector(".callout-emoji")?.textContent).toBe(emoji)
+})
+
+test("click en el emoji rota nota → aviso → tip → nota", async () => {
+  const { container, view, onChange } = await setup("hola")
+  await openMenu(view, "nota")
+  fireEvent.keyDown(view.dom as HTMLElement, { key: "Enter" })
+  const emoji = await waitFor(() => {
+    const found = container.querySelector<HTMLElement>(".callout-emoji")
+    if (!found) throw new Error("callout no montado")
+    return found
+  })
+  const kind = () => {
+    const json = onChange.mock.lastCall?.[0] as TiptapDoc | undefined
+    return (json?.content?.[0] as { attrs?: { kind: string } } | undefined)?.attrs?.kind
+  }
+  for (const next of ["warning", "tip", "note"]) {
+    fireEvent.click(emoji)
+    await waitFor(() => expect(kind()).toBe(next))
+  }
 })
 
 // ── On-select: inserciones parten el párrafo en el cursor ────────────────────

@@ -52,10 +52,12 @@ function block(node: Node): string {
     case "codeBlock":
       return "```" + String(node.attrs?.language ?? "") + "\n" + inline(node.content) + "\n```"
     case "blockquote":
-      return blocks(node.content ?? [])
-        .split("\n")
-        .map((l) => "> " + l)
-        .join("\n")
+      return quote(blocks(node.content ?? []))
+    // GFM alert: `> [!NOTE]` + contenido citado. Ver CALLOUT_RE en el parser.
+    case "callout":
+      return quote(
+        `[!${String(node.attrs?.kind ?? "note").toUpperCase()}]\n` + blocks(node.content ?? []),
+      )
     case "horizontalRule":
       return "---"
     case "table":
@@ -63,6 +65,13 @@ function block(node: Node): string {
     default:
       return inline(node.content) // fallback: nodo desconocido → su texto
   }
+}
+
+function quote(text: string): string {
+  return text
+    .split("\n")
+    .map((l) => "> " + l)
+    .join("\n")
 }
 
 function blocks(nodes: Node[]): string {
@@ -107,6 +116,7 @@ function plainBlock(node: Node): string {
     case "orderedList":
       return (node.content ?? []).map((item) => plainBlocks(item.content ?? [])).join(" ")
     case "blockquote":
+    case "callout":
       return plainBlocks(node.content ?? [])
     // table/tableRow/tableHeader/tableCell se aplanan igual: cada nivel delega a plainBlocks.
     case "table":
@@ -161,6 +171,7 @@ const FENCE_RE = /^```(.*)$/
 const HEADING_RE = /^(#{1,6})\s+(.*)$/
 const HR_RE = /^(-{3,}|\*{3,}|_{3,})\s*$/
 const QUOTE_RE = /^>\s?/
+const CALLOUT_RE = /^\[!(NOTE|WARNING|TIP)\]\s*$/i
 const BULLET_RE = /^[-*]\s+/
 const ORDERED_RE = /^\d+\.\s+/
 const SPECIAL_LINE_RE = new RegExp(
@@ -288,7 +299,18 @@ function parseBlocks(text: string): Node[] {
       const quoteLines: string[] = []
       while (i < lines.length && QUOTE_RE.test(lines[i]))
         quoteLines.push(lines[i++].replace(QUOTE_RE, ""))
-      result.push({ type: "blockquote", content: parseBlocks(quoteLines.join("\n")) })
+      const kind = quoteLines[0].match(CALLOUT_RE)?.[1]
+      const callout = kind ? parseBlocks(quoteLines.slice(1).join("\n")) : []
+      result.push(
+        kind
+          ? {
+              type: "callout",
+              attrs: { kind: kind.toLowerCase() },
+              // `> [!NOTE]` solo: block+ exige un hijo, nodeFromJSON no valida.
+              content: callout.length ? callout : [{ type: "paragraph" }],
+            }
+          : { type: "blockquote", content: parseBlocks(quoteLines.join("\n")) },
+      )
       continue
     }
 

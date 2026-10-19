@@ -287,3 +287,47 @@ test("docToPlainText aplana celdas separadas por espacio", () => {
   const doc = markdownToDoc("| a | b |\n|---|---|\n|1|2|")
   expect(docToPlainText(doc)).toBe("a b 1 2")
 })
+
+// Callout (editor-blocks/03): GFM alerts. `> [!NOTE]` = Callout; `> ` sin marcador = cita.
+test("callout round-trip como alerta GFM", () => {
+  const p = (text: string) => ({ type: "paragraph", content: [{ type: "text", text }] })
+  const doc: TiptapDoc = {
+    type: "doc",
+    content: [
+      { type: "callout", attrs: { kind: "note" }, content: [p("uno"), p("dos")] },
+      { type: "callout", attrs: { kind: "warning" }, content: [p("ojo")] },
+      { type: "callout", attrs: { kind: "tip" }, content: [p("truco")] },
+    ],
+  }
+  const md = docToMarkdown(doc)
+  expect(md).toBe(
+    ["> [!NOTE]\n> uno\n> \n> dos", "> [!WARNING]\n> ojo", "> [!TIP]\n> truco"].join("\n\n"),
+  )
+  expect(markdownToDoc(md)).toEqual(doc)
+})
+
+test("blockquote sin marcador sigue siendo cita", () => {
+  const first = (md: string) => (markdownToDoc(md).content?.[0] as TestNode | undefined)?.type
+  expect(first("> [!CAUTION]\n> hola")).toBe("blockquote")
+  expect(first("> hola")).toBe("blockquote")
+})
+
+test("callout en texto plano solo aporta su contenido", () => {
+  const doc: TiptapDoc = {
+    type: "doc",
+    content: [
+      {
+        type: "callout",
+        attrs: { kind: "tip" },
+        content: [{ type: "paragraph", content: [{ type: "text", text: "truco" }] }],
+      },
+    ],
+  }
+  expect(docToPlainText(doc)).toBe("truco")
+})
+
+test("callout vacío o en minúsculas no rompe el schema (block+)", () => {
+  expect(markdownToDoc("> [!note]").content).toEqual([
+    { type: "callout", attrs: { kind: "note" }, content: [{ type: "paragraph" }] },
+  ])
+})
