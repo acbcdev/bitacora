@@ -20,6 +20,7 @@ import {
   ListTodoIcon,
   MinusIcon,
   QuoteIcon,
+  SigmaIcon,
   TableIcon,
   TriangleAlertIcon,
 } from "lucide-react"
@@ -117,6 +118,20 @@ const SLASH_ITEMS: SlashItem[] = [
     icon: CodeIcon,
     action: ({ editor, range }) =>
       editor.chain().focus().deleteRange(range).toggleCodeBlock().run(),
+  },
+  // Ecuación (editor-blocks/02): bloque. Inline se escribe con $$x$$ (input rule).
+  {
+    title: "Ecuación",
+    keywords: "ecuacion formula math latex katex",
+    icon: SigmaIcon,
+    action: ({ editor, range }) => {
+      // ponytail: prompt nativo, igual que el clic para editar en editor.tsx.
+      const latex = window.prompt("LaTeX")
+      const chain = editor.chain().focus().deleteRange(range)
+      // pos explícito: sin él insertBlockMath lee la selección previa al deleteRange (fuera de rango).
+      if (latex) chain.insertBlockMath({ latex, pos: range.from })
+      chain.run()
+    },
   },
   {
     title: "Divisor",

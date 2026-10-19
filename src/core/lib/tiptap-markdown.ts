@@ -16,6 +16,8 @@ function inline(nodes: Node[] = []): string {
   return nodes
     .map((n) => {
       if (n.type === "hardBreak") return "\n"
+      // trim: con espacios en los bordes `$ x $` no cumple la regla pandoc y no vuelve a parsear.
+      if (n.type === "inlineMath") return `$${String(n.attrs?.latex ?? "").trim()}$`
       let t = n.text ?? ""
       for (const m of n.marks ?? []) {
         if (m.type === "bold") t = `**${t}**`
@@ -60,6 +62,8 @@ function block(node: Node): string {
       )
     case "horizontalRule":
       return "---"
+    case "blockMath":
+      return `$$${String(node.attrs?.latex ?? "")}$$`
     case "table":
       return tableToMarkdown(node)
     default:
@@ -137,8 +141,10 @@ export function docToPlainText(doc: TiptapDoc): string {
   return plainBlocks((doc.content as Node[]) ?? [])
 }
 
+// Último grupo = Ecuación inline con la regla de pandoc: sin espacio tras el `$` de apertura ni
+// antes del cierre, sin dígito tras el cierre ("cuesta $5 y $10" queda texto). `$$` no abre.
 const INLINE_RE =
-  /`([^`]+)`|\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|\*([^*]+)\*|_([^_]+)_/g
+  /`([^`]+)`|\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|\*([^*]+)\*|_([^_]+)_|(?<![\\$])\$([^\s$](?:[^$\n]*[^\s$])?)\$(?![\d$])/g
 
 function parseInline(text: string): Node[] {
   const nodes: Node[] = []
@@ -161,6 +167,7 @@ function parseInline(text: string): Node[] {
       nodes.push({ type: "text", text: m[5], marks: [{ type: "strike" }] })
     else if (m[6] !== undefined || m[7] !== undefined)
       nodes.push({ type: "text", text: (m[6] ?? m[7])!, marks: [{ type: "italic" }] })
+    else if (m[8] !== undefined) nodes.push({ type: "inlineMath", attrs: { latex: m[8] } })
     last = m.index + m[0].length
   }
   pushText(text.slice(last))
@@ -174,8 +181,11 @@ const QUOTE_RE = /^>\s?/
 const CALLOUT_RE = /^\[!(NOTE|WARNING|TIP)\]\s*$/i
 const BULLET_RE = /^[-*]\s+/
 const ORDERED_RE = /^\d+\.\s+/
+const BLOCK_MATH_RE = /^\$\$([^$]+)\$\$\s*$/
 const SPECIAL_LINE_RE = new RegExp(
-  [FENCE_RE, HEADING_RE, HR_RE, QUOTE_RE, BULLET_RE, ORDERED_RE].map((r) => r.source).join("|"),
+  [FENCE_RE, HEADING_RE, HR_RE, QUOTE_RE, BULLET_RE, ORDERED_RE, BLOCK_MATH_RE]
+    .map((r) => r.source)
+    .join("|"),
 )
 
 // Tabla GFM: fila de celdas con `|` seguida de una fila separadora (solo `-`, `:` y pipes).
@@ -285,6 +295,13 @@ function parseBlocks(text: string): Node[] {
         attrs: { level: heading[1].length },
         content: parseInline(heading[2]),
       })
+      i++
+      continue
+    }
+
+    const math = line.match(BLOCK_MATH_RE)
+    if (math) {
+      result.push({ type: "blockMath", attrs: { latex: math[1] } })
       i++
       continue
     }

@@ -12,8 +12,12 @@ import { NodeRange } from "@tiptap/extension-node-range"
 import { Bold } from "@tiptap/extension-bold"
 import { TextStyleKit } from "@tiptap/extension-text-style"
 import Highlight from "@tiptap/extension-highlight"
+import { BlockMath, InlineMath } from "@tiptap/extension-mathematics"
+import "katex/dist/katex.min.css"
 import { createLowlight, common } from "lowlight"
 import { Fragment, Slice } from "@tiptap/pm/model"
+import type { Node as PMNode } from "@tiptap/pm/model"
+import type { EditorView } from "@tiptap/pm/view"
 import { sinkListItem, liftListItem } from "@tiptap/pm/schema-list"
 import { Extension } from "@tiptap/react"
 import type { TiptapDoc } from "@/core/types/database"
@@ -50,6 +54,14 @@ const FormatKeys = Extension.create({
     return { "Mod-\\": () => this.editor.commands.unsetAllMarks() }
   },
 })
+
+// Ecuación (editor-blocks/02): clic edita el LaTeX. ponytail: prompt nativo, sin preview en vivo;
+// popover propio si el prompt molesta al estudiar. Vacío o cancelar = no-op.
+function editLatex(view: EditorView | undefined, node: PMNode, pos: number) {
+  const latex = window.prompt("LaTeX", node.attrs.latex)
+  if (!view || !latex || latex === node.attrs.latex) return
+  view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, latex }))
+}
 
 const CodeBlock = CodeBlockLowlight.extend({
   addNodeView: () => ReactNodeViewRenderer(CodeBlockView),
@@ -134,6 +146,8 @@ export function Editor({
   const openLightboxRef = useRef<(src: string, alt?: string, docOverride?: TiptapDoc) => void>(
     () => {},
   )
+  // onClick de las Ecuaciones solo recibe (node, pos): la view llega por ref desde onCreate.
+  const viewRef = useRef<EditorView>(undefined)
 
   const editor = useEditor({
     extensions: [
@@ -177,8 +191,18 @@ export function Editor({
       }),
       Highlight.configure({ multicolor: true }),
       FormatKeys,
+      // Ecuación (editor-blocks/02): input rules default ($$x$$ inline, $$$x$$$ bloque). KaTeX
+      // tira en sintaxis rota y el node view cae al LaTeX crudo como texto.
+      InlineMath.configure({ onClick: (node, pos) => editLatex(viewRef.current, node, pos) }),
+      BlockMath.configure({
+        katexOptions: { displayMode: true },
+        onClick: (node, pos) => editLatex(viewRef.current, node, pos),
+      }),
     ],
     content: content as Content,
+    onCreate: ({ editor: created }) => {
+      viewRef.current = created.view
+    },
     onUpdate: ({ editor: updated }) => {
       setVersion((v) => v + 1)
       onChange?.(updated.getJSON() as TiptapDoc)

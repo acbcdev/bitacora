@@ -59,12 +59,13 @@ const selected = (popup: Element) =>
 test("ArrowDown/ArrowUp mueven el ítem seleccionado con wrap", async () => {
   const { view } = await setup()
   const popup = await openMenu(view, "")
-  expect(items(popup)).toHaveLength(14)
+  const n = items(popup).length
   expect(selected(popup)).toBe("Heading 1")
   fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowDown" })
   await waitFor(() => expect(selected(popup)).toBe("Heading 2"))
-  // Wrap: 13 flechas más desde el índice 1 → 14 ≡ 0 (mod 14), vuelve al primero.
-  for (let i = 0; i < 13; i++) fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowDown" })
+  // Wrap: n-1 flechas más desde el índice 1 → n ≡ 0 (mod n), vuelve al primero. Relativo al
+  // largo de la lista: el conteo exacto lo fija el test de abajo.
+  for (let i = 0; i < n - 1; i++) fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowDown" })
   await waitFor(() => expect(selected(popup)).toBe("Heading 1"))
   // Wrap hacia arriba: del primero va al último.
   fireEvent.keyDown(view.dom as HTMLElement, { key: "ArrowUp" })
@@ -119,9 +120,9 @@ test("navegar más allá del alto visible scrollea el ítem seleccionado", async
 test("`/` al inicio de un bloque abre el popup con los ítems", async () => {
   const { view } = await setup()
   const popup = await openMenu(view, "")
-  // 14 ítems: Heading 1/2/3 + lista viñetas + numerada + to-do + cita + nota + aviso + tip +
-  // código + divisor + tabla + imagen.
-  expect(items(popup)).toHaveLength(14)
+  // 15 ítems: Heading 1/2/3 + lista viñetas + numerada + to-do + cita + nota + aviso + tip +
+  // código + ecuación + divisor + tabla + imagen.
+  expect(items(popup)).toHaveLength(15)
   expect(items(popup)).toContain("Heading 1")
   expect(items(popup)).toContain("Imagen")
 })
@@ -278,3 +279,16 @@ test("seleccionar Tabla inserta una tabla 2x2 sin header row", async () => {
     expect(container.querySelectorAll("td")).toHaveLength(4)
   })
 })
+
+test("seleccionar Ecuación pide el LaTeX e inserta un bloque renderizado", async () => {
+  vi.spyOn(window, "prompt").mockReturnValue("x^2")
+  const { container, view } = await setup()
+  await openMenu(view, "ecuacion")
+  fireEvent.keyDown(view.dom as HTMLElement, { key: "Enter" })
+  await waitFor(() => {
+    const math = container.querySelector("[data-type=block-math]")!
+    expect(math.getAttribute("data-latex")).toBe("x^2")
+    expect(math.querySelector(".katex")).toBeInTheDocument()
+  })
+})
+
