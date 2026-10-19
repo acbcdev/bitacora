@@ -32,3 +32,15 @@ inserta bloque.
 - `@tiptap/extension-mathematics` quedó pinneado exacto (`3.31.3`) vs `^` del resto, sin razón.
 - `window.prompt("LaTeX")` duplicado en `editor.tsx` y `slash-menu.tsx`: un solo helper.
 - `$$x$$` en medio de una línea al pegar queda texto literal — confirmar que es lo esperado.
+
+**Build 2026-10-18** (`pnpm build`, base `editor-blocks-fixes` vs fix):
+
+| chunk                         | antes                    | después                  |
+| ----------------------------- | ------------------------ | ------------------------ |
+| main `index-*.js`             | 546.80 KB / 176.34 KB gz | 546.80 KB / 176.34 KB gz |
+| editor `note-body-*.js`       | 1141.40 KB / 352.72 KB gz | 1141.41 KB / 352.73 KB gz |
+| editor `note-body-*.css`      | 29.80 KB / 7.97 KB gz    | 29.80 KB / 7.97 KB gz    |
+
+KaTeX JS (~76 KB gz de `katex.min.js`) y su CSS caen SOLO en `note-body` (lazy); main no lo
+contiene (grep `KaTeX parse error`). Fuentes `KaTeX_*` (~1.1 MB woff/woff2/ttf) se emiten como
+assets aparte, cargadas por el CSS bajo demanda.
