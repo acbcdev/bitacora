@@ -8,12 +8,12 @@ import type { Editor } from "@tiptap/react"
 
 // Alterna el Desplegable del cursor clickeando su botón (el mismo path que el mouse).
 export function toggleDesplegable(editor: Editor): boolean {
-  const found = findParentNode((n) => n.type.name === "details")(editor.state.selection)
+  const found = findParentNode((n) => n.type.name === Details.name)(editor.state.selection)
   if (!found) return false
   const dom = editor.view.nodeDOM(found.pos) as HTMLElement | null
   dom?.querySelector<HTMLButtonElement>(":scope > button")?.click()
   // Cursor en el cuerpo que se acaba de plegar → al final del título, si no se tipea a ciegas.
-  if (editor.state.selection.$from.parent.type.name !== "detailsSummary")
+  if (editor.state.selection.$from.parent.type.name !== DetailsSummary.name)
     editor.commands.setTextSelection(found.start + found.node.firstChild!.nodeSize - 1)
   return true
 }
