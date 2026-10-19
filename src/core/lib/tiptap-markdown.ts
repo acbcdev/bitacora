@@ -1,3 +1,4 @@
+import { Details, DetailsContent } from "@tiptap/extension-details"
 import type { TiptapDoc } from "@/core/types/database"
 
 // Serializa/parsea Markdown <-> documento Tiptap (JSON de StarterKit).
@@ -61,7 +62,7 @@ function block(node: Node): string {
         `[!${String(node.attrs?.kind ?? "note").toUpperCase()}]\n` + blocks(node.content ?? []),
       )
     // Desplegable: summary en bold + cuerpo debajo. Sin <details> (ADR 0018): no hay round-trip.
-    case "details": {
+    case Details.name: {
       const [summary, body] = node.content ?? []
       // Texto plano: las marks propias del título romperían el bold (`****x****`).
       const title = plainInline(summary?.content)
@@ -128,8 +129,8 @@ function plainBlock(node: Node): string {
       return (node.content ?? []).map((item) => plainBlocks(item.content ?? [])).join(" ")
     case "blockquote":
     case "callout":
-    case "details":
-    case "detailsContent":
+    case Details.name:
+    case DetailsContent.name:
       return plainBlocks(node.content ?? [])
     // table/tableRow/tableHeader/tableCell se aplanan igual: cada nivel delega a plainBlocks.
     case "table":
