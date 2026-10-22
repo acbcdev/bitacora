@@ -288,6 +288,8 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
       // Selección de bloques (node-range) o drag en curso: NUNCA bubble — es modal de
       // TEXTO. view.dragging es truthy solo durante el drag nativo del asa.
       if (state.selection instanceof NodeRangeSelection || view.dragging) return false
+      // codeBlock no admite marks: bold/color/etc. no harían nada ahí.
+      if (ed.isActive("codeBlock")) return false
       return state.doc.textBetween(from, to).length > 0
     },
     [],
