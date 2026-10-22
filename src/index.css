@@ -419,24 +419,63 @@
 .tiptap-host .ProseMirror a:hover {
   @apply decoration-foreground;
 }
-/* Desplegable: el node view arma div[data-type=details] > button + div(summary, content). El
-   chevron es CSS puro (triángulo con bordes) y rota con `is-open`; el cuerpo lo esconde el
-   atributo `hidden` que pone la extensión. */
+/* Desplegable (estilo Notion): el node view arma div[data-type=details] > button + div(summary,
+   content). Cuerpo pegado al título y alineado con su texto — así se lee qué es de adentro. El
+   chevron es una máscara SVG (el triángulo con bordes se antialiaseaba feo) y rota con `is-open`;
+   el cuerpo lo esconde el atributo `hidden` que pone la extensión. */
 .tiptap-host .ProseMirror [data-type="details"] {
-  @apply my-3 flex gap-1;
+  @apply my-2 flex;
 }
 .tiptap-host .ProseMirror [data-type="details"] > button {
-  @apply mt-[0.15em] grid size-6 shrink-0 cursor-pointer place-items-center rounded-md text-fg-secondary hover:bg-muted;
+  @apply mr-1.5 grid size-6 shrink-0 cursor-pointer place-items-center rounded-full text-fg-secondary hover:bg-muted;
 }
 .tiptap-host .ProseMirror [data-type="details"] > button::before {
   content: "";
-  @apply border-y-4 border-l-[6px] border-y-transparent border-l-current transition-transform;
+  @apply size-3.5 bg-current transition-transform;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M3 1.5 8 5l-5 3.5z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 .tiptap-host .ProseMirror [data-type="details"].is-open > button::before {
   @apply rotate-90;
 }
 .tiptap-host .ProseMirror [data-type="details"] > div {
   @apply min-w-0 flex-1;
+}
+/* preflight deja summary como list-item; el marcador nativo no va, el chevron es el botón. */
+.tiptap-host .ProseMirror [data-type="details"] summary {
+  @apply block font-medium;
+}
+.tiptap-host .ProseMirror [data-type="detailsContent"] > * {
+  @apply my-1.5;
+}
+.tiptap-host .ProseMirror [data-type="detailsContent"] > :first-child {
+  @apply mt-1;
+}
+.tiptap-host .ProseMirror [data-type="detailsContent"] > :last-child {
+  @apply mb-0;
+}
+/* Placeholders solo editando: desplegable vacío = chevron huérfano sin pista de qué es. */
+.tiptap-host
+  .ProseMirror[contenteditable="true"]
+  [data-type="details"]
+  summary:has(> br:only-child)::before,
+.tiptap-host
+  .ProseMirror[contenteditable="true"]
+  [data-type="detailsContent"]
+  > p:only-child:has(> br:only-child)::before {
+  @apply pointer-events-none float-left h-0 font-normal text-muted-foreground;
+}
+.tiptap-host
+  .ProseMirror[contenteditable="true"]
+  [data-type="details"]
+  summary:has(> br:only-child)::before {
+  content: "Desplegable";
+}
+.tiptap-host
+  .ProseMirror[contenteditable="true"]
+  [data-type="detailsContent"]
+  > p:only-child:has(> br:only-child)::before {
+  content: "Vacío. Escribí o arrastrá bloques adentro.";
 }
 .tiptap-host .ProseMirror code {
   @apply rounded bg-muted px-[0.15em] font-mono text-[0.8em] tracking-[-0.01em] text-[var(--p-red)];
