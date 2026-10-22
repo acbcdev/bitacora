@@ -178,18 +178,35 @@ function locateLine(
 
 // Rect de la primera línea de texto del bloque: para centrar el asa en el PRINCIPIO del
 // block (estilo Notion) en vez del centro vertical del bloque entero (párrafos largos
-// dejaban el asa al medio). Sin texto (imagen, tabla) → fallback al rect completo.
-function firstLineRect(dom: HTMLElement): DOMRect | null {
-  const walker = document.createTreeWalker(dom, NodeFilter.SHOW_TEXT)
-  for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
-    if (!n.data.trim()) continue
-    const range = document.createRange()
-    range.setStart(n, 0)
-    range.setEnd(n, Math.min(1, n.data.length))
-    const box = range.getBoundingClientRect()
-    if (box.height > 0) return box
+// dejaban el asa al medio). Sin texto (imagen, tabla) → franja de arriba del bloque: el asa
+// arranca arriba, nunca al medio de una imagen alta.
+// Altura de la línea, pero x del BLOQUE: el primer texto puede arrancar corrido (título del
+// Desplegable tras el chevron, to-do tras el checkbox, callout tras el ícono) y el asa
+// quedaba encima de esos controles. Textblock vacío (título de Desplegable recién creado): no
+// hay texto, solo el <br> de ProseMirror — su línea es el textblock que lo contiene.
+function firstLineRect(dom: HTMLElement): DOMRect {
+  const walker = document.createTreeWalker(dom, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    let box: DOMRect
+    if (n instanceof HTMLElement) {
+      if (!n.classList.contains("ProseMirror-trailingBreak")) continue
+      box = n.parentElement!.getBoundingClientRect()
+    } else {
+      const t = n as Text
+      if (!t.data.trim()) continue
+      const range = document.createRange()
+      range.setStart(t, 0)
+      range.setEnd(t, Math.min(1, t.data.length))
+      box = range.getBoundingClientRect()
+    }
+    if (box.height > 0)
+      return new DOMRect(dom.getBoundingClientRect().left, box.top, box.width, box.height)
   }
-  return null
+  // Imagen: va centrada en un wrapper de ancho completo — el asa se pega a la imagen, no al
+  // wrapper (estilo Notion).
+  const box = (dom.querySelector("img") ?? dom).getBoundingClientRect()
+  // 24 = alto de los botones del asa (size-6).
+  return new DOMRect(box.left, box.top, box.width, Math.min(box.height, 24))
 }
 
 // Posiciona el asa contra la primera línea del bloque: borde derecho contra el borde
@@ -304,7 +321,7 @@ export function BlockControls({
     return list.flatMap((b) => {
       const dom = editor.view.nodeDOM(b.pos)
       if (!(dom instanceof HTMLElement)) return []
-      const rect = firstLineRect(dom) ?? dom.getBoundingClientRect()
+      const rect = firstLineRect(dom)
       return [
         {
           pos: b.pos,
@@ -427,7 +444,7 @@ export function BlockControls({
       if (!el || !(dom instanceof HTMLElement)) return
       el.style.visibility = ""
       el.style.pointerEvents = "auto"
-      positionHandle(el, firstLineRect(dom) ?? dom.getBoundingClientRect(), h)
+      positionHandle(el, firstLineRect(dom), h)
     }
     // Scroll (wheel en la franja incluido) mueve los bloques bajo el asa: esconder; el
     // próximo mousemove la re-muestra en su posición.
@@ -565,7 +582,7 @@ export function BlockControls({
           if (!t) return null
           const dom = editor.view.nodeDOM(t.pos)
           if (!(dom instanceof HTMLElement)) return null
-          const rect = firstLineRect(dom) ?? dom.getBoundingClientRect()
+          const rect = firstLineRect(dom)
           return { getBoundingClientRect: () => rect }
         }}
         onElementDragStart={() => setDragging(true)}
