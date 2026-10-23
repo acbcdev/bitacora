@@ -239,7 +239,9 @@ function NotebookGroup({
     <SidebarGroup className="pb-0">
       <Collapsible open={open} onOpenChange={onOpenChange}>
         <CollapsibleTrigger asChild>
-          <SidebarGroupLabel asChild className="eyebrow cursor-pointer">
+          {/* Área de click a todo el ancho, sin efecto de hover: así el header no se confunde con
+              una fila de notebook. */}
+          <SidebarGroupLabel asChild className="eyebrow w-full cursor-pointer">
             <button type="button">
               <ChevronRight
                 size={12}
