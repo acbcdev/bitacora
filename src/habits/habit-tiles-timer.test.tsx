@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { HabitTiles } from "@/habits/habit-tiles"
 import { finishTimer } from "@/habits/habit-timer"
+import { dayKey } from "@/core/lib/day"
 import { habit, habitLogRow, renderApp } from "@/test/harness"
 import type { Snapshot } from "@/core/store/types"
 
@@ -39,7 +40,9 @@ function timeHabit(over = {}) {
 // renderApp hace localStorage.clear() al seedear, así que el timer se siembra en un useEffect
 // del mount: las queries de la app resuelven después (async) y el rerender de useSyncExternalStore
 // ya lo ve. Sin rerender manual ni storage events.
-function TimerSeed({ over }: { over: { startedDay?: string } }) {
+type TimerOver = { startedDay?: string; startedAt?: number }
+
+function TimerSeed({ over }: { over: TimerOver }) {
   useEffect(() => {
     localStorage.setItem(
       "bita-timer",
@@ -49,7 +52,7 @@ function TimerSeed({ over }: { over: { startedDay?: string } }) {
   return null
 }
 
-function mountWithTimer(seed: Partial<Snapshot>, timerOver: { startedDay?: string } = {}) {
+function mountWithTimer(seed: Partial<Snapshot>, timerOver: TimerOver = {}) {
   return renderApp(
     <>
       <TimerSeed over={timerOver} />
@@ -130,6 +133,26 @@ test("auto-finish acredita amount_startedDay + elapsed y corta con toast", async
   })
   expect(success).toHaveBeenCalledWith("Leer — 21 min listos")
   expect(localStorage.getItem("bita-timer")).toBe(null)
+})
+
+// Tab oculto: Chrome baja el interval de 1s a 1/min. El auto-finish no puede depender de él —
+// con el interval anulado, el timeout al deadline igual corta.
+test("auto-finish llega a tiempo aunque el interval esté throttleado", async () => {
+  nowSpy.mockRestore()
+  const realSetInterval = globalThis.setInterval
+  vi.spyOn(globalThis, "setInterval").mockImplementation(((fn: () => void, ms?: number) =>
+    ms === 1000 ? 0 : realSetInterval(fn, ms)) as typeof setInterval)
+  const today = dayKey(new Date())
+  const seed: Partial<Snapshot> = {
+    habits: [timeHabit({ target: 20 * MIN })],
+    habitLog: [habitLogRow({ habit_id: "h1", day: today, amount: 18 * MIN, target: 20 * MIN })],
+  }
+  // Faltan ~300ms para los 20 min.
+  mountWithTimer(seed, { startedAt: Date.now() - 2 * MIN * 1000 + 300, startedDay: today })
+
+  await waitFor(() => expect(success).toHaveBeenCalledWith("Leer — 20 min listos"), {
+    timeout: 2000,
+  })
 })
 
 test("timer viejo sin startedDay: la pausa igual acredita al día derivado de startedAt", async () => {

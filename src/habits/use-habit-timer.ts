@@ -48,6 +48,19 @@ export function useHabitTimer(habits: Habit[], log: HabitLogRow[]) {
     () => (running && timer ? deriveHabit(running, log, parseDay(timer.startedDay)) : null),
     [running, timer, log],
   )
+  // Con el tab oculto Chrome baja el interval de arriba a 1/min (intensive throttling: aplica a
+  // timers encadenados) y el auto-finish llegaba tarde o al volver. Un timeout suelto al instante
+  // exacto de la meta no entra en ese throttling. Mismas guardas que `reached`.
+  // ponytail: no cubre tab congelado ni mobile en background (JS suspendido) — eso es Web Push.
+  const deadline =
+    running?.kind === "good" && startedState && timer && startedState.total < running.target
+      ? timer.startedAt + (running.target - startedState.total) * 1000
+      : null
+  useEffect(() => {
+    if (deadline === null) return
+    const id = setTimeout(() => tick((n) => n + 1), Math.max(0, deadline - Date.now()))
+    return () => clearTimeout(id)
+  }, [deadline])
   const shown = startedState && timer ? shownSeconds(startedState.total, timer) : 0
   const clock = startedState && timer ? shownClock(startedState.total, timer) : null
   // Termina solo únicamente si fue ESTE cronómetro el que cruzó la meta. Dos guardas:
