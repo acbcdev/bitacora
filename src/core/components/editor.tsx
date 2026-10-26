@@ -192,7 +192,19 @@ export function Editor({
       FormatKeys,
       // Ecuación (editor-blocks/02): input rules default ($$x$$ inline, $$$x$$$ bloque). KaTeX
       // tira en sintaxis rota y el node view cae al LaTeX crudo como texto.
-      InlineMath.configure({ onClick: (node, pos) => editLatex(viewRef.current, node, pos) }),
+      // Paste rico de Gemini: `<span class="math-inline" data-math="\pm">`. Sin esta regla el
+      // HTML cae al texto `$\pm$` literal.
+      InlineMath.extend({
+        parseHTML() {
+          return [
+            ...(this.parent?.() ?? []),
+            {
+              tag: "span.math-inline[data-math]",
+              getAttrs: (el) => ({ latex: (el as HTMLElement).getAttribute("data-math") }),
+            },
+          ]
+        },
+      }).configure({ onClick: (node, pos) => editLatex(viewRef.current, node, pos) }),
       BlockMath.configure({
         katexOptions: { displayMode: true },
         onClick: (node, pos) => editLatex(viewRef.current, node, pos),
