@@ -1,45 +1,59 @@
-# Web metrics (rendimiento + datos de uso)
+# Web metrics (errores + rendimiento + no regresionar)
 
-**Status:** needs-triage — borrador 2026-10-08, sin grill.
+**Status:** grilled 2026-10-26 (`/grill-with-docs`). Borrador original 2026-10-08.
 
 ## Origen
 
-Hoy no se mide nada: cero `web-vitals`, cero `PerformanceObserver`, cero analytics (grep en `src/`).
-`project-hygiene` midió el bundle a mano (1 chunk, 1.94 MB / 595 KB gzip) y dejó el split por ruta
-como "no hacer hasta que duela". Sin números reales, "duele" es una sensación. CONTEXT.md dice que
-la app tiene que **sentirse rápida** → hay que medirlo.
+El borrador quería medir para decidir si hacía falta el split por ruta. Ese split se hizo igual en
+`0d0b628` (2026-10-10): chunk inicial 595 → 175 KB gz, tiptap aparte. El objetivo cambia a
+**ver lo que pasa en prod y no regresionar**.
 
-## Dos ejes (no mezclar)
+Punto ciego que el borrador no tenía: **errores**. El repaso es en el celular (ADR 0004); una
+excepción ahí hoy es invisible — sin consola, sin log.
 
-| Eje          | Pregunta                                       | Dónde se guarda          |
-| ------------ | ---------------------------------------------- | ------------------------ |
-| Rendimiento  | ¿Qué tan rápida va? (LCP, INP, CLS, TTFB, save) | consola/dev + tabla chica |
-| Uso          | ¿Qué hago realmente? (pantallas, repasos, search) | ya está en `read_log` (ADR 0003) |
+## Framing
 
-## Principios
+Second brain personal, **hoy un solo usuario** (ver CONTEXT.md). La dirección es abrirlo a otros,
+pero no se instrumenta nada para usuarios que no existen.
 
-- **Uso personal, 1 usuario.** Nada de Sentry/PostHog/GA. Un servicio de terceros es overkill y
-  filtra datos de estudio. Si hace falta persistir: tabla en Supabase con RLS, como todo lo demás.
-- **Datos CHICOS** (CONTEXT.md). Sin pipelines, sin agregaciones exóticas.
-- Primero **ver** (dev overlay / consola), después persistir, solo si lo visto lo justifica.
-- Medir lo que el usuario siente: abrir nota, autosave, cola de repaso, cambio de pantalla.
+## Tres ejes
 
-## Alcance candidato (ver issues)
+| Eje         | Herramienta                 | Por qué                                                   |
+| ----------- | --------------------------- | --------------------------------------------------------- |
+| Errores     | **Sentry** (hosted)         | Source maps + alertas por mail. SDK compatible con GlitchTip: cambiar es el DSN. |
+| Rendimiento | **Cloudflare Web Analytics** | Ya hosteamos en CF Pages: toggle, sin cookies, vitals reales del celular. |
+| Uso         | `read_log` (ADR 0003)       | PostHog **diferido** hasta que haya un segundo usuario real. |
 
-1. Core Web Vitals en dev (`web-vitals` 6.2.3, Apache-2.0, ~2 KB) → `console.table`.
-2. `performance.mark/measure` en flujos propios (abrir nota, guardar, snapshot).
-3. Tamaño de bundle trackeado en CI (falla si crece > X%).
-4. Tiempo de `snapshot` y tamaño de payload de Supabase (el seam `Store` es el punto único).
-5. Persistir métricas (decisión abierta).
+Más un **budget de bundle en CI** para no regresionar.
+
+## Decisiones
+
+- **Sentry mínimo:** solo error tracking. Sin Replay (grabaría el contenido de las notas), sin
+  tracing (duplica CF), `sendDefaultPii: false`. Activo solo si `import.meta.env.PROD` y hay DSN:
+  no corre en `pnpm dev` ni en e2e (`localStore`).
+- **Dónde capturar** — criterio: reportar lo que es bug o pérdida de datos, no lo que es red.
+  - Render: `createRoot(el, { onCaughtError, onUncaughtError })` con `Sentry.reactErrorHandler()`.
+    El `ErrorBoundary` atrapa los errores y `window.onerror` nunca los ve; los hooks de React 19
+    cubren todos los boundaries desde un lugar.
+  - Mutations: `captureException` al lado del `toast` en el `MutationCache` de `main.tsx`.
+  - Queries: no (casi siempre red; react-query reintenta).
+- **Source maps:** `@sentry/vite-plugin` en el build de Cloudflare Pages (no hay deploy en GitHub
+  Actions). Sube solo si existe `SENTRY_AUTH_TOKEN`; sin token no hace nada. El repo es público:
+  no hace falta borrar los `.map`.
+- **Budget:** chunks `index-*` y `note-body-*`, límite = medido **después** de Sentry + ~15%.
+- **Aceptado:** ad-blockers bloquean el envío a sentry.io. Un tunnel requiere endpoint propio
+  (contra "sin servidores propios"). Se pierde.
+
+## Issues
+
+1. `01-sentry-errores` — ready-for-agent
+2. `02-marks-flujos-propios` — diferido
+3. `03-bundle-budget-ci` — ready-for-agent, blocked by 01
+4. `04-persistir-metricas` — wontfix
+5. `05-cloudflare-web-analytics` — ready-for-human (toggle manual)
 
 ## No hacer
 
-- Sin servicio externo. Sin cookies/consent banner (no hay terceros).
-- Sin dashboard propio hasta que haya datos que justifiquen uno.
-- Sin split por ruta como parte de este feature: este feature **decide** si hace falta.
-
-## Preguntas abiertas (para grill)
-
-- ¿Persistir en Supabase o basta consola + Lighthouse CI manual?
-- ¿Cuál es el presupuesto? (propuesta: LCP < 2.0s, INP < 200ms, bundle gz < 650 KB)
-- ¿Medir también `localStore` (modo e2e) o solo `supabaseStore`?
+- Sin Session Replay, en ninguna herramienta, sin `maskAllText`.
+- Sin analytics de uso hasta un segundo usuario real.
+- Sin dashboard propio.

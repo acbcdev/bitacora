@@ -1,13 +1,16 @@
 # Presupuesto de bundle en CI
 
-Status: needs-triage
+Status: ready-for-agent
 Blocked by: 01
 
 ## Qué
 
-Paso en `.github/workflows/ci.yml` que corre `pnpm build` y falla si el JS gzip principal supera
-el presupuesto (propuesta: 650 KB; hoy 595 KB). Script de shell de pocas líneas leyendo `dist/assets`,
-sin plugin de Vite.
+Paso en `.github/workflows/ci.yml` que corre `pnpm build` y falla si algún chunk vigilado supera
+su presupuesto gzip. Script de shell de pocas líneas leyendo `dist/assets` (glob por prefijo, los
+nombres llevan hash), sin plugin de Vite.
+
+Chunks: `index-*` (entrada) y `note-body-*` (tiptap). Límite = tamaño medido **con Sentry dentro**
+(lo anota 01) + ~15%. Pre-Sentry (2026-10-25): `index` 174 KB gz, `note-body` 348 KB gz.
 
 ## Aceptación
 

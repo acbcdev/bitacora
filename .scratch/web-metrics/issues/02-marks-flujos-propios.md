@@ -1,7 +1,9 @@
 # performance.measure en flujos propios
 
-Status: needs-triage
-Blocked by: 01
+Status: needs-info
+
+**Diferido** (grill 2026-10-26). Trigger: un flujo se siente lento y Cloudflare Web Analytics
+no explica por qué. Hasta entonces, medir por medir.
 
 ## Qué
 
