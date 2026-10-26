@@ -121,8 +121,8 @@ export function SidebarGroupSkeleton({
     <div className="p-2 pb-0">
       <div className="flex h-8 items-center gap-1 px-2">
         <Skeleton className="size-3 rounded-sm" />
-        {/* ~9px por letra: el eyebrow es 11px con tracking-widest */}
-        <Skeleton className="h-2.5" style={{ width: label.length * 9 }} />
+        {/* ~7px por letra: label text-sm en capital case */}
+        <Skeleton className="h-3" style={{ width: label.length * 7 }} />
       </div>
       {open && (
         <div className="flex flex-col gap-1">
