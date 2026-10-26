@@ -123,3 +123,15 @@ test("parse: $$x$$ en medio de una línea queda texto literal", () => {
     para({ type: "text", text: "antes $$x$$ después" }),
   )
 })
+
+// Gemini/ChatGPT copian `**$\pm$** (Más-menos)`: el bold no debe tragarse la Ecuación.
+test("parse: Ecuación dentro de bold sale como inlineMath", () => {
+  expect(markdownToDoc("**$\\pm$ y $x$** fin")).toEqual(
+    para(
+      { type: "inlineMath", attrs: { latex: "\\pm" } },
+      { type: "text", text: " y ", marks: [{ type: "bold" }] },
+      { type: "inlineMath", attrs: { latex: "x" } },
+      { type: "text", text: " fin" },
+    ),
+  )
+})

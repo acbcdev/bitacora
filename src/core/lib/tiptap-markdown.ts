@@ -178,18 +178,25 @@ function parseInline(text: string): Node[] {
     })
   }
 
+  // Recursa dentro del mark: `**$\pm$**` (lo que copia Gemini/ChatGPT) debe dar Ecuación, no
+  // texto bold literal. Solo los text nodes llevan el mark; la Ecuación queda sin él.
+  const pushMarked = (inner: string, marks: string[]) => {
+    for (const n of parseInline(inner))
+      nodes.push(
+        n.type === "text"
+          ? { ...n, marks: [...(n.marks ?? []), ...marks.map((type) => ({ type }))] }
+          : n,
+      )
+  }
+
   let last = 0
   for (const m of text.matchAll(INLINE_RE)) {
     pushText(text.slice(last, m.index))
     if (m[1] !== undefined) nodes.push({ type: "text", text: m[1], marks: [{ type: "code" }] })
-    else if (m[2] !== undefined)
-      nodes.push({ type: "text", text: m[2], marks: [{ type: "bold" }, { type: "italic" }] })
-    else if (m[3] !== undefined || m[4] !== undefined)
-      nodes.push({ type: "text", text: (m[3] ?? m[4])!, marks: [{ type: "bold" }] })
-    else if (m[5] !== undefined)
-      nodes.push({ type: "text", text: m[5], marks: [{ type: "strike" }] })
-    else if (m[6] !== undefined || m[7] !== undefined)
-      nodes.push({ type: "text", text: (m[6] ?? m[7])!, marks: [{ type: "italic" }] })
+    else if (m[2] !== undefined) pushMarked(m[2], ["bold", "italic"])
+    else if (m[3] !== undefined || m[4] !== undefined) pushMarked((m[3] ?? m[4])!, ["bold"])
+    else if (m[5] !== undefined) pushMarked(m[5], ["strike"])
+    else if (m[6] !== undefined || m[7] !== undefined) pushMarked((m[6] ?? m[7])!, ["italic"])
     else if (m[8] !== undefined) nodes.push({ type: NODE.inlineMath, attrs: { latex: m[8] } })
     last = m.index + m[0].length
   }
