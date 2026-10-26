@@ -1,7 +1,9 @@
 # CONTEXT — pulpo
 
-App personal de gestión de estudio. El usuario toma notas de cursos (hoy en Notion) y necesita
-trackear progreso, repasar a diario y sentir la interfaz **rápida** (shortcuts, poco mouse).
+**Second brain** personal: el usuario toma notas en notebooks (cursos, libros, escritura propia —
+antes en Notion) y necesita trackear progreso, repasar a diario y sentir la interfaz **rápida**
+(shortcuts, poco mouse). **Hoy un solo usuario**; la dirección es abrirlo a otros algún día, sin
+construir nada para eso hasta que exista un segundo usuario real (grill web-metrics, 2026-10-25).
 
 Este archivo es la fuente de verdad del dominio. Los agentes deben usar **este vocabulario**
 (no sinónimos) en títulos de issues, tests, nombres de módulos y refactors.
@@ -10,14 +12,14 @@ Este archivo es la fuente de verdad del dominio. Los agentes deben usar **este v
 
 Notion sirve para **escribir**, pero no para:
 
-- Trackear cuándo empezó un curso, cuánto tardó, cuál está pausado/abandonado.
+- Trackear cuándo empezó un notebook, cuánto tardó, cuál está pausado/abandonado.
 - Contar repasos por nota (hoy se lleva a mano).
 - Tener una cola de "qué leo hoy" (hábito: 2–3 notas/día).
 - Sentirse rápido — Notion es mucho mouse, pocos shortcuts.
 
 ## Escala (define las decisiones técnicas)
 
-- **59 cursos × ~25 notas ≈ 1.500 notas.** Crecimiento lento: una nota por clase.
+- **59 notebooks × ~25 notas ≈ 1.500 notas.** Crecimiento lento: una nota por clase.
 - **Los datos son CHICOS.** Sin FTS, sin scoring, sin índices exóticos. Cualquier propuesta que
   asuma volumen grande está mal calibrada para este proyecto.
 
@@ -29,6 +31,10 @@ Vite + React + **Tiptap** (editor WYSIWYG, licencia MIT) + **Supabase** (Postgre
 server-side. Eso es lo único que cuesta plata (por token) y lo único que corre fuera del browser:
 "sin servidores propios" sigue valiendo para todo lo demás. Ver
 `docs/adr/0010-flashcards-como-notas-y-edge-function.md`.
+
+Terceros que reciben datos: **Sentry**, solo errores (sin Replay, sin PII), y **Cloudflare Web
+Analytics** (vitals, sin cookies). Analytics de uso (PostHog o similar) recién con un segundo
+usuario real. Ver `.scratch/web-metrics/spec.md`.
 
 Nivel medio (ver `docs/adr/0005-frontend-stack.md`):
 
@@ -80,6 +86,7 @@ Notas de licencia/tier:
 | **Racha de hábito**                  | Períodos consecutivos cumplidos, **estricta**: un período cerrado parcial rompe; sólo el período en curso de un `good` no corta. No confundir con la racha de `read_log`, que son días con repaso.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | **Serie de hábito**                  | La muestra de celdas que `deriveHabit` deriva, **en el período del hábito** (14 días / 7 semanas / 6 meses, ADR 0013). Alimenta los dots del tile (últimos 7) y el panel de hover. La DB sigue guardando por día (ADR 0009): agregar por período es derivación, no almacenamiento.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | **Cronómetro (Timer)**               | El contador hacia arriba de los hábitos `time`. Estado efímero en `localStorage` (`{ habitId, startedAt, startedDay }`), **no dato de negocio**: el dato entra en `habit_log` al pausar. Un solo timer global a la vez; dar play en otro hábito pausa el anterior primero. El auto-finish corta al cruzar el `target` del período de `startedDay` (sólo `good`; un `bad` nunca se auto-corta).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Alarma del Cronómetro** | El aviso agendado **fuera del browser** para el instante en que un Cronómetro llega a su meta, así llega con la app cerrada. **Por device**, como el Cronómetro: play en el celu no pisa ni dispara la del desktop. Nace al dar play (sólo `good` por debajo de la meta, mismas guardas que el auto-finish), muere al pausar, terminar o cambiar de hábito. No es dato de negocio. "Push" es el transporte, no el concepto: no decir "push del timer" ni "notificación agendada". Sólo con Supabase. |
 | **Día de atribución (`startedDay`)** | El día LOCAL en que un Cronómetro **arrancó** (`dayKey(new Date(startedAt))`), congelado al `startTimer`. TODO el `elapsed` se acredita a ese día — pausar 00:19 tras arrancar 23:59 escribe en el día de ayer. Nunca se parte a medianoche, sin cap de 24h. La base del upsert es la fila de `startedDay` y el auto-finish se evalúa contra el período que lo contiene.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Store**                            | El seam de datos (`src/core/store/`). Seis métodos, no uno por query: el adapter trae filas y las escribe, nada más. Decir **Store** y **adapter**, no "repositorio", "servicio" ni "cliente".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | **Snapshot**                         | Lo que devuelve `store.snapshot()`: todas las filas VIVAS de las 5 tablas, con las notas **sin `content`**. Es la única query de lectura de la app — todo lo demás es un `select` sobre esto.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
