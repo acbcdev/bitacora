@@ -1,5 +1,6 @@
 import { fireEvent, render, waitFor } from "@testing-library/react"
 import { Editor } from "@/core/components/editor"
+import { Dialog, DialogContent, DialogTitle } from "@/core/ui/dialog"
 import { TextSelection } from "@tiptap/pm/state"
 import type { Transaction as PMTransaction } from "@tiptap/pm/state"
 import type { EditorState as PMEditorState } from "@tiptap/pm/state"
@@ -17,6 +18,29 @@ test("un solo Esc saca el foco del editor", async () => {
 
   fireEvent.keyDown(pm, { key: "Escape" })
   expect(document.activeElement).not.toBe(pm)
+})
+
+// Radix escucha Esc en capture de document, antes que ProseMirror: sin el capture en window
+// del editor, el primer Esc cerraba el dialog.
+test("en un Dialog, el primer Esc saca el foco y el segundo cierra", async () => {
+  const onOpenChange = vi.fn()
+  render(
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent aria-describedby={undefined}>
+        <DialogTitle>t</DialogTitle>
+        <Editor content={doc} />
+      </DialogContent>
+    </Dialog>,
+  )
+  const pm = await waitFor(() => document.querySelector<HTMLElement>(".ProseMirror")!)
+  pm.focus()
+
+  fireEvent.keyDown(pm, { key: "Escape" })
+  expect(document.activeElement).not.toBe(pm)
+  expect(onOpenChange).not.toHaveBeenCalled()
+
+  fireEvent.keyDown(document.activeElement!, { key: "Escape" })
+  expect(onOpenChange).toHaveBeenCalledWith(false)
 })
 
 // ── Tablas (spec .scratch/editor-tables) ─────────────────────────────────────

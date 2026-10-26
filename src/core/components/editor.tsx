@@ -28,7 +28,8 @@ import { Desplegable } from "@/core/components/desplegable"
 import { Callout } from "@/core/components/callout"
 import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
-import { SlashMenu, isSlashMenuActive } from "@/core/components/slash-menu"
+import { SlashMenu, isSlashMenuActive, slashMenuPluginKey } from "@/core/components/slash-menu"
+import { exitSuggestion } from "@tiptap/suggestion"
 import { editLatex } from "@/core/components/ecuacion"
 import { FormatBubbleMenu } from "@/core/components/bubble-menu"
 import { TableHoverControls } from "@/core/components/table-controls"
@@ -257,17 +258,6 @@ export function Editor({
         }
         return false
       },
-      // Un solo Esc saca el foco del editor.
-      handleKeyDown(view, event) {
-        if (lbOpenRef.current) return false
-        if (event.key !== "Escape") return false
-        // Menú slash abierto: Esc cierra el popup (plugin de Suggestion) y el foco se queda
-        // en el editor — el `/` queda como texto literal. Ver slash-menu.tsx.
-        if (isSlashMenuActive(view)) return false
-
-        view.dom.blur()
-        return true
-      },
       // Tab/Shift-Tab siempre capturados: hunden/suben el ítem de lista y fuera de una lista
       // no hacen nada — pero NUNCA dejan que el browser mueva el foco fuera del editor.
       handleDOMEvents: {
@@ -334,6 +324,26 @@ export function Editor({
   useEffect(() => {
     openLightboxRef.current = openLightbox
   }, [openLightbox])
+
+  // Un solo Esc saca el foco del editor; dentro de un Dialog el siguiente lo cierra.
+  // Capture en window (mismo truco que field-pill.tsx): Radix escucha en capture de document,
+  // antes que ProseMirror, y solo respeta defaultPrevented. Con la marca puesta PM tampoco corre
+  // sus handleKeyDown (handleDOMEvents.keydown existe → runCustomHandler ve defaultPrevented),
+  // así que el cierre del menú slash también se hace acá.
+  useEffect(() => {
+    if (!editor) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || lbOpenRef.current || !editor.view.hasFocus()) return
+      // Popover abierto con el foco aún en el editor (paletas del bubble): el Esc es suyo.
+      if (document.querySelector('[data-slot="popover-content"]')) return
+      e.preventDefault()
+      // Menú slash abierto: Esc cierra el popup y el foco se queda — el `/` queda como texto.
+      if (isSlashMenuActive(editor.view)) exitSuggestion(editor.view, slashMenuPluginKey)
+      else editor.view.dom.blur()
+    }
+    window.addEventListener("keydown", onKey, { capture: true })
+    return () => window.removeEventListener("keydown", onKey, { capture: true })
+  }, [editor])
 
   // Delegación DOM: click en <img> dentro de ProseMirror abre lightbox.
   // Complementa handleClickOn: en jsdom handleClickOn no siempre dispara con fireEvent,
