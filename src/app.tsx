@@ -29,6 +29,7 @@ import { useAllNoteRefs, useCreateNote } from "@/notes/notes.api"
 import { store } from "@/core/store"
 import type { AuthUser } from "@/core/store/types"
 import { mod } from "@/core/lib/utils"
+import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { useFocusMode } from "@/core/lib/hooks/use-focus-mode"
 import { NoteSkeleton } from "@/core/components/skeletons"
 import { Notebooks } from "@/notebooks/notebooks"
@@ -131,6 +132,11 @@ function Shell({ user }: { user: AuthUser }) {
   })
   useHotkeys("g>h", () => navigate("/"), { sequenceTimeoutMs: 900, preventDefault: true })
   useHotkeys("g>c", () => navigate("/notebooks"), { sequenceTimeoutMs: 900, preventDefault: true })
+  // En /notebooks la N la maneja la pantalla (abre el form sin navegar).
+  useSafeHotkeys("n", () => navigate("/notebooks?new=1"), {
+    enabled: pathname !== "/notebooks",
+    preventDefault: true,
+  })
   // ⌘, es la tecla de "preferencias" en macOS y la que todo el mundo prueba primero.
   useHotkeys("mod+comma", () => setSettings((s) => !s), {
     enableOnFormTags: true,
@@ -254,6 +260,7 @@ function Shell({ user }: { user: AuthUser }) {
             onToggleTheme={() => setDark((d) => !d)}
             onLogout={() => store.auth.signOut()}
             onSettings={() => setSettings(true)}
+            onSearch={() => setPalette(true)}
           />
         )}
         <main className="relative min-w-0 flex-1 overflow-y-auto">

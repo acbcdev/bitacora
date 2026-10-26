@@ -12,6 +12,7 @@ import {
   PinOff,
   Plus,
   RotateCcw,
+  Search,
   Sun,
 } from "lucide-react"
 import { NavLink } from "react-router-dom"
@@ -22,6 +23,8 @@ import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { toggleNotebookDone, useUpdateNotebook } from "@/notebooks/notebooks.api"
 import { togglePinnedNotebook, usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
 import { Button } from "@/core/ui/button"
+import { Kbd } from "@/core/ui/kbd"
+import { mod } from "@/core/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/core/ui/collapsible"
 import {
   DropdownMenu,
@@ -64,6 +67,7 @@ export function Sidebar({
   onToggleTheme,
   onLogout,
   onSettings,
+  onSearch,
 }: {
   notebooks: Notebook[]
   loading: boolean
@@ -72,6 +76,7 @@ export function Sidebar({
   onToggleTheme: () => void
   onLogout: () => void
   onSettings: () => void
+  onSearch: () => void
 }) {
   const pinnedIds = usePinnedNotebookIds()
   const { pinned, active, recent } = sidebarNotebookGroups(notebooks, pinnedIds)
@@ -128,7 +133,19 @@ export function Sidebar({
                 <NavLink to="/notebooks?new=1">
                   <Plus />
                   <span>Nuevo notebook</span>
+                  <Kbd className="ml-auto opacity-0 group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100">
+                    N
+                  </Kbd>
                 </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton className={ROW} onClick={onSearch}>
+                <Search />
+                <span>Buscar</span>
+                <Kbd className="ml-auto opacity-0 group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100">
+                  {mod("K")}
+                </Kbd>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

@@ -9,6 +9,7 @@ const GROUPS: [string, [string, string][]][] = [
       [mod("K"), "Command palette"],
       [mod("/"), "Este cheatsheet"],
       [mod(","), "Ajustes"],
+      ["N", "Nuevo notebook"],
       ["G luego H", "Ir a Hoy"],
       ["G luego C", "Ir a Notebooks"],
       ["G luego 1-9", "Ir al notebook N del sidebar (9 = el último)"],
@@ -32,7 +33,6 @@ const GROUPS: [string, [string, string][]][] = [
       ["E", "Editar el notebook seleccionado"],
       ["Delete", "Borrar el notebook seleccionado"],
       ["/", "Buscar"],
-      ["N", "Nuevo notebook"],
     ],
   ],
   [
