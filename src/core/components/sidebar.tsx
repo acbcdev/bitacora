@@ -302,8 +302,8 @@ function NotebookMenuItem({ notebook, pinned }: { notebook: Notebook; pinned: bo
         className={`${ROW} ${ACTIVE} transition-none group-focus-within/menu-item:pr-15 group-hover/menu-item:pr-15 group-has-data-[state=open]/menu-item:pr-15`}
       >
         <NavLink to={`/notebook/${notebook.id}`}>
-          <NotebookIcon icon={notebook.icon} className="size-6!" />
-          <span className="text-lg">{notebook.name}</span>
+          <NotebookIcon icon={notebook.icon} className="size-5" />
+          <span>{notebook.name}</span>
         </NavLink>
       </SidebarMenuButton>
       {/* `data-[state=open]` mantiene las acciones visibles mientras el menú está abierto: si no,
