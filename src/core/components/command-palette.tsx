@@ -9,7 +9,7 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/core/ui/command"
-import { Kbd } from "@/core/ui/kbd"
+import { Kbd, KbdGroup } from "@/core/ui/kbd"
 import { filterActions, type Action } from "./command-palette-utils"
 
 export type { Action }
@@ -28,16 +28,16 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
     <CommandDialog
       open
       onOpenChange={(open) => !open && onClose()}
-      className="w-[620px] max-w-[92vw] sm:max-w-[620px]"
+      className="w-[660px] max-w-[92vw] bg-popover/70 backdrop-blur-2xl backdrop-saturate-150 sm:max-w-[660px]"
     >
       {/* El `CommandDialog` del registry no monta el root de cmdk, solo el diálogo. */}
-      <Command shouldFilter={false}>
+      <Command shouldFilter={false} className="bg-transparent p-0">
         <CommandInput
           value={q}
           onValueChange={setQ}
           placeholder="Buscar acción, notebook o nota…"
         />
-        <CommandList className="max-h-[440px]">
+        <CommandList className="max-h-[420px] p-1.5">
           <CommandEmpty>Sin resultados para “{q}”.</CommandEmpty>
           {[...groups].map(([group, items]) => (
             <CommandGroup key={group} heading={group}>
@@ -51,18 +51,36 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
                     onClose()
                     a.run()
                   }}
+                  className="h-10 gap-3 px-3 data-selected:bg-foreground/9"
                 >
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">
+                  <span className="flex w-5 shrink-0 justify-center text-muted-foreground">
                     {a.icon}
                   </span>
-                  <span className="flex-1 truncate">{a.label}</span>
-                  {a.kbd && <CommandShortcut>{a.kbd}</CommandShortcut>}
+                  <span className="flex-1 truncate">
+                    {a.label}
+                    {a.hint && <span className="text-xs text-muted-foreground"> · {a.hint}</span>}
+                  </span>
+                  {a.kbd && (
+                    // "G H" es secuencia (G, después H): se muestra como chord G → H.
+                    <CommandShortcut className="tracking-normal">
+                      <KbdGroup>
+                        {a.kbd.split(" ").map((k, j) => (
+                          <span key={k} className="flex items-center gap-1">
+                            {j > 0 && "→"}
+                            <Kbd className="border border-foreground/18 bg-transparent group-data-selected/command-item:text-foreground">
+                              {k}
+                            </Kbd>
+                          </span>
+                        ))}
+                      </KbdGroup>
+                    </CommandShortcut>
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>
           ))}
         </CommandList>
-        <div className="flex items-center justify-between gap-3 border-t border-border px-3.5 py-2.5 text-2xs text-muted-foreground">
+        <div className="flex items-center justify-between gap-3 border-t border-foreground/6 px-3.5 py-2.5 text-2xs text-muted-foreground">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
               <Kbd>↑</Kbd>

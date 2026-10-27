@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/core/ui/dialog"
-import { InputGroup, InputGroupAddon } from "@/core/ui/input-group"
 import { SearchIcon, CheckIcon } from "lucide-react"
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
@@ -65,21 +64,19 @@ function CommandInput({
   endContent?: React.ReactNode
 }) {
   return (
-    <div data-slot="command-input-wrapper" className="p-2 pb-0">
-      <InputGroup className="h-12! rounded-xl! border-input/30 bg-input/30 shadow-none! has-[[data-slot=input-group-control]:focus-visible]:border-input/30 has-[[data-slot=input-group-control]:focus-visible]:ring-0 *:data-[slot=input-group-addon]:pl-3!">
-        <CommandPrimitive.Input
-          data-slot="input-group-control"
-          className={cn(
-            "w-full text-base outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
-            className,
-          )}
-          {...props}
-        />
-        <InputGroupAddon>
-          <SearchIcon className="size-5 shrink-0 opacity-50" />
-        </InputGroupAddon>
-        {endContent && <InputGroupAddon align="inline-end">{endContent}</InputGroupAddon>}
-      </InputGroup>
+    <div
+      data-slot="command-input-wrapper"
+      className="flex h-14 items-center gap-3 border-b border-foreground/6 px-5"
+    >
+      <SearchIcon className="size-5 shrink-0 text-muted-foreground" />
+      <CommandPrimitive.Input
+        className={cn(
+          "w-full bg-transparent text-md outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+          className,
+        )}
+        {...props}
+      />
+      {endContent}
     </div>
   )
 }
@@ -118,7 +115,7 @@ function CommandGroup({
     <CommandPrimitive.Group
       data-slot="command-group"
       className={cn(
-        "overflow-hidden p-1.5 text-foreground **:[[cmdk-group-heading]]:px-2.5 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-2xs **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:tracking-widest **:[[cmdk-group-heading]]:text-muted-foreground **:[[cmdk-group-heading]]:uppercase",
+        "overflow-hidden text-foreground **:[[cmdk-group-heading]]:px-3 **:[[cmdk-group-heading]]:pt-3 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground",
         className,
       )}
       {...props}

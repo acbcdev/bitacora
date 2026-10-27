@@ -1,6 +1,7 @@
 export type Action = {
   group: string
   label: string
+  hint?: string // contexto en gris tras el label (ej. el notebook de una nota); también se filtra
   icon?: React.ReactNode
   kbd?: string
   run: () => void
@@ -27,7 +28,7 @@ export function filterActions(actions: Action[], q: string): Action[] {
 
   const hits: Action[] = []
   for (const a of actions) {
-    const hay = `${a.group} ${a.label}`.toLowerCase()
+    const hay = `${a.group} ${a.label} ${a.hint ?? ""}`.toLowerCase()
     if (words.every((w) => hay.includes(w)) && hits.push(a) === MAX) break
   }
   return hits
