@@ -8,7 +8,7 @@ export function sidebarNotebookGroups(notebooks: Notebook[], pinnedIds: string[]
   return {
     pinned: notebooks.filter((c) => pinned.has(c.id)),
     active: notebooks.filter((c) => c.status === "active" && !pinned.has(c.id)),
-    // Mismo criterio que el sort "Recientes" de /notebooks (started_at desc, ver migración 0009),
+    // Mismo criterio que el sort "Recientes" de la lista de Notebooks (started_at desc, ver migración 0009),
     // acá recortado a un puñado.
     recent: notebooks
       .filter((c) => c.status !== "active" && !pinned.has(c.id))

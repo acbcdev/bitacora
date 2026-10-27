@@ -127,10 +127,10 @@ export function Sidebar({
         {/* Fijo arriba y siempre visible (estilo "Chat nuevo"): con 0 notebooks es lo único que hay,
             así el sidebar vacío no queda en blanco. */}
         <SidebarGroup className="pb-0">
-          <SidebarMenu>
+          <SidebarMenu className="gap-0.5">
             <SidebarMenuItem>
-              <SidebarMenuButton asChild className={ROW}>
-                <NavLink to="/notebooks?new=1">
+              <SidebarMenuButton asChild className={`${ROW} h-9`}>
+                <NavLink to="/?new=1">
                   <Plus />
                   <span>Nuevo notebook</span>
                   <Kbd className="ml-auto opacity-0 group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100">
@@ -140,7 +140,7 @@ export function Sidebar({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton className={ROW} onClick={onSearch}>
+              <SidebarMenuButton className={`${ROW} h-9`} onClick={onSearch}>
                 <Search />
                 <span>Buscar</span>
                 <Kbd className="ml-auto opacity-0 group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100">

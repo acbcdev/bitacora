@@ -28,7 +28,7 @@ export function Notebooks({ embed, hotkeys = !embed }: { embed?: boolean; hotkey
 
   const [view, setView] = useState<"tabla" | "tarjetas">("tarjetas")
   const [editing, setEditing] = useState<Notebook | null | "new">(null)
-  // `?new=1` derivado y no como estado inicial: si ya estás en /notebooks, el link del sidebar
+  // `?new=1` derivado y no como estado inicial: si ya estás en el home, el link del sidebar
   // sólo cambia la URL (no remonta) y el form tiene que abrirse igual.
   const form = editing ?? (params.get("new") ? "new" : null)
   const [confirmingDelete, setConfirmingDelete] = useState<NotebookRow | null>(null)

@@ -69,7 +69,7 @@ export function NoteEditor({
                     variant="ghost"
                     size="icon-sm"
                     onClick={() =>
-                      navigate(note.notebook_id ? `/notebook/${note.notebook_id}` : "/notebooks")
+                      navigate(note.notebook_id ? `/notebook/${note.notebook_id}` : "/")
                     }
                     aria-label="Volver"
                   >
@@ -92,10 +92,8 @@ export function NoteEditor({
               confirming={confirming}
               onConfirmingChange={setConfirming}
               // embedded: vuelve al notebook (sin noteId) -> Notebook.tsx auto-selecciona la próxima
-              // nota. standalone: al notebook si tenía uno, si no a /notebooks.
-              onDeleted={() =>
-                navigate(note.notebook_id ? `/notebook/${note.notebook_id}` : "/notebooks")
-              }
+              // nota. standalone: al notebook si tenía uno, si no al home.
+              onDeleted={() => navigate(note.notebook_id ? `/notebook/${note.notebook_id}` : "/")}
             />
           </div>
         </div>

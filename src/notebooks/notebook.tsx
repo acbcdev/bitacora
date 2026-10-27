@@ -169,7 +169,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                   variant="ghost"
                   size="icon-sm"
                   className="mb-6"
-                  onClick={() => navigate("/notebooks")}
+                  onClick={() => navigate("/")}
                   aria-label="Volver"
                 >
                   <ArrowLeft className="size-3.75" />
@@ -360,9 +360,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
             open={confirming}
             onOpenChange={setConfirming}
             what={notebook.name}
-            onConfirm={() =>
-              deleteNotebook.mutate(notebook.id, { onSuccess: () => navigate("/notebooks") })
-            }
+            onConfirm={() => deleteNotebook.mutate(notebook.id, { onSuccess: () => navigate("/") })}
           />
         </aside>
       )}

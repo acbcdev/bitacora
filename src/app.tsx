@@ -2,9 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react"
 import { Navigate, Route, Routes, useLocation, useMatch, useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
-  Notebook as LucideNotebook,
   Command,
-  CalendarDays,
   LogOut,
   Maximize2,
   Moon,
@@ -32,7 +30,6 @@ import { mod } from "@/core/lib/utils"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { useFocusMode } from "@/core/lib/hooks/use-focus-mode"
 import { NoteSkeleton } from "@/core/components/skeletons"
-import { Notebooks } from "@/notebooks/notebooks"
 import { ErrorBoundary } from "@/core/components/error-boundary"
 import { Review } from "@/review/review"
 
@@ -90,6 +87,10 @@ function Shell({ user }: { user: AuthUser }) {
   const pinnedIds = usePinnedNotebookIds()
   // "Nueva nota" en la palette solo dentro de un notebook: ⌘N es del browser (ADR 0024).
   const notebookId = useMatch("/notebook/:id/*")?.params.id
+  // Focus mode sólo existe con una nota abierta: en el home escondía el chrome sin salida.
+  const inNote = useMatch("/notebook/:id/:noteId")
+  const inStandaloneNote = useMatch("/note/:id")
+  const noteOpen = !!(inNote || inStandaloneNote)
   const createNote = useCreateNote()
 
   const [palette, setPalette] = useState(false)
@@ -131,10 +132,9 @@ function Shell({ user }: { user: AuthUser }) {
     preventDefault: true,
   })
   useHotkeys("g>h", () => navigate("/"), { sequenceTimeoutMs: 900, preventDefault: true })
-  useHotkeys("g>c", () => navigate("/notebooks"), { sequenceTimeoutMs: 900, preventDefault: true })
-  // En /notebooks la N la maneja la pantalla (abre el form sin navegar).
-  useSafeHotkeys("n", () => navigate("/notebooks?new=1"), {
-    enabled: pathname !== "/notebooks",
+  // En el home la N la maneja la lista embebida (abre el form sin navegar).
+  useSafeHotkeys("n", () => navigate("/?new=1"), {
+    enabled: pathname !== "/",
     preventDefault: true,
   })
   // ⌘, es la tecla de "preferencias" en macOS y la que todo el mundo prueba primero.
@@ -151,26 +151,14 @@ function Shell({ user }: { user: AuthUser }) {
   // Se arma sólo cuando la palette abre — mapear ~1.500 notas en cada render no tiene sentido.
   function actions(): Action[] {
     const notebookName = new Map(notebooks.map((c) => [c.id, c.name]))
+    const jumpKey = new Map(jumps.map(([n, c]) => [c.id, `G ${n}`]))
     return [
-      {
-        group: "Navegar",
-        label: "Ir a Hoy",
-        kbd: "G H",
-        icon: <CalendarDays />,
-        run: () => navigate("/"),
-      },
-      {
-        group: "Navegar",
-        label: "Ir a Notebooks",
-        kbd: "G C",
-        icon: <LucideNotebook />,
-        run: () => navigate("/notebooks"),
-      },
       {
         group: "Acciones",
         label: "Nuevo notebook",
+        kbd: "N",
         icon: <Plus />,
-        run: () => navigate("/notebooks?new=1"),
+        run: () => navigate("/?new=1"),
       },
       ...(notebookId
         ? [
@@ -188,12 +176,14 @@ function Shell({ user }: { user: AuthUser }) {
       ...notebooks.map((c) => ({
         group: "Notebooks",
         label: c.name,
+        kbd: jumpKey.get(c.id),
         icon: <NotebookIcon icon={c.icon} />,
         run: () => navigate(`/notebook/${c.id}`),
       })),
       ...notes.map((n) => ({
         group: "Notas",
-        label: `${n.title || "(sin título)"}${n.notebook_id ? ` — ${notebookName.get(n.notebook_id) ?? ""}` : ""}`,
+        label: n.title || "(sin título)",
+        hint: n.notebook_id ? notebookName.get(n.notebook_id) : undefined,
         icon: <StickyNote />,
         run: () => navigate(n.notebook_id ? `/notebook/${n.notebook_id}/${n.id}` : `/note/${n.id}`),
       })),
@@ -209,13 +199,17 @@ function Shell({ user }: { user: AuthUser }) {
         icon: dark ? <Sun /> : <Moon />,
         run: () => setDark((d) => !d),
       },
-      {
-        group: "Vista",
-        label: "Focus mode",
-        kbd: mod("Shift+F"),
-        icon: <Maximize2 />,
-        run: () => enter(),
-      },
+      ...(noteOpen
+        ? [
+            {
+              group: "Vista",
+              label: "Focus mode",
+              kbd: mod("Shift+F"),
+              icon: <Maximize2 />,
+              run: () => enter(),
+            },
+          ]
+        : []),
       {
         group: "Vista",
         label: "Atajos de teclado",
@@ -279,7 +273,6 @@ function Shell({ user }: { user: AuthUser }) {
             <Suspense fallback={<NoteSkeleton />}>
               <Routes>
                 <Route path="/" element={<Review />} />
-                <Route path="/notebooks" element={<Notebooks />} />
                 <Route
                   path="/notebook/:id"
                   element={<Notebook focus={focus} onToggleFocus={exit} />}
