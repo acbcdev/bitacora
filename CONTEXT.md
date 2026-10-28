@@ -1,4 +1,4 @@
-# CONTEXT — pulpo
+# CONTEXT — bitacora
 
 **Second brain** personal: el usuario toma notas en notebooks (cursos, libros, escritura propia —
 antes en Notion) y necesita trackear progreso, repasar a diario y sentir la interfaz **rápida**

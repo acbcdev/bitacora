@@ -13,5 +13,5 @@ Puntos únicos: el seam `Store` (`src/core/store/`) y el autosave (ADR 0021).
 
 ## Aceptación
 
-- Los measures aparecen en el panel Performance de DevTools con nombres `pulpo:*`.
+- Los measures aparecen en el panel Performance de DevTools con nombres `bitacora:*`.
 - Wrapper de ≤ 10 líneas; sin abstracción por flujo.

@@ -1,4 +1,4 @@
-# Routes — pulpo
+# Routes — bitacora
 
 Fuente de verdad del routing. Si agregás una ruta, actualizá acá y en `src/app.tsx:220-231`.
 

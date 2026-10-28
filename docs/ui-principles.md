@@ -1,4 +1,4 @@
-# UI Principles — pulpo
+# UI Principles — bitacora
 
 Sin Storybook ni biblioteca documentada (ADR 0005); los tokens y la regla de color viven en ADR 0023. Estas son las reglas que hacen que la app se sienta
 como se tiene que sentir. El felt-need del usuario es **"rápido, teclado, no-Notion"** — eso es

@@ -1,7 +1,7 @@
-# Handoff — pulpo (app de gestión de estudio)
+# Handoff — bitacora (app de gestión de estudio)
 
 **Fecha:** 2026-07-23
-**Repo:** `/Users/acbc/Dev/projects/pulpo` — git init hecho, **cero commits, cero archivos**. Greenfield total.
+**Repo:** `/Users/acbc/Dev/projects/bitacora` — git init hecho, **cero commits, cero archivos**. Greenfield total.
 **Estado:** diseño cerrado vía `/grill-me` (17 preguntas). Nada de código escrito todavía.
 
 > No hay PRD/ADR/plan en disco — este doc ES la única fuente de la spec. Al empezar a implementar, considerá volcarla a un `README.md` en el repo.
