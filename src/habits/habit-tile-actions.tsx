@@ -1,4 +1,4 @@
-import { Pause, Play, Plus, RotateCcw } from "lucide-react"
+import { Maximize2, Pause, Play, Plus, RotateCcw } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { HabitPanel } from "@/habits/habit-panel"
 import { cn } from "@/core/lib/utils"
@@ -16,6 +16,7 @@ export function HabitTileActions({
   pending,
   quickLabel,
   onQuick,
+  onZoom,
 }: {
   h: Habit
   state: HabitState
@@ -25,9 +26,24 @@ export function HabitTileActions({
   pending: boolean
   quickLabel: string
   onQuick: () => void
+  onZoom: () => void
 }) {
   return (
     <span className="relative flex shrink-0 items-center gap-1.5">
+      {/* Ampliar vive acá y no en el hero: el hero hace lo mismo en todo estado (acción rápida).
+          Siempre en time, no sólo corriendo, para que el tile no cambie de ancho al arrancar. */}
+      {h.metric === "time" && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={onZoom}
+          aria-label={`Ampliar ${h.name}`}
+          className="relative opacity-100 transition-opacity focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+        >
+          <Maximize2 className="size-3.5" />
+        </Button>
+      )}
       <HabitPanel habit={h} state={state} />
       <Button
         type="button"

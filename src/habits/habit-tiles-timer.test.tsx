@@ -176,13 +176,10 @@ test("finishTimer con valor en segundos anuncia minutos", () => {
   expect(success).toHaveBeenCalledWith("Leer — 21 min listos")
 })
 
-test("hero con el timer corriendo amplía (no pausa); el número del zoom pausa; Esc cierra", async () => {
+test("el botón Ampliar abre el zoom; el número del zoom pausa; Esc cierra", async () => {
   mountWithTimer({ habits: [timeHabit()], habitLog: [] })
   await screen.findAllByRole("button", { name: "Pausar Leer" })
-  const hero = screen.getByText(
-    (_, el) => el?.tagName === "BUTTON" && !!el.textContent?.startsWith("20:00/"),
-  )
-  fireEvent.click(hero)
+  fireEvent.click(screen.getByRole("button", { name: "Ampliar Leer" }))
 
   const zoom = await screen.findByRole("dialog", { name: "Leer" })
   expect(zoom).toHaveTextContent("20:00/60 min")

@@ -225,19 +225,12 @@ function HabitTile({
           pending={pending}
           quickLabel={quickLabel(h, r)}
           onQuick={onQuick}
+          onZoom={() => setZoom(true)}
         />
       </div>
 
       <div className="relative flex flex-col gap-3">
-        <HabitTileValue
-          h={h}
-          state={state}
-          total={total}
-          r={r}
-          tone={tone}
-          // Corriendo, el hero amplía en vez de pausar: pausar ya está en la fila y en el botón.
-          onHero={running ? () => setZoom(true) : onQuick}
-        />
+        <HabitTileValue h={h} state={state} total={total} r={r} tone={tone} onHero={onQuick} />
       </div>
 
       {zoom && (
