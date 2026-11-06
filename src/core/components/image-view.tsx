@@ -60,7 +60,7 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
   }
 
   return (
-    <NodeViewWrapper className="my-6 flex justify-center">
+    <NodeViewWrapper className="flex justify-center py-3">
       <div
         data-image-wrapper
         style={wrapperStyle}

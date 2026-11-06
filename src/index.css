@@ -274,20 +274,11 @@
      El hover que aterriza acá reporta el wrapper como target, así que el plugin lo
      trata como “dentro del asa” y no esconde el asa; el click en la zona muerta
      NO roba el foco (preventDefault en mousedown desde block-controls.tsx). */
-  .block-drag-handle::after,
-  .block-range-gutter::after {
+  .block-drag-handle::after {
     content: "";
     position: absolute;
     inset: -8px 0 -8px -8px;
     z-index: -1;
-  }
-  /* Gutter propio de los bloques seleccionados (node-range): MISMO box que el asa
-     normal. El asa del plugin reparte el aire final en dos capas (element 10px + inner
-     pr-2 8px) — acá va en UNA declaración (18px) porque el wrapper también lleva
-     utilidades Tailwind y pr-2 en utilities le ganaría a esta regla en components. */
-  .block-range-gutter {
-    padding-right: 18px;
-    pointer-events: auto;
   }
   /* Selección de bloque (node-range, Shift+click): el plugin estila los bloques del rango
      con la clase ProseMirror-selectednoderange — halo gris redondeado a todo el ancho
@@ -304,16 +295,16 @@
     /* El halo es un ::before detras del contenido: aire alrededor del bloque SIN reflow
        (padding real re-envolvería el texto) y sin box-shadow (el spread se derrama sobre
        los bloques vecinos no seleccionados). isolation: isolate mantiene el ::before
-       (z-index -1) dentro del contexto del propio bloque. Inset vertical de 1px: el aire
-       entre ítems de lista es 6px (my-1.5), así contiguos dejan ≥4px de gap — un rect
-       por bloque, se cuentan de un vistazo. */
+       (z-index -1) dentro del contexto del propio bloque. Inset vertical 0: el aire de
+       cada bloque es su padding (ver espaciado del editor), el halo lo cubre y entre
+       halos queda el gap uniforme del margin. */
     position: relative;
     isolation: isolate;
   }
   .tiptap-host .ProseMirror .ProseMirror-selectednoderange::before {
     content: "";
     position: absolute;
-    inset: -1px -8px;
+    inset: 0 -8px;
     border-radius: var(--radius-md);
     background: var(--muted);
     z-index: -1;
@@ -365,14 +356,20 @@
 .tiptap-host .ProseMirror {
   @apply text-base leading-relaxed outline-none;
 }
+/* Espaciado estilo Notion: TODO bloque top-level lleva el mismo margin (gap uniforme de 4px
+   entre bloques, colapsado); el aire propio de cada tipo es PADDING — queda dentro del box,
+   así el halo de selección (inset vertical 0) lo cubre y los gaps son siempre iguales. */
+.tiptap-host .ProseMirror > * {
+  @apply my-1;
+}
 .tiptap-host .ProseMirror h1 {
-  @apply mt-6 mb-3 text-xl font-semibold tracking-tight;
+  @apply pt-5 pb-1 text-xl font-semibold tracking-tight;
 }
 .tiptap-host .ProseMirror h2 {
-  @apply mt-5 mb-2 text-lg font-semibold tracking-tight;
+  @apply pt-4 pb-1 text-lg font-semibold tracking-tight;
 }
 .tiptap-host .ProseMirror h3 {
-  @apply mt-4 mb-2 text-md font-semibold;
+  @apply pt-3 pb-1 text-md font-semibold;
 }
 /* Salto del Outline: el heading no queda pegado al borde de arriba del scroller. Solo h1/h2 —
    son los únicos a los que el rail salta. */
@@ -380,41 +377,49 @@
   @apply scroll-mt-4;
 }
 .tiptap-host .ProseMirror p {
-  @apply my-3;
+  @apply py-1;
 }
 .tiptap-host .ProseMirror ul {
-  @apply my-4 list-disc pl-5;
+  @apply py-1 list-disc pl-5;
 }
 .tiptap-host .ProseMirror ol {
-  @apply my-4 list-decimal pl-5;
+  @apply py-1 list-decimal pl-5;
 }
 .tiptap-host .ProseMirror li {
-  @apply my-1.5;
+  @apply my-1 py-0.5;
 }
 /* Párrafos de continuación dentro de un li (paste con líneas indentadas, y Shift+Enter):
-   mismo margen que entre ítems, así TODAS las líneas del ítem quedan parejas — sin esto
-   cada p traía su my-3 global y el espaciado interno no coincidía con el de la lista. */
+   el li ya lleva el aire — sin esto cada p sumaba su py-1 global y el espaciado interno no
+   coincidía con el de la lista. */
 .tiptap-host .ProseMirror li > p {
-  @apply my-1.5;
+  @apply py-0;
 }
 .tiptap-host .ProseMirror blockquote {
   @apply border-l-2 border-input pl-4 text-fg-secondary italic;
 }
 /* Callout: gris suave para los tres tipos — el tipo lo dice el ícono, no el color (ADR 0023). */
 .tiptap-host .ProseMirror .callout {
-  @apply my-4 flex gap-3 rounded-lg bg-muted px-4 py-3;
+  @apply flex gap-3 rounded-lg bg-muted px-4 py-3;
 }
 .tiptap-host .ProseMirror .callout [data-node-view-content-react] > :first-child {
-  @apply mt-0;
+  @apply pt-0;
 }
 .tiptap-host .ProseMirror .callout [data-node-view-content-react] > :last-child {
-  @apply mb-0;
+  @apply pb-0;
 }
 .tiptap-host .ProseMirror .callout-icon {
   @apply mt-1 h-fit cursor-pointer text-fg-secondary select-none disabled:cursor-default;
 }
 /* Ecuación recién creada (latex vacío): KaTeX no dibuja nada, sin esto el nodo mide 0 y el
    popover no tiene a qué anclarse. */
+/* Ecuación de bloque: padding REAL en el wrapper (el margin de .katex-display colapsaba a
+   través de él → el aire quedaba fuera del halo). */
+.tiptap-host .ProseMirror [data-type="block-math"] {
+  @apply py-3;
+}
+.tiptap-host .ProseMirror [data-type="block-math"] .katex-display {
+  @apply my-0;
+}
 .tiptap-host .ProseMirror [data-latex=""]::before {
   content: "Ecuación vacía";
   @apply text-fg-secondary italic;
@@ -432,7 +437,7 @@
    chevron es una máscara SVG (el triángulo con bordes se antialiaseaba feo) y rota con `is-open`;
    el cuerpo lo esconde el atributo `hidden` que pone la extensión. */
 .tiptap-host .ProseMirror [data-type="details"] {
-  @apply my-2 flex;
+  @apply flex py-1;
 }
 .tiptap-host .ProseMirror [data-type="details"] > button {
   @apply mr-1.5 grid size-6 shrink-0 cursor-pointer place-items-center rounded-full text-fg-secondary hover:bg-muted;
@@ -454,7 +459,7 @@
   @apply block font-medium;
 }
 .tiptap-host .ProseMirror [data-type="detailsContent"] > * {
-  @apply my-1.5;
+  @apply my-1;
 }
 .tiptap-host .ProseMirror [data-type="detailsContent"] > :first-child {
   @apply mt-1;
@@ -491,7 +496,7 @@
 }
 /* pt-10: deja lugar al header del node view (lenguaje + copiar), que va absoluto arriba. */
 .tiptap-host .ProseMirror pre {
-  @apply my-4 overflow-x-auto rounded-lg border bg-sunken px-4 pt-10 pb-4 font-mono text-sm leading-relaxed;
+  @apply overflow-x-auto rounded-lg border bg-sunken px-4 pt-10 pb-4 font-mono text-sm leading-relaxed;
 }
 .tiptap-host .ProseMirror pre code {
   @apply bg-transparent p-0 text-[length:inherit] tracking-normal text-inherit;
@@ -564,7 +569,7 @@
    prosemirror-tables envuelve la tabla en div.tableWrapper y suelta los HTMLAttributes —
    scroll horizontal, margen y font van por CSS acá; celdas abajo. */
 .tiptap-host .ProseMirror .tableWrapper {
-  @apply my-4 block max-w-full overflow-x-auto;
+  @apply block max-w-full overflow-x-auto py-1;
 }
 .tiptap-host .ProseMirror .tableWrapper table {
   @apply w-full border-collapse text-sm;
@@ -591,6 +596,10 @@
 }
 .tiptap-host .ProseMirror > *:last-child {
   margin-bottom: 0;
+}
+/* Heading al tope de la nota: sin su padding-top de sección (no hay sección arriba). */
+.tiptap-host .ProseMirror > :is(h1, h2, h3):first-child {
+  @apply pt-1;
 }
 
 /* Modo focus (tecla F): la nota más grande, nada más en pantalla. */

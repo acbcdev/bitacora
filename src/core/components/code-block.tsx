@@ -26,10 +26,10 @@ export function CodeBlockView({ node, extension, editor, updateAttributes }: Nod
   }
 
   return (
-    <NodeViewWrapper className="relative">
+    <NodeViewWrapper className="relative py-1">
       <div
         contentEditable={false}
-        className="absolute inset-x-2.5 top-1.5 flex items-center justify-between"
+        className="absolute inset-x-2.5 top-2.5 flex items-center justify-between"
       >
         <Select
           value={current}
