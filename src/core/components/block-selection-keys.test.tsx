@@ -82,3 +82,16 @@ test("Cmd+C copia los bloques enteros", async () => {
   fireEvent.cut(pm, { clipboardData })
   expect(texts(view)).toEqual(["Uno"])
 })
+
+test("⌘D duplica la Selección de bloque debajo", async () => {
+  const { pm, view } = await setup()
+  fireEvent.keyDown(pm, { key: "d", ctrlKey: true })
+  expect(texts(view)).toEqual(["Uno", "Dos", "Tres", "Dos", "Tres"])
+})
+
+test("⌘D con caret duplica el bloque que lo contiene", async () => {
+  const { pm, view } = await setup()
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2)))
+  fireEvent.keyDown(pm, { key: "d", ctrlKey: true })
+  expect(texts(view)).toEqual(["Uno", "Uno", "Dos", "Tres"])
+})

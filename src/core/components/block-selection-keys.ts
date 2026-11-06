@@ -17,6 +17,31 @@ const isBlockSel = (view: EditorView) => view.state.selection instanceof NodeRan
 // bloques. El Esc en dos pasos vive en el handler global de editor.tsx (orden de prioridad).
 export const BlockSelectionKeys = Extension.create({
   name: "blockSelectionKeys",
+  // ⌘D (Notion): duplica la Selección de bloque, o con caret el bloque que lo contiene (ítem
+  // de lista si está en uno, si no el bloque raíz). true siempre: nunca abre el bookmark.
+  addKeyboardShortcuts() {
+    return {
+      "Mod-d": ({ editor }) => {
+        const { state, view } = editor
+        const sel = state.selection
+        if (sel instanceof NodeRangeSelection) {
+          view.dispatch(state.tr.insert(sel.to, sel.content().content))
+          return true
+        }
+        const $f = sel.$from
+        let d = Math.min($f.depth, 1)
+        for (let i = $f.depth; i > 0; i--) {
+          if ($f.node(i).type.name.endsWith("Item")) {
+            d = i
+            break
+          }
+        }
+        if (d === 0) return true
+        view.dispatch(state.tr.insert($f.after(d), $f.node(d)))
+        return true
+      },
+    }
+  },
   addProseMirrorPlugins() {
     return [
       new Plugin({
