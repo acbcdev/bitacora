@@ -8,7 +8,7 @@ import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
 import { TaskList } from "@tiptap/extension-task-list"
 import TaskItem from "@tiptap/extension-task-item"
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table"
-import { NodeRange } from "@tiptap/extension-node-range"
+import { NodeRange, NodeRangeSelection } from "@tiptap/extension-node-range"
 import { Bold } from "@tiptap/extension-bold"
 import Blockquote from "@tiptap/extension-blockquote"
 import { TextStyleKit } from "@tiptap/extension-text-style"
@@ -17,6 +17,7 @@ import { BlockMath, InlineMath } from "@tiptap/extension-mathematics"
 import "katex/dist/katex.min.css"
 import { createLowlight, common } from "lowlight"
 import { Fragment, Slice } from "@tiptap/pm/model"
+import { TextSelection } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { sinkListItem, liftListItem } from "@tiptap/pm/schema-list"
 import { Extension } from "@tiptap/react"
@@ -260,6 +261,12 @@ export function Editor({
         view.dispatch(view.state.tr.replaceSelection(slice))
         return true
       },
+      // Letra con Selección de bloque: no-op (no reemplaza los bloques por el carácter).
+      handleKeyDown: (view, event) =>
+        view.state.selection instanceof NodeRangeSelection &&
+        event.key.length === 1 &&
+        !event.metaKey &&
+        !event.ctrlKey,
       handleClickOn(_view, _pos, node) {
         if (node.type.name === "image") {
           const src = (node.attrs as { src?: string }).src
@@ -355,8 +362,12 @@ export function Editor({
       // Popover abierto con el foco aún en el editor (paletas del bubble): el Esc es suyo.
       if (document.querySelector('[data-slot="popover-content"]')) return
       e.preventDefault()
+      const sel = editor.state.selection
       // Menú slash abierto: Esc cierra el popup y el foco se queda — el `/` queda como texto.
       if (isSlashMenuActive(editor.view)) exitSuggestion(editor.view, slashMenuPluginKey)
+      // Selección de bloque: el primer Esc la colapsa a texto y el foco se queda.
+      else if (sel instanceof NodeRangeSelection)
+        editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(sel.$from)))
       else editor.view.dom.blur()
     }
     window.addEventListener("keydown", onKey, { capture: true })
