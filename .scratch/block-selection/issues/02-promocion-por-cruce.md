@@ -10,10 +10,10 @@ Spec: `.scratch/block-selection/spec.md` (historias 1–7, 27–30). Riesgo de f
 
 **Status:** ready-for-agent
 
-- [ ] Drag de texto del bloque A al C deja Selección de bloque A..C (test)
-- [ ] Drag hacia arriba promueve igual (test)
-- [ ] Volver al bloque ancla en el mismo drag restaura selección de texto (test)
-- [ ] Cruce entre ítems de la misma lista selecciona solo esos ítems (test)
-- [ ] Cruce dentro de una tabla no promueve (test)
-- [ ] Selección dentro de un solo bloque sigue siendo de texto (test)
+- [x] Drag de texto del bloque A al C deja Selección de bloque A..C (test)
+- [x] Drag hacia arriba promueve igual (test)
+- [x] Volver al bloque ancla en el mismo drag restaura selección de texto (test)
+- [x] Cruce entre ítems de la misma lista selecciona solo esos ítems (test)
+- [x] Cruce dentro de una tabla no promueve (test)
+- [x] Selección dentro de un solo bloque sigue siendo de texto (test)
 - [ ] Sin flicker visible al promover (verificado a mano)
