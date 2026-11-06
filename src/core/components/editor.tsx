@@ -36,6 +36,7 @@ import { BITACORA_MIME, copyWithMath, editLatex, pasteBitacora } from "@/core/co
 import { FormatBubbleMenu } from "@/core/components/bubble-menu"
 import { TableHoverControls } from "@/core/components/table-controls"
 import { BlockControls } from "@/core/components/block-controls"
+import { CrossBlockSelect } from "@/core/components/cross-block-select"
 import { EditorLightbox } from "@/core/components/editor-lightbox"
 import { collectImages, type LightboxImage } from "@/core/components/editor-lightbox-utils"
 
@@ -183,6 +184,7 @@ export function Editor({
       // El handle vive en block-controls.tsx; unique-id se omite (el plugin no lee ids y
       // grabaría `id` en el JSON persistido de cada nota).
       NodeRange,
+      CrossBlockSelect,
       // Formato visible (historia 4): color y highlight son marks oficiales con la paleta fija
       // de 8 (ver bubble-menu.tsx). TextStyleKit trae TextStyle + Color; el resto (fuentes,
       // line-height, background-color) no se usa — fuera.
