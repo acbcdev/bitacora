@@ -30,6 +30,7 @@ import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
 import { SlashMenu, isSlashMenuActive, slashMenuPluginKey } from "@/core/components/slash-menu"
 import { exitSuggestion } from "@tiptap/suggestion"
+import { BlockMarquee } from "@/core/components/block-marquee"
 import { BITACORA_MIME, copyWithMath, editLatex, pasteBitacora } from "@/core/components/ecuacion"
 import { FormatBubbleMenu } from "@/core/components/bubble-menu"
 import { TableHoverControls } from "@/core/components/table-controls"
@@ -414,6 +415,7 @@ export function Editor({
       {editor && <TableHoverControls editor={editor} host={host} />}
       {/* Bloques (historia 6): + ⋮⋮ por hover, menú y drag. */}
       {editor && <BlockControls editor={editor} host={host} />}
+      {editor && <BlockMarquee editor={editor} host={host} />}
       {/* Bubble de formato (historia 4): aparece con selección no vacía. */}
       {editor && <FormatBubbleMenu editor={editor} />}
       <EditorLightbox
