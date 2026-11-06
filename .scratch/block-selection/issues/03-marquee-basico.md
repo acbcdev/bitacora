@@ -8,7 +8,7 @@ Spec: `.scratch/block-selection/spec.md` (historias 8–15, 17, 18, 28).
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Marquee desde el margen selecciona los bloques intersectados (test con rects mockeados)
 - [ ] Achicar el rectángulo durante el drag reduce la selección (test)
