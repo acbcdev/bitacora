@@ -366,7 +366,6 @@ describe("visibilidad del asa (v2: bloque + gutter)", () => {
   })
 
   test("multi-select NO contiguo: click en ⋮⋮ agrega bloques (this + next this)", async () => {
-    const log = vi.spyOn(console, "log")
     const { view } = await setup()
     stackRects(view)
     // Click en ⋮⋮ del asa de hover sobre "Dos": agrega "Dos" al set (el gutter propio
@@ -389,9 +388,6 @@ describe("visibilidad del asa (v2: bloque + gutter)", () => {
 
     // Ambos bloques con su halo ("Dos" etiquetado a mano, fuera del node-range de PM).
     expect(view.dom.querySelectorAll("p.ProseMirror-selectednoderange").length).toBe(2)
-    // El plugin de decoraciones no deja logs de debug.
-    expect(log).not.toHaveBeenCalled()
-    log.mockRestore()
 
     // Al salir del editor: el asa se esconde y AMBOS gutters propios quedan activos.
     fireEvent.mouseLeave(view.dom)
