@@ -6,7 +6,7 @@ Spec: `.scratch/block-selection/spec.md` (historias 21–26).
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Backspace con 2 bloques seleccionados los borra (test)
 - [ ] Cmd+C/X copian/cortan bloques enteros (test o verificado a mano si jsdom no expone clipboard)
