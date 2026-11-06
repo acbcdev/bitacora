@@ -119,6 +119,19 @@ test("cruce dentro de una tabla no promueve", async () => {
   fireEvent.mouseUp(document)
 })
 
+test("dos párrafos de la misma celda no promueven", async () => {
+  const view = await setup([
+    {
+      type: "table",
+      content: [{ type: "tableRow", content: [{ type: "tableCell", content: [p("x"), p("y")] }] }],
+    },
+  ])
+  fireEvent.mouseDown(view.dom)
+  select(view, at(view, "x", 0), at(view, "y"))
+  expect(view.state.selection).not.toBeInstanceOf(NodeRangeSelection)
+  fireEvent.mouseUp(document)
+})
+
 test("selección dentro de un solo bloque sigue siendo de texto", async () => {
   const view = await setup(ABC)
   fireEvent.mouseDown(view.dom)

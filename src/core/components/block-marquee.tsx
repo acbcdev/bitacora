@@ -3,7 +3,7 @@ import type { RefObject } from "react"
 import { createPortal } from "react-dom"
 import type { Editor } from "@tiptap/react"
 import { NodeRangeSelection } from "@tiptap/extension-node-range"
-import { TextSelection } from "@tiptap/pm/state"
+import { collapseBlockSelection } from "@/core/components/block-selection-keys"
 
 // Marquee (spec block-selection, historias 8–15, 17, 18): mousedown en zona sin texto del
 // área de la nota + drag → rectángulo; los bloques top-level que toca quedan en un único
@@ -24,23 +24,28 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
 }
 
 // Tramo contiguo de bloques top-level que el rect toca → NodeRangeSelection (o nada).
-function selectBlocks(editor: Editor, r: Rect) {
+function selectBlocks(editor: Editor, rect: Rect) {
   const { view } = editor
   let from = -1
   let to = -1
   view.state.doc.forEach((node, offset) => {
     const dom = view.nodeDOM(offset)
     if (!(dom instanceof HTMLElement)) return
-    const b = dom.getBoundingClientRect()
-    if (b.bottom < r.top || b.top > r.bottom || b.right < r.left || b.left > r.right) return
+    const box = dom.getBoundingClientRect()
+    if (
+      box.bottom < rect.top ||
+      box.top > rect.bottom ||
+      box.right < rect.left ||
+      box.left > rect.right
+    )
+      return
     if (from < 0) from = offset
     to = offset + node.nodeSize
   })
-  const { doc, selection, tr } = view.state
+  const { doc, tr } = view.state
   if (from >= 0) view.dispatch(tr.setSelection(NodeRangeSelection.create(doc, from, to, 0)))
   // El rect ya no toca nada: se va la Selección de bloque (incluida la previa).
-  else if (selection instanceof NodeRangeSelection)
-    view.dispatch(tr.setSelection(TextSelection.near(doc.resolve(selection.from))))
+  else collapseBlockSelection(view)
 }
 
 export function BlockMarquee({
@@ -53,45 +58,54 @@ export function BlockMarquee({
   const [rect, setRect] = useState<Rect | null>(null)
 
   useEffect(() => {
+    let stopDrag: (() => void) | null = null
     const onDown = (e: MouseEvent) => {
-      const h = host.current
-      const t = e.target
-      if (e.button !== 0 || !h || !(t instanceof Element)) return
+      const hostEl = host.current
+      const target = e.target
+      if (e.button !== 0 || !hostEl || !(target instanceof Element)) return
       const dom = editor.view.dom
+      // Zona del área de la nota: márgenes/padding (ancestros del host: scroller, columna,
+      // el hueco bajo el último bloque) o el host mismo. Footer, título, etc. quedan nativos.
+      if (!target.contains(hostEl) && !hostEl.contains(target)) return
       // Texto (cualquier cosa dentro del contenteditable salvo su propio padding) y
       // controles (asa, gutters, botones) siguen siendo suyos.
-      if (dom.contains(t) && t !== dom) return
-      if (t.closest("button, a, input, textarea, select, .block-drag-handle, .block-range-gutter"))
+      if (dom.contains(target) && target !== dom) return
+      if (
+        target.closest(
+          "button, a, input, textarea, select, .block-drag-handle, .block-range-gutter",
+        )
+      )
         return
-      const scroller = scrollParent(h)
-      if (!(scroller ?? document.body).contains(t)) return
-      if (e.clientY < h.getBoundingClientRect().top) return // header / título de la nota
+      const scroller = scrollParent(hostEl)
+      if (!(scroller ?? document.body).contains(target)) return
+      if (e.clientY < hostEl.getBoundingClientRect().top) return // header / título de la nota
       e.preventDefault() // sin selección nativa de texto durante el drag
 
       const scrollTop = () => scroller?.scrollTop ?? 0
-      // Inicio en coordenadas de contenido: sigue al bloque aunque la nota scrollee.
-      const x0 = e.clientX
-      const y0 = e.clientY + scrollTop()
-      let x = x0
-      let y = e.clientY
+      // Inicio en coordenadas de contenido (sigue al bloque aunque la nota scrollee); el
+      // puntero actual en coordenadas de viewport (client).
+      const startX = e.clientX
+      const startYContent = e.clientY + scrollTop()
+      let pointerX = startX
+      let pointerY = e.clientY
       let active = false
       let raf = 0
       const update = () => {
-        const top = y0 - scrollTop()
-        const r = {
-          left: Math.min(x0, x),
-          top: Math.min(top, y),
-          right: Math.max(x0, x),
-          bottom: Math.max(top, y),
+        const startY = startYContent - scrollTop()
+        const next = {
+          left: Math.min(startX, pointerX),
+          top: Math.min(startY, pointerY),
+          right: Math.max(startX, pointerX),
+          bottom: Math.max(startY, pointerY),
         }
-        setRect(r)
-        selectBlocks(editor, r)
+        setRect(next)
+        selectBlocks(editor, next)
       }
       // Auto-scroll: a ≤EDGE px del borde del scroller, paso fijo por frame + hit-test.
       const edgeDir = () => {
         if (!scroller) return 0
-        const b = scroller.getBoundingClientRect()
-        return y <= b.top + EDGE ? -1 : y >= b.bottom - EDGE ? 1 : 0
+        const box = scroller.getBoundingClientRect()
+        return pointerY <= box.top + EDGE ? -1 : pointerY >= box.bottom - EDGE ? 1 : 0
       }
       const tick = () => {
         raf = 0
@@ -102,18 +116,16 @@ export function BlockMarquee({
         raf = requestAnimationFrame(tick)
       }
       const onMove = (ev: MouseEvent) => {
-        if (!active && Math.hypot(ev.clientX - x0, ev.clientY - e.clientY) < THRESHOLD) return
+        if (!active && Math.hypot(ev.clientX - startX, ev.clientY - e.clientY) < THRESHOLD) return
         if (!active) editor.view.focus()
         active = true
-        x = ev.clientX
-        y = ev.clientY
+        pointerX = ev.clientX
+        pointerY = ev.clientY
         update()
         if (!raf && edgeDir()) raf = requestAnimationFrame(tick)
       }
       const onUp = () => {
-        document.removeEventListener("mousemove", onMove)
-        document.removeEventListener("mouseup", onUp)
-        cancelAnimationFrame(raf)
+        stopDrag?.()
         setRect(null)
         if (!active) return
         // El click que sigue al drag no debe colapsar la selección (focusEnd de note-body).
@@ -121,11 +133,20 @@ export function BlockMarquee({
         window.addEventListener("click", stop, { capture: true, once: true })
         setTimeout(() => window.removeEventListener("click", stop, { capture: true }))
       }
+      stopDrag = () => {
+        document.removeEventListener("mousemove", onMove)
+        document.removeEventListener("mouseup", onUp)
+        cancelAnimationFrame(raf)
+        stopDrag = null
+      }
       document.addEventListener("mousemove", onMove)
       document.addEventListener("mouseup", onUp)
     }
     document.addEventListener("mousedown", onDown)
-    return () => document.removeEventListener("mousedown", onDown)
+    return () => {
+      document.removeEventListener("mousedown", onDown)
+      stopDrag?.() // desmonte en pleno drag: nada toca un editor destruido
+    }
   }, [editor, host])
 
   if (!rect) return null

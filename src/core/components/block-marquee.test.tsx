@@ -15,12 +15,13 @@ const para = (text: string) => ({ type: "paragraph", content: [{ type: "text", t
 
 // Uno p 0..5 · Dos p 5..10 · Tres p 10..16, apilados de a 24px desde y=0.
 async function setup() {
-  const { container } = render(
+  const { container, unmount } = render(
     <div style={{ overflowY: "auto" }}>
       <Editor
         content={{ type: "doc", content: [para("Uno"), para("Dos"), para("Tres")] } as TiptapDoc}
         onChange={() => {}}
       />
+      <p data-testid="footer">Footer</p>
     </div>,
   )
   const pm = await waitFor(() => container.querySelector<HTMLElement>(".ProseMirror")!)
@@ -36,7 +37,7 @@ async function setup() {
     } as DOMRect)
   })
   const scroller = container.firstElementChild as HTMLElement
-  return { view, host: scroller.firstElementChild as HTMLElement, scroller }
+  return { view, host: scroller.firstElementChild as HTMLElement, scroller, unmount }
 }
 
 const range = (view: EditorView) => {
@@ -114,4 +115,25 @@ test("cerca del borde arranca el loop de auto-scroll y mouseup lo cancela", asyn
   expect(raf).toHaveBeenCalled()
   fireEvent.mouseUp(host)
   expect(cancel).toHaveBeenCalledWith(7)
+})
+
+test("desmontar en pleno drag suelta mousemove/mouseup y el rAF", async () => {
+  const { view, host, scroller, unmount } = await setup()
+  vi.spyOn(scroller, "getBoundingClientRect").mockReturnValue({ top: 0, bottom: 100 } as DOMRect)
+  vi.spyOn(window, "requestAnimationFrame").mockReturnValue(9)
+  const cancel = vi.spyOn(window, "cancelAnimationFrame")
+  fireEvent.mouseDown(host, { clientX: -40, clientY: 30 })
+  fireEvent.mouseMove(host, { clientX: 50, clientY: 90 })
+  const dispatch = vi.spyOn(view, "dispatch")
+  unmount()
+  expect(cancel).toHaveBeenCalledWith(9)
+  fireEvent.mouseMove(document, { clientX: 50, clientY: 20 })
+  expect(dispatch).not.toHaveBeenCalled()
+})
+
+test("contenido fuera del área de la nota (footer) conserva la selección nativa", async () => {
+  const { view, host } = await setup()
+  expect(fireEvent.mouseDown(screen.getByTestId("footer"), { clientX: 10, clientY: 90 })).toBe(true)
+  fireEvent.mouseMove(host, { clientX: 50, clientY: 10 })
+  expect(range(view)).toBeNull()
 })

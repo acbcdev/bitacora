@@ -42,6 +42,23 @@ test("tipear una letra con Selección de bloque no modifica el doc", async () =>
   expect(fireEvent.keyDown(pm, { key: "c", metaKey: true })).toBe(true)
 })
 
+test("dead key / IME / emoji picker no reemplazan los bloques", async () => {
+  const { pm, view } = await setup()
+  const before = view.state.doc
+  // Texto sin keydown de un carácter (emoji picker, text replacement): beforeinput cancelado.
+  const input = new InputEvent("beforeinput", {
+    inputType: "insertText",
+    data: "á",
+    cancelable: true,
+  })
+  expect(fireEvent(pm, input)).toBe(false)
+  // Composición (´+a, Option+n, IME): no es cancelable → colapsa antes de que el browser
+  // reemplace la selección del DOM.
+  fireEvent.compositionStart(pm)
+  expect(view.state.selection).toBeInstanceOf(TextSelection)
+  expect(view.state.doc.eq(before)).toBe(true)
+})
+
 test("Esc en dos pasos: colapsa a texto con foco, después blur", async () => {
   const { pm, view } = await setup()
   fireEvent.keyDown(pm, { key: "Escape" })
