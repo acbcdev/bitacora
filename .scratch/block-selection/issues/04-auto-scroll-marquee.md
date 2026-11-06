@@ -6,7 +6,7 @@ Spec: `.scratch/block-selection/spec.md` (historia 16).
 
 **Blocked by:** 03 (Marquee básico)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] En una nota más larga que la pantalla, Marquee hasta el borde inferior scrollea y suma bloques (verificado a mano)
 - [ ] Idem hacia arriba
