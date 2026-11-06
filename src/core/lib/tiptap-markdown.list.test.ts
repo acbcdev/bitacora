@@ -1,5 +1,5 @@
 import { expect, test } from "vitest"
-import { markdownToDoc } from "@/core/lib/tiptap-markdown"
+import { docToMarkdown, markdownToDoc } from "@/core/lib/tiptap-markdown"
 
 test("repro lista numerada con líneas de continuación", () => {
   const md = [
@@ -22,4 +22,17 @@ test("repro lista numerada con líneas de continuación", () => {
   const item = list.content[0] as { content: { type: string }[] }
   // título + las dos líneas de continuación indentadas, dentro del mismo listItem
   expect(item.content.map((n) => n.type)).toEqual(["paragraph", "paragraph", "paragraph"])
+})
+
+test("taskList serializa como checklist GFM", () => {
+  const item = (checked: boolean, text: string) => ({
+    type: "taskItem",
+    attrs: { checked },
+    content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+  })
+  const md = docToMarkdown({
+    type: "doc",
+    content: [{ type: "taskList", content: [item(true, "Hecho"), item(false, "Pendiente")] }],
+  })
+  expect(md).toBe("- [x] Hecho\n- [ ] Pendiente")
 })

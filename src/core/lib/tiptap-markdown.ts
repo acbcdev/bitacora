@@ -44,7 +44,12 @@ function inline(nodes: Node[] = []): string {
 function list(node: Node, ordered: boolean): string {
   return (node.content ?? [])
     .map((item, i) => {
-      const marker = ordered ? `${i + 1}. ` : "- "
+      const marker =
+        item.type === "taskItem"
+          ? `- [${item.attrs?.checked ? "x" : " "}] `
+          : ordered
+            ? `${i + 1}. `
+            : "- "
       // Un listItem contiene bloques (normalmente un paragraph). Indento las líneas siguientes.
       const body = blocks(item.content ?? []).replace(/\n/g, "\n" + " ".repeat(marker.length))
       return marker + body
@@ -62,6 +67,8 @@ function block(node: Node): string {
       return list(node, false)
     case "orderedList":
       return list(node, true)
+    case "taskList":
+      return list(node, false)
     case "codeBlock":
       return "```" + String(node.attrs?.language ?? "") + "\n" + inline(node.content) + "\n```"
     case "blockquote":
