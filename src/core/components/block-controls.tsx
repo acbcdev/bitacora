@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { ReactNode, RefObject } from "react"
 import { DragHandle } from "@tiptap/extension-drag-handle-react"
 import type { NestedOptions } from "@tiptap/extension-drag-handle"
@@ -10,6 +10,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { EditorView } from "@tiptap/pm/view"
 import type { Editor } from "@tiptap/react"
 import {
+  ClipboardIcon,
   CodeIcon,
   CopyIcon,
   GripVerticalIcon,
@@ -21,6 +22,7 @@ import {
   PlusIcon,
   QuoteIcon,
   SigmaIcon,
+  SparklesIcon,
   Trash2Icon,
   TypeIcon,
 } from "lucide-react"
@@ -28,14 +30,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/core/ui/dropdown-menu"
 import { preventFocus } from "@/core/components/prevent-focus"
-import { NODE } from "@/core/lib/tiptap-markdown"
+import { toast } from "sonner"
+import { docToMarkdown, NODE } from "@/core/lib/tiptap-markdown"
 import { editEmptyMath } from "@/core/components/ecuacion"
 
 // Bloques: + ⋮⋮ en el margen izquierdo del bloque hovered (spec historia 6, issue 05).
@@ -47,7 +52,7 @@ import { editEmptyMath } from "@/core/components/ecuacion"
 // y meterlo grabaría `id` en el JSON persistido de cada nota); auto-scroll (notas cortas).
 
 const btnCls =
-  "pointer-events-auto grid size-6 cursor-grab place-items-center rounded-md border border-popover bg-popover text-fg-secondary shadow-sm hover:bg-muted hover:text-foreground active:cursor-grabbing"
+  "pointer-events-auto grid size-7 cursor-grab place-items-center rounded-md border border-popover bg-popover text-fg-secondary shadow-sm hover:bg-muted hover:text-foreground active:cursor-grabbing"
 
 const itemIcon = "size-4 text-fg-secondary"
 
@@ -220,13 +225,15 @@ function locateLine(
 // quedaba encima de esos controles. Textblock vacío (título de Desplegable recién creado): no
 // hay texto, solo el <br> de ProseMirror — su línea es el textblock que lo contiene.
 // x del asa. listItem: la viñeta vive FUERA del li (en el pl-5 del ul) — contra el li el asa
-// quedaba encima de ella. ul: 12px = ancho del disc + su aire, el asa abraza la viñeta. ol:
-// borde del ol ("10." es más ancho). taskItem (data-type) trae el checkbox dentro del li.
+// quedaba encima de ella. Lista top-level u ol: borde de la lista (misma columna que el resto
+// de los bloques; "10." es más ancho). ul anidado: 12px = ancho del disc + su aire, el asa
+// abraza la viñeta (marca el anidamiento). taskItem (data-type) trae el checkbox dentro del li.
 const blockLeft = (dom: HTMLElement) => {
   const left = dom.getBoundingClientRect().left
   if (dom.tagName !== "LI" || dom.dataset.type) return left
   const list = dom.parentElement!
-  return list.tagName === "OL" ? list.getBoundingClientRect().left : left - 12
+  const topLevel = list.parentElement?.classList.contains("ProseMirror")
+  return topLevel || list.tagName === "OL" ? list.getBoundingClientRect().left : left - 12
 }
 
 function firstLineRect(dom: HTMLElement): DOMRect {
@@ -251,8 +258,8 @@ function firstLineRect(dom: HTMLElement): DOMRect {
   // Imagen: va centrada en un wrapper de ancho completo — el asa se pega a la imagen, no al
   // wrapper (estilo Notion).
   const box = (dom.querySelector("img") ?? dom).getBoundingClientRect()
-  // 24 = alto de los botones del asa (size-6).
-  return new DOMRect(box.left, box.top, box.width, Math.min(box.height, 24))
+  // 28 = alto de los botones del asa (size-7).
+  return new DOMRect(box.left, box.top, box.width, Math.min(box.height, 28))
 }
 
 // Posiciona el asa contra la primera línea del bloque: borde derecho contra el borde
@@ -348,42 +355,18 @@ export function BlockControls({
   }, [])
 
   // Selección de bloques (multi-select NO contiguo): la lleva ESTA capa — un set de
-  // bloques que se arma con clicks en ⋮⋮ ("this + next this": cada click AGREGA el
-  // bloque, no reemplaza) y con node-ranges contiguos (Shift+click extiende, drag del
+  // bloques que se arma con clicks en ⋮⋮ (estilo explorador: Mod+click AGREGA, click
+  // simple fuera del set reemplaza) y con node-ranges contiguos (Shift+click extiende, drag del
   // plugin). El PM selection queda en node-range sobre el ÚLTIMO bloque clicado: drag y
   // suppression del bubble del plugin siguen andando; el halo de los bloques FUERA de
-  // ese rango lo pinta tagHalos (misma clase que pinta el plugin para el suyo).
-  const [selBlocks, setSelBlocks] = useState<GutterBlock[]>([])
+  // ese rango lo pinta el plugin de decoraciones (misma clase que el de NodeRange).
   const selRef = useRef<Array<{ pos: number; node: Node }>>([])
   const prevPmSel = useRef<Selection | null>(null)
-  // Bloque donde está parada el asa del plugin (hover): su gutter propio se retira —
-  // sin doble gutter. -1 = asa escondida o en otra parte.
-  const [pluginHoverPos, setPluginHoverPos] = useState(-1)
-
-  const withRects = (list: Array<{ pos: number; node: Node }>): GutterBlock[] => {
-    const h = host.current
-    if (!h) return []
-    const hostBox = h.getBoundingClientRect()
-    return list.flatMap((b) => {
-      const dom = editor.view.nodeDOM(b.pos)
-      if (!(dom instanceof HTMLElement)) return []
-      const rect = firstLineRect(dom)
-      return [
-        {
-          pos: b.pos,
-          node: b.node,
-          left: rect.left - hostBox.left,
-          top: rect.top - hostBox.top,
-          height: rect.height,
-        },
-      ]
-    })
-  }
 
   // Empuja las posiciones del set al plugin de decoraciones (halo nativo de PM). El
   // dispatch es meta-only (no toca doc/selection) y solo si cambió algo (sin bucle).
   const lastDecoPosRef = useRef<number[]>([])
-  const updateDecos = (blocks: GutterBlock[]) => {
+  const updateDecos = (blocks: Array<{ pos: number }>) => {
     const positions = blocks.map((b) => b.pos)
     if (JSON.stringify(positions) === JSON.stringify(lastDecoPosRef.current)) return
     lastDecoPosRef.current = positions
@@ -452,7 +435,6 @@ export function BlockControls({
   useEffect(() => {
     const hide = () => {
       if (menuOpenRef.current) return
-      setPluginHoverPos(-1)
       const el = document.querySelector<HTMLElement>(".block-drag-handle")
       if (el) {
         el.style.visibility = "hidden"
@@ -467,7 +449,7 @@ export function BlockControls({
       const domBox = editor.view.dom.getBoundingClientRect()
       const h = host.current
       if (!h) return
-      // Menú abierto (asa o gutter): el target queda congelado sobre su bloque — blockAtY
+      // Menú abierto: el target queda congelado sobre su bloque — blockAtY
       // mapearía por Y al bloque bajo el menú y haría operar el menú sobre el equivocado.
       if (menuOpenRef.current) return
       // Franja izquierda del editor. clientX >= borde = columna de contenido (outline,
@@ -483,8 +465,6 @@ export function BlockControls({
         return
       }
       target.current = block
-      // El asa del plugin queda parada aquí: el gutter propio de ESTE bloque se retira.
-      setPluginHoverPos(block.pos)
       const el = h.querySelector<HTMLElement>(".block-drag-handle")
       const dom = editor.view.nodeDOM(block.pos)
       if (!el || !(dom instanceof HTMLElement)) return
@@ -551,14 +531,13 @@ export function BlockControls({
 
   // Sincroniza el set con el editor en cada transacción: un node-range contiguo externo
   // (Shift+click, drag del plugin, restauración tras drop) lo sobreescribe; el caret
-  // moviéndose (texto) lo limpia; ediciones de doc remapean posiciones. Scroll
-  // recalcula rects (los bloques se movieron bajo los gutters).
+  // moviéndose (texto) lo limpia; ediciones de doc remapean posiciones.
   useEffect(() => {
-    const sync = (tr?: Transaction) => {
+    const sync = (tr: Transaction) => {
       const selection = editor.state.selection
       const pmSelChanged = selection !== prevPmSel.current
       prevPmSel.current = selection
-      if (tr?.getMeta("blockSel") == null) {
+      if (tr.getMeta("blockSel") == null) {
         if (selection instanceof NodeRangeSelection && pmSelChanged) {
           // Rango contiguo externo (shift+click, drag, restauración): manda él. Solo si
           // CAMBIÓ — transacciones meta-only (nuestras decoraciones) no tocan el set.
@@ -568,8 +547,9 @@ export function BlockControls({
           })
         } else if (!(selection instanceof NodeRangeSelection) && pmSelChanged) {
           selRef.current = []
-        }
-        if (tr?.docChanged && selRef.current.length) {
+        } else if (tr.docChanged && selRef.current.length) {
+          // else: un set recién armado desde la selección ya está en coords del doc nuevo —
+          // re-mapearlo lo corría fuera del doc (doc + selección cambian juntos: ⌘D).
           selRef.current = selRef.current.flatMap((b) => {
             const pos = tr.mapping.map(b.pos, 1)
             const node = editor.state.doc.nodeAt(pos)
@@ -577,18 +557,14 @@ export function BlockControls({
           })
         }
       }
-      const blocks = withRects(selRef.current)
-      setSelBlocks(blocks)
-      updateDecos(blocks)
+      updateDecos(selRef.current)
     }
-    editor.on("transaction", ({ transaction }) => sync(transaction))
-    const onScroll = () => sync()
-    document.addEventListener("scroll", onScroll, true)
+    const onTr = ({ transaction }: { transaction: Transaction }) => sync(transaction)
+    editor.on("transaction", onTr)
     return () => {
-      editor.off("transaction", ({ transaction }) => sync(transaction))
-      document.removeEventListener("scroll", onScroll, true)
+      editor.off("transaction", onTr)
     }
-    // withRects/tagHalos solo leen refs y el editor (estables).
+    // updateDecos solo lee refs y el editor (estables).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
 
@@ -624,7 +600,6 @@ export function BlockControls({
         computePositionConfig={POSITION_CONFIG}
         onNodeChange={({ node, pos }) => {
           target.current = node && pos >= 0 ? { node, pos } : null
-          setPluginHoverPos(pos >= 0 ? pos : -1)
         }}
         // Centrar el asa (+ ⋮⋮) contra la PRIMERA LÍNEA del bloque (target.current lo fija
         // onNodeChange, que el plugin llama justo antes de re-posicionar).
@@ -659,7 +634,7 @@ export function BlockControls({
                 .run()
             })}
           >
-            <PlusIcon className="size-4" />
+            <PlusIcon className="size-4.5" />
           </button>
 
           {/* ⋮⋮: click selecciona el bloque (node-range), Shift+click extiende, drag mueve.
@@ -695,8 +670,8 @@ export function BlockControls({
                   aria-expanded={menuOpen}
                   draggable={!menuOpen}
                   className={btnCls}
-                  // Contrato v4: click AGREGA el bloque al multi-select ("this + next
-                  // this") y abre el menú; Shift+click extiende el rango contiguo. El
+                  // Contrato v5: click selecciona (Mod+click agrega al multi-select) y
+                  // abre el menú; Shift+click extiende el rango contiguo. El
                   // drag agarra el bloque/rango sin pasar por acá (el node-range lo fija
                   // el propio plugin en el dragstart). SIN preventDefault: iniciar el
                   // drag es una acción default del mousedown — cancelarlo lo mata.
@@ -706,38 +681,42 @@ export function BlockControls({
                     setTimeout(() => editor.view.focus(), 0)
                   }}
                   onClick={(e) => {
-                    if (target.current) addToSel(target.current)
+                    const t = target.current
+                    // Estilo explorador de archivos: click simple sobre un bloque FUERA del
+                    // set lo reemplaza; Mod+click agrega; click sobre uno ya seleccionado
+                    // conserva el set (el menú opera sobre todos).
+                    const mod = e.metaKey || e.ctrlKey
+                    if (t && !mod && !selRef.current.some((b) => b.pos === t.pos)) {
+                      selRef.current = []
+                    }
+                    if (t) addToSel(t)
                     // Mod+click = solo multi-select, sin menú (Shift ya lo hacía: la
                     // selección se hace en mousedown; el click no existe tras el gesto).
-                    if (e.metaKey || e.ctrlKey) return
+                    // Foco al editor: si queda en el ⋮⋮, el Esc global (editor.tsx) lo ignora.
+                    if (mod) return editor.view.focus()
                     setMenuOpen((o) => !o)
                   }}
                 >
-                  <GripVerticalIcon className="size-4" />
+                  <GripVerticalIcon className="size-4.5" />
                 </span>
               </span>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-44">
+            {/* Al cerrar, el foco vuelve al editor (no al trigger): si no, el Esc que
+                limpia la selección de bloques no llega (exige editor.view.hasFocus()). */}
+            <DropdownMenuContent
+              align="start"
+              className="min-w-44"
+              onCloseAutoFocus={(e) => {
+                e.preventDefault()
+                // Desmontar el editor con el menú abierto también lo cierra (sin view).
+                if (!editor.isDestroyed) editor.view.focus()
+              }}
+            >
               {target.current ? blockMenu(target.current, editor) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </DragHandle>
-
-      {/* Gutters propios de la selección (multi-select): uno por bloque del set,
-          excepto donde el asa del plugin está parada (sin doble gutter). Fuera durante
-          el drag (el asa del plugin + la guía toman el control). */}
-      {!dragging &&
-        selBlocks
-          .filter((rb) => rb.pos !== pluginHoverPos)
-          .map((rb) => (
-            <SelectionGutter
-              key={rb.pos}
-              editor={editor}
-              rb={rb}
-              onToggle={() => addToSel({ node: rb.node, pos: rb.pos })}
-            />
-          ))}
 
       {/* Guía de drop: solo durante el drag, no captura el mouse. */}
       {dragging && (
@@ -772,18 +751,56 @@ function duplicate(editor: Editor) {
   }
 }
 
-// Un bloque dentro de un node-range activo, con las coords (relativas al host) de su
-// primera línea — donde se ancla su gutter propio.
-type GutterBlock = { pos: number; node: Node; left: number; top: number; height: number }
+// Header del menú (estilo Notion): tipo del bloque. Nodo sin entrada → sin header.
+const BLOCK_LABELS: Record<string, string> = {
+  paragraph: "Párrafo",
+  bulletList: "Lista",
+  orderedList: "Lista numerada",
+  taskList: "To-do",
+  blockquote: "Cita",
+  codeBlock: "Código",
+  horizontalRule: "Divisor",
+  table: "Tabla",
+  image: "Imagen",
+  [NODE.blockMath]: "Ecuación en bloque",
+  [NODE.callout]: "Callout",
+  [NODE.details]: "Desplegable",
+}
+const labelOf = (n: Node) =>
+  n.type.name === "heading" ? `Heading ${n.attrs.level}` : BLOCK_LABELS[n.type.name]
+// El gutter baja hasta el textblock (lista → ítem → párrafo, callout → párrafo): un párrafo
+// anidado toma el label del ancestro más cercano con nombre (Lista, Callout, Cita, Tabla...).
+export function blockLabel(doc: Node, t: BlockTarget) {
+  if (t.node.type.name !== "paragraph") return labelOf(t.node)
+  const $p = doc.resolve(t.pos)
+  for (let d = $p.depth; d > 0; d--) {
+    const l = labelOf($p.node(d))
+    if (l) return l
+  }
+  return labelOf(t.node)
+}
+
+// Copiar como Markdown. Ítem suelto: se envuelve en su lista padre (con sus attrs) para que
+// salga con su marcador (`- `, `1. `, `- [ ] `) — un listItem pelado no serializa.
+async function copyMarkdown(editor: Editor, t: BlockTarget) {
+  const parent = editor.state.doc.resolve(t.pos).parent
+  const node = t.node.type.name.endsWith("Item")
+    ? { type: parent.type.name, attrs: parent.attrs, content: [t.node.toJSON()] }
+    : t.node.toJSON()
+  await navigator.clipboard.writeText(docToMarkdown({ type: "doc", content: [node] }))
+  toast.success("Bloque copiado")
+}
 
 // Items del menú de bloque, operando sobre el target t: el mismo menú para el asa de
-// hover y para los gutters de la selección (cada uno fija su target al abrir). Los
+// hover (fija su target al abrir). Los
 // handlers capturan t en render y validan contra el doc vivo (un undo/edición externa
 // puede borrar el bloque entre apertura y click).
 function blockMenu(t: BlockTarget, editor: Editor): ReactNode {
   const stale = () => !t.node.eq(editor.state.doc.nodeAt(t.pos) ?? ({} as Node))
+  const label = blockLabel(editor.state.doc, t)
   return (
     <>
+      {label && <DropdownMenuLabel className="text-fg-secondary">{label}</DropdownMenuLabel>}
       <DropdownMenuSub>
         <DropdownMenuSubTrigger>
           <TypeIcon className={itemIcon} /> Convertir a
@@ -810,8 +827,16 @@ function blockMenu(t: BlockTarget, editor: Editor): ReactNode {
         }}
       >
         <CopyIcon className={itemIcon} /> Duplicar
+        <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
       </DropdownMenuItem>
-      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onSelect={() => {
+          if (stale()) return
+          void copyMarkdown(editor, t)
+        }}
+      >
+        <ClipboardIcon className={itemIcon} /> Copiar
+      </DropdownMenuItem>
       <DropdownMenuItem
         onSelect={() => {
           if (stale()) return
@@ -819,95 +844,14 @@ function blockMenu(t: BlockTarget, editor: Editor): ReactNode {
         }}
       >
         <Trash2Icon className={itemIcon} /> Eliminar
+        <DropdownMenuShortcut>Del</DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      {/* ponytail: placeholder sin backend IA — feature propia cuando exista spec. */}
+      <DropdownMenuItem disabled>
+        <SparklesIcon className={itemIcon} /> Preguntar a la IA
+        <DropdownMenuShortcut className="tracking-normal">Pronto</DropdownMenuShortcut>
       </DropdownMenuItem>
     </>
-  )
-}
-
-// Gutter propio de un bloque seleccionado (node-range): IGUAL al asa de hover (+ ⋮⋮,
-// mismas clases y mismo padding de gracia — .block-range-gutter en index.css) pero
-// PERSISTENTE mientras dure la selección — uno por bloque del rango. Sin drag propio (el
-// rango se arrastra desde cualquier asa del plugin: su dragstart cubre el node-range).
-// Los handlers operan explícitamente sobre SU bloque (el plugin puede re-apuntar el
-// target al bloque hovered en cualquier momento); el ⋮⋮ fija target al abrir para que
-// blockMenu opere sobre él.
-function SelectionGutter({
-  editor,
-  rb,
-  onToggle,
-}: {
-  editor: Editor
-  rb: GutterBlock
-  onToggle: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  // Misma matemática que positionHandle: borde derecho del gutter contra el borde
-  // izquierdo del bloque, centrado en su primera línea (offsetWidth/Height leídos tras
-  // el montaje — el CSS no los conoce de antemano).
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.style.left = `${rb.left - el.offsetWidth}px`
-    el.style.top = `${rb.top + rb.height / 2 - el.offsetHeight / 2}px`
-  }, [rb])
-  return (
-    <div
-      ref={ref}
-      className="block-range-gutter absolute flex items-center gap-0.5"
-      // Zona muerta (padding + ::after de index.css): click ahí no roba el foco.
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) e.preventDefault()
-      }}
-    >
-      <button
-        type="button"
-        data-testid={`range-add-${rb.pos}`}
-        aria-label="Añadir bloque"
-        className={btnCls}
-        onMouseDown={preventFocus}
-        onDragStart={(e) => e.preventDefault()}
-        onClick={() => {
-          const node = editor.state.doc.nodeAt(rb.pos)
-          if (!node) return
-          const after = rb.pos + node.nodeSize
-          editor
-            .chain()
-            .insertContentAt(after, { type: "paragraph" })
-            .setTextSelection(after + 1)
-            .focus()
-            .run()
-        }}
-      >
-        <PlusIcon className="size-4" />
-      </button>
-      <DropdownMenu
-        open={open}
-        onOpenChange={(o) => {
-          setOpen(o)
-          editor.view.dispatch(editor.view.state.tr.setMeta("lockDragHandle", o))
-        }}
-      >
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            data-testid={`range-handle-${rb.pos}`}
-            aria-label="Menú de bloque"
-            aria-haspopup="menu"
-            aria-expanded={open}
-            className={btnCls}
-            onMouseDown={preventFocus}
-            // Click agrega SU bloque al multi-select (sin robar foco); abrir/cerrar el
-            // menú lo maneja Radix (trigger toggle en pointerdown, open controlado).
-            onClick={onToggle}
-          >
-            <GripVerticalIcon className="size-4" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-44">
-          {blockMenu({ node: rb.node, pos: rb.pos }, editor)}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
   )
 }

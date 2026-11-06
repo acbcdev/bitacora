@@ -70,12 +70,7 @@ export function BlockMarquee({
       // Texto (cualquier cosa dentro del contenteditable salvo su propio padding) y
       // controles (asa, gutters, botones) siguen siendo suyos.
       if (dom.contains(target) && target !== dom) return
-      if (
-        target.closest(
-          "button, a, input, textarea, select, .block-drag-handle, .block-range-gutter",
-        )
-      )
-        return
+      if (target.closest("button, a, input, textarea, select, .block-drag-handle")) return
       const scroller = scrollParent(hostEl)
       if (!(scroller ?? document.body).contains(target)) return
       if (e.clientY < hostEl.getBoundingClientRect().top) return // header / título de la nota
