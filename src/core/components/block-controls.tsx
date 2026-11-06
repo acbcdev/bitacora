@@ -522,7 +522,6 @@ export function BlockControls({
       props: {
         decorations: (state) => {
           const positions = selDecoKey.getState(state) as number[]
-          console.log("DECOS", JSON.stringify(positions))
           if (!positions?.length) return DecorationSet.empty
           const { doc } = state
           const decos = positions.flatMap((pos) => {

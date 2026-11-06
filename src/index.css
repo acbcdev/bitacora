@@ -304,14 +304,16 @@
     /* El halo es un ::before detras del contenido: aire alrededor del bloque SIN reflow
        (padding real re-envolvería el texto) y sin box-shadow (el spread se derrama sobre
        los bloques vecinos no seleccionados). isolation: isolate mantiene el ::before
-       (z-index -1) dentro del contexto del propio bloque. */
+       (z-index -1) dentro del contexto del propio bloque. Inset vertical de 1px: el aire
+       entre ítems de lista es 6px (my-1.5), así contiguos dejan ≥4px de gap — un rect
+       por bloque, se cuentan de un vistazo. */
     position: relative;
     isolation: isolate;
   }
   .tiptap-host .ProseMirror .ProseMirror-selectednoderange::before {
     content: "";
     position: absolute;
-    inset: -4px -8px;
+    inset: -1px -8px;
     border-radius: var(--radius-md);
     background: var(--muted);
     z-index: -1;
