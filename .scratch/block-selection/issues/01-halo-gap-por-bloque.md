@@ -6,7 +6,7 @@ Spec: `.scratch/block-selection/spec.md` (historias 19, 20).
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Dos bloques contiguos seleccionados muestran dos rects separados con gap (verificado a mano corriendo la app)
 - [ ] El halo sigue usando `--muted`, sin reflow del texto
