@@ -16,10 +16,12 @@ const para = (text: string) => ({ type: "paragraph", content: [{ type: "text", t
 // Uno p 0..5 · Dos p 5..10 · Tres p 10..16, apilados de a 24px desde y=0.
 async function setup() {
   const { container } = render(
-    <Editor
-      content={{ type: "doc", content: [para("Uno"), para("Dos"), para("Tres")] } as TiptapDoc}
-      onChange={() => {}}
-    />,
+    <div style={{ overflowY: "auto" }}>
+      <Editor
+        content={{ type: "doc", content: [para("Uno"), para("Dos"), para("Tres")] } as TiptapDoc}
+        onChange={() => {}}
+      />
+    </div>,
   )
   const pm = await waitFor(() => container.querySelector<HTMLElement>(".ProseMirror")!)
   const view = (pm as HTMLElement & { editor: { view: EditorView } }).editor.view
@@ -33,7 +35,8 @@ async function setup() {
       height: 24,
     } as DOMRect)
   })
-  return { view, host: container.firstElementChild as HTMLElement }
+  const scroller = container.firstElementChild as HTMLElement
+  return { view, host: scroller.firstElementChild as HTMLElement, scroller }
 }
 
 const range = (view: EditorView) => {
@@ -90,4 +93,25 @@ test("marquee nuevo reemplaza la selección previa (Shift no suma)", async () =>
   fireEvent.mouseMove(host, { clientX: 50, clientY: 60, shiftKey: true })
   fireEvent.mouseUp(host)
   expect(range(view)).toEqual([10, 16])
+})
+
+test("el punto de inicio sigue al contenido cuando la nota scrollea", async () => {
+  const { view, host, scroller } = await setup()
+  fireEvent.mouseDown(host, { clientX: -40, clientY: 50 }) // sobre Tres
+  scroller.scrollTop = 24 // el inicio queda en y=26 (Dos)
+  fireEvent.mouseMove(host, { clientX: 50, clientY: 10 })
+  expect(range(view)).toEqual([0, 10])
+  fireEvent.mouseUp(host)
+})
+
+test("cerca del borde arranca el loop de auto-scroll y mouseup lo cancela", async () => {
+  const { host, scroller } = await setup()
+  vi.spyOn(scroller, "getBoundingClientRect").mockReturnValue({ top: 0, bottom: 100 } as DOMRect)
+  const raf = vi.spyOn(window, "requestAnimationFrame").mockReturnValue(7)
+  const cancel = vi.spyOn(window, "cancelAnimationFrame")
+  fireEvent.mouseDown(host, { clientX: -40, clientY: 30 })
+  fireEvent.mouseMove(host, { clientX: 50, clientY: 90 })
+  expect(raf).toHaveBeenCalled()
+  fireEvent.mouseUp(host)
+  expect(cancel).toHaveBeenCalledWith(7)
 })

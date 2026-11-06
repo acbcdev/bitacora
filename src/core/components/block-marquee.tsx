@@ -10,6 +10,8 @@ import { TextSelection } from "@tiptap/pm/state"
 // NodeRangeSelection (halo, drag y bubble salen de la capa de bloques). Siempre reemplaza.
 
 const THRESHOLD = 4
+const EDGE = 40 // franja de auto-scroll (historia 16)
+const STEP = 12 // px por frame, fijo: sin aceleración
 
 type Rect = { left: number; top: number; right: number; bottom: number }
 
@@ -61,29 +63,57 @@ export function BlockMarquee({
       if (dom.contains(t) && t !== dom) return
       if (t.closest("button, a, input, textarea, select, .block-drag-handle, .block-range-gutter"))
         return
-      if (!(scrollParent(h) ?? document.body).contains(t)) return
+      const scroller = scrollParent(h)
+      if (!(scroller ?? document.body).contains(t)) return
       if (e.clientY < h.getBoundingClientRect().top) return // header / título de la nota
       e.preventDefault() // sin selección nativa de texto durante el drag
 
+      const scrollTop = () => scroller?.scrollTop ?? 0
+      // Inicio en coordenadas de contenido: sigue al bloque aunque la nota scrollee.
       const x0 = e.clientX
-      const y0 = e.clientY
+      const y0 = e.clientY + scrollTop()
+      let x = x0
+      let y = e.clientY
       let active = false
-      const onMove = (ev: MouseEvent) => {
-        if (!active && Math.hypot(ev.clientX - x0, ev.clientY - y0) < THRESHOLD) return
-        if (!active) editor.view.focus()
-        active = true
+      let raf = 0
+      const update = () => {
+        const top = y0 - scrollTop()
         const r = {
-          left: Math.min(x0, ev.clientX),
-          top: Math.min(y0, ev.clientY),
-          right: Math.max(x0, ev.clientX),
-          bottom: Math.max(y0, ev.clientY),
+          left: Math.min(x0, x),
+          top: Math.min(top, y),
+          right: Math.max(x0, x),
+          bottom: Math.max(top, y),
         }
         setRect(r)
         selectBlocks(editor, r)
       }
+      // Auto-scroll: a ≤EDGE px del borde del scroller, paso fijo por frame + hit-test.
+      const edgeDir = () => {
+        if (!scroller) return 0
+        const b = scroller.getBoundingClientRect()
+        return y <= b.top + EDGE ? -1 : y >= b.bottom - EDGE ? 1 : 0
+      }
+      const tick = () => {
+        raf = 0
+        const dir = edgeDir()
+        if (!dir || !scroller) return
+        scroller.scrollTop += dir * STEP
+        update()
+        raf = requestAnimationFrame(tick)
+      }
+      const onMove = (ev: MouseEvent) => {
+        if (!active && Math.hypot(ev.clientX - x0, ev.clientY - e.clientY) < THRESHOLD) return
+        if (!active) editor.view.focus()
+        active = true
+        x = ev.clientX
+        y = ev.clientY
+        update()
+        if (!raf && edgeDir()) raf = requestAnimationFrame(tick)
+      }
       const onUp = () => {
         document.removeEventListener("mousemove", onMove)
         document.removeEventListener("mouseup", onUp)
+        cancelAnimationFrame(raf)
         setRect(null)
         if (!active) return
         // El click que sigue al drag no debe colapsar la selección (focusEnd de note-body).
