@@ -8,7 +8,7 @@ Spec: `.scratch/block-selection/spec.md` (historias 1–7, 27–30). Riesgo de f
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Drag de texto del bloque A al C deja Selección de bloque A..C (test)
 - [x] Drag hacia arriba promueve igual (test)
