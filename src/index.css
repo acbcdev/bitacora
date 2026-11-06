@@ -411,6 +411,12 @@
 .tiptap-host .ProseMirror .callout-icon {
   @apply mt-1 h-fit cursor-pointer text-fg-secondary select-none disabled:cursor-default;
 }
+/* Ecuación recién creada (latex vacío): KaTeX no dibuja nada, sin esto el nodo mide 0 y el
+   popover no tiene a qué anclarse. */
+.tiptap-host .ProseMirror [data-latex=""]::before {
+  content: "Ecuación vacía";
+  @apply text-fg-secondary italic;
+}
 /* Links (extensión Link de StarterKit, autolink): preflight les saca color/subrayado — sin esto
    una URL detectada se ve igual que el texto. */
 .tiptap-host .ProseMirror a {

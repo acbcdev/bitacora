@@ -12,3 +12,5 @@ trustPolicyIgnoreAfter: 1576800
 # Excepción puntual: transitiva pre-release (fork) marcada como downgrade.
 trustPolicyExclude:
   - "@trickfilm400/rollup-plugin-off-main-thread@3.0.0-pre1"
+patchedDependencies:
+  '@tiptap/extension-drag-handle': patches/@tiptap__extension-drag-handle.patch

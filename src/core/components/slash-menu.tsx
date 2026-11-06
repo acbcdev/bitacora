@@ -8,7 +8,7 @@ import type { Range, Editor } from "@tiptap/react"
 import { uploadNoteImageWithToast } from "@/core/components/upload-note-image"
 import { setDesplegable } from "@/core/components/desplegable"
 import { CALLOUT_META } from "@/core/components/callout"
-import { promptLatex } from "@/core/components/ecuacion"
+import { editEmptyMath } from "@/core/components/ecuacion"
 import { CALLOUT_KINDS, NODE } from "@/core/lib/tiptap-markdown"
 import { Command, CommandEmpty, CommandItem, CommandList } from "@/core/ui/command"
 import {
@@ -123,11 +123,13 @@ const SLASH_ITEMS: SlashItem[] = [
     keywords: "ecuacion formula math latex katex",
     icon: SigmaIcon,
     action: ({ editor, range }) => {
-      const latex = promptLatex()
-      const chain = editor.chain().focus().deleteRange(range)
-      // pos explícito: sin él insertBlockMath lee la selección previa al deleteRange (fuera de rango).
-      if (latex) chain.insertBlockMath({ latex, pos: range.from })
-      chain.run()
+      // insertContentAt y no insertBlockMath: ese rechaza latex vacío.
+      editor
+        .chain()
+        .focus()
+        .insertContentAt(range, { type: "blockMath", attrs: { latex: "" } })
+        .run()
+      editEmptyMath(editor.view)
     },
   },
   {

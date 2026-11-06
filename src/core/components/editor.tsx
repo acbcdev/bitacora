@@ -30,7 +30,7 @@ import { ImageView } from "@/core/components/image-view"
 import { Outline } from "@/core/components/outline"
 import { SlashMenu, isSlashMenuActive, slashMenuPluginKey } from "@/core/components/slash-menu"
 import { exitSuggestion } from "@tiptap/suggestion"
-import { editLatex } from "@/core/components/ecuacion"
+import { BITACORA_MIME, copyWithMath, editLatex, pasteBitacora } from "@/core/components/ecuacion"
 import { FormatBubbleMenu } from "@/core/components/bubble-menu"
 import { TableHoverControls } from "@/core/components/table-controls"
 import { BlockControls } from "@/core/components/block-controls"
@@ -141,8 +141,10 @@ export function Editor({
   const openLightboxRef = useRef<(src: string, alt?: string, docOverride?: TiptapDoc) => void>(
     () => {},
   )
-  // onClick de las Ecuaciones solo recibe (node, pos): la view llega por ref desde onCreate.
-  const viewRef = useRef<EditorView>(undefined)
+  // onClick de las Ecuaciones solo recibe (node, pos): el editor llega por ref. Se asigna desde
+  // lo que devuelve useEditor, no en onCreate: ese dispara también en instancias que nunca se
+  // montan, y su `.view` revienta en nodeDOM.
+  const editorRef = useRef<{ view: EditorView }>(undefined)
 
   const editor = useEditor({
     extensions: [
@@ -204,16 +206,13 @@ export function Editor({
             },
           ]
         },
-      }).configure({ onClick: (node, pos) => editLatex(viewRef.current, node, pos) }),
+      }).configure({ onClick: (_, pos) => editLatex(editorRef.current?.view, pos) }),
       BlockMath.configure({
         katexOptions: { displayMode: true },
-        onClick: (node, pos) => editLatex(viewRef.current, node, pos),
+        onClick: (_, pos) => editLatex(editorRef.current?.view, pos),
       }),
     ],
     content: content as Content,
-    onCreate: ({ editor: created }) => {
-      viewRef.current = created.view
-    },
     onUpdate: ({ editor: updated }) => {
       setVersion((v) => v + 1)
       onChange?.(updated.getJSON() as TiptapDoc)
@@ -222,6 +221,9 @@ export function Editor({
       // Pega texto plano con sintaxis Markdown (**bold**, # heading, - lista...) como nodos
       // formateados en vez de texto literal. Si el portapapeles trae HTML (paste rico), no toca nada.
       handlePaste(view, event) {
+        // Copia propia con ecuaciones (ver copyWithMath): el HTML viene en el MIME de Bitácora.
+        // En la reentrada de pasteHTML devuelve false y ProseMirror pega el slice por default.
+        if (event.clipboardData?.getData(BITACORA_MIME)) return pasteBitacora(view, event)
         // Imagen en el portapapeles (screenshot copiado, o archivo copiado del finder):
         // sube al store y lo inserta. Sin esto, pegar imagen era un silencio total —
         // `raw` venía vacío y caía al default de ProseMirror, que no hace nada.
@@ -273,6 +275,8 @@ export function Editor({
       // Tab/Shift-Tab siempre capturados: hunden/suben el ítem de lista y fuera de una lista
       // no hacen nada — pero NUNCA dejan que el browser mueva el foco fuera del editor.
       handleDOMEvents: {
+        copy: (view, event) => copyWithMath(view, event, false),
+        cut: (view, event) => copyWithMath(view, event, true),
         keydown(view, event) {
           if (event.key !== "Tab") return false
           // En una celda (y fuera de una lista anidada) Tab es del keymap de la tabla de
@@ -313,6 +317,7 @@ export function Editor({
       },
     },
   })
+  editorRef.current = editor ?? undefined
 
   const openLightbox = useCallback(
     (src: string, alt?: string, docOverride?: TiptapDoc) => {

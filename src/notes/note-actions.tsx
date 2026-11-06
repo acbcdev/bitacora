@@ -13,7 +13,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useDeleteNote } from "@/notes/notes.api"
 import { focusHref } from "@/core/lib/hooks/use-focus-mode"
-import { docToMarkdown, downloadMarkdown } from "@/core/lib/tiptap-markdown"
+import { docToNotionMarkdown, downloadMarkdown } from "@/core/lib/tiptap-markdown"
 import type { Note, TiptapDoc } from "@/core/types/database"
 
 // Menú "···" de una nota, compartido por el dialog de Repaso y la pantalla Nota — mismo patrón
@@ -91,7 +91,7 @@ export function NoteActions({
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={async () => copy(docToMarkdown(await content()), "Nota copiada")}
+            onSelect={async () => copy(docToNotionMarkdown(await content()), "Nota copiada")}
           >
             <Copy />
             Copiar

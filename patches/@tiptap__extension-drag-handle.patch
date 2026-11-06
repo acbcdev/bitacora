@@ -1,0 +1,56 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index 5bb89346860e3c334731755df48cfb72a6a9d3b7..9870b689438016290015c1706ce81fc2a8c374a8 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -210,7 +210,11 @@ function findBestDragTarget(view, coords, options) {
+ 	});
+ 	if (!posInfo) return null;
+ 	const { doc } = view.state;
+-	const $pos = doc.resolve(posInfo.pos);
++	// patch(bitacora): sobre la mitad inferior de un atom de bloque (blockMath, imagen) posAtCoords
++	// devuelve la pos DESPUÉS del atom → nodeAfter es el siguiente bloque y el atom nunca es candidato.
++	// `inside` apunta al atom: resolver ahí lo deja como nodeAfter.
++	const insideNode = posInfo.inside >= 0 ? doc.nodeAt(posInfo.inside) : null;
++	const $pos = doc.resolve(insideNode && insideNode.isAtom && !insideNode.isInline ? posInfo.inside : posInfo.pos);
+ 	const rules = [];
+ 	if (options.defaultRules) rules.push(...defaultRules);
+ 	rules.push(...options.rules);
+@@ -245,7 +249,9 @@ function findBestDragTarget(view, coords, options) {
+ 	}).filter((candidate) => candidate !== null);
+ 	const nodeAfter = $pos.nodeAfter;
+ 	if (nodeAfter && nodeAfter.isAtom && !nodeAfter.isInline) {
+-		const nodePos = posInfo.pos;
++		// patch(bitacora): $pos.pos, no posInfo.pos — con el resolve de arriba difieren y el
++		// candidato quedaba con el nodo de un atom y el pos/dom del bloque siguiente.
++		const nodePos = $pos.pos;
+ 		const depth = $pos.depth + 1;
+ 		const parent = $pos.parent;
+ 		const index = $pos.index();
+diff --git a/dist/index.js b/dist/index.js
+index 48ce5bafcbf764d8bfe8dde7c0d8c679317e7e1a..34b86bc96ee5e7cb9c087a1784493eba8e5575ff 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -206,7 +206,11 @@ function findBestDragTarget(view, coords, options) {
+ 	});
+ 	if (!posInfo) return null;
+ 	const { doc } = view.state;
+-	const $pos = doc.resolve(posInfo.pos);
++	// patch(bitacora): sobre la mitad inferior de un atom de bloque (blockMath, imagen) posAtCoords
++	// devuelve la pos DESPUÉS del atom → nodeAfter es el siguiente bloque y el atom nunca es candidato.
++	// `inside` apunta al atom: resolver ahí lo deja como nodeAfter.
++	const insideNode = posInfo.inside >= 0 ? doc.nodeAt(posInfo.inside) : null;
++	const $pos = doc.resolve(insideNode && insideNode.isAtom && !insideNode.isInline ? posInfo.inside : posInfo.pos);
+ 	const rules = [];
+ 	if (options.defaultRules) rules.push(...defaultRules);
+ 	rules.push(...options.rules);
+@@ -241,7 +245,9 @@ function findBestDragTarget(view, coords, options) {
+ 	}).filter((candidate) => candidate !== null);
+ 	const nodeAfter = $pos.nodeAfter;
+ 	if (nodeAfter && nodeAfter.isAtom && !nodeAfter.isInline) {
+-		const nodePos = posInfo.pos;
++		// patch(bitacora): $pos.pos, no posInfo.pos — con el resolve de arriba difieren y el
++		// candidato quedaba con el nodo de un atom y el pos/dom del bloque siguiente.
++		const nodePos = $pos.pos;
+ 		const depth = $pos.depth + 1;
+ 		const parent = $pos.parent;
+ 		const index = $pos.index();

@@ -80,8 +80,10 @@ function block(node: Node): string {
     }
     case "horizontalRule":
       return "---"
+    // `$$` en líneas propias: lo que Notion convierte en bloque al pegar (en una sola línea queda
+    // inline), y markdownToDoc ya lo lee igual.
     case NODE.blockMath:
-      return `$$${String(node.attrs?.latex ?? "")}$$`
+      return `$$\n${String(node.attrs?.latex ?? "")}\n$$`
     case "table":
       return tableToMarkdown(node)
     default:
@@ -123,6 +125,19 @@ function tableToMarkdown(table: Node): string {
 
 export function docToMarkdown(doc: TiptapDoc): string {
   return blocks((doc.content as Node[]) ?? [])
+}
+
+// "Copiar" de la nota → pensado para pegar en Notion, que solo convierte inline `$$x$$` (el `$x$`
+// estándar le queda literal). El export .md sigue con `$x$`: es lo que leen Obsidian/GitHub/pandoc
+// y lo que markdownToDoc re-importa (`$$x$$` a mitad de línea es texto, ver math.test).
+export function docToNotionMarkdown(doc: TiptapDoc): string {
+  const walk = (n: Node): Node =>
+    n.type === NODE.inlineMath
+      ? { type: "text", text: `$$${String(n.attrs?.latex ?? "").trim()}$$` }
+      : n.content
+        ? { ...n, content: n.content.map(walk) }
+        : n
+  return docToMarkdown(walk(doc as Node) as TiptapDoc)
 }
 
 // Ecuaciones (ADR 0018): el extracto muestra el LaTeX crudo, no desaparecen.

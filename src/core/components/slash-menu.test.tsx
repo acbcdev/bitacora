@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { TextSelection } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { Editor } from "@/core/components/editor"
@@ -321,11 +321,12 @@ test("seleccionar Tabla inserta una tabla 2x2 sin header row", async () => {
   })
 })
 
-test("seleccionar Ecuación pide el LaTeX e inserta un bloque renderizado", async () => {
-  vi.spyOn(window, "prompt").mockReturnValue("x^2")
+test("seleccionar Ecuación inserta un bloque y abre el editor encima", async () => {
   const { container, view } = await setup()
   await openMenu(view, "ecuacion")
   fireEvent.keyDown(view.dom as HTMLElement, { key: "Enter" })
+  fireEvent.change(await screen.findByLabelText("LaTeX"), { target: { value: "x^2" } })
+  fireEvent.click(screen.getByRole("button", { name: /Listo/ }))
   await waitFor(() => {
     const math = container.querySelector("[data-type=block-math]")!
     expect(math.getAttribute("data-latex")).toBe("x^2")

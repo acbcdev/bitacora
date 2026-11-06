@@ -20,6 +20,7 @@ import {
   ListTodoIcon,
   PlusIcon,
   QuoteIcon,
+  SigmaIcon,
   Trash2Icon,
   TypeIcon,
 } from "lucide-react"
@@ -35,6 +36,7 @@ import {
 } from "@/core/ui/dropdown-menu"
 import { preventFocus } from "@/core/components/prevent-focus"
 import { NODE } from "@/core/lib/tiptap-markdown"
+import { editEmptyMath } from "@/core/components/ecuacion"
 
 // Bloques: + ⋮⋮ en el margen izquierdo del bloque hovered (spec historia 6, issue 05).
 // El drag (reordenar, rango multi-bloque, línea guía en drop) lo maneja el plugin oficial
@@ -124,6 +126,39 @@ const CONVERTS: Array<{
     can: (e) => e.can().toggleCodeBlock(),
     apply: (e, t) => e.chain().setTextSelection(rangeOf(t)).focus().toggleCodeBlock().run(),
   },
+  // blockMath es atom (sin contenido, solo attrs.latex): no se transforma, se reemplaza el
+  // nodo. El texto del bloque pasa a ser el LaTeX; bloque vacío → editor de ecuación.
+  {
+    label: "Ecuación",
+    icon: <SigmaIcon />,
+    can: () => true,
+    apply: (e, t) => {
+      const item = t.node.type.name === "listItem" || t.node.type.name === "taskItem"
+      // Ítem: solo su primer párrafo (textContent del ítem incluye las sublistas).
+      const latex = (item ? t.node.firstChild : t.node)?.textContent.trim() ?? ""
+      const math = { type: NODE.blockMath, attrs: { latex } }
+      if (!item) {
+        e.chain()
+          .focus()
+          .insertContentAt({ from: t.pos, to: t.pos + t.node.nodeSize }, math)
+          .run()
+      } else {
+        // blockMath no cabe en bulletList/taskList: reemplazar el ítem directo partía la lista
+        // y dejaba un resto arriba. Primero lift (el ítem sale como párrafo), luego se reemplaza.
+        e.chain()
+          .setTextSelection(t.pos + 2)
+          .focus()
+          .liftListItem(t.node.type.name)
+          .command(({ tr }) => {
+            const $p = tr.selection.$from
+            tr.replaceWith($p.before(), $p.after(), e.schema.nodeFromJSON(math))
+            return true
+          })
+          .run()
+      }
+      if (!latex) editEmptyMath(e.view)
+    },
+  },
 ]
 
 // Selección de texto dentro del contenido del bloque: los comandos de conversión
@@ -184,23 +219,34 @@ function locateLine(
 // Desplegable tras el chevron, to-do tras el checkbox, callout tras el ícono) y el asa
 // quedaba encima de esos controles. Textblock vacío (título de Desplegable recién creado): no
 // hay texto, solo el <br> de ProseMirror — su línea es el textblock que lo contiene.
+// x del asa. listItem: la viñeta vive FUERA del li (en el pl-5 del ul) — contra el li el asa
+// quedaba encima de ella. ul: 12px = ancho del disc + su aire, el asa abraza la viñeta. ol:
+// borde del ol ("10." es más ancho). taskItem (data-type) trae el checkbox dentro del li.
+const blockLeft = (dom: HTMLElement) => {
+  const left = dom.getBoundingClientRect().left
+  if (dom.tagName !== "LI" || dom.dataset.type) return left
+  const list = dom.parentElement!
+  return list.tagName === "OL" ? list.getBoundingClientRect().left : left - 12
+}
+
 function firstLineRect(dom: HTMLElement): DOMRect {
   const walker = document.createTreeWalker(dom, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     let box: DOMRect
-    if (n instanceof HTMLElement) {
-      if (!n.classList.contains("ProseMirror-trailingBreak")) continue
+    // Text, no `instanceof HTMLElement`: KaTeX mete MathML (<math>, <mi>) que NO es
+    // HTMLElement — caía a la rama de texto y `data.trim()` tiraba, matando el asa.
+    if (!(n instanceof Text)) {
+      if (!(n as Element).classList.contains("ProseMirror-trailingBreak")) continue
       box = n.parentElement!.getBoundingClientRect()
     } else {
-      const t = n as Text
+      const t = n
       if (!t.data.trim()) continue
       const range = document.createRange()
       range.setStart(t, 0)
       range.setEnd(t, Math.min(1, t.data.length))
       box = range.getBoundingClientRect()
     }
-    if (box.height > 0)
-      return new DOMRect(dom.getBoundingClientRect().left, box.top, box.width, box.height)
+    if (box.height > 0) return new DOMRect(blockLeft(dom), box.top, box.width, box.height)
   }
   // Imagen: va centrada en un wrapper de ancho completo — el asa se pega a la imagen, no al
   // wrapper (estilo Notion).
@@ -492,7 +538,13 @@ export function BlockControls({
         },
       },
     })
-    editor.registerPlugin(plugin)
+    // Reemplaza cualquier instancia previa con la misma key: unregisterPlugin es no-op si
+    // la view aún no está montada (isDestroyed === true sin editorView) y el re-run del
+    // effect (StrictMode / remount) chocaba con "Adding different instances of a keyed plugin".
+    editor.registerPlugin(plugin, (p, plugins) => [
+      ...plugins.filter((x) => x.spec.key !== selDecoKey),
+      p,
+    ])
     return () => {
       editor.unregisterPlugin(selDecoKey)
     }
@@ -589,7 +641,7 @@ export function BlockControls({
       >
         {/* pr-2: aire entre el asa y el texto — floating-ui pega el borde derecho del wrapper
             (cuenta todo el box, padding incluido) al borde izquierdo del bloque. */}
-        <div ref={innerRef} className="flex items-center gap-1.5 pr-2">
+        <div ref={innerRef} className="flex items-center gap-0.5 pr-2">
           {/* +: párrafo vacío debajo del bloque, enfocado (sin menú: escribir / ya abre slash). */}
           <button
             type="button"
@@ -803,7 +855,7 @@ function SelectionGutter({
   return (
     <div
       ref={ref}
-      className="block-range-gutter absolute flex items-center gap-1.5"
+      className="block-range-gutter absolute flex items-center gap-0.5"
       // Zona muerta (padding + ::after de index.css): click ahí no roba el foco.
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) e.preventDefault()

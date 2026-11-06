@@ -1,11 +1,16 @@
 import { expect, test } from "vitest"
-import { docToMarkdown, docToPlainText, markdownToDoc } from "@/core/lib/tiptap-markdown"
+import {
+  docToMarkdown,
+  docToNotionMarkdown,
+  docToPlainText,
+  markdownToDoc,
+} from "@/core/lib/tiptap-markdown"
 import type { TiptapDoc } from "@/core/types/database"
 
 const para = (...content: object[]): TiptapDoc =>
   ({ type: "doc", content: [{ type: "paragraph", content }] }) as TiptapDoc
 
-test("export: inlineMath → $…$, blockMath → $$…$$ en línea propia", () => {
+test("export: inlineMath → $…$, blockMath → $$ en líneas propias", () => {
   const doc = {
     type: "doc",
     content: [
@@ -19,7 +24,11 @@ test("export: inlineMath → $…$, blockMath → $$…$$ en línea propia", () 
       { type: "blockMath", attrs: { latex: "\\sum_{i=1}^n x_i" } },
     ],
   } as TiptapDoc
-  expect(docToMarkdown(doc)).toBe("Euler: $e^{i\\pi}+1=0$\n\n$$\\sum_{i=1}^n x_i$$")
+  expect(docToMarkdown(doc)).toBe("Euler: $e^{i\\pi}+1=0$\n\n$$\n\\sum_{i=1}^n x_i\n$$")
+  // Ida y vuelta: el export se re-importa igual.
+  expect(markdownToDoc(docToMarkdown(doc))).toEqual(doc)
+  // Copiar (Notion): inline con $$ dobles, bloque igual.
+  expect(docToNotionMarkdown(doc)).toBe("Euler: $$e^{i\\pi}+1=0$$\n\n$$\n\\sum_{i=1}^n x_i\n$$")
 })
 
 test("parse: $$…$$ en línea propia = blockMath, corta el párrafo", () => {
@@ -52,7 +61,7 @@ test.each(["cuesta $5 y $10", "de $ 5 a $", "entre $x $ y", "$a$1 dólar", "`$x$
 )
 
 test("round-trip inline y bloque", () => {
-  const md = "Euler: $e^{i\\pi}+1=0$ fin\n\n$$\\int_0^1 f(x)\\,dx$$\n\ncuesta $5 y $10"
+  const md = "Euler: $e^{i\\pi}+1=0$ fin\n\n$$\n\\int_0^1 f(x)\\,dx\n$$\n\ncuesta $5 y $10"
   expect(docToMarkdown(markdownToDoc(md))).toBe(md)
 })
 

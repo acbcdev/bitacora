@@ -15,12 +15,14 @@ import {
   ListOrderedIcon,
   ListTodoIcon,
   QuoteIcon,
+  SigmaIcon,
   TypeIcon,
   XIcon,
 } from "lucide-react"
 import { cn } from "@/core/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/core/ui/popover"
 import { preventFocus } from "@/core/components/prevent-focus"
+import { NODE } from "@/core/lib/tiptap-markdown"
 
 // Bubble de formato (spec .scratch/editor-notion-ux, historia 4). Toolbar de UNA fila (variante A
 // del prototipo, elegida sobre panel por secciones y menú de comandos): select de bloque a la
@@ -130,6 +132,27 @@ const BLOCKS: BlockKind[] = [
     icon: CodeIcon,
     isActive: (ed) => ed.isActive("codeBlock"),
     apply: (ed) => ed.chain().focus().toggleCodeBlock().run(),
+  },
+  // Inline, no bloque: el bubble opera sobre la selección y blockMath no puede ser el primer
+  // hijo de un listItem. Quita los $ de texto pegado crudo ("$A \cup A$").
+  {
+    name: "Ecuación",
+    icon: SigmaIcon,
+    isActive: () => false,
+    apply: (ed) => {
+      const { from, to } = ed.state.selection
+      const latex = ed.state.doc
+        .textBetween(from, to)
+        .trim()
+        .replace(/^\$+|\$+$/g, "")
+        .trim()
+      if (!latex) return false
+      return ed
+        .chain()
+        .focus()
+        .insertContentAt({ from, to }, { type: NODE.inlineMath, attrs: { latex } })
+        .run()
+    },
   },
 ]
 
