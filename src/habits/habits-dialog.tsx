@@ -84,6 +84,18 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
   const hotkeys = { enableOnFormTags: true, preventDefault: true, enabled: !archiving }
   useHotkeys("alt+j", () => step(1), hotkeys, [index, creating, habits])
   useHotkeys("alt+k", () => step(-1), hotkeys, [index, creating, habits])
+  // ↑/↓ globales en el dialog, sin foco en la lista. SIN enableOnFormTags: en el input numérico y
+  // los <select> las flechas son del control.
+  useHotkeys("down", () => step(1), { preventDefault: true, enabled: !archiving }, [
+    index,
+    creating,
+    habits,
+  ])
+  useHotkeys("up", () => step(-1), { preventDefault: true, enabled: !archiving }, [
+    index,
+    creating,
+    habits,
+  ])
 
   function startCreate() {
     setCreating(true)
@@ -95,7 +107,7 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
       <DrialogContent showCloseButton={false} className="gap-0 p-0 md:w-240 md:max-w-240">
         {/* Alto FIJO, no max-h: con alto al contenido el dialog salta de tamaño al cambiar de
             hábito, y el `+ Nuevo` se mueve abajo del cursor. */}
-        <div className="grid h-[70vh] min-h-0 md:grid-cols-[260px_1fr]">
+        <div className="grid h-[70vh] min-h-0 md:grid-cols-[300px_1fr]">
           <aside
             className={cn(
               "flex min-h-0 flex-col border-r max-md:border-r-0",
@@ -103,10 +115,12 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
             )}
           >
             <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-              <DrialogTitle className="flex items-baseline gap-2 text-lg font-semibold">
+              <DrialogTitle className="flex items-baseline gap-2.5 text-lg font-semibold">
                 Hábitos
                 {habits.length > 0 && (
-                  <span className="mono-dim text-xs font-normal">{habits.length} activos</span>
+                  <span className="mono-dim text-sm font-normal whitespace-nowrap">
+                    {habits.length} activos
+                  </span>
                 )}
               </DrialogTitle>
               <Button variant="outline" size="sm" className="ml-auto" onClick={startCreate}>
@@ -122,15 +136,7 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
               <div
                 role="listbox"
                 aria-label="Hábitos"
-                tabIndex={0}
-                aria-activedescendant={current ? `habit-opt-${current.id}` : undefined}
-                onKeyDown={(e) => {
-                  const delta = { ArrowDown: 1, ArrowUp: -1 }[e.key]
-                  if (!delta) return
-                  e.preventDefault()
-                  step(delta)
-                }}
-                className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-2"
               >
                 {habits.map((h, i) => {
                   const streak = deriveHabit(h, log).streak

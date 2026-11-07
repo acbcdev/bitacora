@@ -82,13 +82,12 @@ test("⌥J / ⌥K mueven la selección desde el input y no dan la vuelta", async
   expect(title()).toBe("Gym")
 })
 
-test("↑ / ↓ en la lista mueven la selección", async () => {
+test("↑ / ↓ mueven la selección sin foco en la lista", async () => {
   renderDialog()
   await waitFor(() => expect(title()).toBe("Read"))
-  const list = screen.getByRole("listbox")
-  fireEvent.keyDown(list, { key: "ArrowDown" })
+  fireEvent.keyDown(document.body, { key: "ArrowDown", code: "ArrowDown" })
   expect(title()).toBe("Gym")
-  fireEvent.keyDown(list, { key: "ArrowUp" })
+  fireEvent.keyDown(document.body, { key: "ArrowUp", code: "ArrowUp" })
   expect(title()).toBe("Read")
 })
 
