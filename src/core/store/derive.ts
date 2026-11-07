@@ -308,15 +308,12 @@ const stepBack: Record<HabitPeriod, (d: Date) => void> = {
 // comparten esta función y no hay una sola rama por métrica.
 // `habit.days` (el schedule lun/mié/vie) no se lee acá a propósito — es recordatorio, no regla
 // (ADR 0009). Si alguna vez aparece en este archivo, está mal.
-export function deriveHabit(habit: Habit, rows: HabitLogRow[], now = new Date()): HabitState {
-  const byDay = new Map<string, HabitLogRow>()
-  // Un período = { suma de amount, target congelado }. Con varias filas y targets distintos en el
-  // mismo período gana el de la fila más nueva.
+// Un período = { suma de amount, target congelado }. Con varias filas y targets distintos en el
+// mismo período gana el de la fila más nueva. Lo comparten la racha/serie y la Historia.
+function periodTotals(habit: Habit, rows: HabitLogRow[]) {
   const periods = new Map<string, { total: number; target: number; day: string }>()
-
   for (const r of rows) {
     if (r.habit_id !== habit.id) continue
-    byDay.set(r.day, r)
     const key = periodKey(parseDay(r.day), habit.period)
     const prev = periods.get(key)
     if (!prev) {
@@ -329,6 +326,11 @@ export function deriveHabit(habit: Habit, rows: HabitLogRow[], now = new Date())
       }
     }
   }
+  return periods
+}
+
+export function deriveHabit(habit: Habit, rows: HabitLogRow[], now = new Date()): HabitState {
+  const periods = periodTotals(habit, rows)
 
   const currentKey = periodKey(now, habit.period)
   const metAt = (key: string) => {
@@ -374,11 +376,50 @@ export function deriveHabit(habit: Habit, rows: HabitLogRow[], now = new Date())
     total: periods.get(currentKey)?.total ?? 0,
     // amount de HOY (día), no del período: el toggle del tile y el cronómetro escriben la fila
     // de hoy — sumarle el total de la semana le pisaría los días anteriores.
-    today: byDay.get(dayKey(now))?.amount ?? 0,
+    today: rows.find((r) => r.habit_id === habit.id && r.day === dayKey(now))?.amount ?? 0,
     met,
     streak,
     days,
   }
+}
+
+// Historia de hábito (CONTEXT.md): las 26 semanas que terminan hoy, en el período del hábito —
+// días desde el lunes de hace 25 semanas, 26 semanas, o los meses que toca ese rango. No es la
+// Serie (SERIES, 7/5/4): esa alimenta tile y panel; esta, el graph del HabitsDialog.
+export const HISTORY_WEEKS = 26
+export type HistoryCell = DayCell & { start: Date; before: boolean }
+
+const stepForward: Record<HabitPeriod, (d: Date) => void> = {
+  day: (d) => d.setDate(d.getDate() + 1),
+  week: (d) => d.setDate(d.getDate() + 7),
+  month: (d) => {
+    d.setDate(1)
+    d.setMonth(d.getMonth() + 1)
+  },
+}
+
+export function habitHistory(habit: Habit, rows: HabitLogRow[], now = new Date()): HistoryCell[] {
+  const periods = periodTotals(habit, rows)
+  const currentKey = periodKey(now, habit.period)
+  const floor = periodKey(new Date(habit.created_at), habit.period)
+  const cursor = monday(now)
+  cursor.setDate(cursor.getDate() - (HISTORY_WEEKS - 1) * 7)
+  if (habit.period === "month") cursor.setDate(1)
+
+  const cells: HistoryCell[] = []
+  for (let key = periodKey(cursor, habit.period); key <= currentKey;) {
+    const p = periods.get(key)
+    cells.push({
+      start: new Date(cursor),
+      amount: p?.total ?? 0,
+      // Misma regla que la serie (ADR 0009): cerrada = congelado, actual = meta viva.
+      target: key === currentKey ? habit.target : (p?.target ?? habit.target),
+      before: key < floor,
+    })
+    stepForward[habit.period](cursor)
+    key = periodKey(cursor, habit.period)
+  }
+  return cells
 }
 
 // Leer notas es un hábito (`tracks = 'reads'`, migración 0014) cuyo log no se escribe: sus filas

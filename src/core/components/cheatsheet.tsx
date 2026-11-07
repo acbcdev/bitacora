@@ -35,6 +35,13 @@ const GROUPS: [string, [string, string][]][] = [
     ],
   ],
   [
+    "Hábitos",
+    [
+      ["↑ / ↓", "Moverse por la lista"],
+      [`${alt("J")} / ${alt("K")}`, "Hábito siguiente / anterior, también escribiendo"],
+    ],
+  ],
+  [
     "Nota",
     [
       [mod("Shift+F"), "Focus mode"],

@@ -18,6 +18,9 @@ export {
   parseDay,
   deriveHabit,
   habitState,
+  habitHistory,
+  HISTORY_WEEKS,
+  type HistoryCell,
 } from "@/core/store/derive"
 
 const PERIOD_SHORT: Record<HabitPeriod, string> = { day: "día", week: "semana", month: "mes" }

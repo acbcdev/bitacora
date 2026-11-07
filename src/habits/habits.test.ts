@@ -1,4 +1,12 @@
-import { cellColor, deriveHabit, dotColor, periodKey, type HabitLogRow } from "@/habits/habits"
+import {
+  cellColor,
+  deriveHabit,
+  dotColor,
+  habitHistory,
+  periodKey,
+  type HabitLogRow,
+} from "@/habits/habits"
+import { dayKey } from "@/core/lib/day"
 import type { Habit } from "@/core/types/database"
 
 // Jueves 20 de agosto de 2026, mediodía. La semana en curso va del lun 17 al dom 23; la anterior,
@@ -256,5 +264,54 @@ describe("cellColor", () => {
     expect(cellColor("good", cell(1), true)).toBe(
       "color-mix(in oklab, var(--foreground) 50%, var(--track))",
     )
+  })
+})
+
+// Historia de hábito (spec habits-dialog-github): 26 semanas que terminan hoy, en el período del
+// hábito. NOW = jue 20 ago → la semana en curso arranca el lun 17; 25 semanas antes, lun 23 feb.
+describe("habitHistory", () => {
+  const key = (d: Date) => dayKey(d)
+
+  test("diario: un día por celda desde el lunes de hace 25 semanas hasta hoy", () => {
+    const cells = habitHistory(habit(), [], NOW)
+    expect(cells).toHaveLength(25 * 7 + 4)
+    expect(key(cells[0].start)).toBe("2026-02-23")
+    expect(key(cells.at(-1)!.start)).toBe("2026-08-20")
+  })
+
+  test("semanal: 26 semanas, empezando en lunes", () => {
+    const cells = habitHistory(habit({ period: "week" }), [], NOW)
+    expect(cells).toHaveLength(26)
+    expect(key(cells[0].start)).toBe("2026-02-23")
+    expect(key(cells.at(-1)!.start)).toBe("2026-08-17")
+  })
+
+  test("mensual: los meses que toca el rango, incluido el parcial del borde", () => {
+    const cells = habitHistory(habit({ period: "month" }), [], NOW)
+    expect(cells.map((c) => key(c.start))).toEqual([
+      "2026-02-01",
+      "2026-03-01",
+      "2026-04-01",
+      "2026-05-01",
+      "2026-06-01",
+      "2026-07-01",
+      "2026-08-01",
+    ])
+  })
+
+  test("celda cerrada contra el target congelado, la actual contra la meta viva (ADR 0009)", () => {
+    const h = habit({ period: "week", target: 5 })
+    const rows = [row("2026-08-11", 2, 3), row("2026-08-12", 1, 3), row("2026-08-18", 4, 3)]
+    const cells = habitHistory(h, rows, NOW)
+    expect(cells.at(-2)).toMatchObject({ amount: 3, target: 3 })
+    expect(cells.at(-1)).toMatchObject({ amount: 4, target: 5 })
+  })
+
+  test("los períodos anteriores a created_at se marcan como before", () => {
+    const h = habit({ period: "week", created_at: "2026-08-12T12:00:00" })
+    const cells = habitHistory(h, [], NOW)
+    expect(cells.at(-3)!.before).toBe(true)
+    expect(cells.at(-2)!.before).toBe(false)
+    expect(cells.at(-1)!.before).toBe(false)
   })
 })

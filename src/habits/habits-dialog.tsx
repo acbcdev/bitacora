@@ -1,35 +1,42 @@
 import { useState } from "react"
+import { useHotkeys } from "react-hotkeys-hook"
 import {
   Archive,
   CalendarDays,
   Check,
+  ChevronLeft,
   Clock,
   Flame,
   Hash,
-  MoreHorizontal,
-  Pencil,
   Plus,
   Target,
 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { Button } from "@/core/ui/button"
-import { Drialog, DrialogContent, DrialogHeader, DrialogTitle } from "@/core/ui/drialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/core/ui/dropdown-menu"
+import { Drialog, DrialogContent, DrialogTitle } from "@/core/ui/drialog"
 import { Input } from "@/core/ui/input"
 import { cn } from "@/core/lib/utils"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { IconPicker } from "@/notebooks/icon-picker"
-import { deriveHabit, displayTarget, fromDisplay, goalText, streakText } from "@/habits/habits"
-import { HabitHistory } from "@/habits/habit-panel"
+import {
+  cellColor,
+  cellPct,
+  deriveHabit,
+  displayAmount,
+  displayTarget,
+  fromDisplay,
+  goalText,
+  habitHistory,
+  HISTORY_WEEKS,
+  meets,
+  streakText,
+  type HabitLogRow,
+} from "@/habits/habits"
 import { useArchiveHabit, useHabitLog, useHabits, useSaveHabit } from "@/habits/habits.api"
 import type { Habit, HabitMetric, HabitPeriod } from "@/core/types/database"
 
-// La vista completa de hábitos: crear, editar y archivar.
+// La vista completa de hábitos: lista + detalle. El detalle ES el form de edición — no hay "modo
+// edición", se cambia un campo y se guarda (spec habits-dialog-github).
 // Drialog y no ruta: un overlay no reabre "solo 3 pantallas" (ui-principles), mismo criterio que el
 // Settings dialog de CONTEXT.md.
 
@@ -37,112 +44,146 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
   const { data: habits = [] } = useHabits()
   const { data: log = [] } = useHabitLog()
   const archive = useArchiveHabit()
-  // null = la lista; "new" = alta; un Habit = edición. Una sola superficie para las tres.
-  const [form, setForm] = useState<Habit | "new" | null>(startNew ? "new" : null)
+  // Una sola selección: el id del hábito (null = el primero). `creating` va aparte para que
+  // Cancelar en el alta vuelva al que estaba seleccionado.
+  const [selId, setSelId] = useState<string | null>(null)
+  const [creating, setCreating] = useState(startNew)
+  // Ids de antes de crear: `save("habits")` no devuelve la fila, así que el nuevo es el que
+  // aparece en el refetch y no estaba acá.
+  const [known, setKnown] = useState<string[] | null>(null)
   const [archiving, setArchiving] = useState<Habit | null>(null)
+  // Mobile: lista a pantalla completa, el detalle se abre encima con "volver".
+  const [detailOpen, setDetailOpen] = useState(startNew)
+
+  const fresh = known && habits.find((h) => !known.includes(h.id))
+  // setState en render, no effect: se corrige antes de pintar.
+  if (fresh) {
+    setKnown(null)
+    setCreating(false)
+    setSelId(fresh.id)
+  }
+
+  const index = Math.max(
+    habits.findIndex((h) => h.id === selId),
+    0,
+  )
+  const current = creating ? null : habits[index]
+
+  function select(i: number) {
+    const h = habits[i]
+    if (!h) return
+    setCreating(false)
+    setSelId(h.id)
+  }
+
+  // Mismo par que entre notas (ADR 0024), forzado en los inputs del form. useHotkeys pelado y no
+  // useSafeHotkeys: ese se bloquea con cualquier dialog abierto, y este vive ADENTRO de uno. Se
+  // apaga con el ConfirmDelete encima. Sin vuelta: en el último, ⌥J no hace nada.
+  // Navegar estando en "Nuevo" sale del alta y vuelve al seleccionado (descarta el draft, story 33).
+  const step = (delta: number) => select(creating ? index : index + delta)
+  const hotkeys = { enableOnFormTags: true, preventDefault: true, enabled: !archiving }
+  useHotkeys("alt+j", () => step(1), hotkeys, [index, creating, habits])
+  useHotkeys("alt+k", () => step(-1), hotkeys, [index, creating, habits])
+
+  function startCreate() {
+    setCreating(true)
+    setDetailOpen(true)
+  }
 
   return (
     <Drialog open onOpenChange={(next) => !next && onClose()}>
-      <DrialogContent
-        showCloseButton={false}
-        className={cn(
-          "gap-0 p-0",
-          form === null
-            ? "md:w-240 md:max-w-240"
-            : "max-md:mt-16 max-md:h-[95vh] max-md:max-h-[95vh]! sm:max-w-[520px] md:max-w-[520px]",
-        )}
-      >
-        {/* En el form el título visible ES el input del nombre (página de Notion), así que el
-            header se esconde — pero el DrialogTitle SIGUE montado: la primitiva lo exige para el
-            aria-labelledby del overlay y sin él avisa por consola. */}
-        <DrialogHeader className={form === null ? "px-6 pt-5 pb-3" : "sr-only"}>
-          <div className="flex items-center gap-3">
-            <DrialogTitle className="flex items-baseline gap-3 text-lg font-semibold">
-              {form === null ? "Hábitos" : form === "new" ? "Nuevo hábito" : "Editar hábito"}
-              {form === null && habits.length > 0 && (
-                <span className="mono-dim text-xs font-normal">{habits.length} activos</span>
-              )}
-            </DrialogTitle>
-            {form === null && (
-              <Button variant="outline" className="ml-auto" onClick={() => setForm("new")}>
+      <DrialogContent showCloseButton={false} className="gap-0 p-0 md:w-240 md:max-w-240">
+        {/* Alto FIJO, no max-h: con alto al contenido el dialog salta de tamaño al cambiar de
+            hábito, y el `+ Nuevo` se mueve abajo del cursor. */}
+        <div className="grid h-[70vh] min-h-0 md:grid-cols-[260px_1fr]">
+          <aside
+            className={cn(
+              "flex min-h-0 flex-col border-r max-md:border-r-0",
+              detailOpen && "max-md:hidden",
+            )}
+          >
+            <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+              <DrialogTitle className="flex items-baseline gap-2 text-lg font-semibold">
+                Hábitos
+                {habits.length > 0 && (
+                  <span className="mono-dim text-xs font-normal">{habits.length} activos</span>
+                )}
+              </DrialogTitle>
+              <Button variant="outline" size="sm" className="ml-auto" onClick={startCreate}>
                 <Plus />
                 Nuevo
               </Button>
-            )}
-          </div>
-        </DrialogHeader>
-
-        {form === null ? (
-          /* Alto FIJO, no max-h: con alto al contenido el dialog salta de tamaño al crear,
-             archivar o pasar de la lista al form, y el `+ Nuevo` del header se mueve abajo del
-             cursor. `content-start` para que las filas no se estiren a llenar el hueco.
-             Cards y no filas: es la MISMA forma que la tira de Hoy, así que la lista no estrena un
-             lenguaje propio — y en una card entran los 14 días, que en una fila no entraban. */
-          <div className="grid h-[70vh] grid-cols-1 content-start gap-2.5 overflow-y-auto px-6 pt-1 pb-6 sm:grid-cols-2 md:grid-cols-3">
-            {habits.length === 0 && (
-              <p className="text-sm text-muted-foreground">
+            </div>
+            {habits.length === 0 ? (
+              <p className="px-4 py-2 text-sm text-muted-foreground">
                 Todavía no hay hábitos. Creá el primero.
               </p>
-            )}
-            {habits.map((h) => {
-              const state = deriveHabit(h, log)
-              return (
-                <div
-                  key={h.id}
-                  className="group flex flex-col gap-3 rounded-lg border bg-card p-3.5 transition-colors hover:border-input"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <NotebookIcon icon={h.icon} fallback={Target} className="size-4.5" />
-                    {/* Un menú y no dos íconos sueltos: en la lista vieja el lápiz y el archivar
-                        estaban SIEMPRE encendidos en cada fila y eran lo más ruidoso del dialog.
-                        En mobile no hay hover donde esconderlo, así que ahí queda visible. */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Acciones de ${h.name}`}
-                          className="-mt-1 -mr-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 max-md:opacity-100"
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => setForm(h)}>
-                          <Pencil /> Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem variant="destructive" onSelect={() => setArchiving(h)}>
-                          <Archive /> Archivar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{h.name}</span>
-                      {state.streak >= 2 && (
-                        <span className="mono-dim inline-flex items-center gap-0.5 text-[10px]">
+            ) : (
+              <div
+                role="listbox"
+                aria-label="Hábitos"
+                tabIndex={0}
+                aria-activedescendant={current ? `habit-opt-${current.id}` : undefined}
+                onKeyDown={(e) => {
+                  const delta = { ArrowDown: 1, ArrowUp: -1 }[e.key]
+                  if (!delta) return
+                  e.preventDefault()
+                  step(delta)
+                }}
+                className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                {habits.map((h, i) => {
+                  const streak = deriveHabit(h, log).streak
+                  const on = h.id === current?.id
+                  return (
+                    <div
+                      key={h.id}
+                      id={`habit-opt-${h.id}`}
+                      role="option"
+                      aria-selected={on}
+                      onClick={() => {
+                        select(i)
+                        setDetailOpen(true)
+                      }}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm hover:bg-accent",
+                        on && "bg-accent font-medium",
+                      )}
+                    >
+                      <NotebookIcon icon={h.icon} fallback={Target} className="size-4" />
+                      <span className="min-w-0 flex-1 truncate">{h.name}</span>
+                      {streak >= 2 && (
+                        <span className="mono-dim inline-flex items-center gap-0.5 text-xs">
                           <Flame size={10} />
-                          {streakText(h, state.streak)}
+                          {streakText(h, streak)}
                         </span>
                       )}
                     </div>
-                    <span className="mono-dim text-xs">{goalText(h)}</span>
-                  </div>
+                  )
+                })}
+              </div>
+            )}
+          </aside>
 
-                  {/* El mismo bloque de 14 días del tooltip del tile, sin variante propia. */}
-                  <HabitHistory habit={h} state={state} />
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          // Cancelar cierra el dialog entero, no vuelve a la lista: el que canceló quiso salir
-          // del form, no ver los otros hábitos. Al guardar pasa lo mismo — el tile nuevo ya
-          // aparece en la tira de Hoy.
-          <HabitForm habit={form === "new" ? null : form} onClose={onClose} />
-        )}
+          <section className={cn("min-h-0 min-w-0", !detailOpen && "max-md:hidden")}>
+            {(current || creating) && (
+              // Keyeado al id: cambiar de hábito descarta el draft (mismo patrón que ADR 0015).
+              <HabitForm
+                key={current?.id ?? "new"}
+                habit={current ?? null}
+                log={log}
+                onBack={() => setDetailOpen(false)}
+                onCancelNew={() => {
+                  setCreating(false)
+                  setDetailOpen(false)
+                }}
+                onCreate={() => setKnown(habits.map((h) => h.id))}
+                onCreateFailed={() => setKnown(null)}
+                onArchive={setArchiving}
+              />
+            )}
+          </section>
+        </div>
       </DrialogContent>
 
       {/* Archivar = soft delete: el habit_log queda intacto y el hábito sale de la tira. */}
@@ -152,7 +193,12 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
         what={archiving?.name ?? ""}
         verb="Archivar"
         onConfirm={() => {
-          if (archiving) archive.mutate(archiving.id)
+          if (archiving) {
+            archive.mutate(archiving.id)
+            // El siguiente, o el anterior si era el último; sin ninguno queda el estado vacío.
+            const i = habits.findIndex((h) => h.id === archiving.id)
+            setSelId((habits[i + 1] ?? habits[i - 1])?.id ?? null)
+          }
           setArchiving(null)
         }}
       />
@@ -235,16 +281,40 @@ function SelectPill<T extends string>({
   )
 }
 
-// Dos bloques y nada más: el nombre como título y una tira de pills con el resto. Se probaron dos
-// pasos (qué / cuánto), cards verticales con descripción y una grilla de propiedades con labels;
-// las tres sobran — con tres propiedades el label es más largo que el valor que describe.
-function HabitForm({ habit, onClose }: { habit: Habit | null; onClose: () => void }) {
+// Dos bloques y la historia en el medio: el nombre como título y una tira de pills con el resto. Se
+// probaron dos pasos (qué / cuánto), cards verticales con descripción y una grilla de propiedades
+// con labels; las tres sobran — con tres propiedades el label es más largo que el valor.
+function HabitForm({
+  habit,
+  log,
+  onBack,
+  onCancelNew,
+  onCreate,
+  onCreateFailed,
+  onArchive,
+}: {
+  habit: Habit | null
+  log: HabitLogRow[]
+  onBack: () => void
+  onCancelNew: () => void
+  onCreate: () => void
+  onCreateFailed: () => void
+  onArchive: (h: Habit) => void
+}) {
   const save = useSaveHabit()
-  const [name, setName] = useState(habit?.name ?? "")
-  const [icon, setIcon] = useState(habit?.icon ?? null)
-  const [metric, setMetric] = useState<HabitMetric>(habit?.metric ?? "check")
-  const [target, setTarget] = useState(String(habit ? displayTarget(habit) : 1))
-  const [period, setPeriod] = useState<HabitPeriod>(habit?.period ?? "day")
+  const initial = {
+    name: habit?.name ?? "",
+    icon: habit?.icon ?? null,
+    metric: habit?.metric ?? ("check" as HabitMetric),
+    target: String(habit ? displayTarget(habit) : 1),
+    period: habit?.period ?? ("day" as HabitPeriod),
+  }
+  const [draft, setDraft] = useState(initial)
+  const set =
+    <K extends keyof typeof draft>(k: K) =>
+    (v: (typeof draft)[K]) =>
+      setDraft((d) => ({ ...d, [k]: v }))
+  const { name, icon, metric, target, period } = draft
 
   // En `check` la meta es 1 y no se pide: o lo hiciste o no. En el resto, piso 1 — una meta de 0 se
   // cumpliría sola todos los días.
@@ -257,8 +327,18 @@ function HabitForm({ habit, onClose }: { habit: Habit | null; onClose: () => voi
     target: fromDisplay(metric, rawTarget),
   }
 
+  const dirty = habit
+    ? name !== habit.name ||
+      icon !== habit.icon ||
+      metric !== habit.metric ||
+      period !== habit.period ||
+      goal.target !== habit.target
+    : name.trim() !== ""
+
   function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (!dirty) return
+    if (!habit) onCreate()
     save.mutate(
       {
         id: habit?.id,
@@ -267,42 +347,52 @@ function HabitForm({ habit, onClose }: { habit: Habit | null; onClose: () => voi
         // La app sólo sirve para SOSTENER hábitos, no para dejarlos: `Evitar` salió del form. La
         // columna sigue en la DB y `deriveHabit` sigue sabiendo puntuar un `bad` — los hábitos malos
         // que ya existan siguen andando, pero no se crean más desde acá.
-        kind: "good",
+        kind: habit?.kind ?? "good",
         metric,
         // Editar la meta no toca el log: cada fila lleva su target congelado (ADR 0009), así que
         // sólo el período actual se re-puntúa.
         target: goal.target,
         period,
-        // `days` salió del form: no entraba en `met`, ni en la racha, ni en los 14 días (ADR 0009),
-        // así que era un control que no hacía nada y encima contradecía "cada día". Un lun/mié/vie
-        // se modela como `3 por semana`. La columna sigue en la DB; el form la deja en null.
+        // `days` salió del form: no entraba en `met`, ni en la racha, ni en los 14 días (ADR 0009).
+        // Un lun/mié/vie se modela como `3 por semana`. La columna sigue en la DB; el form la deja
+        // en null.
         days: null,
       },
-      { onSuccess: onClose },
+      { onError: onCreateFailed },
     )
   }
 
   return (
-    <form onSubmit={submit}>
-      <div className="px-5 pt-5 pb-4">
+    <form onSubmit={submit} className="flex h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-4 md:px-8 md:pt-7">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="-ml-2 mb-2 md:hidden"
+          onClick={onBack}
+        >
+          <ChevronLeft />
+          Hábitos
+        </Button>
         {/* El nombre es el título, no un campo más: sin borde, sin label. El ícono va pegado a la
             izquierda como el emoji de una página. */}
         <div className="mb-4 flex items-center gap-2">
           <IconPicker
             icon={icon}
-            onChange={setIcon}
+            onChange={set("icon")}
             className="rounded-lg border-0 bg-transparent hover:bg-accent dark:bg-transparent"
           />
           <Input
             id="habit-name"
             aria-label="Nombre"
-            autoFocus
+            autoFocus={!habit}
             required
             autoComplete="off"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => set("name")(e.target.value)}
             placeholder="Nombre del hábito"
-            className="h-auto rounded-none border-0 bg-transparent px-0 text-xl font-semibold placeholder:text-muted-foreground/50 focus-visible:ring-0 dark:bg-transparent"
+            className="h-auto rounded-none border-0 bg-transparent px-0 text-2xl font-semibold placeholder:text-muted-foreground/50 focus-visible:ring-0 dark:bg-transparent"
           />
         </div>
 
@@ -312,7 +402,7 @@ function HabitForm({ habit, onClose }: { habit: Habit | null; onClose: () => voi
             label="Se mide en"
             value={metric}
             options={METRIC}
-            onChange={setMetric}
+            onChange={set("metric")}
           />
 
           {/* En `check` la meta es 1 y no se elige: el pill directamente no existe. Acá el número se
@@ -331,7 +421,7 @@ function HabitForm({ habit, onClose }: { habit: Habit | null; onClose: () => voi
                 min={1}
                 required
                 value={target}
-                onChange={(e) => setTarget(e.target.value)}
+                onChange={(e) => set("target")(e.target.value)}
                 aria-label={metric === "time" ? "Minutos" : "Veces"}
                 className="w-9 bg-transparent text-center tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
@@ -346,22 +436,124 @@ function HabitForm({ habit, onClose }: { habit: Habit | null; onClose: () => voi
             label="Frecuencia"
             value={period}
             options={PERIOD}
-            onChange={setPeriod}
+            onChange={set("period")}
           />
         </div>
 
         {period !== "day" && <p className="mt-3 text-xs text-muted-foreground">{CUPO}</p>}
+
+        {/* La historia es la del hábito GUARDADO: un draft a medio editar no re-dibuja 26 semanas. */}
+        {habit && <HabitGraph habit={habit} log={log} />}
       </div>
 
       <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
-        {/* La meta escrita, en vivo: es la misma línea que va a mostrar el tile. Antes se armaba a
-            ciegas y recién se leía cuando el hábito ya existía. */}
+        {/* La meta escrita, en vivo: es la misma línea que va a mostrar el tile. */}
         <span className="mono-dim mr-auto text-xs">{goalText(goal)}</span>
-        <Button type="button" variant="ghost" onClick={onClose}>
+        {habit && (
+          <Button type="button" variant="ghost" onClick={() => onArchive(habit)}>
+            <Archive />
+            Archivar
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => (habit ? setDraft(initial) : onCancelNew())}
+        >
           Cancelar
         </Button>
-        <Button type="submit">{habit ? "Guardar" : "Crear"}</Button>
+        <Button type="submit" disabled={!dirty}>
+          {habit ? "Guardar" : "Crear"}
+        </Button>
       </div>
     </form>
+  )
+}
+
+const MONTH = new Intl.DateTimeFormat("es", { month: "short" })
+const TIP: Record<HabitPeriod, Intl.DateTimeFormat> = {
+  day: new Intl.DateTimeFormat("es", { weekday: "short", day: "numeric", month: "short" }),
+  week: new Intl.DateTimeFormat("es", { day: "numeric", month: "short" }),
+  month: new Intl.DateTimeFormat("es", { month: "long", year: "numeric" }),
+}
+const NOUN: Record<HabitPeriod, string> = { day: "días", week: "semanas", month: "meses" }
+
+// Historia de hábito a lo GitHub (ADR 0023: monocromo, tinta sobre --track). Columna = semana en
+// diario (7 filas lun→dom), o = período en semana/mes: ahí cada cuadrado es una vez de la meta y se
+// llena de abajo hacia arriba.
+// ponytail: tope de 7 filas — `20 min/semana` aproxima con round(fracción × 7). Si molesta, un solo
+// cuadrado por período con intensidad proporcional, como los diarios.
+function HabitGraph({ habit, log }: { habit: Habit; log: HabitLogRow[] }) {
+  const cells = habitHistory(habit, log)
+  const isDay = habit.period === "day"
+  const rows = isDay ? 7 : Math.min(habit.metric === "check" ? 1 : displayTarget(habit), 7)
+  const cols = isDay ? Math.ceil(cells.length / 7) : cells.length
+  // La fecha que etiqueta cada columna: en diario, su lunes.
+  const colStart = (c: number) => cells[isDay ? c * 7 : c].start
+  const month = (c: number) => colStart(c).getMonth()
+  // Label en la primera columna de cada mes. La columna 0 sólo si su mes sigue 2 columnas más
+  // (si no, pisa al label siguiente); en mensual cada columna es un mes y siempre va.
+  const firstOfMonth = (c: number) =>
+    c > 0 ? month(c) !== month(c - 1) : habit.period === "month" || month(0) === month(2)
+  const label = (c: number) => (firstOfMonth(c) ? MONTH.format(colStart(c)) : "")
+
+  const alive = cells.filter((c) => !c.before)
+  const met = alive.filter((c) => meets(habit.kind, c.amount, c.target)).length
+  const grid = { gridTemplateColumns: `repeat(${cols}, 20px)` }
+
+  const tip = (c: (typeof cells)[number]) =>
+    `${habit.period === "week" ? "Semana del " : ""}${TIP[habit.period].format(c.start)} · ${
+      c.before
+        ? "antes de crearlo"
+        : `${displayAmount(habit, c.amount)}/${displayTarget({ metric: habit.metric, target: c.target })}`
+    }`
+
+  return (
+    <div className="mt-6 flex flex-col gap-1.5 overflow-x-auto">
+      <span className="mono-dim text-xs">últimas {HISTORY_WEEKS} semanas</span>
+      <div className="mono-dim grid gap-1 text-xs" style={grid} aria-hidden>
+        {Array.from({ length: cols }, (_, c) => (
+          <span key={c} className="whitespace-nowrap">
+            {label(c)}
+          </span>
+        ))}
+      </div>
+      <div
+        role="img"
+        aria-label={`Últimas ${HISTORY_WEEKS} semanas de ${habit.name}: ${met} de ${alive.length} ${NOUN[habit.period]} con la meta cumplida`}
+        className="grid grid-flow-col gap-1"
+        style={{ ...grid, gridTemplateRows: `repeat(${rows}, 20px)` }}
+      >
+        {isDay
+          ? cells.map((c, i) => (
+              <span
+                key={i}
+                title={tip(c)}
+                className="rounded-sm"
+                style={{
+                  backgroundColor: c.before
+                    ? "var(--track)"
+                    : cellColor(habit.kind, c, i === cells.length - 1),
+                }}
+              />
+            ))
+          : cells.flatMap((c, i) => {
+              const pct = cellPct(c)
+              const done = c.before
+                ? 0
+                : Math.round(((habit.kind === "bad" ? 100 - pct : pct) / 100) * rows)
+              return Array.from({ length: rows }, (_, r) => (
+                <span
+                  key={`${i}-${r}`}
+                  title={tip(c)}
+                  className="rounded-sm"
+                  style={{
+                    backgroundColor: r >= rows - done ? "var(--foreground)" : "var(--track)",
+                  }}
+                />
+              ))
+            })}
+      </div>
+    </div>
   )
 }
