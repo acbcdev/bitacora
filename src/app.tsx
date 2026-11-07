@@ -11,6 +11,7 @@ import {
   Settings as SettingsIcon,
   StickyNote,
   Sun,
+  Target,
 } from "lucide-react"
 import { CommandPalette, type Action } from "@/core/components/command-palette"
 import { Cheatsheet } from "@/core/components/cheatsheet"
@@ -32,6 +33,7 @@ import { useFocusMode } from "@/core/lib/hooks/use-focus-mode"
 import { NoteSkeleton } from "@/core/components/skeletons"
 import { ErrorBoundary } from "@/core/components/error-boundary"
 import { Review } from "@/review/review"
+import { HabitsDialog } from "@/habits/habits-dialog"
 
 // Code splitting por ruta: tiptap/lowlight (el grueso del bundle) solo baja al abrir un notebook/nota.
 // Review es la home → eager. Named exports → el .then adapta a { default }.
@@ -96,6 +98,7 @@ function Shell({ user }: { user: AuthUser }) {
   const [palette, setPalette] = useState(false)
   const [cheat, setCheat] = useState(false)
   const [settings, setSettings] = useState(false)
+  const [newHabit, setNewHabit] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("bita-sb") === "1")
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"))
 
@@ -159,6 +162,12 @@ function Shell({ user }: { user: AuthUser }) {
         kbd: "N",
         icon: <Plus />,
         run: () => navigate("/?new=1"),
+      },
+      {
+        group: "Acciones",
+        label: "Nuevo hábito",
+        icon: <Target />,
+        run: () => setNewHabit(true),
       },
       ...(notebookId
         ? [
@@ -303,6 +312,7 @@ function Shell({ user }: { user: AuthUser }) {
             />
           </Suspense>
         )}
+        {newHabit && <HabitsDialog startNew onClose={() => setNewHabit(false)} />}
         <Toaster theme={dark ? "dark" : "light"} />
       </SidebarProvider>
     </TooltipProvider>
