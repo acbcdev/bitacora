@@ -1,6 +1,6 @@
 # Web metrics (errores + rendimiento + no regresionar)
 
-**Status:** grilled 2026-10-26 (`/grill-with-docs`). Borrador original 2026-10-08.
+**Status:** grilled 2026-10-26 y re-grilled 2026-11-06 (`/grill-with-docs`). Borrador original 2026-10-08.
 
 ## Origen
 
@@ -32,11 +32,20 @@ Más un **budget de bundle en CI** para no regresionar.
   tracing (duplica CF), `sendDefaultPii: false`. Activo solo si `import.meta.env.PROD` y hay DSN:
   no corre en `pnpm dev` ni en e2e (`localStore`).
 - **Dónde capturar** — criterio: reportar lo que es bug o pérdida de datos, no lo que es red.
+  Los errores de red se descartan globalmente con `ignoreErrors: [/Failed to fetch/, /NetworkError/,
+  /Load failed/]` (Chrome / Firefox / Safari iOS). **Aceptado:** un autosave que falla sin señal no
+  llega a Sentry; el toast sigue avisando.
   - Render: `createRoot(el, { onCaughtError, onUncaughtError })` con `Sentry.reactErrorHandler()`.
     El `ErrorBoundary` atrapa los errores y `window.onerror` nunca los ve; los hooks de React 19
     cubren todos los boundaries desde un lugar.
   - Mutations: `captureException` al lado del `toast` en el `MutationCache` de `main.tsx`.
-  - Queries: no (casi siempre red; react-query reintenta).
+  - Queries: **solo errores de `select`**. Las pantallas leen con `useSnapshot(select)` y el
+    `select` es `derive.*`: un throw ahí TanStack lo atrapa (observer en error, fetch en success),
+    no llega al boundary ni a `QueryCache.onError` → bug invisible, pantalla vacía. Fix en
+    `useSnapshot`: `throwOnError: (_, q) => q.state.status === "success"` → sube al boundary y lo
+    reporta `reactErrorHandler`. Errores de fetch siguen sin reportarse (red; react-query reintenta).
+  - Integrations default (breadcrumbs, `GlobalHandlers`) quedan prendidas, sin `beforeBreadcrumb`:
+    mandan URLs con UUIDs y selectores CSS, no contenido de notas.
 - **Source maps:** `@sentry/vite-plugin` en el build de Cloudflare Pages (no hay deploy en GitHub
   Actions). Sube solo si existe `SENTRY_AUTH_TOKEN`; sin token no hace nada. El repo es público:
   no hace falta borrar los `.map`.
