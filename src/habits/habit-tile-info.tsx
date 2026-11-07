@@ -105,8 +105,8 @@ export function HabitTileInfo({
   tone: Tone
 }) {
   return (
-    <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-      <span className="block truncate text-[14px] font-medium leading-none">{h.name}</span>
+    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="block truncate text-[14px] font-medium leading-normal">{h.name}</span>
       <span
         className={cn(
           "flex h-3.5 items-center font-mono text-xs leading-none tabular-nums",
