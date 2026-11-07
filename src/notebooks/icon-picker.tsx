@@ -433,7 +433,7 @@ export function IconPicker({
               variant="ghost"
               disabled={uploading}
               className={cn(
-                "w-full gap-2 border border-dashed text-base transition-colors md:h-32 max-md:flex-1",
+                "w-full gap-2 rounded-xl border border-dashed text-base transition-colors md:h-32 max-md:flex-1",
                 dragging
                   ? "border-ring bg-muted text-foreground"
                   : "border-border bg-muted/40 text-muted-foreground",
