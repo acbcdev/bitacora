@@ -1,30 +1,24 @@
-import { ChevronRight } from "lucide-react"
 import { NotebookEmpty } from "@/notebooks/notebook-empty"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { NotebookRowActions } from "@/notebooks/notebook-row-actions"
-import { STATUS } from "@/notebooks/notebook-status"
-import { Badge } from "@/core/ui/badge"
+import { STATUS, STATUS_DOT } from "@/notebooks/notebook-status"
 import { Card } from "@/core/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/core/ui/table"
-import { dayOf } from "@/core/lib/day"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
+import { relativeDay } from "@/core/lib/day"
 import type { NotebookRow } from "@/core/types/database"
 
-// La vacía es la columna de acciones; el chevron va pegado al nombre en la misma celda.
+// Una línea por notebook, alto fijo (nombres largos truncan, no crecen). Fuera: Rondas (es el MÍNIMO
+// entre notas → casi siempre 0), Inicio (el orden ya lo cubre) y Estado como columna: el dot va
+// tras el nombre y sólo para activo/pausado — hecho es el estado por defecto y no se marca.
+// table-fixed + anchos en los headers: la columna del nombre se queda con el resto.
 const HEADERS = [
-  "Notebook",
-  "Fuente",
-  "Área",
-  "Estado",
-  "Rondas",
-  "Notas",
-  "Inicio",
-  "Últ. repaso",
-  "",
+  { label: "Notebook", cls: "" },
+  { label: "Área", cls: "w-56" },
+  { label: "Notas", cls: "w-18 text-right" },
+  { label: "Repaso", cls: "w-30 text-right" },
+  { label: "", cls: "w-14" },
 ]
-
-function fmt(d: string | null | undefined) {
-  return d ? d.slice(0, 10) : "—"
-}
 
 export function NotebookTable({
   rows,
@@ -42,18 +36,16 @@ export function NotebookTable({
   onDelete: (id: string) => void
 }) {
   return (
-    <Card className="p-0">
-      <Table>
+    <Card className="py-2">
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            {HEADERS.map((h, i) => (
+            {HEADERS.map((h) => (
               <TableHead
-                key={h}
-                className={`eyebrow px-3 py-3 ${i >= 5 ? "text-right" : ""} ${
-                  i === 0 ? "sticky left-0 z-10 bg-card" : ""
-                }`}
+                key={h.label}
+                className={`px-6 py-3.5 text-xs font-normal text-muted-foreground first:pr-3 ${h.cls}`}
               >
-                {h}
+                {h.label}
               </TableHead>
             ))}
           </TableRow>
@@ -63,41 +55,57 @@ export function NotebookTable({
             <TableRow
               key={c.id}
               data-active={i === selected}
-              className="group cursor-pointer data-[active=true]:outline-3 data-[active=true]:-outline-offset-3 data-[active=true]:outline-ring/50"
+              className="group h-14 cursor-pointer border-0 hover:bg-muted/60 data-[active=true]:bg-muted/60"
               onClick={() => onOpen(c)}
             >
-              <TableCell className="sticky left-0 z-10 max-w-80 bg-card px-3 py-3 font-medium whitespace-normal group-hover:bg-muted/50">
-                <span className="flex items-start gap-2">
-                  <ChevronRight size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
-                  <NotebookIcon icon={c.icon} className="mt-0.5 shrink-0 text-muted-foreground" />
-                  {c.name}
+              <TableCell className="px-6">
+                <span className="flex min-w-0 items-center gap-3">
+                  <NotebookIcon icon={c.icon} className="text-muted-foreground" />
+                  <span className="truncate font-medium" title={c.name}>
+                    {c.name}
+                  </span>
+                  {c.status !== "done" && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          className={`size-1.5 shrink-0 rounded-full ${STATUS_DOT[c.status]}`}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent className="capitalize">
+                        {STATUS[c.status].label}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {c.source && <span className="mono-dim shrink-0">{c.source}</span>}
                 </span>
               </TableCell>
+              <TableCell className="px-6">
+                {c.area ? (
+                  <span
+                    className="inline-block max-w-full truncate rounded-md bg-foreground/[0.07] px-2.5 py-1 align-middle text-xs text-fg-secondary"
+                    title={c.area}
+                  >
+                    {c.area}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground/50">—</span>
+                )}
+              </TableCell>
+              <TableCell className="mono px-6 text-right">{c.notes}</TableCell>
               <TableCell
-                className="max-w-30 truncate px-3 py-3 text-muted-foreground"
-                title={c.source ?? undefined}
+                className={`px-6 text-right text-xs ${c.last_read ? "text-fg-secondary" : "text-muted-foreground/50"}`}
               >
-                {c.source || "—"}
+                {c.last_read ? relativeDay(c.last_read) : "nunca"}
               </TableCell>
-              <TableCell
-                className="max-w-30 truncate px-3 py-3 text-muted-foreground"
-                title={c.area ?? undefined}
-              >
-                {c.area || "—"}
-              </TableCell>
-              <TableCell className="px-3 py-3">
-                <Badge className={STATUS[c.status].cls}>{STATUS[c.status].label}</Badge>
-              </TableCell>
-              <TableCell className="mono px-3 py-3">{c.rounds}</TableCell>
-              <TableCell className="mono px-3 py-3 text-right">{c.notes}</TableCell>
-              <TableCell className="mono-dim px-3 py-3 text-right">{fmt(c.started_at)}</TableCell>
-              <TableCell className="mono-dim px-3 py-3 text-right">{dayOf(c.last_read)}</TableCell>
-              <TableCell className="px-3 py-3 text-right">
-                <NotebookRowActions
-                  notebook={c}
-                  onEdit={() => onEdit(c)}
-                  onDelete={() => onDelete(c.id)}
-                />
+              <TableCell className="px-3 text-right">
+                {/* Visible en hover, cursor de teclado o foco (Tab llega al botón aunque esté oculto). */}
+                <span className="opacity-0 group-hover:opacity-100 group-data-[active=true]:opacity-100 focus-within:opacity-100">
+                  <NotebookRowActions
+                    notebook={c}
+                    onEdit={() => onEdit(c)}
+                    onDelete={() => onDelete(c.id)}
+                  />
+                </span>
               </TableCell>
             </TableRow>
           ))}
