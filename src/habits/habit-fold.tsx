@@ -45,15 +45,14 @@ export function HabitFold<T extends { h: Habit }>({
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
-            className="mt-2 flex h-11 w-full items-center gap-2.5 rounded-xl px-3 text-left text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+            className="group mt-2 flex h-11 w-full items-center gap-2.5 rounded-xl px-3 text-left text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
           >
             {!open && (
-              // ring = fondo de página: separa los íconos superpuestos sin halo.
               <span className="flex shrink-0 -space-x-1.5">
                 {rest.slice(0, 4).map(({ h }) => (
                   <span
                     key={h.id}
-                    className="flex size-6 items-center justify-center rounded-full bg-muted text-fg-secondary ring-2 ring-background"
+                    className="flex size-6 items-center justify-center rounded-full bg-muted text-fg-secondary ring-2 ring-background transition-colors group-hover:ring-card"
                   >
                     <NotebookIcon icon={h.icon} fallback={Target} className="size-3" />
                   </span>
