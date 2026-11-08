@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { Trash2 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { docToPlainText } from "@/core/lib/tiptap-markdown"
@@ -12,6 +13,7 @@ type Props = {
   notebook?: Notebook
   openNote?: Note
   position: string
+  stats?: ReactNode // racha + meta de lectura (ReadChip), al lado de la posición
   revealed: boolean
   marked: boolean
   onReveal: () => void
@@ -28,6 +30,7 @@ export function FlashcardCard({
   notebook,
   openNote,
   position,
+  stats,
   revealed,
   marked,
   onReveal,
@@ -44,7 +47,10 @@ export function FlashcardCard({
     <>
       <div className="mb-6 flex min-h-[2lh] items-start justify-between gap-3">
         <p className="eyebrow">{notebook?.name ?? "Sin notebook"}</p>
-        <span className="mono-dim shrink-0 whitespace-nowrap">{position}</span>
+        <span className="flex shrink-0 items-center gap-4 whitespace-nowrap">
+          {stats}
+          {position && <span className="mono-dim">{position}</span>}
+        </span>
       </div>
 
       <div key={item.id} className="note-in">

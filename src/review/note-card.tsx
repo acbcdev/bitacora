@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { ArrowLeft } from "lucide-react"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { Button } from "@/core/ui/button"
@@ -12,6 +13,7 @@ type Props = {
   note?: Note // la nota completa: título y extracto llegan juntos (ADR 0025)
   notebook?: Notebook
   position: string
+  stats?: ReactNode // racha + meta de lectura (ReadChip), al lado de la posición
   onOpen: () => void
   onOpenExpanded: () => void
   onPrev: () => void
@@ -23,6 +25,7 @@ export function NoteCard({
   note,
   notebook,
   position,
+  stats,
   onOpen,
   onOpenExpanded,
   onPrev,
@@ -42,7 +45,10 @@ export function NoteCard({
           <NotebookIcon icon={notebook?.icon ?? null} />
           {notebook?.name ?? "Sin notebook"}
         </p>
-        <span className="mono-dim shrink-0 whitespace-nowrap">{position}</span>
+        <span className="flex shrink-0 items-center gap-4 whitespace-nowrap">
+          {stats}
+          {position && <span className="mono-dim">{position}</span>}
+        </span>
       </div>
       <div key={note?.id} className="note-in mb-5">
         {/* 44px: 550 en light, 450 en dark — claro sobre oscuro engorda (irradiación). */}

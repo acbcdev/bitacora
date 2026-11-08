@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { ReviewCardSkeleton, ReviewSkeleton } from "@/core/components/skeletons"
 import { Card } from "@/core/ui/card"
-import { Progress } from "@/core/ui/progress"
 import { useNotebooks } from "@/notebooks/notebooks.api"
 import { useDeleteNote, useNote } from "@/notes/notes.api"
 import { useReviewQueue } from "@/review/review.api"
@@ -17,7 +16,7 @@ import { forceLoading } from "@/core/lib/sample"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
 import { Notebooks } from "@/notebooks/notebooks"
 import { ReviewEmpty } from "@/review/review-empty"
-import { ReviewStats } from "@/review/review-stats"
+import { ReadChip, ReviewStats } from "@/review/review-stats"
 import { ReadGoalForm } from "@/review/read-goal-form"
 import { HabitTiles } from "@/habits/habit-tiles"
 
@@ -71,6 +70,7 @@ export function Review() {
   const readToday = stats?.today ?? 0
   const streak = goal?.streak ?? 0
   const reads = session.reads
+  const readChip = goal && <ReadChip streak={streak} readToday={readToday} goal={goal.target} />
   const revealed = session.revealed
   // Dos hotkeys "enter" prendidos a la vez disparan los dos: los hotkeys de la pantalla se apagan
   // juntos cuando hay dialog/confirm de borrado abierto (ver comentario en cada uso).
@@ -174,16 +174,11 @@ export function Review() {
 
   return (
     <div className="fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8">
-      <ReviewStats streak={streak} readToday={readToday} goal={goal?.target} days={days} />
+      <ReviewStats days={days} />
 
-      {/* Sin meta todavía (usuario nuevo): se pide acá, donde se usa. Después vive en Ajustes. */}
-      {goal ? (
-        <Progress
-          value={Math.min(100, (readToday / goal.target) * 100)}
-          className="mb-8 h-0.5"
-          aria-label={`Meta diaria de lectura: ${readToday} de ${goal.target} notas`}
-        />
-      ) : (
+      {/* Sin meta todavía (usuario nuevo): se pide acá, donde se usa. Después vive en Ajustes.
+          Con meta, el progreso vive en el ReadChip de la card. */}
+      {!goal && (
         <Card className="mb-8 flex-row items-center justify-between gap-4 px-5 py-4">
           <p className="text-sm">¿Cuántas notas querés leer por día?</p>
           <ReadGoalForm />
@@ -211,6 +206,7 @@ export function Review() {
                 note={cardNote}
                 notebook={notebook}
                 position={noteCard!.position}
+                stats={readChip}
                 onOpen={() => setDialogOpen(true)}
                 onOpenExpanded={openExpanded}
                 onPrev={prev}
@@ -223,6 +219,7 @@ export function Review() {
                 notebook={notebook}
                 openNote={openNote}
                 position={session.position}
+                stats={readChip}
                 revealed={revealed}
                 marked={marked}
                 onReveal={() => session.reveal()}
