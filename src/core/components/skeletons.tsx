@@ -55,20 +55,22 @@ export function NotebookCardsSkeleton() {
   )
 }
 
-// Tira de hábitos: tantos tiles como tenía la última vez (ver sample.ts).
+// Tira de hábitos: tantos tiles como tenía la última vez (ver sample.ts), plegada a 6 como HabitFold.
 export function HabitsSkeleton() {
   const count = readSample().habits
+  const rest = Math.max(count - 6, 0)
   return (
     <div className="mb-8">
-      {/* Cabecera: "Hábitos" · N/M cumplidos · ver todos · + Nuevo */}
+      {/* Cabecera: "Hábitos" · N/M cumplidos · ver todos · ViewPill · + Nuevo */}
       <div className="mb-3 flex h-8 items-center gap-3">
         <Skeleton className="h-5 w-[91px]" />
         <Skeleton className="h-3 w-24" />
         <Skeleton className="ml-auto h-3 w-[49px]" />
-        <Skeleton className="h-8 w-[82px]" />
+        <Skeleton className="h-8 w-[74px] rounded-full" />
+        <Skeleton className="h-8 w-[82px] rounded-full max-md:w-8" />
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-3">
-        {Array.from({ length: count }, (_, i) => (
+        {Array.from({ length: Math.min(count, 6) }, (_, i) => (
           // Mismo bloque que HabitTile vacío: hatch + card de 140px, así la tira no salta al cargar.
           <div
             key={i}
@@ -98,6 +100,19 @@ export function HabitsSkeleton() {
           </div>
         ))}
       </div>
+      {/* Fila fantasma de HabitFold: íconos superpuestos · "N más" · nombres · chevron */}
+      {rest > 0 && (
+        <div className="mt-2 flex h-11 items-center gap-2.5 px-3">
+          <span className="flex -space-x-1.5">
+            {Array.from({ length: Math.min(rest, 4) }, (_, i) => (
+              <Skeleton key={i} className="size-6 rounded-full ring-2 ring-background" />
+            ))}
+          </span>
+          <Skeleton className="h-3.5 w-12" />
+          <Skeleton className="h-3 w-40" />
+          <Skeleton className="ml-auto size-4" />
+        </div>
+      )}
     </div>
   )
 }
@@ -143,13 +158,16 @@ export function SidebarGroupSkeleton({
 export function ReviewCardSkeleton() {
   return (
     <div className="w-full px-5 sm:px-10">
-      {/* Eyebrow: ícono + nombre del notebook · posición en la cola (min-h 2lh) */}
+      {/* Eyebrow: ícono + nombre del notebook · ReadChip (h-7) + posición en la cola (min-h 2lh) */}
       <div className="mb-2 flex h-[28.6px] items-start justify-between gap-3">
         <span className="flex h-[14.3px] items-center gap-1.5">
           <Skeleton className="size-3.5 rounded-xs" />
           <Skeleton className="h-2.5 w-28" />
         </span>
-        <Skeleton className="h-3 w-9" />
+        <span className="flex items-center gap-4">
+          <Skeleton className="h-7 w-[136px] rounded-full" />
+          <Skeleton className="h-3 w-9" />
+        </span>
       </div>
       <div className="mb-5">
         {/* Título 44px × 2 líneas (lh 1.1 = 48.4px), mb-2.5 */}
@@ -187,28 +205,16 @@ export function ReviewCardSkeleton() {
 export function ReviewSkeleton() {
   return (
     <>
-      {/* ReviewStats: fecha (eyebrow) · racha · barras de cumplimiento 14d · leídas hoy.
-          La fila mide h-7 por las DailyBars. */}
-      <div className="mb-4 flex h-7 items-center justify-between">
-        <Skeleton className="h-2.5 w-[150px]" />
-        <div className="flex items-center gap-6">
-          <span className="flex items-center gap-1.5">
-            <Skeleton className="size-3.5 rounded-full" />
-            <Skeleton className="h-3.5 w-12" />
-          </span>
-          <span className="flex items-end gap-2">
-            <span className="flex h-7 items-end gap-[3px]">
-              {Array.from({ length: HISTORY_DAYS }, (_, i) => (
-                <Skeleton key={i} className="h-full w-1 rounded-xs" />
-              ))}
-            </span>
-            <Skeleton className="h-[11px] w-11" />
-          </span>
-          <Skeleton className="h-3.5 w-[101px]" />
-        </div>
+      {/* ReviewStats: h2 "Repaso" · barras de cumplimiento 14d (h-7), alineadas al padding de la
+          card. Racha y meta viven ahora en el ReadChip de la card. */}
+      <div className="mb-4 flex h-7 items-center justify-between pe-5 sm:pe-10">
+        <Skeleton className="h-5 w-[86px]" />
+        <span className="flex h-7 items-end gap-[3px]">
+          {Array.from({ length: HISTORY_DAYS }, (_, i) => (
+            <Skeleton key={i} className="h-full w-1 rounded-xs" />
+          ))}
+        </span>
       </div>
-      {/* Progress de la meta diaria */}
-      <Skeleton className="mb-8 h-0.5 w-full" />
 
       {/* Hero card (NoteCard): mismo radio, padding y sombra que la real */}
       <Card className="mb-8 rounded-2xl bg-hero py-5 shadow-hero">
@@ -217,17 +223,17 @@ export function ReviewSkeleton() {
 
       <HabitsSkeleton />
 
-      {/* Notebooks embebido: título + contador, toolbar (buscar · estado · orden · vista · nuevo) */}
-      <div className="mb-6 flex h-[31.2px] items-center gap-3">
+      {/* Notebooks embebido: título + contador, toolbar de chips (buscar · estado · orden · ViewPill · nuevo) */}
+      <div className="mb-4 flex h-[31.2px] items-center gap-3">
         <Skeleton className="h-5 w-[129px]" />
         <Skeleton className="h-3 w-[86px]" />
       </div>
       <div className="mb-5 flex items-center gap-2">
-        <Skeleton className="h-8 w-[220px]" />
-        <Skeleton className="h-8 w-[147px]" />
-        <Skeleton className="h-8 w-[125px]" />
-        <Skeleton className="ml-auto h-8 w-[67px]" />
-        <Skeleton className="h-8 w-[141px]" />
+        <Skeleton className="h-8 flex-1 rounded-full sm:w-60 sm:flex-none" />
+        <Skeleton className="h-8 w-[120px] rounded-full max-md:w-16" />
+        <Skeleton className="h-8 w-[140px] rounded-full max-md:w-20" />
+        <Skeleton className="ml-auto h-8 w-[74px] rounded-full max-md:hidden" />
+        <Skeleton className="h-8 w-[141px] rounded-full max-md:w-8" />
       </div>
       <NotebookCardsSkeleton />
     </>
