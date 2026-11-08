@@ -84,7 +84,7 @@ export function Notebooks({ embed, hotkeys = !embed }: { embed?: boolean; hotkey
 
   return (
     <div className={embed ? "fade-in" : "fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8"}>
-      <div className="mb-6 flex items-baseline gap-3">
+      <div className="mb-4 flex items-baseline gap-3">
         <h1
           className={
             embed ? "text-xl font-semibold tracking-tight" : "text-2xl font-semibold tracking-tight"
