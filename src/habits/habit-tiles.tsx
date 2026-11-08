@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Pause, Plus, Target } from "lucide-react"
+import { LayoutGrid, List, Pause, Plus, Target } from "lucide-react"
 import { Button } from "@/core/ui/button"
+import { ViewPill } from "@/core/components/view-pill"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/core/ui/empty"
 import { HabitTileActions } from "@/habits/habit-tile-actions"
 import {
@@ -22,6 +23,8 @@ import { HabitsDialog } from "@/habits/habits-dialog"
 import { formatClock } from "@/habits/habit-timer"
 import { useHabitTimer } from "@/habits/use-habit-timer"
 import { HabitZoom } from "@/habits/habit-zoom"
+import { HabitFold } from "@/habits/habit-fold"
+import { HabitListRow } from "@/habits/habit-list"
 import type { Habit } from "@/core/types/database"
 
 // La tira de hábitos de la pantalla Hoy. Sin pantalla nueva (ui-principles): vive entre el card de
@@ -34,6 +37,8 @@ export function HabitTiles() {
   const { data: log = [], isSuccess: logReady } = useHabitLog()
   const setDay = useSetDay()
   const [open, setOpen] = useState<"list" | "new" | null>(null)
+  // Sin persistir, igual que el toggle de Notebooks.
+  const [view, setView] = useState<"tarjetas" | "lista">("tarjetas")
 
   const entries = useMemo(
     () => habits.map((h): Entry => ({ h, state: deriveHabit(h, log) })),
@@ -69,6 +74,18 @@ export function HabitTiles() {
   if (!logReady || forceLoading()) return <HabitsSkeleton />
 
   const met = entries.filter((e) => e.state.met).length
+  // Pendientes primero en las dos vistas: lo que falta queda en las 2 filas visibles del plegado.
+  // toSorted es estable → dentro de cada grupo sigue created_at. Los atajos h>N NO siguen este
+  // orden (van por created_at, abajo): el dígito de un hábito no cambia cuando lo cumplís.
+  const sorted = entries.toSorted((a, b) => Number(a.state.met) - Number(b.state.met))
+  const props = (e: Entry) => ({
+    e,
+    total: runningId === e.h.id ? shown : e.state.total,
+    running: runningId === e.h.id,
+    clock: runningId === e.h.id ? clock : null,
+    pending: setDay.isPending,
+    onQuick: () => quick(e),
+  })
 
   return (
     <div className="mb-8">
@@ -96,6 +113,13 @@ export function HabitTiles() {
             ver todos
           </button>
         )}
+        {entries.length > 0 && (
+          <ViewPill
+            value={view}
+            onChange={setView}
+            options={{ tarjetas: <LayoutGrid />, lista: <List /> }}
+          />
+        )}
         <Button
           variant="outline"
           onClick={() => setOpen("new")}
@@ -107,33 +131,31 @@ export function HabitTiles() {
         </Button>
       </div>
 
-      {/* Grid para no perder espacio: auto-fill 310px, 3 por fila en desktop, 1–2 en mobile.
-          Dots 7d siempre visibles (variant D ganador). Sin max-height fijo: ver todos sigue
-          existiendo para >6 hábitos. */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-3">
-        {entries.map((e) => (
-          <HabitTile
-            key={e.h.id}
-            e={e}
-            total={runningId === e.h.id ? shown : e.state.total}
-            running={runningId === e.h.id}
-            clock={runningId === e.h.id ? clock : null}
-            pending={setDay.isPending}
-            onQuick={() => quick(e)}
-          />
-        ))}
-        {entries.length === 0 && (
-          <Empty className="hatch col-span-full rounded-xl bg-card py-10 shadow-card">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Target />
-              </EmptyMedia>
-              <EmptyTitle>Sin hábitos.</EmptyTitle>
-              <EmptyDescription>Creá uno con Nuevo.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
-      </div>
+      {/* Tarjetas: grid auto-fill 310px (3 por fila en desktop), plegado a 2 filas. Lista: el tile
+          comprimido a una fila, 2 columnas — 8 hábitos entran sin plegar. */}
+      {entries.length === 0 ? (
+        <Empty className="hatch rounded-xl bg-card py-10 shadow-card">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Target />
+            </EmptyMedia>
+            <EmptyTitle>Sin hábitos.</EmptyTitle>
+            <EmptyDescription>Creá uno con Nuevo.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : view === "lista" ? (
+        <div className="grid gap-2 md:grid-cols-2">
+          {sorted.map((e) => (
+            <HabitListRow key={e.h.id} {...props(e)} />
+          ))}
+        </div>
+      ) : (
+        <HabitFold
+          items={sorted}
+          grid="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-3"
+          render={(e) => <HabitTile key={e.h.id} {...props(e)} />}
+        />
+      )}
 
       {/* El dígito no se dibuja: mismo trato que g>1..9, que monta hotkeys invisibles y vive en el
           cheatsheet. La numeración es el orden de la tira (created_at), que nada reordena. */}
