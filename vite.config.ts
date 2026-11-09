@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { VitePWA } from "vite-plugin-pwa"
+import { sentryVitePlugin } from "@sentry/vite-plugin"
 
 export default defineConfig({
   plugins: [
@@ -23,7 +24,12 @@ export default defineConfig({
         ],
       },
     }),
+    // Lee SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN del env (Cloudflare Pages) o de
+    // `.env.sentry-build-plugin` (local, gitignored). Sin token no sube nada.
+    // El repo es público: los .map se quedan en dist.
+    sentryVitePlugin({ telemetry: false }),
   ],
+  build: { sourcemap: true },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },

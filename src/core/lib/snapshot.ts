@@ -22,7 +22,14 @@ import type { NoteRef, Snapshot } from "@/core/store/types"
 export const SNAPSHOT_KEY = ["snapshot"]
 
 export function useSnapshot<T>(select: (snap: Snapshot) => T) {
-  return useQuery({ queryKey: SNAPSHOT_KEY, queryFn: () => store.snapshot(), select })
+  return useQuery({
+    queryKey: SNAPSHOT_KEY,
+    queryFn: () => store.snapshot(),
+    select,
+    // Fetch en success + observer en error = el que tiró fue `select` (derive.*): bug, no red.
+    // Sube al boundary y lo reporta reactErrorHandler. Los errores de fetch no suben.
+    throwOnError: (_, q) => q.state.status === "success",
+  })
 }
 
 // Toda mutation pasa por acá. ADR 0008 dice "sembrar, no invalidar": el lugar para cumplirlo es

@@ -3,20 +3,28 @@ import { createRoot } from "react-dom/client"
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { BrowserRouter } from "react-router-dom"
 import { LucideProvider } from "lucide-react"
-import { toast } from "sonner"
+import * as Sentry from "@sentry/react"
 import { App } from "@/app"
 import { ErrorBoundary } from "@/core/components/error-boundary"
+import { initSentry, onMutationError } from "@/core/lib/report"
 import "@/index.css"
+
+initSentry()
 
 // Toda mutation que falla avisa, con el mensaje real de Supabase. Va acá y no hook por hook:
 // son seis mutations y ninguna necesita un mensaje propio.
 const queryClient = new QueryClient({
   mutationCache: new MutationCache({
-    onError: (e) => toast.error(e.message),
+    onError: onMutationError,
   }),
 })
 
-createRoot(document.getElementById("root")!).render(
+// Hooks de React 19: cubren todos los boundaries desde un lugar (el ErrorBoundary atrapa y
+// window.onerror nunca lo ve). Sin init, Sentry es no-op.
+createRoot(document.getElementById("root")!, {
+  onCaughtError: Sentry.reactErrorHandler(),
+  onUncaughtError: Sentry.reactErrorHandler(),
+}).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

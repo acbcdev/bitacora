@@ -1,6 +1,6 @@
 # Web metrics (errores + rendimiento + no regresionar)
 
-**Status:** grilled 2026-10-26 y re-grilled 2026-11-06 (`/grill-with-docs`). Borrador original 2026-10-08.
+**Status:** grilled 2026-10-26 y re-grilled 2026-11-06 y 2026-11-08 (`/grill-with-docs`). Borrador original 2026-10-08.
 
 ## Origen
 
@@ -49,7 +49,13 @@ Más un **budget de bundle en CI** para no regresionar.
 - **Source maps:** `@sentry/vite-plugin` en el build de Cloudflare Pages (no hay deploy en GitHub
   Actions). Sube solo si existe `SENTRY_AUTH_TOKEN`; sin token no hace nada. El repo es público:
   no hace falta borrar los `.map`.
-- **Budget:** chunks `index-*` y `note-body-*`, límite = medido **después** de Sentry + ~15%.
+- **Budget:** dos números. **Carga inicial** = suma gz de entry + `modulepreload` parseados de
+  `dist/index.html` (no glob por prefijo: rolldown mueve peso a chunks compartidos, ej. `store-*`,
+  `textarea-*`). Más `note-body-*` (lazy, tiptap) aparte. Límite = medido **después** de Sentry +
+  ~15%. Re-grill 2026-11-08: la carga inicial ya es ~332 KB gz, no 175 (`index` 121 + `store` 71 +
+  `textarea` 107 + `snapshot` 32); el budget congela eso, no lo arregla (ver 06).
+- **DSN solo en Cloudflare Pages**, nunca en `.env` local: si no, `pnpm build && pnpm preview`
+  manda ruido desde la máquina de desarrollo.
 - **Aceptado:** ad-blockers bloquean el envío a sentry.io. Un tunnel requiere endpoint propio
   (contra "sin servidores propios"). Se pierde.
 
@@ -60,6 +66,7 @@ Más un **budget de bundle en CI** para no regresionar.
 3. `03-bundle-budget-ci` — ready-for-agent, blocked by 01
 4. `04-persistir-metricas` — wontfix
 5. `05-cloudflare-web-analytics` — ready-for-human (toggle manual)
+6. `06-chunk-textarea` — needs-triage (107 KB gz precargado; no bloquea 01/03)
 
 ## No hacer
 

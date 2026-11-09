@@ -3,6 +3,7 @@ import { store } from "@/core/store"
 import { SNAPSHOT_KEY, useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
 import type { Snapshot } from "@/core/store/types"
 import type { Note } from "@/core/types/database"
+import { ErrorBoundary } from "@/core/components/error-boundary"
 import { note, notebook, renderApp } from "@/test/harness"
 
 let mutate!: () => void
@@ -91,4 +92,36 @@ test("la fila que el server devolvió se siembra en ['note', id] y en el snapsho
   expect(newRef.notebook_id).toBe("c1")
   // La query dependiente queda sembrada con la fila completa.
   expect(qc.getQueryData<Note>(["note", newRef.id])).toMatchObject({ id: newRef.id })
+})
+
+function SelectProbe({ boom }: { boom: "select" | "fetch" }) {
+  useSnapshot((s) => {
+    if (boom === "select") throw new Error("derive roto")
+    return s.notes
+  })
+  return <p>ok</p>
+}
+
+test("un select que tira sube al ErrorBoundary; un queryFn que falla no", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {})
+  const a = renderApp(
+    <ErrorBoundary>
+      <SelectProbe boom="select" />
+    </ErrorBoundary>,
+    seed,
+  )
+  expect(await a.findByRole("alert")).toBeTruthy()
+  a.unmount()
+
+  vi.spyOn(store, "snapshot").mockRejectedValue(new Error("Failed to fetch"))
+  const b = renderApp(
+    <ErrorBoundary>
+      <SelectProbe boom="fetch" />
+    </ErrorBoundary>,
+    seed,
+  )
+  await waitFor(() => expect(store.snapshot).toHaveBeenCalled())
+  await waitFor(() => expect(b.qc.getQueryState(SNAPSHOT_KEY)?.status).toBe("error"))
+  expect(b.queryByRole("alert")).toBeNull()
+  vi.restoreAllMocks()
 })

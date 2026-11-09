@@ -14,20 +14,27 @@ Status: ready-for-agent
 - `useSnapshot` (`src/core/lib/snapshot.ts`): `throwOnError: (_, q) => q.state.status === "success"`
   — solo errores de `select` (`derive.*`) suben al boundary; los de fetch no.
 - `vite.config.ts`: `build.sourcemap: true` + `sentryVitePlugin` (no-op sin `SENTRY_AUTH_TOKEN`).
-- `VITE_SENTRY_DSN` en `.env.example`.
+- `VITE_SENTRY_DSN` en `.env.example` **comentado**, con nota: vive solo en Cloudflare Pages, no en
+  `.env` local (si no, `pnpm build && pnpm preview` reporta desde la máquina de dev).
 
-## Aceptación
+## Aceptación (agente)
 
-- `pnpm build` sin token pasa igual que hoy.
-- `pnpm dev` y e2e no inicializan Sentry.
-- Un throw en render dentro del `ErrorBoundary` llega a Sentry con stack de fuente (no minificado).
-- Una mutation fallida (no de red) llega a Sentry y sigue mostrando el toast.
-- Un error de red (`Failed to fetch`) en una mutation muestra el toast y **no** llega a Sentry.
+- `pnpm build` sin token pasa igual que hoy y deja `dist/assets/*.map`.
+- `Sentry.init` no corre sin `PROD` + DSN (`pnpm dev`, e2e, tests).
 - Test unitario: un `select` que tira renderiza el fallback del `ErrorBoundary`; un `queryFn` que
   falla no lo hace.
-- Anotar en `03` el tamaño gz de `index-*` y `note-body-*` con Sentry dentro.
+- Test unitario (Sentry mockeado): `MutationCache.onError` llama `captureException` y sigue
+  mostrando el toast.
+- Anotar en `03` los dos números con Sentry dentro: **carga inicial** (entry + `modulepreload` de
+  `dist/index.html`, gz) y `note-body-*` gz.
 
 ## Manual (humano)
 
 Crear proyecto en Sentry; cargar `VITE_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`,
 `SENTRY_PROJECT` en las env vars de Cloudflare Pages.
+
+Verificar post-deploy (necesita DSN real, el agente no puede):
+
+- Un throw en render dentro del `ErrorBoundary` llega a Sentry con stack de fuente (no minificado).
+- Una mutation fallida (no de red) llega a Sentry y sigue mostrando el toast.
+- Un error de red (`Failed to fetch`) en una mutation muestra el toast y **no** llega a Sentry.
