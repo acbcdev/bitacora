@@ -11,8 +11,8 @@ import "@/index.css"
 
 initSentry()
 
-// Toda mutation que falla avisa, con el mensaje real de Supabase. Va acá y no hook por hook:
-// son seis mutations y ninguna necesita un mensaje propio.
+// El onError de mutations va acá y no hook por hook: son seis mutations y ninguna necesita
+// un mensaje propio.
 const queryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: onMutationError,

@@ -94,34 +94,36 @@ test("la fila que el server devolvió se siembra en ['note', id] y en el snapsho
   expect(qc.getQueryData<Note>(["note", newRef.id])).toMatchObject({ id: newRef.id })
 })
 
-function SelectProbe({ boom }: { boom: "select" | "fetch" }) {
+function SelectProbe({ throwInSelect }: { throwInSelect: boolean }) {
   useSnapshot((s) => {
-    if (boom === "select") throw new Error("derive roto")
+    if (throwInSelect) throw new Error("derive roto")
     return s.notes
   })
   return <p>ok</p>
 }
 
-test("un select que tira sube al ErrorBoundary; un queryFn que falla no", async () => {
+afterEach(() => vi.restoreAllMocks())
+
+test("un select que tira sube al ErrorBoundary", async () => {
   vi.spyOn(console, "error").mockImplementation(() => {})
-  const a = renderApp(
+  const { findByRole } = renderApp(
     <ErrorBoundary>
-      <SelectProbe boom="select" />
+      <SelectProbe throwInSelect />
     </ErrorBoundary>,
     seed,
   )
-  expect(await a.findByRole("alert")).toBeTruthy()
-  a.unmount()
+  expect(await findByRole("alert")).toBeTruthy()
+})
 
+test("un queryFn que falla no sube al ErrorBoundary", async () => {
   vi.spyOn(store, "snapshot").mockRejectedValue(new Error("Failed to fetch"))
-  const b = renderApp(
+  const { qc, queryByRole } = renderApp(
     <ErrorBoundary>
-      <SelectProbe boom="fetch" />
+      <SelectProbe throwInSelect={false} />
     </ErrorBoundary>,
     seed,
   )
   await waitFor(() => expect(store.snapshot).toHaveBeenCalled())
-  await waitFor(() => expect(b.qc.getQueryState(SNAPSHOT_KEY)?.status).toBe("error"))
-  expect(b.queryByRole("alert")).toBeNull()
-  vi.restoreAllMocks()
+  await waitFor(() => expect(qc.getQueryState(SNAPSHOT_KEY)?.status).toBe("error"))
+  expect(queryByRole("alert")).toBeNull()
 })

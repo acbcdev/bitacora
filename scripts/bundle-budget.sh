@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Gzip budget for dist/ (KB = 1000). Limits = measured with Sentry (2026-11-08) + ~15%.
 set -euo pipefail
-INITIAL_KB=${INITIAL_KB:-415}     # measured 360: entry + modulepreload from dist/index.html
-NOTE_BODY_KB=${NOTE_BODY_KB:-405} # measured 350: note-body-* (tiptap, lazy)
+INITIAL_KB=415   # measured 360: entry + modulepreload from dist/index.html
+NOTE_BODY_KB=405 # measured 350: note-body-* (tiptap, lazy)
 
 fail=0
 check() { # name bytes limit_kb
   local kb=$(($2 / 1000))
   echo "$1: ${kb} KB gz (limit $3 KB)"
-  if [ "$kb" -gt "$3" ]; then
-    echo "FAIL: $1 is ${kb} KB gz, over the $3 KB budget" >&2
+  if [ "$2" -gt $(($3 * 1000)) ]; then
+    echo "FAIL: $1 is $2 B gz, over the $3 KB budget" >&2
     fail=1
   fi
 }
