@@ -17,3 +17,6 @@ jobs:
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint && pnpm typecheck && pnpm test
+      # Dummy DSN so Sentry.init isn't tree-shaken: budget must measure the prod build.
+      - run: pnpm build && scripts/bundle-budget.sh
+        env: { VITE_SENTRY_DSN: "https://x@o0.ingest.us.sentry.io/0" }
