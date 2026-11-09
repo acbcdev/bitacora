@@ -42,5 +42,5 @@ Verificar post-deploy (necesita DSN real, el agente no puede):
 ## Comments
 
 **2026-11-08 (implement-spec):** resuelto en `web-metrics` (`8635811`, review fixes `1e9b83c`). El
-deploy es **Vercel**, no Cloudflare Pages: las env vars van en Vercel. Pendiente humano: la sección
+deploy es **Vercel**, no Cloudflare Pages: las env vars van en Vercel. Hecho por humano: la sección
 "Manual" de arriba (proyecto Sentry + env vars + verificación post-deploy).

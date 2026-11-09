@@ -1,6 +1,6 @@
 # Activar Cloudflare Web Analytics
 
-Status: ready-for-human
+Status: resolved
 
 ## Qué
 
@@ -18,3 +18,8 @@ si `PROD` + `VITE_CF_BEACON_TOKEN` (mismo guard que Sentry).
 - Dashboard de CF muestra LCP/INP/CLS tras unos días de uso desde el celular.
 - Verificar que las navegaciones SPA (cambio de ruta) se registren; si no, anotarlo acá.
 - Con ad-blocker el beacon no carga (igual que Sentry): aceptado.
+
+## Comments
+
+**2026-11-08:** resuelto: código en `web-metrics` (`0146a38`), token cargado en Vercel (humano).
+Las dos primeras de Aceptación (vitals en el dashboard, rutas SPA) se ven tras unos días de uso.
