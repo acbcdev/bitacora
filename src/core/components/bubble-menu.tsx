@@ -349,7 +349,7 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
         className={btnCls}
         data-state={active.bold ? "on" : "off"}
         aria-label="Bold"
-        title="Bold (mod+alt+b)"
+        title="Bold (mod+shift+b)"
         onMouseDown={preventFocus}
         onClick={() => editor.chain().focus().toggleBold().run()}
       >

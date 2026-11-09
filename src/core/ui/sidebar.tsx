@@ -19,7 +19,7 @@ const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
-const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+const SIDEBAR_KEYBOARD_SHORTCUT = "KeyB"
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
@@ -46,6 +46,7 @@ function SidebarProvider({
   defaultOpen = true,
   open: openProp,
   onOpenChange: setOpenProp,
+  alt = false,
   className,
   style,
   children,
@@ -54,6 +55,8 @@ function SidebarProvider({
   defaultOpen?: boolean
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  // ⌘⌥B en vez de ⌘B: segundo sidebar (índice del notebook) anidado sin pisarse con el global.
+  alt?: boolean
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
@@ -85,7 +88,12 @@ function SidebarProvider({
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === SIDEBAR_KEYBOARD_SHORTCUT && (event.metaKey || event.ctrlKey)) {
+      // e.code, no e.key: en Mac ⌥B da e.key "∫".
+      if (
+        event.code === SIDEBAR_KEYBOARD_SHORTCUT &&
+        (event.metaKey || event.ctrlKey) &&
+        event.altKey === alt
+      ) {
         event.preventDefault()
         toggleSidebar()
       }
@@ -93,7 +101,7 @@ function SidebarProvider({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [toggleSidebar])
+  }, [toggleSidebar, alt])
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.

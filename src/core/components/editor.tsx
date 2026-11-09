@@ -43,13 +43,14 @@ import { collectImages, type LightboxImage } from "@/core/components/editor-ligh
 const lowlight = createLowlight(common)
 
 // Teclado de formato (ADR 0019): mod+B es del sidebar (shadcn) — el editor lo suelta para no
-// hacer doble efecto; bold del editor = mod+Alt+B. mod+\ limpia todas las marks (incluidas
+// hacer doble efecto; bold del editor = mod+Shift+B (mod+Alt+B es del índice del notebook,
+// y por eso el blockquote suelta su Mod-Shift-b default — queda en el slash menu). mod+\ limpia todas las marks (incluidas
 // color y highlight); el resto de defaults de Tiptap queda (I, mod+Shift+X, mod+E, mod+Shift+H).
 const EditorBold = Bold.extend({
   addKeyboardShortcuts() {
     return {
       "Mod-b": () => false,
-      "Mod-Alt-b": () => this.editor.commands.toggleBold(),
+      "Mod-Shift-b": () => this.editor.commands.toggleBold(),
     }
   },
 })
@@ -154,7 +155,7 @@ export function Editor({
       StarterKit.configure({ codeBlock: false, bold: false, dropcursor: false, blockquote: false }),
       // `> ` + espacio es del Desplegable (editor-blocks/01): la cita queda solo por /cita. Pegar
       // `> texto` sigue dando cita (eso es el parser de tiptap-markdown, no una input rule).
-      Blockquote.extend({ addInputRules: () => [] }),
+      Blockquote.extend({ addInputRules: () => [], addKeyboardShortcuts: () => ({}) }),
       ...Desplegable,
       EditorBold,
       CodeBlock,

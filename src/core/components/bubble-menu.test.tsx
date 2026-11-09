@@ -8,7 +8,7 @@ import { PALETTE } from "@/core/components/bubble-menu"
 import type { TiptapDoc } from "@/core/types/database"
 
 // Contrato de teclado y bubble de formato (.scratch/editor-notion-ux/spec.md, historias 3 y 4;
-// ADR 0019): mod+B es del sidebar (el editor lo suelta), bold = mod+Alt+B, mod+\ limpia todas
+// ADR 0019): mod+B es del sidebar (el editor lo suelta), bold = mod+Shift+B, mod+\ limpia todas
 // las marks (incluidas color y highlight). Bubble: fila de 7 con isActive por control y
 // paleta fija de 8 — ficha activa quita.
 
@@ -54,11 +54,18 @@ test("mod+b NO togglea bold — la tecla es del sidebar (ADR 0019)", async () =>
   expect(editor.isActive("bold")).toBe(false)
 })
 
-test("mod+alt+b togglea bold", async () => {
+test("mod+shift+b togglea bold", async () => {
   const { pm, view, editor } = await setup()
   selectText(view)
-  fireEvent.keyDown(pm, { key: "b", ctrlKey: true, altKey: true })
+  fireEvent.keyDown(pm, { key: "B", keyCode: 66, ctrlKey: true, shiftKey: true })
   expect(editor.isActive("bold")).toBe(true)
+  fireEvent.keyDown(pm, { key: "B", keyCode: 66, ctrlKey: true, shiftKey: true })
+  expect(editor.isActive("bold")).toBe(false)
+})
+
+test("mod+alt+b NO togglea bold — la tecla es del índice del notebook", async () => {
+  const { pm, view, editor } = await setup()
+  selectText(view)
   fireEvent.keyDown(pm, { key: "b", ctrlKey: true, altKey: true })
   expect(editor.isActive("bold")).toBe(false)
 })

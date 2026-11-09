@@ -28,5 +28,5 @@ Audit de todos los hotkeys contra Chrome, Safari y Firefox:
 ## Consecuencias
 
 - Cheatsheet, palette y los hints `<Kbd>` muestran las teclas nuevas (`alt()` en `core/lib/utils`).
-- Quedan por verificar en el browser: `⌘⌥B` (bold, en Chrome mac es el Bookmark Manager) y `⌘,`
+- Quedan por verificar en el browser: `⌘⌥B` (índice del notebook desde la enmienda de ADR 0019; en Chrome mac es el Bookmark Manager) y `⌘,`
   (Ajustes, en Safari puede ganar el menú de preferencias).

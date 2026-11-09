@@ -1,6 +1,6 @@
 # ADR 0019 — Teclado de formato del editor: el sidebar se queda `mod+B`
 
-**Status:** Accepted
+**Status:** Accepted — enmendado 2026-11-09 (ver al pie)
 
 ## Contexto
 
@@ -35,3 +35,12 @@ segundo sidebar (convención shadcn futura).
 - **Mover sidebar a `mod+\` y bold en `mod+B`**: rompe el default de shadcn y la memoria
   muscular del usuario; decisión suya, no se re-abre sin razón nueva.
 - **Bold click-only** (sin atajo): viola `ui-principles.md` #1 si bold es frecuente.
+
+## Enmienda 2026-11-09 — segundo sidebar en `mod+Alt+B`
+
+El segundo sidebar llegó (índice del notebook, `Sidebar side="right"`) y el usuario eligió
+`mod+Alt+B` para él, simétrico a `mod+B`. Se invierte la reserva:
+
+- **Índice del notebook = `mod+Alt+B`** (`SidebarProvider alt`, matchea por `e.code`).
+- **Bold = `mod+Shift+B`.** Pisa el `Mod-Shift-b` default del Blockquote de Tiptap: el blockquote
+  queda sin atajo (sigue en el slash menu).
