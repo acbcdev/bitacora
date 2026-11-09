@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/react"
 import { toast } from "sonner"
 
-// Sólo en el build de prod con DSN (Cloudflare Pages): `pnpm dev`, e2e y tests no reportan.
+// Sólo en el build de prod con DSN (Vercel): `pnpm dev`, e2e y tests no reportan.
 // Sin tracing ni Replay a propósito — ver .scratch/web-metrics/spec.md → Decisiones.
 export function initSentry() {
   const dsn = import.meta.env.VITE_SENTRY_DSN

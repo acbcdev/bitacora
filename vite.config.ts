@@ -24,7 +24,7 @@ export default defineConfig({
         ],
       },
     }),
-    // Lee SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN del env (Cloudflare Pages) o de
+    // Lee SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN del env (Vercel) o de
     // `.env.sentry-build-plugin` (local, gitignored). Sin token no sube nada.
     // El repo es público: los .map se quedan en dist.
     sentryVitePlugin({ telemetry: false }),

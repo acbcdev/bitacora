@@ -14,7 +14,7 @@ Status: ready-for-agent
 - `useSnapshot` (`src/core/lib/snapshot.ts`): `throwOnError: (_, q) => q.state.status === "success"`
   — solo errores de `select` (`derive.*`) suben al boundary; los de fetch no.
 - `vite.config.ts`: `build.sourcemap: true` + `sentryVitePlugin` (no-op sin `SENTRY_AUTH_TOKEN`).
-- `VITE_SENTRY_DSN` en `.env.example` **comentado**, con nota: vive solo en Cloudflare Pages, no en
+- `VITE_SENTRY_DSN` en `.env.example` **comentado**, con nota: vive solo en Vercel, no en
   `.env` local (si no, `pnpm build && pnpm preview` reporta desde la máquina de dev).
 
 ## Aceptación (agente)
@@ -31,7 +31,7 @@ Status: ready-for-agent
 ## Manual (humano)
 
 Crear proyecto en Sentry; cargar `VITE_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`,
-`SENTRY_PROJECT` en las env vars de Cloudflare Pages.
+`SENTRY_PROJECT` en las env vars de Vercel.
 
 Verificar post-deploy (necesita DSN real, el agente no puede):
 

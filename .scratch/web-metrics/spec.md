@@ -46,7 +46,7 @@ Más un **budget de bundle en CI** para no regresionar.
     reporta `reactErrorHandler`. Errores de fetch siguen sin reportarse (red; react-query reintenta).
   - Integrations default (breadcrumbs, `GlobalHandlers`) quedan prendidas, sin `beforeBreadcrumb`:
     mandan URLs con UUIDs y selectores CSS, no contenido de notas.
-- **Source maps:** `@sentry/vite-plugin` en el build de Cloudflare Pages (no hay deploy en GitHub
+- **Source maps:** `@sentry/vite-plugin` en el build de Vercel (no hay deploy en GitHub
   Actions). Sube solo si existe `SENTRY_AUTH_TOKEN`; sin token no hace nada. El repo es público:
   no hace falta borrar los `.map`.
 - **Budget:** dos números. **Carga inicial** = suma gz de entry + `modulepreload` parseados de
@@ -54,7 +54,7 @@ Más un **budget de bundle en CI** para no regresionar.
   `textarea-*`). Más `note-body-*` (lazy, tiptap) aparte. Límite = medido **después** de Sentry +
   ~15%. Re-grill 2026-11-08: la carga inicial ya es ~332 KB gz, no 175 (`index` 121 + `store` 71 +
   `textarea` 107 + `snapshot` 32); el budget congela eso, no lo arregla (ver 06).
-- **DSN solo en Cloudflare Pages**, nunca en `.env` local: si no, `pnpm build && pnpm preview`
+- **DSN solo en Vercel**, nunca en `.env` local: si no, `pnpm build && pnpm preview`
   manda ruido desde la máquina de desarrollo.
 - **Aceptado:** ad-blockers bloquean el envío a sentry.io. Un tunnel requiere endpoint propio
   (contra "sin servidores propios"). Se pierde.
