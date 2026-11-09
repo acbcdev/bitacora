@@ -61,9 +61,9 @@ Más un **budget de bundle en CI** para no regresionar.
 
 ## Issues
 
-1. `01-sentry-errores` — ready-for-agent
+1. `01-sentry-errores` — resolved (manual Sentry pendiente)
 2. `02-marks-flujos-propios` — diferido
-3. `03-bundle-budget-ci` — ready-for-agent, blocked by 01
+3. `03-bundle-budget-ci` — resolved
 4. `04-persistir-metricas` — wontfix
 5. `05-cloudflare-web-analytics` — ready-for-human (toggle manual)
 6. `06-chunk-textarea` — needs-triage (107 KB gz precargado; no bloquea 01/03)

@@ -1,6 +1,6 @@
 # Sentry: errores de prod visibles
 
-Status: ready-for-agent
+Status: resolved
 
 ## Qué
 
@@ -38,3 +38,9 @@ Verificar post-deploy (necesita DSN real, el agente no puede):
 - Un throw en render dentro del `ErrorBoundary` llega a Sentry con stack de fuente (no minificado).
 - Una mutation fallida (no de red) llega a Sentry y sigue mostrando el toast.
 - Un error de red (`Failed to fetch`) en una mutation muestra el toast y **no** llega a Sentry.
+
+## Comments
+
+**2026-11-08 (implement-spec):** resuelto en `web-metrics` (`8635811`, review fixes `1e9b83c`). El
+deploy es **Vercel**, no Cloudflare Pages: las env vars van en Vercel. Pendiente humano: la sección
+"Manual" de arriba (proyecto Sentry + env vars + verificación post-deploy).

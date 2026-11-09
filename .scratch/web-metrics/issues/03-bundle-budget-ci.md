@@ -1,6 +1,6 @@
 # Presupuesto de bundle en CI
 
-Status: ready-for-agent
+Status: resolved
 Blocked by: 01
 
 ## Qué
@@ -31,3 +31,8 @@ ellos tree-shaking saca supabase-js y `store-*` pesa 18, no 70.
 
 - CI rojo si se pasa del presupuesto; el mensaje dice cuánto y cuál es el límite.
 - Número del presupuesto vive en un solo lugar.
+
+## Comments
+
+**2026-11-08 (implement-spec):** resuelto en `web-metrics` (`e50d416`, `91e523b`, `1e9b83c`).
+`scripts/bundle-budget.sh`, límites 415 / 405 KB gz; medido en CI-like 361 / 350.
