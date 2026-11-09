@@ -54,8 +54,10 @@ import { sidebarNotebookGroups } from "./sidebar-groups"
 const ACTIVE =
   "aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-accent-foreground"
 
-// Fila del sidebar: más alta y con texto más grande que el default del registry (h-8/text-sm).
-const ROW = "h-10 text-base [&_svg]:size-5"
+// Fila del sidebar (variante "Afinado", prototipo sidebar-index): escala del registry (h-8/13px,
+// íconos 16px) — a 15px/20px el sidebar pesaba más que la nota. Hover a media intensidad: así el
+// activo es el único sólido y dos filas resaltadas contiguas no se leen iguales.
+const ROW = "h-8 text-sm hover:bg-sidebar-accent/50 [&_svg]:size-4"
 
 // Sidebar del diseño: nav de 2 items + notebooks activos + menú de cuenta al pie. Colapsado se oculta
 // entero (offcanvas, chrome mínimo, ui-principles #3). El estado colapsado lo controla App.
@@ -129,7 +131,7 @@ export function Sidebar({
         <SidebarGroup className="pb-0">
           <SidebarMenu className="gap-0.5">
             <SidebarMenuItem>
-              <SidebarMenuButton asChild className={`${ROW} h-9`}>
+              <SidebarMenuButton asChild className={ROW}>
                 <NavLink to="/?new=1">
                   <Plus />
                   <span>Nuevo notebook</span>
@@ -140,7 +142,7 @@ export function Sidebar({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton className={`${ROW} h-9`} onClick={onSearch}>
+              <SidebarMenuButton className={ROW} onClick={onSearch}>
                 <Search />
                 <span>Buscar</span>
                 <Kbd className="ml-auto opacity-0 group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100">
@@ -192,10 +194,11 @@ export function Sidebar({
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg">
+                {/* rounded-lg y no pill: a 48px de alto el full se veía apretado contra el avatar. */}
+                <SidebarMenuButton size="lg" className="gap-2.5 rounded-lg px-2.5">
                   {/* Modo local: el "email" es el placeholder "local", así que en vez de una "L"
                       sin sentido se dice dónde viven los datos. */}
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent font-medium uppercase">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-accent text-xs font-medium uppercase">
                     {local ? <HardDrive className="size-4" /> : email.charAt(0)}
                   </span>
                   {local ? (
@@ -260,7 +263,7 @@ function NotebookGroup({
               una fila de notebook. */}
           <SidebarGroupLabel
             asChild
-            className="w-full cursor-pointer text-sm text-muted-foreground"
+            className="w-full cursor-pointer text-xs text-muted-foreground"
           >
             <button type="button">
               <ChevronRight
