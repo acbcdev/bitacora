@@ -24,11 +24,13 @@ export function NoteEditor({
   focus,
   onToggleFocus,
   embedded = false,
+  autoFocusTitle = false,
 }: {
   id: string
   focus: boolean
   onToggleFocus: () => void
   embedded?: boolean
+  autoFocusTitle?: boolean
 }) {
   const navigate = useNavigate()
   const draft = useNoteDraft(id)
@@ -99,7 +101,7 @@ export function NoteEditor({
         </div>
       )}
 
-      <NoteBody draft={draft} large={focus} />
+      <NoteBody draft={draft} large={focus} autoFocusTitle={autoFocusTitle} />
 
       {!focus && (
         <p className="pt-10 text-center text-xs text-muted-foreground">

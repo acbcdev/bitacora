@@ -239,3 +239,48 @@ export function ReviewSkeleton() {
     </>
   )
 }
+
+// Pantalla Notebook cargando (variant Fantasma, .scratch/notebook-states): mismo layout que
+// notebook.tsx. La nota es el editor apagado ("Título" en su lugar real), sin shimmer; el aside,
+// barras quietas. Sin pulse: es una pantalla de lectura, el parpadeo es ruido.
+export function NotebookSkeleton() {
+  return (
+    <div className="flex flex-col md:h-full md:flex-row">
+      <div className="min-w-0 flex-1">
+        <div className="mx-auto max-w-read px-4 pt-9 sm:px-8">
+          <div className="mb-8 h-8" />
+          <div className="text-4xl font-semibold tracking-tighter text-muted-foreground/40">
+            Título
+          </div>
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col border-b opacity-50 max-md:order-first md:w-68 md:border-b-0 md:border-l">
+        {/* Header: ícono · eyebrow + nombre · chips estado/cantidad · % repasado */}
+        <div className="px-4 pt-4 pb-2">
+          <div className="flex items-center gap-2.5">
+            <Skeleton className="size-8 shrink-0 animate-none rounded-lg" />
+            <span className="flex flex-1 flex-col gap-1.5">
+              <Skeleton className="h-2.5 w-24 animate-none" />
+              <Skeleton className="h-3.5 w-40 animate-none" />
+            </span>
+          </div>
+          <div className="mt-2.5 flex h-5 items-center gap-1.5">
+            <Skeleton className="h-5 w-14 animate-none" />
+            <Skeleton className="h-5 w-16 animate-none" />
+            <Skeleton className="ml-auto h-2.5 w-16 animate-none" />
+          </div>
+        </div>
+        <div className="px-4 pb-1">
+          <Skeleton className="h-7 w-full animate-none rounded-lg" />
+        </div>
+        <div className="flex flex-col gap-px px-2 py-1.5">
+          {NAME_WIDTHS.map((w) => (
+            <div key={w} className="flex h-8 items-center px-2.5">
+              <Skeleton className="h-3 animate-none" style={{ width: w }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}

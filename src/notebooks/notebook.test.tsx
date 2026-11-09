@@ -285,8 +285,10 @@ test("el índice muestra frescura por nota y celda vacía para las nunca repasad
     { note_id: "n1", read_at: new Date(Date.now() - 2 * 86_400_000).toISOString(), grade: null },
   ]
   renderNotebook()
-  expect(await screen.findByText("hace 2d")).toBeInTheDocument()
-  // Sin repaso no hay rótulo: la celda existe pero vacía, no "sin leer".
+  // La frescura es un dot; el rótulo vive en su aria-label (y en el tooltip al hover).
+  expect(await screen.findByLabelText("Repasada hace 2d")).toBeInTheDocument()
+  // Sin repaso no hay dot: una sola marca para las dos notas, y nada de "sin leer".
+  expect(screen.getAllByLabelText(/^Repasada/)).toHaveLength(1)
   expect(screen.queryByText(/sin leer/)).not.toBeInTheDocument()
 })
 

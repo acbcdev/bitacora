@@ -12,11 +12,14 @@ export function NoteBody({
   large = false,
   titleSize = "text-4xl",
   titleWrap = (el) => el,
+  autoFocusTitle = false,
 }: {
   draft: ReturnType<typeof useNoteDraft>
   large?: boolean
   titleSize?: string
   titleWrap?: (title: ReactElement) => ReactElement
+  // Nota recién creada: el foco arranca en el título (si no, type-to-focus manda las letras al body).
+  autoFocusTitle?: boolean
 }) {
   const { note, title, onTitleChange, onDocChange, flush } = draft
   const editorRef = useRef<EditorHandle>(null)
@@ -88,6 +91,13 @@ export function NoteBody({
         {titleWrap(
           <textarea
             rows={1}
+            autoFocus={autoFocusTitle}
+            // Caret al final: el fantasma de Notebook ya trae lo tipeado.
+            onFocus={
+              autoFocusTitle
+                ? (e) => e.target.setSelectionRange(title.length, title.length)
+                : undefined
+            }
             value={title}
             onChange={(e) => onTitleChange(e.target.value)}
             onPaste={onTitlePaste}
