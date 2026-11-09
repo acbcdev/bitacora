@@ -6,10 +6,11 @@ import { LucideProvider } from "lucide-react"
 import * as Sentry from "@sentry/react"
 import { App } from "@/app"
 import { ErrorBoundary } from "@/core/components/error-boundary"
-import { initSentry, onMutationError } from "@/core/lib/report"
+import { initSentry, initWebAnalytics, onMutationError } from "@/core/lib/report"
 import "@/index.css"
 
 initSentry()
+initWebAnalytics()
 
 // El onError de mutations va acá y no hook por hook: son seis mutations y ninguna necesita
 // un mensaje propio.

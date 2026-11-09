@@ -26,14 +26,14 @@ Notion sirve para **escribir**, pero no para:
 ## Stack (cerrado)
 
 Vite + React + **Tiptap** (editor WYSIWYG, licencia MIT) + **Supabase** (Postgres + Auth + RLS)
-→ **PWA** en Cloudflare Pages. Hosting y DB $0, **una** función serverless: la Edge Function
+→ **PWA** en Vercel. Hosting y DB $0, **una** función serverless: la Edge Function
 `generate-flashcards` (`supabase/functions/`), que llama a la API de Anthropic con la key
 server-side. Eso es lo único que cuesta plata (por token) y lo único que corre fuera del browser:
 "sin servidores propios" sigue valiendo para todo lo demás. Ver
 `docs/adr/0010-flashcards-como-notas-y-edge-function.md`.
 
 Terceros que reciben datos: **Sentry**, solo errores (sin Replay, sin PII), y **Cloudflare Web
-Analytics** (vitals, sin cookies). Analytics de uso (PostHog o similar) recién con un segundo
+Analytics** (vitals, sin cookies, vía snippet JS). Analytics de uso (PostHog o similar) recién con un segundo
 usuario real. Ver `.scratch/web-metrics/spec.md`.
 
 Nivel medio (ver `docs/adr/0005-frontend-stack.md`):

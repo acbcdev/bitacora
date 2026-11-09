@@ -21,7 +21,7 @@ pero no se instrumenta nada para usuarios que no existen.
 | Eje         | Herramienta                 | Por qué                                                   |
 | ----------- | --------------------------- | --------------------------------------------------------- |
 | Errores     | **Sentry** (hosted)         | Source maps + alertas por mail. SDK compatible con GlitchTip: cambiar es el DSN. |
-| Rendimiento | **Cloudflare Web Analytics** | Ya hosteamos en CF Pages: toggle, sin cookies, vitals reales del celular. |
+| Rendimiento | **Cloudflare Web Analytics** | Snippet JS (el host es Vercel, no hay toggle): 0 deps, sin cookies, vitals reales del celular. |
 | Uso         | `read_log` (ADR 0003)       | PostHog **diferido** hasta que haya un segundo usuario real. |
 
 Más un **budget de bundle en CI** para no regresionar.
@@ -65,7 +65,7 @@ Más un **budget de bundle en CI** para no regresionar.
 2. `02-marks-flujos-propios` — diferido
 3. `03-bundle-budget-ci` — resolved
 4. `04-persistir-metricas` — wontfix
-5. `05-cloudflare-web-analytics` — ready-for-human (toggle manual)
+5. `05-cloudflare-web-analytics` — ready-for-human (código hecho; falta token)
 6. `06-chunk-textarea` — needs-triage (107 KB gz precargado; no bloquea 01/03)
 
 ## No hacer

@@ -16,6 +16,18 @@ export function initSentry() {
   })
 }
 
+// Cloudflare Web Analytics (vitals, sin cookies) con el snippet JS: el host es Vercel, no hay
+// toggle. Mismo guard que Sentry: sin esto `pnpm preview` mandaría vitals de la máquina de dev.
+export function initWebAnalytics() {
+  const token = import.meta.env.VITE_CF_BEACON_TOKEN
+  if (!import.meta.env.PROD || !token) return
+  const s = document.createElement("script")
+  s.defer = true
+  s.src = "https://static.cloudflareinsights.com/beacon.min.js"
+  s.dataset.cfBeacon = JSON.stringify({ token })
+  document.head.append(s)
+}
+
 // Toda mutation que falla avisa con el mensaje real de Supabase y se reporta.
 export function onMutationError(e: Error) {
   Sentry.captureException(e)
