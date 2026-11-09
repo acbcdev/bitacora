@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Gzip budget for dist/ (KB = 1000). Limits = measured with Sentry (2026-11-08) + ~15%.
 set -euo pipefail
-INITIAL_KB=${INITIAL_KB:-360}     # measured 310: entry + modulepreload from dist/index.html
+INITIAL_KB=${INITIAL_KB:-415}     # measured 360: entry + modulepreload from dist/index.html
 NOTE_BODY_KB=${NOTE_BODY_KB:-405} # measured 350: note-body-* (tiptap, lazy)
 
 fail=0

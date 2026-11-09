@@ -17,6 +17,9 @@ jobs:
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint && pnpm typecheck && pnpm test
-      # Dummy DSN so Sentry.init isn't tree-shaken: budget must measure the prod build.
+      # Dummy env so Sentry and supabase-js aren't tree-shaken: budget must measure the prod build.
       - run: pnpm build && scripts/bundle-budget.sh
-        env: { VITE_SENTRY_DSN: "https://x@o0.ingest.us.sentry.io/0" }
+        env:
+          VITE_SENTRY_DSN: "https://x@o0.ingest.us.sentry.io/0"
+          VITE_SUPABASE_URL: "https://x.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "x"
