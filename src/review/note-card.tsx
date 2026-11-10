@@ -4,10 +4,8 @@ import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { Button } from "@/core/ui/button"
 import { Kbd, KbdGroup } from "@/core/ui/kbd"
 import { docToPlainText } from "@/core/lib/tiptap-markdown"
-import { cn, MOD } from "@/core/lib/utils"
+import { MOD } from "@/core/lib/utils"
 import type { Notebook, Note } from "@/core/types/database"
-
-const FOOTER_BTN = "hover:bg-input dark:hover:bg-input"
 
 type Props = {
   note?: Note // la nota completa: título y extracto llegan juntos (ADR 0025)
@@ -51,8 +49,8 @@ export function NoteCard({
         </span>
       </div>
       <div key={note?.id} className="note-in mb-5">
-        {/* 44px: 550 en light, 450 en dark — claro sobre oscuro engorda (irradiación). */}
-        <h1 className="mb-2.5 line-clamp-2 min-h-[2lh] text-[44px] leading-[1.1] font-[550] tracking-[-0.035em] text-pretty dark:font-[450]">
+        {/* text-display: 44px, peso por tema (--display-weight). */}
+        <h1 className="mb-2.5 line-clamp-2 min-h-[2lh] text-display text-pretty">
           {note && (note.title || "(sin título)")}
         </h1>
         <p className="line-clamp-5 min-h-[5lh] max-w-[70ch] text-muted-foreground">
@@ -62,11 +60,11 @@ export function NoteCard({
 
       <div className="relative z-10 mt-2 flex items-center justify-end border-t pt-5 md:justify-between">
         <div className="hidden flex-wrap items-center gap-2 text-xs text-muted-foreground md:flex">
-          <Button variant="ghost" className={FOOTER_BTN} onClick={onOpen}>
+          <Button variant="ghost" onClick={onOpen}>
             <Kbd aria-hidden>Enter</Kbd>
             Abrir
           </Button>
-          <Button variant="ghost" className={FOOTER_BTN} onClick={onOpenExpanded}>
+          <Button variant="ghost" onClick={onOpenExpanded}>
             <KbdGroup aria-hidden>
               <Kbd>{MOD}</Kbd>+<Kbd>Enter</Kbd>
             </KbdGroup>
@@ -75,15 +73,15 @@ export function NoteCard({
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="ghost"
+            variant="secondary"
+            size="icon-xl"
             aria-label="Anterior"
-            className={cn(FOOTER_BTN, "size-13 border-foreground/10")}
             disabled={isFirst}
             onClick={onPrev}
           >
             <ArrowLeft />
           </Button>
-          <Button className="h-13 px-7.5 text-[15px]" onClick={onNext}>
+          <Button size="xl" onClick={onNext}>
             Siguiente
           </Button>
         </div>
