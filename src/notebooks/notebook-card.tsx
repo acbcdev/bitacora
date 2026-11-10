@@ -9,11 +9,11 @@ import type { NotebookRow } from "@/core/types/database"
 // Fondos/bordes translúcidos (no tokens sólidos): el hover de la card es bg-muted y un chip
 // sólido se aplasta contra él. Las métricas en 0 no se muestran (ruido).
 const CHIP =
-  "inline-flex h-6 items-center rounded-md bg-foreground/[0.07] px-2 text-xs leading-none text-fg-secondary"
+  "inline-flex h-6 items-center rounded-full bg-foreground/7 px-2 text-xs leading-none text-fg-secondary"
 
 function Metric({ value, one, many }: { value: number; one: string; many: string }) {
   return (
-    <span className="mono-dim inline-flex h-6 items-center rounded-md border border-foreground/12 px-2 leading-none">
+    <span className="mono-dim inline-flex h-6 items-center rounded-full border border-foreground/12 px-2 leading-none">
       <b className="mr-1 font-medium text-foreground">{value}</b>
       {value === 1 ? one : many}
     </span>
