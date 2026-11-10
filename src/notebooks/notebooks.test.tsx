@@ -162,7 +162,7 @@ test("la página trae 12 filas y Siguiente pide la que sigue", async () => {
   await screen.findByText("Notebook 0")
 
   expect(screen.queryByText("Notebook 12")).toBeNull()
-  fireEvent.click(screen.getByRole("link", { name: "Go to next page" }))
+  fireEvent.click(screen.getByRole("button", { name: "Página siguiente" }))
 
   await screen.findByText("Notebook 12")
   expect(screen.queryByText("Notebook 0")).toBeNull()
@@ -173,10 +173,10 @@ test("ir a la página 2 y volver por número", async () => {
   renderNotebooks()
   await screen.findByText("Notebook 0")
 
-  fireEvent.click(screen.getByRole("link", { name: "2" }))
+  fireEvent.click(screen.getByRole("button", { name: "2" }))
   await screen.findByText("Notebook 12")
 
-  fireEvent.click(screen.getByRole("link", { name: "1" }))
+  fireEvent.click(screen.getByRole("button", { name: "1" }))
   await screen.findByText("Notebook 0")
 })
 
@@ -186,7 +186,7 @@ test("buscar vuelve a la página 1 y el total sale del server", async () => {
   await screen.findByText("Notebook 0")
   expect(screen.getByText("30 notebooks")).toBeInTheDocument()
 
-  fireEvent.click(screen.getByRole("link", { name: "2" }))
+  fireEvent.click(screen.getByRole("button", { name: "2" }))
   await screen.findByText("Notebook 12")
 
   // El debounce del buscador es de 300ms; findBy* espera hasta 1s.
@@ -194,7 +194,7 @@ test("buscar vuelve a la página 1 y el total sale del server", async () => {
     target: { value: "Notebook 1" },
   })
   await screen.findByText("11 notebooks") // Notebook 1 + Notebook 10..19
-  expect(screen.queryByRole("navigation", { name: "pagination" })).toBeNull()
+  expect(screen.queryByRole("navigation", { name: "paginación" })).toBeNull()
 })
 
 test("Enter en el buscador dispara la búsqueda sin esperar el debounce", async () => {
