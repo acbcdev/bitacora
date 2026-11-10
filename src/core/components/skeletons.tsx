@@ -11,7 +11,7 @@ export function NoteSkeleton() {
   return (
     <div className="mx-auto max-w-read px-8 pt-9 pb-16">
       <div className="mb-8 flex items-center gap-2.5">
-        <Skeleton className="size-[30px] rounded-lg" />
+        <Skeleton className="size-7 rounded-lg" />
         <Skeleton className="h-3 w-32" />
       </div>
       <Skeleton className="mb-6 h-8 w-2/3" />
@@ -47,7 +47,7 @@ export function NotebookCardsSkeleton() {
           </div>
           <div className="mt-auto flex items-center justify-between">
             <Skeleton className="h-3 w-6" />
-            <Skeleton className="size-[30px] rounded-lg" />
+            <Skeleton className="size-7 rounded-lg" />
           </div>
         </Card>
       ))}
@@ -62,19 +62,19 @@ export function HabitsSkeleton() {
   return (
     <div className="mb-8">
       {/* Cabecera: "Hábitos" · N/M cumplidos · ver todos · ViewPill · + Nuevo */}
-      <div className="mb-3 flex h-8 items-center gap-3">
+      <div className="mb-4 flex h-8 items-center gap-3">
         <Skeleton className="h-5 w-[91px]" />
         <Skeleton className="h-3 w-24" />
         <Skeleton className="ml-auto h-3 w-[49px]" />
         <Skeleton className="h-8 w-[74px] rounded-full" />
         <Skeleton className="h-8 w-[82px] rounded-full max-md:w-8" />
       </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-5">
         {Array.from({ length: Math.min(count, 6) }, (_, i) => (
           // Mismo bloque que HabitTile vacío: hatch + card de 140px, así la tira no salta al cargar.
           <div
             key={i}
-            className="hatch relative flex min-h-[140px] flex-col justify-between gap-3 overflow-hidden rounded-xl bg-card p-4 shadow-card"
+            className="hatch relative flex min-h-35 flex-col justify-between gap-3 overflow-hidden rounded-xl bg-card p-4 shadow-card"
           >
             {/* Arriba: ícono redondo · nombre + estado · botón de acción rápida */}
             <div className="flex items-center gap-3">
