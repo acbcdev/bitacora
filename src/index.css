@@ -36,6 +36,17 @@
   --text-3xl--line-height: 1.1;
   --text-4xl: 64px;
   --text-4xl--line-height: 1.05;
+  /* Display del DS (fuera de la escala): título de repaso 44px y número de hábito 40px. El peso
+     sale de una var por tema (irradiación: claro sobre oscuro engorda) — `inline` la resuelve en
+     el elemento, así `.dark` la pisa sin un `dark:font-*` en cada uso. */
+  --text-display: 44px;
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.035em;
+  --text-display--font-weight: var(--display-weight);
+  --text-stat: 40px;
+  --text-stat--line-height: 1;
+  --text-stat--letter-spacing: -0.03em;
+  --text-stat--font-weight: var(--stat-weight);
 
   --leading-tight: 1.15;
   --leading-snug: 1.3;
@@ -106,6 +117,8 @@
 /* Tema claro — hueso. */
 :root {
   --radius: 1rem;
+  --display-weight: 550;
+  --stat-weight: 400;
 
   --background: #f3f3f0;
   --foreground: #111113;
@@ -177,6 +190,8 @@
   --card-shadow: none;
   --hero: #242427;
   --hero-shadow: none;
+  --display-weight: 450;
+  --stat-weight: 300;
   --popover: #1b1b1d;
   --popover-foreground: #f2f2f2;
   --primary: #f2f2f2;
