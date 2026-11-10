@@ -20,7 +20,7 @@ import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { IconPicker } from "@/notebooks/icon-picker"
 import {
   cellColor,
-  cellPct,
+  periodKey,
   deriveHabit,
   displayAmount,
   displayTarget,
@@ -484,38 +484,61 @@ const TIP: Record<HabitPeriod, Intl.DateTimeFormat> = {
 }
 const NOUN: Record<HabitPeriod, string> = { day: "días", week: "semanas", month: "meses" }
 
-// Historia de hábito a lo GitHub (ADR 0023: monocromo, tinta sobre --track). Columna = semana en
-// diario (7 filas lun→dom), o = período en semana/mes: ahí cada cuadrado es una vez de la meta y se
-// llena de abajo hacia arriba.
-// ponytail: tope de 7 filas — `20 min/semana` aproxima con round(fracción × 7). Si molesta, un solo
-// cuadrado por período con intensidad proporcional, como los diarios.
+// Historia de hábito a lo GitHub (ADR 0023: monocromo, tinta sobre --track). Todo período se dibuja
+// en el grid diario (columna = semana, 7 filas lun→dom). En semana/mes el día con registro va en
+// tinta plena si su período cumplió la meta, a medias si no: el cupo se lee por grupo. Hover apaga
+// todo lo que no es el grupo del día (su período: el día solo en diario) + tooltip.
+// ponytail: tooltip centrado sin clamp — en la última columna puede asomar al borde del scroll.
 function HabitGraph({ habit, log }: { habit: Habit; log: HabitLogRow[] }) {
-  const cells = habitHistory(habit, log)
+  const [hover, setHover] = useState<{ key: string; x: number; y: number; text: string } | null>(
+    null,
+  )
   const isDay = habit.period === "day"
-  const rows = isDay ? 7 : Math.min(habit.metric === "check" ? 1 : displayTarget(habit), 7)
-  const cols = isDay ? Math.ceil(cells.length / 7) : cells.length
-  // La fecha que etiqueta cada columna: en diario, su lunes.
-  const colStart = (c: number) => cells[isDay ? c * 7 : c].start
-  const month = (c: number) => colStart(c).getMonth()
-  // Label en la primera columna de cada mes. La columna 0 sólo si su mes sigue 2 columnas más
-  // (si no, pisa al label siguiente); en mensual cada columna es un mes y siempre va.
-  const firstOfMonth = (c: number) =>
-    c > 0 ? month(c) !== month(c - 1) : habit.period === "month" || month(0) === month(2)
-  const label = (c: number) => (firstOfMonth(c) ? MONTH.format(colStart(c)) : "")
+  const days = habitHistory({ ...habit, period: "day" }, log)
+  const periods = habitHistory(habit, log)
+  const byKey = new Map(periods.map((p) => [periodKey(p.start, habit.period), p]))
+  const periodOf = (d: Date) => byKey.get(periodKey(d, habit.period))!
+  const group = (d: Date) => periodKey(d, habit.period)
 
-  const alive = cells.filter((c) => !c.before)
+  const cols = Math.ceil(days.length / 7)
+  const month = (c: number) => days[c * 7].start.getMonth()
+  // Label en la primera columna de cada mes. La columna 0 sólo si su mes sigue 2 columnas más
+  // (si no, pisa al label siguiente).
+  const label = (c: number) =>
+    (c > 0 ? month(c) !== month(c - 1) : month(0) === month(2))
+      ? MONTH.format(days[c * 7].start)
+      : ""
+
+  const alive = periods.filter((c) => !c.before)
   const met = alive.filter((c) => meets(habit.kind, c.amount, c.target)).length
   const grid = { gridTemplateColumns: `repeat(${cols}, 20px)` }
 
-  const tip = (c: (typeof cells)[number]) =>
+  const periodTip = (c: (typeof periods)[number]) =>
     `${habit.period === "week" ? "Semana del " : ""}${TIP[habit.period].format(c.start)} · ${
       c.before
         ? "antes de crearlo"
         : `${displayAmount(habit, c.amount)}/${displayTarget({ metric: habit.metric, target: c.target })}`
     }`
+  const tip = (c: (typeof days)[number]) =>
+    isDay || c.before
+      ? periodTip(isDay ? c : periodOf(c.start))
+      : `${periodTip(periodOf(c.start))}${
+          c.amount ? ` (${TIP.day.format(c.start)}: +${displayAmount(habit, c.amount)})` : ""
+        }`
+
+  const color = (c: (typeof days)[number], i: number) => {
+    // Antes de crearlo no es "no cumplido": hueco (solo borde), no relleno de --track.
+    if (c.before) return "transparent"
+    if (isDay) return cellColor(habit.kind, c, i === days.length - 1)
+    if (c.amount === 0) return "var(--track)"
+    const p = periodOf(c.start)
+    return meets(habit.kind, p.amount, p.target)
+      ? "var(--foreground)"
+      : "color-mix(in oklab, var(--foreground) 40%, var(--track))"
+  }
 
   return (
-    <div className="mt-6 flex flex-col gap-1.5 overflow-x-auto">
+    <div className="relative mt-6 flex flex-col gap-1.5 overflow-x-auto">
       <span className="mono-dim text-xs">últimas {HISTORY_WEEKS} semanas</span>
       <div className="mono-dim grid gap-1 text-xs" style={grid} aria-hidden>
         {Array.from({ length: cols }, (_, c) => (
@@ -528,38 +551,38 @@ function HabitGraph({ habit, log }: { habit: Habit; log: HabitLogRow[] }) {
         role="img"
         aria-label={`Últimas ${HISTORY_WEEKS} semanas de ${habit.name}: ${met} de ${alive.length} ${NOUN[habit.period]} con la meta cumplida`}
         className="grid grid-flow-col gap-1"
-        style={{ ...grid, gridTemplateRows: `repeat(${rows}, 20px)` }}
+        style={{ ...grid, gridTemplateRows: "repeat(7, 20px)" }}
+        onMouseLeave={() => setHover(null)}
       >
-        {isDay
-          ? cells.map((c, i) => (
-              <span
-                key={i}
-                title={tip(c)}
-                className="rounded-sm"
-                style={{
-                  backgroundColor: c.before
-                    ? "var(--track)"
-                    : cellColor(habit.kind, c, i === cells.length - 1),
-                }}
-              />
-            ))
-          : cells.flatMap((c, i) => {
-              const pct = cellPct(c)
-              const done = c.before
-                ? 0
-                : Math.round(((habit.kind === "bad" ? 100 - pct : pct) / 100) * rows)
-              return Array.from({ length: rows }, (_, r) => (
-                <span
-                  key={`${i}-${r}`}
-                  title={tip(c)}
-                  className="rounded-sm"
-                  style={{
-                    backgroundColor: r >= rows - done ? "var(--foreground)" : "var(--track)",
-                  }}
-                />
-              ))
-            })}
+        {days.map((c, i) => (
+          <span
+            key={i}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget
+              setHover({
+                key: group(c.start),
+                x: el.offsetLeft + el.offsetWidth / 2,
+                y: el.offsetTop,
+                text: tip(c),
+              })
+            }}
+            className={cn(
+              "rounded-sm transition-opacity duration-150 ease-out motion-reduce:transition-none",
+              c.before && "inset-ring inset-ring-track",
+              hover && group(c.start) !== hover.key && "opacity-30",
+            )}
+            style={{ backgroundColor: color(c, i) }}
+          />
+        ))}
       </div>
+      {hover && (
+        <span
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-2 py-1 font-mono text-xs whitespace-nowrap text-background shadow-md"
+          style={{ left: hover.x, top: hover.y - 6 }}
+        >
+          {hover.text}
+        </span>
+      )}
     </div>
   )
 }
