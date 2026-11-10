@@ -85,13 +85,12 @@ export function Notebooks({ embed, hotkeys = !embed }: { embed?: boolean; hotkey
   return (
     <div className={embed ? "fade-in" : "fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8"}>
       <div className="mb-4 flex items-baseline gap-3">
-        <h1
-          className={
-            embed ? "text-xl font-semibold tracking-tight" : "text-2xl font-semibold tracking-tight"
-          }
-        >
-          Notebooks
-        </h1>
+        {/* Embebido en Hoy es una sección más (h2, como Repaso/Hábitos): el h1 es de la nota. */}
+        {embed ? (
+          <h2 className="text-xl font-semibold tracking-tight">Notebooks</h2>
+        ) : (
+          <h1 className="text-2xl font-semibold tracking-tight">Notebooks</h1>
+        )}
         <span className="mono-dim">
           {total} {total === 1 ? "notebook" : "notebooks"}
         </span>
