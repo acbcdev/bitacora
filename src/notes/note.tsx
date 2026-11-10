@@ -91,6 +91,7 @@ export function NoteEditor({
             <NoteActions
               note={{ ...note, title }}
               content={getDoc}
+              hideNotebook={embedded}
               confirming={confirming}
               onConfirmingChange={setConfirming}
               // embedded: vuelve al notebook (sin noteId) -> Notebook.tsx auto-selecciona la próxima
