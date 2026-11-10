@@ -25,6 +25,7 @@ import { useHabitTimer } from "@/habits/use-habit-timer"
 import { HabitZoom } from "@/habits/habit-zoom"
 import { HabitFold } from "@/habits/habit-fold"
 import { HabitListRow } from "@/habits/habit-list"
+import { LINGER, useHabitLinger } from "@/habits/use-habit-linger"
 import type { Habit } from "@/core/types/database"
 
 // La tira de hábitos de la pantalla Hoy. Sin pantalla nueva (ui-principles): vive entre el card de
@@ -46,6 +47,7 @@ export function HabitTiles() {
   )
 
   const { runningId, shown, clock, toggle } = useHabitTimer(habits, log)
+  const { lingering, leaving, arrived } = useHabitLinger(entries)
 
   // La acción rápida del cuerpo del tile, que es la misma que dispara el chord h>N.
   const quick = useCallback(
@@ -77,7 +79,9 @@ export function HabitTiles() {
   // Pendientes primero en las dos vistas: lo que falta queda en las 2 filas visibles del plegado.
   // toSorted es estable → dentro de cada grupo sigue created_at. Los atajos h>N NO siguen este
   // orden (van por created_at, abajo): el dígito de un hábito no cambia cuando lo cumplís.
-  const sorted = entries.toSorted((a, b) => Number(a.state.met) - Number(b.state.met))
+  // Recién cumplido = todavía pendiente para el orden mientras dura su linger.
+  const done = (e: Entry) => e.state.met && !lingering.has(e.h.id)
+  const sorted = entries.toSorted((a, b) => Number(done(a)) - Number(done(b)))
   const props = (e: Entry) => ({
     e,
     total: runningId === e.h.id ? shown : e.state.total,
@@ -85,6 +89,8 @@ export function HabitTiles() {
     clock: runningId === e.h.id ? clock : null,
     pending: setDay.isPending,
     onQuick: () => quick(e),
+    lingering: lingering.has(e.h.id),
+    leaving: leaving === e.h.id,
   })
 
   return (
@@ -92,7 +98,7 @@ export function HabitTiles() {
       {/* Misma cabecera que Notebooks — mismo `text-xl` + contador `mono-dim`. Antes la tira aparecía
           sin nombre entre el card de repaso y Notebooks, y la única acción era un botón primario que
           pesaba más que los hábitos: crear más competía con lo que ya tenías. */}
-      <div className="mb-3 flex items-center gap-3">
+      <div className="mb-4 flex items-center gap-3">
         <div className="flex items-baseline gap-3">
           <h2 className="text-xl font-semibold tracking-tight">Hábitos</h2>
           {/* `met` es por PERÍODO, no por día (ADR 0009): un `3 por semana` cuenta como cumplido
@@ -121,7 +127,7 @@ export function HabitTiles() {
           />
         )}
         <Button
-          variant="outline"
+          variant="secondary"
           onClick={() => setOpen("new")}
           aria-label="Nuevo hábito"
           className={cn(entries.length === 0 && "ml-auto", "max-md:size-8 max-md:p-0")}
@@ -152,8 +158,9 @@ export function HabitTiles() {
       ) : (
         <HabitFold
           items={sorted}
-          grid="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-3"
-          render={(e) => <HabitTile key={e.h.id} {...props(e)} />}
+          grid="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-5"
+          arrived={arrived}
+          render={(e, hidden) => <HabitTile key={e.h.id} {...props(e)} hidden={hidden} />}
         />
       )}
 
@@ -177,6 +184,9 @@ function HabitTile({
   clock,
   pending,
   onQuick,
+  lingering,
+  leaving,
+  hidden,
 }: {
   e: Entry
   total: number
@@ -184,6 +194,9 @@ function HabitTile({
   clock: string | null
   pending: boolean
   onQuick: () => void
+  lingering: boolean
+  leaving: boolean
+  hidden: boolean
 }) {
   const met = meets(h.kind, total, h.target)
   const tone = tileTone(h, total, met)
@@ -201,7 +214,15 @@ function HabitTile({
 
   return (
     // Bloque que sube sobre hatch (spec, ADR 0023): vacío = hatch, progreso = bloque a pct.
-    <div className="group hatch relative flex min-h-[140px] flex-col justify-between gap-3 overflow-hidden rounded-xl bg-card p-4 shadow-card">
+    <div
+      // Nombre de view-transition = se desliza cuando cambia el orden. Sin nombre: el que sale
+      // (hace su propio fade) y el plegado (el snapshot ignora el overflow del fold y flotaría).
+      style={leaving || hidden ? undefined : { viewTransitionName: `habit-${h.id}` }}
+      className={cn(
+        "group hatch relative flex min-h-35 flex-col justify-between gap-3 overflow-hidden rounded-xl bg-card p-4 shadow-card [view-transition-class:habit]",
+        leaving && "animate-out fill-mode-forwards fade-out zoom-out-95 duration-200 ease-out",
+      )}
+    >
       <span
         aria-hidden
         style={{ height: `${block}%` }}
@@ -210,6 +231,21 @@ function HabitTile({
           paused && "opacity-60",
         )}
       />
+      {/* Linger: barrido verde de abajo arriba + barra que se vacía hasta que el tile se va. */}
+      {lingering && (
+        <>
+          <span aria-hidden className="habit-sweep absolute inset-0 rounded-xl bg-signal/10" />
+          <span
+            aria-hidden
+            className="absolute inset-x-4 bottom-2 h-0.5 overflow-hidden rounded-full bg-signal/15"
+          >
+            <span
+              className="habit-drain block h-full bg-signal"
+              style={{ animationDuration: `${LINGER}ms` }}
+            />
+          </span>
+        </>
+      )}
 
       <div className="relative flex items-center gap-3">
         {/* Toda la fila es UNA zona de click (stretched button): ícono y nombre quedan debajo y el
@@ -252,7 +288,15 @@ function HabitTile({
       </div>
 
       <div className="relative flex flex-col gap-3">
-        <HabitTileValue h={h} state={state} total={total} r={r} tone={tone} onHero={onQuick} />
+        <HabitTileValue
+          h={h}
+          state={state}
+          total={total}
+          r={r}
+          tone={tone}
+          onHero={onQuick}
+          celebrate={lingering}
+        />
       </div>
 
       {zoom && (

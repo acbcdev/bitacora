@@ -106,7 +106,7 @@ export function HabitTileInfo({
 }) {
   return (
     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <span className="block truncate text-[14px] font-medium leading-normal">{h.name}</span>
+      <span className="block truncate text-base font-medium">{h.name}</span>
       <span
         className={cn(
           "flex h-3.5 items-center font-mono text-xs leading-none tabular-nums",
@@ -127,6 +127,7 @@ export function HabitTileValue({
   r,
   tone,
   onHero,
+  celebrate,
 }: {
   h: Habit
   state: { streak: number; days: DayCell[] }
@@ -134,11 +135,12 @@ export function HabitTileValue({
   r: Run
   tone: Tone
   onHero: () => void
+  celebrate?: boolean
 }) {
   const sub = zeroCeiling(h) ? "" : `/${displayTarget(h)}${unit(h)}`
   return (
     <>
-      {/* 40px en 300 dark / 400 light: claro sobre oscuro engorda, oscuro sobre claro adelgaza.
+      {/* text-stat: 40px, peso por tema (--stat-weight).
           El hero es zona de click en toda métrica (mouse-only, igual que la fila de arriba). */}
       <button
         type="button"
@@ -146,26 +148,26 @@ export function HabitTileValue({
         aria-hidden
         onClick={onHero}
         className={cn(
-          "flex w-fit cursor-pointer items-baseline text-[40px] leading-none font-normal tracking-tighter tabular-nums dark:font-light",
+          "flex w-fit cursor-pointer items-baseline text-stat tabular-nums",
           TONE[tone],
         )}
       >
         {h.metric === "check" ? (
           total > 0 ? (
-            <Check className="size-[38px]" strokeWidth={2.25} />
+            <Check className={cn("size-9.5", celebrate && "habit-draw")} strokeWidth={2.25} />
           ) : (
-            <Circle className="size-[38px]" strokeWidth={1.5} strokeDasharray="3 3" />
+            <Circle className="size-9.5" strokeWidth={1.5} strokeDasharray="3 3" />
           )
         ) : (
           <>
             {r.running ? r.clock : displayAmount(h, total)}
-            <small className="ml-0.5 text-[13px] font-normal tracking-normal text-muted-foreground">
+            <small className="ml-0.5 text-sm font-normal tracking-normal text-muted-foreground">
               {sub}
             </small>
           </>
         )}
       </button>
-      <span className="flex items-center justify-between gap-2 font-mono text-[11px] leading-none text-muted-foreground">
+      <span className="flex items-center justify-between gap-2 font-mono text-2xs leading-none text-muted-foreground">
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate">{goalText(h)}</span>
           {state.streak >= 2 && (
