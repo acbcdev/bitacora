@@ -296,7 +296,7 @@ export function IconPicker({
       <DropoverTrigger asChild>
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="icon"
           aria-label="Icono del notebook"
           className={cn("size-10 text-muted-foreground", className)}

@@ -112,10 +112,10 @@ export function FlashcardCard({
                 what={item.title || "(sin título)"}
                 onConfirm={onDelete}
               />
-              <Button variant="outline" disabled={marked} onClick={() => onMark("incorrecto")}>
+              <Button variant="secondary" disabled={marked} onClick={() => onMark("incorrecto")}>
                 Incorrecto
               </Button>
-              <Button variant="outline" disabled={marked} onClick={() => onMark("parcial")}>
+              <Button variant="secondary" disabled={marked} onClick={() => onMark("parcial")}>
                 Parcial
               </Button>
               <Button disabled={marked} onClick={() => onMark("correcto")}>

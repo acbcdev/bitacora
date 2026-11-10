@@ -97,7 +97,9 @@ export function NotebookToolbar({
         options={{ tarjetas: <LayoutGrid />, tabla: <Rows3 /> }}
         className="ml-auto max-md:hidden"
       />
+      {/* Secondary como el "Nuevo" de Hábitos: en Hoy el único primario es "Siguiente". */}
       <Button
+        variant="secondary"
         onClick={onNew}
         aria-label="Nuevo notebook"
         className="max-md:ml-auto max-md:size-8 max-md:p-0"

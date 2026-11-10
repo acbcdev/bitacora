@@ -35,7 +35,7 @@ export function ReadGoalForm() {
         aria-label="Notas por día"
         className="w-16 text-center"
       />
-      <Button type="submit" variant="outline" disabled={save.isPending}>
+      <Button type="submit" variant="secondary" disabled={save.isPending}>
         Guardar
       </Button>
     </form>

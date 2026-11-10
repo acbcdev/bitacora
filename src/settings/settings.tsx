@@ -65,7 +65,7 @@ export function Settings({
                 {dark ? "Oscuro" : "Claro"} — se guarda en este navegador.
               </p>
             </div>
-            <Button variant="outline" onClick={onToggleTheme}>
+            <Button variant="secondary" onClick={onToggleTheme}>
               <ThemeIcon />
               {dark ? "Claro" : "Oscuro"}
             </Button>
@@ -76,7 +76,7 @@ export function Settings({
               <p className="text-sm font-medium">Sonido de hábitos</p>
               <p className="text-sm text-muted-foreground">Beep al completar tu meta de tiempo.</p>
             </div>
-            <Button variant="outline" onClick={() => playDoneSound()}>
+            <Button variant="secondary" onClick={() => playDoneSound()}>
               <Volume2 />
               Probar
             </Button>

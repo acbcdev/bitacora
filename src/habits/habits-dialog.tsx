@@ -123,7 +123,7 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
                   </span>
                 )}
               </DrialogTitle>
-              <Button variant="outline" size="sm" className="ml-auto" onClick={startCreate}>
+              <Button variant="secondary" size="sm" className="ml-auto" onClick={startCreate}>
                 <Plus />
                 Nuevo
               </Button>
