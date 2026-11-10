@@ -1,5 +1,11 @@
 import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { extendTailwindMerge } from "tailwind-merge"
+
+// Tamaños de la escala del DS (index.css) que tailwind-merge no conoce: sin esto `text-stat`
+// se toma por un color y `cn("text-stat", "text-signal")` lo borra.
+const twMerge = extendTailwindMerge({
+  extend: { theme: { text: ["2xs", "md", "display", "stat"] } },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
