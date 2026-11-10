@@ -54,6 +54,8 @@ function DropoverContent({
 }: React.ComponentPropsWithoutRef<"div"> & {
   title: string
   description?: string
+  // Popover.Content y Dialog.Content (debajo del Drawer) lo aceptan igual.
+  onOpenAutoFocus?: (e: Event) => void
 }) {
   const isMobile = useDropoverContext()
   if (isMobile) {
