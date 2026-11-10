@@ -1,21 +1,17 @@
 import { useState, useSyncExternalStore } from "react"
-import { ChevronDown, ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react"
+import type { ReactNode } from "react"
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Minus, Plus } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Dropover, DropoverContent, DropoverTrigger } from "@/core/ui/dropover"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/core/ui/input-group"
+import { cn } from "@/core/lib/utils"
 import { dayKey } from "@/core/lib/day"
 import {
   SERIES,
   cellColor,
   dayAt,
   displayAmount,
+  displayTarget,
   fromDisplay,
-  goalText,
   parseDay,
   periodKey,
   periodStartAt,
@@ -56,6 +52,16 @@ function useOpenHabit() {
 // Cuánto mueve el `+`. En `time` de a 5: nadie corrige minutos de a uno.
 // El STEP sigue en minutos de display; toStorage lo pasa a segundos.
 const STEP: Record<HabitMetric, number> = { check: 1, count: 1, time: 5 }
+
+// Atajos: corregir casi siempre es decir el valor final ("fueron 20"), no llegar a golpes de +5.
+// Cuartos de la meta + meta + 1.5×, redondeados al step, sin duplicados. En display units.
+// ponytail: derivados de la meta; con metas chicas faltan intermedios (meta 3 → 0·1·2·3·5).
+const presets = (metric: HabitMetric, target: number) => {
+  const r = (x: number) => Math.round(x / STEP[metric]) * STEP[metric]
+  return [
+    ...new Set([0, r(target * 0.25), r(target * 0.5), r(target * 0.75), target, r(target * 1.5)]),
+  ]
+}
 
 const FMT = new Intl.DateTimeFormat("es", { weekday: "short", day: "numeric", month: "short" })
 const FMT_DAY = new Intl.DateTimeFormat("es", { day: "numeric" })
@@ -124,6 +130,8 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
         })()
       : FMT_MONTH.format(periodStart)
   const currentLabel = { day: "hoy", week: "esta semana", month: "este mes" }[habit.period]
+  const label = i === TODAY ? currentLabel : cellLabel
+  const target = displayTarget(habit)
 
   // Cada gesto escribe, igual que el click del tile — la mutation es optimista, el número se mueve
   // sin esperar el round-trip. Antes esto juntaba los cambios en un borrador y los volcaba al
@@ -185,11 +193,64 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
 
       <DropoverContent
         title={habit.name}
-        className="flex flex-col gap-5 rounded-xl p-5 shadow-xl md:w-92 md:gap-5 md:p-6 max-md:min-h-[60vh] max-md:rounded-t-xl max-md:px-5 max-md:pb-10 max-md:pt-3"
+        className="flex flex-col gap-4 rounded-xl p-5 shadow-xl md:w-80 max-md:min-h-[50vh] max-md:rounded-t-xl max-md:px-5 max-md:pb-10 max-md:pt-3"
+        // Foco al contenedor, no al primer botón: el `‹` auto-enfocado pintaba un ring de
+        // focus-visible al abrir. Además deja ←/→ libres desde el primer frame.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          ;(e.currentTarget as HTMLElement).focus()
+        }}
+        // Teclas locales al panel (no hotkeys globales): solo valen con el foco adentro. En el
+        // input, ←/→ mueven el cursor y ↑/↓ los resuelve el number nativo (step y min incluidos).
+        onKeyDown={(e) => {
+          if (e.target instanceof HTMLInputElement) {
+            if (e.key === "Enter") {
+              e.preventDefault()
+              e.currentTarget.focus() // confirma y devuelve ←/→ a la navegación
+            }
+            return
+          }
+          const check = habit.metric === "check"
+          const k = e.key
+          if (k === "ArrowLeft" && i > 0) setI(i - 1)
+          else if (k === "ArrowRight" && i < TODAY) setI(i + 1)
+          else if (k === "ArrowUp") {
+            if (check) write(1)
+            else nudge(step)
+          } else if (k === "ArrowDown") {
+            if (check) write(0)
+            else if (shown > 0) nudge(-Math.min(step, shown))
+          } else return
+          e.preventDefault()
+        }}
       >
-        <p className="eyebrow leading-none">
-          {habit.name} · {goalText(habit)}
-        </p>
+        {/* Qué + cuándo en una fila. Sin la meta: el `/20 min` ya la dice y el período lo dice el
+            label. Label de ancho fijo → las flechas no se corren entre clicks repetidos. */}
+        <div className="flex items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-base font-medium leading-none">{habit.name}</p>
+          <div className="flex shrink-0 items-center text-sm">
+            <NavBtn
+              label="Período anterior"
+              keys="ArrowLeft"
+              disabled={i === 0}
+              onClick={() => setI(i - 1)}
+            >
+              <ChevronLeft className="size-4" />
+            </NavBtn>
+            <span className="w-28 truncate text-center font-medium" title={label}>
+              {label}
+            </span>
+            {/* No hay "siguiente" desde hoy: el futuro no se corrige. */}
+            <NavBtn
+              label="Período siguiente"
+              keys="ArrowRight"
+              disabled={i === TODAY}
+              onClick={() => setI(i + 1)}
+            >
+              <ChevronRight className="size-4" />
+            </NavBtn>
+          </div>
+        </div>
 
         {/* En un teléfono no hay hover: la historia sólo puede entrar acá. En desktop vive en el
             tile y meterla otra vez sería mostrarla dos veces a la vez. */}
@@ -197,100 +258,123 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
           <HabitHistory habit={habit} state={state} />
         </div>
 
-        <div className="flex items-center gap-2 rounded-2xl bg-muted p-1.5">
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            aria-label="Período anterior"
-            disabled={i === 0}
-            onClick={() => setI(i - 1)}
-            className="size-10 shrink-0 md:size-10 max-md:size-11"
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <span className="flex-1 text-center">
-            <span className="block text-[15px] font-semibold tracking-tight leading-none">
-              {i === TODAY ? currentLabel : cellLabel}
-            </span>
-            {i !== TODAY && isDay && (
-              <span className="block text-[11px] font-normal text-muted-foreground leading-none mt-0.5">
-                {dayKey(day)}
-              </span>
-            )}
-          </span>
-          {/* No hay "siguiente" desde hoy: el futuro no se corrige. */}
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            aria-label="Período siguiente"
-            disabled={i === TODAY}
-            onClick={() => setI(i + 1)}
-            className="size-10 shrink-0 md:size-10 max-md:size-11"
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-
-        {/* Un solo control por métrica. `check` no lleva stepper: con dos valores posibles, un
-            −/+ es un rodeo para decir sí o no. */}
+        {/* `check` no lleva stepper: con dos valores, un −/+ es un rodeo para decir sí o no. El
+            toggle es el mismo ícono del hero del tile. */}
         {habit.metric === "check" ? (
-          <div className="flex gap-3">
-            <Button
-              type="button"
-              variant={shown ? "outline" : "default"}
-              className="h-12 flex-1 rounded-xl text-sm font-medium md:h-11 max-md:h-12"
-              onClick={() => write(0)}
-            >
-              No lo hice
-            </Button>
-            <Button
-              type="button"
-              variant={shown ? "default" : "outline"}
-              className="h-12 flex-1 rounded-xl text-sm font-medium md:h-11 max-md:h-12"
-              onClick={() => write(1)}
-            >
-              Hecho
-            </Button>
-          </div>
+          <button
+            type="button"
+            aria-pressed={shown > 0}
+            onClick={() => write(shown > 0 ? 0 : 1)}
+            className="flex flex-col items-center gap-2 rounded-xl py-2 outline-none transition-[transform,background-color] duration-150 ease-out hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.98]"
+          >
+            {shown > 0 ? (
+              <Check className="size-12" strokeWidth={2} />
+            ) : (
+              <Circle
+                className="size-12 text-muted-foreground"
+                strokeWidth={1.5}
+                strokeDasharray="3 3"
+              />
+            )}
+            <span className="font-mono text-xs text-muted-foreground">
+              {shown > 0 ? "hecho · tocá para deshacer" : "tocá para marcar"}
+            </span>
+          </button>
         ) : (
-          // Ghost del DS: el InputGroup ya pone el borde exterior — un border propio por botón
-          // duplicaba la línea. Compact en desk (max-w 260 centrado), más alto en mobile para thumb.
-          <InputGroup className="h-15 w-full rounded-2xl border bg-card shadow-sm md:mx-auto md:h-14 md:max-w-[260px] max-md:h-[64px]">
-            <InputGroupAddon align="inline-start" className="pl-1.5">
-              <InputGroupButton
-                size="icon-sm"
-                aria-label="Restar"
+          <>
+            <div className="flex items-center justify-between pt-1">
+              <RoundBtn
+                label="Restar"
                 disabled={shown === 0}
-                onClick={() => nudge(-step)}
-                className="size-11 md:size-10 max-md:size-11"
+                onClick={() => nudge(-Math.min(step, shown))}
               >
-                <Minus className="size-5" />
-              </InputGroupButton>
-            </InputGroupAddon>
-            <InputGroupInput
-              type="number"
-              min={0}
-              value={shown}
-              onChange={(e) => write(Math.max(0, Number(e.target.value) || 0))}
-              aria-label={`Cantidad de ${cellLabel}`}
-              className="text-center text-xl font-semibold tabular-nums tracking-tight md:text-lg max-md:text-xl"
-            />
-            <InputGroupAddon align="inline-end" className="pr-1.5">
-              <InputGroupButton
-                size="icon-sm"
-                variant="ghost"
-                aria-label="Sumar"
-                onClick={() => nudge(step)}
-                className="size-11 md:size-10 max-md:size-11"
-              >
-                <Plus className="size-5" />
-              </InputGroupButton>
-            </InputGroupAddon>
-          </InputGroup>
+                <Minus className="size-4" />
+              </RoundBtn>
+              {/* El número ES el input: click y tipeás (select-all al foco → reemplaza). */}
+              <label className="flex items-baseline">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={step}
+                  value={shown}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => write(Math.max(0, Number(e.target.value) || 0))}
+                  aria-label={`Cantidad de ${label}`}
+                  style={{ width: `${Math.max(1, String(shown).length) + 0.2}ch` }}
+                  className="rounded-md bg-transparent text-center text-4xl font-normal tracking-tighter tabular-nums outline-none transition-colors [appearance:textfield] hover:bg-muted/60 focus:bg-muted [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <small className="ml-1 text-base text-muted-foreground">
+                  /{target}
+                  {habit.metric === "time" && " min"}
+                </small>
+              </label>
+              <RoundBtn label="Sumar" onClick={() => nudge(step)}>
+                <Plus className="size-4" />
+              </RoundBtn>
+            </div>
+
+            <div className="h-1 overflow-hidden rounded-full bg-track">
+              <div
+                style={{ transform: `scaleX(${Math.min(1, shown / Math.max(target, 1))})` }}
+                className="h-full origin-left rounded-full bg-foreground transition-transform duration-200 ease-out motion-reduce:transition-none"
+              />
+            </div>
+
+            <div className="flex gap-1.5">
+              {presets(habit.metric, target).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={shown === c}
+                  onClick={() => write(c)}
+                  className={cn(
+                    "flex h-8 flex-1 items-center justify-center gap-0.5 rounded-md font-mono text-xs tabular-nums transition-[transform,background-color,color] duration-150 ease-out active:scale-95 max-md:h-10",
+                    shown === c
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {c}
+                  {c === target && <Check className="size-3" strokeWidth={2.5} />}
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </DropoverContent>
     </Dropover>
+  )
+}
+
+type BtnProps = {
+  label: string
+  keys?: string
+  disabled?: boolean
+  onClick: () => void
+  children: ReactNode
+}
+
+function NavBtn({ label, keys, ...p }: BtnProps) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-keyshortcuts={keys}
+      title={keys && `${label} (${keys === "ArrowLeft" ? "←" : "→"})`}
+      className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+      {...p}
+    />
+  )
+}
+
+function RoundBtn({ label, ...p }: BtnProps) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className="flex size-11 items-center justify-center rounded-full bg-secondary transition-[transform,background-color] duration-150 ease-out hover:bg-muted active:scale-95 disabled:pointer-events-none disabled:opacity-30"
+      {...p}
+    />
   )
 }
