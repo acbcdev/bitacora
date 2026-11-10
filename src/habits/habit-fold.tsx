@@ -31,6 +31,8 @@ export function HabitFold<T extends { h: Habit; state: { met: boolean } }>({
   const stack = rest.toSorted((a, b) => Number(b.state.met) - Number(a.state.met)).slice(0, 4)
   const doneCount = rest.filter((i) => i.state.met).length
   const pendingNames = rest.filter((i) => !i.state.met).map(({ h }) => h.name)
+  // Todo lo plegado cumplido: "2 más ✓ 2 cumplidos" diría el mismo número dos veces.
+  const allDone = doneCount === rest.length
 
   return (
     <>
@@ -78,9 +80,11 @@ export function HabitFold<T extends { h: Habit; state: { met: boolean } }>({
                 ))}
               </span>
             )}
-            <span className="text-sm font-medium text-foreground">
-              {open ? "mostrar menos" : `${rest.length} más`}
-            </span>
+            {(open || !allDone || landed) && (
+              <span className="text-sm font-medium text-foreground">
+                {open ? "mostrar menos" : `${rest.length} más`}
+              </span>
+            )}
             {!open &&
               (landed ? (
                 <span
