@@ -10,7 +10,7 @@ import type { useNoteDraft } from "@/notes/notes.api"
 export function NoteBody({
   draft,
   large = false,
-  titleSize = "text-4xl",
+  titleSize = "text-4xl leading-tight",
   titleWrap = (el) => el,
   autoFocusTitle = false,
 }: {
