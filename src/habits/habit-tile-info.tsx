@@ -1,6 +1,7 @@
 import { Check, Circle, Flame } from "lucide-react"
 import type { ReactNode } from "react"
 import { cn } from "@/core/lib/utils"
+import { formatClock } from "@/habits/habit-timer"
 import { HabitDots } from "@/habits/habit-dots"
 import { displayAmount, displayTarget, goalText, streakText, unit } from "@/habits/habits"
 import type { DayCell } from "@/core/store/derive"
@@ -160,7 +161,7 @@ export function HabitTileValue({
           )
         ) : (
           <>
-            {r.running ? r.clock : displayAmount(h, total)}
+            {r.running ? r.clock : r.paused ? formatClock(total) : displayAmount(h, total)}
             <small className="ml-0.5 text-sm font-normal tracking-normal text-muted-foreground">
               {sub}
             </small>
