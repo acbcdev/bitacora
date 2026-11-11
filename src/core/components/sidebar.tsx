@@ -15,11 +15,12 @@ import {
   Search,
   Sun,
 } from "lucide-react"
-import { NavLink } from "react-router-dom"
+import { NavLink, useLocation } from "react-router-dom"
 import { SidebarGroupSkeleton } from "@/core/components/skeletons"
 import { readSample, saveSample } from "@/core/lib/sample"
 import { store } from "@/core/store"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
+import { MiniTimer } from "@/habits/mini-timer"
 import { toggleNotebookDone, useUpdateNotebook } from "@/notebooks/notebooks.api"
 import { togglePinnedNotebook, usePinnedNotebookIds } from "@/notebooks/pinned-notebooks"
 import { Button } from "@/core/ui/button"
@@ -97,6 +98,7 @@ export function Sidebar({
       },
     })
   }, [loading, pinned.length, active.length, recent.length, fijadoOpen, activosOpen, recientesOpen])
+  const { pathname } = useLocation()
   const local = store.mode === "local"
   const ThemeIcon = dark ? Sun : Moon
   const themeLabel = dark ? "Tema claro" : "Tema oscuro"
@@ -188,6 +190,14 @@ export function Sidebar({
           )}
         </div>
       </SidebarContent>
+
+      {/* El hueco de arriba del footer: visible también sin cronómetro corriendo. En Hoy no: la tira
+          de Hábitos ya lo muestra (redundante) y tiene su propio useHabitTimer. */}
+      {pathname !== "/" && (
+        <div className="relative px-2 pb-2">
+          <MiniTimer />
+        </div>
+      )}
 
       <SidebarFooter className="border-t p-2">
         <SidebarMenu>
