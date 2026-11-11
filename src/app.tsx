@@ -98,7 +98,7 @@ function Shell({ user }: { user: AuthUser }) {
   const [palette, setPalette] = useState(false)
   const [cheat, setCheat] = useState(false)
   const [settings, setSettings] = useState(false)
-  const [newHabit, setNewHabit] = useState(false)
+  const [habitsDialog, setHabitsDialog] = useState<"list" | "new" | null>(null)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("bita-sb") === "1")
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"))
 
@@ -167,7 +167,14 @@ function Shell({ user }: { user: AuthUser }) {
         group: "Acciones",
         label: "Nuevo hábito",
         icon: <Target />,
-        run: () => setNewHabit(true),
+        run: () => setHabitsDialog("new"),
+      },
+      {
+        group: "Acciones",
+        label: "Hábitos",
+        hint: "gestionar",
+        icon: <Target />,
+        run: () => setHabitsDialog("list"),
       },
       ...(notebookId
         ? [
@@ -312,7 +319,9 @@ function Shell({ user }: { user: AuthUser }) {
             />
           </Suspense>
         )}
-        {newHabit && <HabitsDialog startNew onClose={() => setNewHabit(false)} />}
+        {habitsDialog && (
+          <HabitsDialog startNew={habitsDialog === "new"} onClose={() => setHabitsDialog(null)} />
+        )}
         <Toaster theme={dark ? "dark" : "light"} />
       </SidebarProvider>
     </TooltipProvider>
