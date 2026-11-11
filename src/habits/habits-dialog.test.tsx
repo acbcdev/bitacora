@@ -4,6 +4,11 @@ import { HabitsDialog } from "@/habits/habits-dialog"
 import type { Habit } from "@/core/types/database"
 import type { Snapshot } from "@/core/store/types"
 
+// jsdom no trae estas APIs y Radix Select las usa al abrir/elegir.
+Element.prototype.hasPointerCapture ??= () => false
+Element.prototype.releasePointerCapture ??= () => {}
+Element.prototype.scrollIntoView ??= () => {}
+
 const { save, softDelete, state } = vi.hoisted(() => ({
   save: vi.fn((_entity: string, _input: unknown) => Promise.resolve()),
   softDelete: vi.fn((_entity: string, _id: string) => Promise.resolve()),
@@ -120,11 +125,11 @@ test("Cancelar resetea sin cerrar y cambiar de hábito descarta el draft", async
   expect(title()).toBe("Read")
 })
 
-test("archivar selecciona el siguiente", async () => {
+test("eliminar selecciona el siguiente", async () => {
   renderDialog()
   await waitFor(() => expect(title()).toBe("Read"))
-  fireEvent.click(screen.getByRole("button", { name: "Archivar" }))
-  fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Archivar" }))
+  fireEvent.click(screen.getByRole("button", { name: "Eliminar hábito" }))
+  fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Eliminar" }))
   await waitFor(() => expect(softDelete).toHaveBeenCalledWith("habits", "h1"))
   expect(title()).toBe("Gym")
 })
@@ -148,7 +153,8 @@ test("Nuevo muestra el form vacío y crear selecciona el nuevo", async () => {
 test("desde la palette abre en crear y manda period: week", async () => {
   renderDialog(true)
   fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Gym" } })
-  fireEvent.change(screen.getByLabelText("Frecuencia"), { target: { value: "week" } })
+  fireEvent.keyDown(screen.getByLabelText("Frecuencia"), { key: "Enter" })
+  fireEvent.click(await screen.findByRole("option", { name: "por semana" }))
   fireEvent.click(screen.getByRole("button", { name: "Crear" }))
   await waitFor(() =>
     expect(save).toHaveBeenCalledWith("habits", expect.objectContaining({ period: "week" })),

@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
-  Archive,
   CalendarDays,
   Check,
   ChevronLeft,
@@ -10,11 +9,13 @@ import {
   Hash,
   Plus,
   Target,
+  Trash2,
 } from "lucide-react"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { Button } from "@/core/ui/button"
 import { Drialog, DrialogContent, DrialogTitle } from "@/core/ui/drialog"
 import { Input } from "@/core/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/ui/select"
 import { cn } from "@/core/lib/utils"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { IconPicker } from "@/notebooks/icon-picker"
@@ -85,7 +86,7 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
   useHotkeys("alt+j", () => step(1), hotkeys, [index, creating, habits])
   useHotkeys("alt+k", () => step(-1), hotkeys, [index, creating, habits])
   // ↑/↓ globales en el dialog, sin foco en la lista. SIN enableOnFormTags: en el input numérico y
-  // los <select> las flechas son del control.
+  // los Select las flechas son del control.
   useHotkeys("down", () => step(1), { preventDefault: true, enabled: !archiving }, [
     index,
     creating,
@@ -192,12 +193,12 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
         </div>
       </DrialogContent>
 
-      {/* Archivar = soft delete: el habit_log queda intacto y el hábito sale de la tira. */}
+      {/* Eliminar (soft delete en DB): el habit_log queda intacto y el hábito sale de la tira. */}
       <ConfirmDelete
         open={!!archiving}
         onOpenChange={(o) => !o && setArchiving(null)}
         what={archiving?.name ?? ""}
-        verb="Archivar"
+        verb="Eliminar"
         onConfirm={() => {
           if (archiving) {
             archive.mutate(archiving.id)
@@ -246,9 +247,7 @@ const CUPO = "Es un cupo: no importa qué día lo hagas."
 const PILL =
   "inline-flex h-8 items-center gap-1.5 rounded-full border border-input pr-3 pl-2.5 text-sm text-fg-secondary"
 
-// Pill con `<select>` nativo transparente ENCIMA. El menú lo dibuja el SO — rueda en iOS, dropdown
-// en desktop — así que sale gratis: cero popover propio, cero foco atrapado, y no se anida con el
-// IconPicker, que YA es un Dropover (popover dentro de popover se cierran entre ellos).
+// Pill con el Select de shadcn: el popover de Radix va en Portal, así que no se pelea con el IconPicker.
 function SelectPill<T extends string>({
   icon: Icon,
   label,
@@ -263,27 +262,19 @@ function SelectPill<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div
-      className={cn(
-        PILL,
-        "relative has-[select:focus-visible]:border-ring has-[select:focus-visible]:ring-3 has-[select:focus-visible]:ring-ring/50 hover:bg-accent",
-      )}
-    >
-      <Icon className="size-3.5 text-muted-foreground" aria-hidden />
-      {options.find(([v]) => v === value)?.[1]}
-      <select
-        aria-label={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className="absolute inset-0 cursor-pointer opacity-0"
-      >
+    <Select value={value} onValueChange={(v) => onChange(v as T)}>
+      <SelectTrigger aria-label={label} className={cn(PILL, "w-fit py-0 hover:bg-accent")}>
+        <Icon className="size-3.5 text-muted-foreground" aria-hidden />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent position="popper" align="start">
         {options.map(([v, text]) => (
-          <option key={v} value={v} className="bg-[Canvas] text-[CanvasText]">
+          <SelectItem key={v} value={v}>
             {text}
-          </option>
+          </SelectItem>
         ))}
-      </select>
-    </div>
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -400,6 +391,19 @@ function HabitForm({
             placeholder="Nombre del hábito"
             className="h-auto rounded-none border-0 bg-transparent px-0 text-2xl font-semibold placeholder:text-muted-foreground/50 focus-visible:ring-0 dark:bg-transparent"
           />
+          {/* Arriba y lejos de Cancelar/Guardar: es la acción destructiva, no va al lado de las seguras. */}
+          {habit && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Eliminar hábito"
+              className="text-muted-foreground hover:text-destructive"
+              onClick={() => onArchive(habit)}
+            >
+              <Trash2 />
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
@@ -455,15 +459,11 @@ function HabitForm({
       <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
         {/* La meta escrita, en vivo: es la misma línea que va a mostrar el tile. */}
         <span className="mono-dim mr-auto text-xs">{goalText(goal)}</span>
-        {habit && (
-          <Button type="button" variant="ghost" onClick={() => onArchive(habit)}>
-            <Archive />
-            Archivar
-          </Button>
-        )}
         <Button
           type="button"
           variant="ghost"
+          // Sin cambios no hay draft que descartar; en el alta sí vuelve al anterior.
+          disabled={!!habit && !dirty}
           onClick={() => (habit ? setDraft(initial) : onCancelNew())}
         >
           Cancelar
