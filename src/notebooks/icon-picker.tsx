@@ -1,85 +1,103 @@
-import { useEffect, useMemo, useRef, useState } from "react"
-import { Image as ImageIcon, Loader2, Shuffle, Smile } from "lucide-react"
+import { useMemo, useRef, useState } from "react"
+import { Image as ImageIcon, Loader2, Search, Shuffle, Smile } from "lucide-react"
 import { toast } from "sonner"
 import { EMOJIS, EMOJI_GROUPS, EMOJI_KEYWORDS, TONES, TONEABLE } from "@/notebooks/emojis"
 import { NotebookIcon, ICON_TINTS, TINT_DOTS } from "@/notebooks/notebook-icon"
 import { PRESET_GROUPS } from "@/notebooks/preset-icons"
 import { store } from "@/core/store"
 import { Button } from "@/core/ui/button"
-import { Input } from "@/core/ui/input"
 import { Kbd } from "@/core/ui/kbd"
 import { cn, MOD } from "@/core/lib/utils"
 import { Dropover, DropoverContent, DropoverTrigger } from "@/core/ui/dropover"
 import { ScrollArea } from "@/core/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/ui/tabs"
 
+type Group = { label: string; icon: string; items: string[] }
+type GridProps = {
+  groups: Group[]
+  selected: (item: string) => boolean
+  onPick: (item: string) => void
+  render: (item: string) => React.ReactNode
+  nav: boolean
+}
+
 // Pestaña con secciones (título = texto pelado, sin fondo). Celdas fijas (min-content) pegadas
 // al start: los íconos van cuerpo a cuerpo, sin estirarse por el ancho del popover — por eso
 // 10 columnas × 36px ≈ el ancho útil de w-96 y no queda más gap que el gap-0 del grid. En
 // desktop el scroller recorta con h-80 (popover bajo) y el header con pestañas y buscador
 // quedan fijos; en mobile el drawer manda el alto.
-// Solo la pestaña de emojis lleva el nav inferior de categorías (con scroll-spy que marca el
-// activo) y solo con la lista completa; los íconos no.
-function GroupedGrid({
-  value,
-  groups,
-  selected,
-  onPick,
-  render,
-  nav,
-}: {
-  value: string
-  groups: { label: string; icon?: string; items: string[] }[]
-  selected: (item: string) => boolean
-  onPick: (item: string) => void
-  render: (item: string) => React.ReactNode
-  nav?: boolean
-}) {
+// El estado vive en <Grid>, ADENTRO del TabsContent: Radix desmonta la pestaña inactiva, así
+// que cada vez que se abre arranca con el scroll en 0 y el nav en el primer grupo.
+function GroupedGrid({ value, ...props }: GridProps & { value: string }) {
+  return (
+    <TabsContent value={value} className="flex min-h-0 flex-1 flex-col p-1">
+      <Grid {...props} />
+    </TabsContent>
+  )
+}
+
+function Grid({ groups, selected, onPick, render, nav }: GridProps) {
   const root = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(groups[0]?.label)
+  // scrollTop destino de un click en el nav: mientras el smooth scroll pasa por los grupos del
+  // medio el spy no los marca (si no, el activo parpadea). Se libera al llegar.
+  const jump = useRef<number | null>(null)
 
-  // El scroller real es el Viewport del ScrollArea; scroll no burbujea, así que el spy escucha
-  // directo ahí.
   const viewport = () =>
     root.current?.querySelector<HTMLElement>("[data-slot=scroll-area-viewport]")
 
-  useEffect(() => {
+  // Scroll-spy: activo = último título que pasó el primer tercio del viewport (con el borde de
+  // arriba exacto se marcaba tarde: el grupo siguiente ya llenaba la vista). Al fondo gana el
+  // último grupo — los cortos del final nunca llegan arriba.
+  function spy() {
     const el = viewport()
     if (!el) return
-    const onScroll = () => {
-      const top = el.getBoundingClientRect().top
-      let current = el.querySelector<HTMLElement>("[data-group]")?.dataset.group
-      for (const node of el.querySelectorAll<HTMLElement>("[data-group]")) {
-        if (node.getBoundingClientRect().top - top <= 4) current = node.dataset.group
-      }
-      if (current) setActive(current)
+    if (jump.current !== null) {
+      if (Math.abs(el.scrollTop - jump.current) > 1) return
+      jump.current = null
+      return // el activo ya lo fijó go()
     }
-    el.addEventListener("scroll", onScroll)
-    return () => el.removeEventListener("scroll", onScroll)
-  }, [groups])
+    const top = el.getBoundingClientRect().top + el.clientHeight / 3
+    const bottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 2
+    let current = groups[0]?.label
+    for (const node of el.querySelectorAll<HTMLElement>("[data-group]"))
+      if (node.getBoundingClientRect().top <= top) current = node.dataset.group!
+    if (bottom) current = groups.at(-1)?.label ?? current
+    setActive(current)
+  }
 
   function go(label: string) {
     const el = viewport()
     const section = el?.querySelector<HTMLElement>(`[data-group="${CSS.escape(label)}"]`)
     if (!el || !section) return
-    el.scrollTo({
-      top: section.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 2,
-      behavior: "smooth",
-    })
+    const target = Math.min(
+      section.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop,
+      el.scrollHeight - el.clientHeight,
+    )
+    // Sin desplazamiento no hay evento scroll que libere el lock: solo se bloquea si se mueve.
+    jump.current = Math.abs(target - el.scrollTop) > 1 ? target : null
+    el.scrollTo({ top: target, behavior: "smooth" })
     setActive(label)
   }
 
   return (
-    <TabsContent value={value} ref={root} className="flex min-h-0 flex-1 flex-col p-1">
+    <div ref={root} className="flex min-h-0 flex-1 flex-col">
       {/* Alto explícito en desktop (h-80): en un popover de alto auto, flex-1 no define altura
           y el contenido del ScrollArea se sale del contenedor. En mobile el drawer sí da la
-          cadena de flex-1 + min-h-0 que hace definite el alto. */}
-      <ScrollArea className="min-h-0 flex-1 md:h-80 md:flex-none">
+          cadena de flex-1 + min-h-0 que hace definite el alto.
+          scroll no burbujea pero sí se captura: onScrollCapture en el Root oye al Viewport sin
+          addEventListener. Rueda/touch sueltan el lock de un salto en curso. */}
+      <ScrollArea
+        className="min-h-0 flex-1 md:h-80 md:flex-none"
+        onScrollCapture={spy}
+        onWheel={() => (jump.current = null)}
+        onTouchStart={() => (jump.current = null)}
+      >
         {groups.map((g) => (
           <div key={g.label}>
             <div
               data-group={g.label}
-              className="py-0.5 text-[11px] font-medium text-muted-foreground"
+              className="px-1 pt-2 pb-1 text-xs font-medium text-muted-foreground"
             >
               {g.label}
             </div>
@@ -97,12 +115,13 @@ function GroupedGrid({
             </div>
           </div>
         ))}
+        {groups.length === 0 && (
+          <p className="py-10 text-center text-sm text-muted-foreground">Sin resultados</p>
+        )}
       </ScrollArea>
 
-      {/* Nav de categorías (solo emojis): íconos lucide, un ícono por grupo. Salta al grupo
-            dentro del scroll de arriba; se oculta mientras se busca. Va DENTRO del TabsContent
-            para que Radix lo desmonte cuando la pestaña no está activa — como hermano se veía
-            en las dos pestañas. */}
+      {/* Nav de categorías: un ícono lucide por grupo, salta al grupo dentro del scroll de
+          arriba. Se oculta mientras se busca (los grupos filtrados no son navegables). */}
       {nav && groups.length > 1 && (
         <nav
           className="mt-1 flex gap-0.5 overflow-x-auto border-t px-1 pt-1"
@@ -117,15 +136,18 @@ function GroupedGrid({
               title={g.label}
               aria-label={g.label}
               aria-current={active === g.label ? "true" : undefined}
-              className={cn("shrink-0", active === g.label && "bg-muted text-foreground")}
+              className={cn(
+                "shrink-0 text-muted-foreground",
+                active === g.label && "bg-muted text-foreground",
+              )}
               onClick={() => go(g.label)}
             >
-              <NotebookIcon icon={g.icon ? `lucide:${g.icon}` : null} className="size-4" />
+              <NotebookIcon icon={`lucide:${g.icon}`} className="size-4" />
             </Button>
           ))}
         </nav>
       )}
-    </TabsContent>
+    </div>
   )
 }
 
@@ -147,7 +169,13 @@ function IconButton({
       size="icon"
       aria-label={label}
       aria-pressed={selected}
-      className={cn("max-md:size-11 md:size-9", selected && "bg-muted text-foreground")}
+      // rounded-lg y no el rounded-full del Button: el emoji llena casi todo el círculo y le
+      // tapa el borde — con esquinas el fondo asoma alrededor del glifo y se lee como celda.
+      // Elegido = fondo + anillo interno; bg-muted solo no contrasta contra bg-popover.
+      className={cn(
+        "rounded-lg hover:bg-foreground/8 max-md:size-11 md:size-9",
+        selected && "bg-foreground/10 text-foreground ring-1 ring-foreground/20 ring-inset",
+      )}
       onClick={onClick}
     >
       {children}
@@ -168,6 +196,7 @@ export function IconPicker({
   className?: string
 }) {
   const file = useRef<HTMLInputElement>(null)
+  const search = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -180,6 +209,7 @@ export function IconPicker({
     () =>
       PRESET_GROUPS.map((g) => ({
         label: g.label,
+        icon: g.icon,
         items: g.icons.filter((i) => i.toLowerCase().includes(q)),
       })).filter((g) => g.items.length > 0),
     [q],
@@ -309,12 +339,19 @@ export function IconPicker({
         </Button>
       </DropoverTrigger>
 
-      {/* Pegar cuelga del popover/drawer entero, no del tab: se enfoca el content al abrir, así
+      {/* Pegar cuelga del popover/drawer entero, no del tab: el foco queda adentro al abrir, así
           que ⌘V funciona desde cualquier pestaña sin tener que ir hasta el dropzone. */}
       <DropoverContent
         title="Ícono del notebook"
         className="md:w-96 gap-0 p-0 max-md:min-h-[300px]"
         onPaste={(e) => upload(e.clipboardData.files[0])}
+        // Abrir = tipear: el foco va al buscador en vez de a la primera pestaña (que además
+        // mostraba su ring). En mobile no — subiría el teclado tapando el drawer.
+        onOpenAutoFocus={(e) => {
+          if (!matchMedia("(min-width: 48rem)").matches) return
+          e.preventDefault()
+          search.current?.focus()
+        }}
       >
         <Tabs value={tab} onValueChange={setTab} className="min-h-0 max-md:flex-1 gap-0">
           {/* El borde del header hace de riel del subrayado de la pestaña activa. */}
@@ -341,14 +378,20 @@ export function IconPicker({
               cicla tintes presets de íconos lucide, la mano cicla el tono de piel del emoji. */}
           {tab !== "subir" && (
             <div className="flex items-center gap-1 px-2 py-1.5">
-              <Input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar…"
-                aria-label="Buscar icono o emoji"
-                className="h-7 text-sm"
-              />
+              {/* Mismo buscador pill que el del toolbar de notebooks: el label entero es el
+                  target y el anillo se aclara con focus-within, sin el ring grueso del Input. */}
+              <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full bg-card px-3 ring-1 ring-border transition-shadow focus-within:ring-border-strong">
+                <Search className="size-3.5 shrink-0 text-muted-foreground" />
+                <input
+                  ref={search}
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={tab === "iconos" ? "Buscar ícono…" : "Buscar emoji…"}
+                  aria-label="Buscar icono o emoji"
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
+                />
+              </label>
               <Button
                 type="button"
                 variant="ghost"
@@ -400,6 +443,7 @@ export function IconPicker({
               tabs el buscador filtra dentro de cada grupo y corta los vacíos. */}
           <GroupedGrid
             value="iconos"
+            nav={q === ""}
             groups={presetGroups}
             selected={(n) => icon === `lucide:${n}`}
             onPick={(n) => set(`lucide:${n}`)}

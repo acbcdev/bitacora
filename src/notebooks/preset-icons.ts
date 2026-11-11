@@ -1006,8 +1006,9 @@ export const PRESET_ICONS = {
 // la fuente de verdad de qué existe sigue siendo el mapa de arriba — acá solo se reparten los
 // mismos nombres por categoría (tiene que cubrir todas las claves elegibles, sin repetidos ni
 // faltantes).
-export const PRESET_GROUPS: { label: string; icons: PresetIcon[] }[] = [
+export const PRESET_GROUPS: { label: string; icon: PresetIcon; icons: PresetIcon[] }[] = [
   {
+    icon: "BookOpen",
     label: "Estudio y papel",
     icons: [
       "Book",
@@ -1047,6 +1048,7 @@ export const PRESET_GROUPS: { label: string; icons: PresetIcon[] }[] = [
     ],
   },
   {
+    icon: "Atom",
     label: "Tech y ciencia",
     icons: [
       "Code",
@@ -1144,6 +1146,7 @@ export const PRESET_GROUPS: { label: string; icons: PresetIcon[] }[] = [
     ],
   },
   {
+    icon: "Palette",
     label: "Arte y música",
     icons: [
       "Palette",
@@ -1201,6 +1204,7 @@ export const PRESET_GROUPS: { label: string; icons: PresetIcon[] }[] = [
     ],
   },
   {
+    icon: "Briefcase",
     label: "Trabajo y dinero",
     icons: [
       "Briefcase",
@@ -1256,6 +1260,7 @@ export const PRESET_GROUPS: { label: string; icons: PresetIcon[] }[] = [
     ],
   },
   {
+    icon: "Home",
     label: "Hogar y vida",
     icons: [
       "Home",
@@ -1290,6 +1295,7 @@ export const PRESET_GROUPS: { label: string; icons: PresetIcon[] }[] = [
     ],
   },
   {
+    icon: "Utensils",
     label: "Comida y bebida",
     icons: [
       "Apple",
@@ -1330,6 +1336,7 @@ export const PRESET_GROUPS: { label: string; icons: PresetIcon[] }[] = [
     ],
   },
   {
+    icon: "Leaf",
     label: "Naturaleza",
     icons: [
       "Leaf",
@@ -1381,6 +1388,7 @@ export const PRESET_GROUPS: { label: string; icons: PresetIcon[] }[] = [
     ],
   },
   {
+    icon: "MapPin",
     label: "Lugares y viajes",
     icons: [
       "Compass",
@@ -1433,6 +1441,7 @@ export const PRESET_GROUPS: { label: string; icons: PresetIcon[] }[] = [
     ],
   },
   {
+    icon: "Dumbbell",
     label: "Deporte y juego",
     icons: [
       "Activity",
@@ -1470,6 +1479,7 @@ export const PRESET_GROUPS: { label: string; icons: PresetIcon[] }[] = [
     ],
   },
   {
+    icon: "Package",
     label: "Objetos",
     icons: [
       "Star",
