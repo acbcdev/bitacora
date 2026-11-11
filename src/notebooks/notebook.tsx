@@ -418,24 +418,9 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                   </button>
                   {/* Frescura como dot (el rótulo "hace 94d" en cada fila era ruido y le robaba ancho
                       al título); el detalle va en el tooltip del dot, con hit area de 20px. El ⋯
-                      aparece al lado en hover. En el flujo (no absoluto): el título se encoge y su
+                      aparece a la izquierda en hover: el dot queda fijo en el borde. En el flujo (no absoluto): el título se encoge y su
                       `truncate` pone el `…` antes en vez de quedar tapado. */}
-                  <div className="flex shrink-0 items-center group-focus-within/note:pl-1 group-hover/note:pl-1 group-has-[[aria-expanded=true]]/note:pl-1">
-                    {f && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            aria-label={`Repasada ${f.label}`}
-                            className="-mr-1.5 grid size-5 place-items-center group-focus-within/note:mr-0 group-hover/note:mr-0 group-has-[[aria-expanded=true]]/note:mr-0"
-                          >
-                            <i className={cn("size-1.5 rounded-full", f.dot)} />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          Repasada <span className={cn("font-mono", f.cls)}>{f.label}</span>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                  <div className="flex shrink-0 items-center">
                     <span className="hidden group-focus-within/note:grid group-has-[[aria-expanded=true]]/note:grid group-hover/note:grid">
                       <NoteActions
                         note={n}
@@ -448,6 +433,21 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                         onDeleted={() => navigate(`/notebook/${id}`)}
                       />
                     </span>
+                    {f && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            aria-label={`Repasada ${f.label}`}
+                            className="-mr-1.5 grid size-5 place-items-center"
+                          >
+                            <i className={cn("size-1.5 rounded-full", f.dot)} />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Repasada <span className={cn("font-mono", f.cls)}>{f.label}</span>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                 </div>
               )
