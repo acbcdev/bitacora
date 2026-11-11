@@ -1,13 +1,7 @@
 import { LayoutGrid, Plus, Rows3, Search } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/core/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/ui/select"
 import { ViewPill } from "@/core/components/view-pill"
 import { STATUS_DOT } from "@/notebooks/notebook-status"
 import type { Sort } from "@/notebooks/notebook-filters"
@@ -28,10 +22,10 @@ const SORT_OPTS: [Sort, string][] = [
   ["rondas", "Rondas"],
   ["inicio", "Inicio"],
 ]
-const label = <T,>(opts: [T, string][], v: T) => opts.find(([k]) => k === v)![1]
 
+// border-0 + [&>svg]:hidden: pisa el borde y el chevron del SelectTrigger (el chip no lleva chevron).
 const CHIP =
-  "flex h-8 cursor-pointer items-center gap-2 rounded-full bg-card px-3 text-sm shadow-card ring-1 ring-border hover:ring-border-strong aria-expanded:ring-border-strong"
+  "h-8 w-auto cursor-pointer gap-2 rounded-full border-0 bg-card px-3 shadow-card ring-1 ring-border hover:ring-border-strong aria-expanded:ring-border-strong dark:bg-card dark:hover:bg-card [&>svg]:hidden"
 
 export function NotebookToolbar({
   q,
@@ -75,19 +69,10 @@ export function NotebookToolbar({
 
       {/* "Campo valor": el nombre del campo dim ya dice qué abre el chip — sin icono ni chevron.
           En mobile queda sólo el valor. */}
-      <Menu value={status} onChange={onStatus} opts={STATUS_OPTS}>
-        <button className={CHIP}>
-          <span className="text-muted-foreground max-md:hidden">Estado</span>
-          {status !== "todos" && <span className={`size-1.5 rounded-full ${STATUS_DOT[status]}`} />}
-          <span className="font-medium">{label(STATUS_OPTS, status)}</span>
-        </button>
-      </Menu>
-      <Menu value={sort} onChange={onSort} opts={SORT_OPTS}>
-        <button className={CHIP}>
-          <span className="text-muted-foreground max-md:hidden">Orden</span>
-          <span className="font-medium">{label(SORT_OPTS, sort)}</span>
-        </button>
-      </Menu>
+      <Chip name="Estado" value={status} onChange={onStatus} opts={STATUS_OPTS}>
+        {status !== "todos" && <span className={`size-1.5 rounded-full ${STATUS_DOT[status]}`} />}
+      </Chip>
+      <Chip name="Orden" value={sort} onChange={onSort} opts={SORT_OPTS} />
 
       {/* Tabla no entra en un viewport angosto (columnas se pisan) — en mobile ni el toggle
           se muestra: siempre cards. */}
@@ -111,29 +96,33 @@ export function NotebookToolbar({
   )
 }
 
-function Menu<T extends string>({
+function Chip<T extends string>({
+  name,
   value,
   onChange,
   opts,
   children,
 }: {
+  name: string
   value: T
   onChange: (v: T) => void
   opts: [T, string][]
-  children: React.ReactNode
+  children?: React.ReactNode
 }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-40">
-        <DropdownMenuRadioGroup value={value} onValueChange={(v) => onChange(v as T)}>
-          {opts.map(([k, l]) => (
-            <DropdownMenuRadioItem key={k} value={k}>
-              {l}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Select value={value} onValueChange={(v) => onChange(v as T)}>
+      <SelectTrigger aria-label={name} className={CHIP}>
+        <span className="text-muted-foreground max-md:hidden">{name}</span>
+        {children}
+        <SelectValue className="font-medium" />
+      </SelectTrigger>
+      <SelectContent position="popper" align="start" className="min-w-40">
+        {opts.map(([k, l]) => (
+          <SelectItem key={k} value={k}>
+            {l}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
