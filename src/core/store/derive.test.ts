@@ -145,13 +145,16 @@ describe("notebooksPage", () => {
     expect(notebooksPage(snap, query({ status: "done" })).rows[0].id).toBe("c2")
   })
 
-  test("`recientes` ordena por started_at desc con los nulos al final", () => {
+  test("`recientes` ordena por última lectura desc con los sin leer al final", () => {
+    // started_at al revés de last_read: prueba que el sort ignora la fecha de inicio.
     const snap = snapshot({
       notebooks: [
-        notebook({ id: "sin", started_at: null }),
-        notebook({ id: "viejo", started_at: "2026-01-01T00:00:00Z" }),
-        notebook({ id: "nuevo", started_at: "2026-06-01T00:00:00Z" }),
+        notebook({ id: "sin", started_at: "2026-09-01T00:00:00Z" }),
+        notebook({ id: "viejo", started_at: "2026-08-01T00:00:00Z" }),
+        notebook({ id: "nuevo", started_at: "2026-01-01T00:00:00Z" }),
       ],
+      notes: [note({ id: "n1", notebook_id: "viejo" }), note({ id: "n2", notebook_id: "nuevo" })],
+      reads: [read("n1", "2026-02-01T10:00:00Z"), read("n2", "2026-06-01T10:00:00Z")],
     })
     expect(notebooksPage(snap, query()).rows.map((r) => r.id)).toEqual(["nuevo", "viejo", "sin"])
   })
@@ -166,6 +169,16 @@ describe("notebooksPage", () => {
       "c2",
       "c1",
     ])
+  })
+
+  test("`reverse` invierte la dirección natural del sort", () => {
+    const snap = snapshot({
+      notebooks: [notebook({ id: "b", name: "Beta" }), notebook({ id: "a", name: "Alfa" })],
+    })
+    const ids = (reverse: boolean) =>
+      notebooksPage(snap, query({ sort: "nombre", reverse })).rows.map((r) => r.id)
+    expect(ids(false)).toEqual(["a", "b"])
+    expect(ids(true)).toEqual(["b", "a"])
   })
 
   test("pagina y el total es el de TODO el filtro, repetido en cada fila", () => {

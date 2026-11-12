@@ -23,7 +23,9 @@ import type { HabitLogRow, NoteRef, ReadRow, Snapshot } from "@/core/store/types
 export type NotebooksQuery = {
   q: string
   status: NotebookStatus | "todos"
-  sort: "recientes" | "nombre" | "rondas" | "inicio"
+  sort: "recientes" | "nombre" | "rondas"
+  // Invierte la dirección natural del sort (recientes → viejos primero, nombre → Z-A, rondas → menos).
+  reverse?: boolean
   page: number
   pageSize: number
 }
@@ -80,17 +82,16 @@ function readsByNote(reads: ReadRow[]) {
 const SORTS: Record<NotebooksQuery["sort"], (a: NotebookRow, b: NotebookRow) => number> = {
   nombre: (a, b) => a.name.localeCompare(b.name),
   rondas: (a, b) => b.rounds - a.rounds,
-  // 'recientes' e 'inicio' son el mismo criterio desde la migración 0009: para los 57 notebooks
-  // importados `created_at` es sólo la hora del batch, y `started_at` la fecha real.
-  inicio: byStartedAt,
-  recientes: byStartedAt,
+  // `last_read`: es la única fecha que muestran card y tabla — ordenar por otra (started_at) se
+  // leía como desorden. Sin leer al final.
+  recientes: byLastRead,
 }
 
-function byStartedAt(a: NotebookRow, b: NotebookRow) {
-  if (a.started_at === b.started_at) return 0
-  if (!a.started_at) return 1 // nulls last
-  if (!b.started_at) return -1
-  return b.started_at.localeCompare(a.started_at)
+function byLastRead(a: NotebookRow, b: NotebookRow) {
+  if (a.last_read === b.last_read) return 0
+  if (!a.last_read) return 1 // nulls last
+  if (!b.last_read) return -1
+  return b.last_read.localeCompare(a.last_read)
 }
 
 // La página de la pantalla Notebooks. Reemplaza a la RPC `notebooks_page` (migraciones 0006-0009), que
@@ -139,7 +140,13 @@ export function notebooksPage(
       ]
     })
     // `created_at desc` es el desempate final, igual que en la RPC.
-    .toSorted((a, b) => SORTS[query.sort](a, b) || b.created_at.localeCompare(a.created_at))
+    // reverse invierte todo, incluido nulls-last: "más viejos primero" pone los sin leer arriba,
+    // que es lo que querés ver si buscás lo abandonado.
+    .toSorted(
+      (a, b) =>
+        (query.reverse ? -1 : 1) *
+        (SORTS[query.sort](a, b) || b.created_at.localeCompare(a.created_at)),
+    )
 
   const total = rows.length
   const from = (query.page - 1) * query.pageSize

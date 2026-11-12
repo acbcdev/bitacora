@@ -40,6 +40,7 @@ export function Notebooks({ embed, hotkeys = !embed }: { embed?: boolean; hotkey
     q: filters.debouncedQ,
     status: filters.status,
     sort: filters.sort,
+    reverse: filters.reverse,
     page: filters.page,
   })
   const rows = data?.rows ?? []
@@ -105,6 +106,8 @@ export function Notebooks({ embed, hotkeys = !embed }: { embed?: boolean; hotkey
         onStatus={filters.changeStatus}
         sort={filters.sort}
         onSort={filters.changeSort}
+        reverse={filters.reverse}
+        onReverse={filters.toggleReverse}
         view={view}
         onView={setView}
         onNew={() => setEditing("new")}

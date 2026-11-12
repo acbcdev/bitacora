@@ -1,7 +1,7 @@
 import { useEffect, useState, type RefObject } from "react"
 import type { NotebookStatus } from "@/core/types/database"
 
-type Sort = "recientes" | "nombre" | "rondas" | "inicio"
+type Sort = "recientes" | "nombre" | "rondas"
 export type { Sort }
 
 // El buscador dispara una query por cambio: sin debounce sería una RPC por tecla.
@@ -16,6 +16,7 @@ export function useNotebookFilters(searchRef: RefObject<HTMLInputElement | null>
   const [debouncedQ, setDebouncedQ] = useState("")
   const [status, setStatus] = useState<NotebookStatus | "todos">("todos")
   const [sort, setSort] = useState<Sort>("recientes")
+  const [reverse, setReverse] = useState(false)
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(0)
 
@@ -49,8 +50,14 @@ export function useNotebookFilters(searchRef: RefObject<HTMLInputElement | null>
     setStatus(v)
     resetFilters()
   }
+  // Elegir otro criterio vuelve a su dirección natural; la flecha la invierte.
   function changeSort(v: Sort) {
     setSort(v)
+    setReverse(false)
+    resetFilters()
+  }
+  function toggleReverse() {
+    setReverse((r) => !r)
     resetFilters()
   }
   function resetFilters() {
@@ -71,6 +78,8 @@ export function useNotebookFilters(searchRef: RefObject<HTMLInputElement | null>
     changeStatus,
     sort,
     changeSort,
+    reverse,
+    toggleReverse,
     page,
     goToPage,
     selected,
