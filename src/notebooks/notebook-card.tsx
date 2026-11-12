@@ -6,20 +6,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { relativeDay } from "@/core/lib/day"
 import type { NotebookRow } from "@/core/types/database"
 
-// Fondos/bordes translúcidos (no tokens sólidos): el hover de la card es bg-muted y un chip
-// sólido se aplasta contra él. Las métricas en 0 no se muestran (ruido).
-const CHIP =
-  "inline-flex h-6 items-center rounded-full bg-foreground/7 px-2 text-xs leading-none text-fg-secondary"
-
-function Metric({ value, one, many }: { value: number; one: string; many: string }) {
-  return (
-    <span className="mono-dim inline-flex h-6 items-center rounded-full border border-foreground/12 px-2 leading-none">
-      <b className="mr-1 font-medium text-foreground">{value}</b>
-      {value === 1 ? one : many}
-    </span>
-  )
-}
-
+// Sin pills: la jerarquía sale de luminancia (ADR 0023). Meta en texto plano, estado como dot en
+// la esquina (label en tooltip), fecha = última lectura (no started_at). Acciones al hover — con opacity, no display,
+// para que el footer no salte; siempre visibles en touch.
 export function NotebookCard({
   notebook: c,
   active,
@@ -33,17 +22,20 @@ export function NotebookCard({
   onEdit: (notebook: NotebookRow) => void
   onDelete: (id: string) => void
 }) {
+  const meta = [c.source, c.area].filter(Boolean).join(" · ")
+
   return (
     <Card
       data-active={active}
       onClick={() => onOpen(c)}
-      className="group cursor-pointer gap-3.5 p-5 transition-colors hover:bg-sunken dark:hover:bg-muted data-[active=true]:outline-3 data-[active=true]:outline-offset-2 data-[active=true]:outline-ring/50"
+      className="group cursor-pointer gap-5 p-5 transition-colors duration-150 ease-out hover:bg-sunken dark:hover:bg-muted data-[active=true]:outline-3 data-[active=true]:outline-offset-2 data-[active=true]:outline-ring/50"
     >
       <div className="flex items-start gap-3">
-        <NotebookIcon icon={c.icon} className="size-8 shrink-0 text-muted-foreground" />
-        <span className="line-clamp-2 min-h-[2.6em] flex-1 text-base leading-snug font-medium text-pretty">
-          {c.name}
-        </span>
+        <NotebookIcon icon={c.icon} className="size-8" />
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 text-base leading-snug font-medium text-pretty">{c.name}</h3>
+          {meta && <p className="mt-1 truncate text-sm text-muted-foreground">{meta}</p>}
+        </div>
         <Tooltip>
           <TooltipTrigger asChild>
             <span className={`mt-2 size-2 shrink-0 rounded-full ${STATUS_DOT[c.status]}`} />
@@ -51,15 +43,20 @@ export function NotebookCard({
           <TooltipContent className="capitalize">{STATUS[c.status].label}</TooltipContent>
         </Tooltip>
       </div>
-      <div className="flex min-h-6 flex-wrap gap-1.5">
-        {c.source && <span className={CHIP}>{c.source}</span>}
-        {c.area && <span className={CHIP}>{c.area}</span>}
-        {c.notes > 0 && <Metric value={c.notes} one="nota" many="notas" />}
-        {c.rounds > 0 && <Metric value={c.rounds} one="ronda" many="rondas" />}
-      </div>
-      <div className="mt-auto flex items-center justify-between">
-        <span className="mono-dim">{relativeDay(c.started_at)}</span>
-        <NotebookRowActions notebook={c} onEdit={() => onEdit(c)} onDelete={() => onDelete(c.id)} />
+      <div className="mt-auto flex h-7 items-center gap-2 text-xs whitespace-nowrap text-muted-foreground">
+        <span className="font-mono">
+          {c.notes > 0 ? `${c.notes} ${c.notes === 1 ? "nota" : "notas"}` : "vacío"}
+        </span>
+        <span className="ml-auto min-w-0 truncate font-mono" title="Última lectura">
+          {c.last_read ? relativeDay(c.last_read) : "sin leer"}
+        </span>
+        <div className="opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 focus-within:opacity-100 has-data-[state=open]:opacity-100 pointer-coarse:opacity-100">
+          <NotebookRowActions
+            notebook={c}
+            onEdit={() => onEdit(c)}
+            onDelete={() => onDelete(c.id)}
+          />
+        </div>
       </div>
     </Card>
   )
