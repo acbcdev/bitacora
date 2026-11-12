@@ -43,3 +43,12 @@ test("elegir otro lenguaje en el select actualiza el nodo", async () => {
   const [block] = onChange.mock.lastCall![0].content as [{ attrs: unknown }]
   expect(block.attrs).toEqual({ language: "python" })
 })
+
+test("el toggle de wrap ajusta las líneas del bloque", async () => {
+  render(<Editor content={doc} />)
+
+  const toggle = await screen.findByLabelText("Ajustar líneas")
+  fireEvent.click(toggle)
+  expect(toggle).toHaveAttribute("aria-pressed", "true")
+  expect(document.querySelector("pre")).toHaveClass("whitespace-pre-wrap")
+})

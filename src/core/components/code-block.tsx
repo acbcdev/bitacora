@@ -1,15 +1,34 @@
 import { useState } from "react"
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react"
 import type { NodeViewProps } from "@tiptap/react"
-import { CheckIcon, CopyIcon } from "lucide-react"
+import { CheckIcon, CopyIcon, DownloadIcon, WrapTextIcon } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/ui/select"
+
+// ponytail: solo los lenguajes comunes; el resto cae a .txt
+const EXTENSIONS: Record<string, string> = {
+  typescript: "ts",
+  javascript: "js",
+  python: "py",
+  bash: "sh",
+  shell: "sh",
+  markdown: "md",
+  rust: "rs",
+  ruby: "rb",
+  kotlin: "kt",
+  csharp: "cs",
+  yaml: "yml",
+  plaintext: "txt",
+  text: "txt",
+}
 
 // Node view del code block: header con el lenguaje (select nativo, opciones = las que registró
 // lowlight) y botón de copiar. contentEditable={false} para que ProseMirror no lo trate como
 // contenido.
 export function CodeBlockView({ node, extension, editor, updateAttributes }: NodeViewProps) {
   const [copied, setCopied] = useState(false)
+  // Wrap es preferencia de vista, no del documento: estado local, no atributo del nodo.
+  const [wrap, setWrap] = useState(false)
   // Las notas importadas traen alias ("js", "sh") o lenguajes fuera de `common`: si el actual no
   // está en la lista, el select quedaría vacío. Se agrega para que se vea el que tiene.
   const current = (node.attrs.language as string | null) ?? "text"
@@ -23,6 +42,15 @@ export function CodeBlockView({ node, extension, editor, updateAttributes }: Nod
     navigator.clipboard.writeText(node.textContent)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
+  }
+
+  function download() {
+    const url = URL.createObjectURL(new Blob([node.textContent], { type: "text/plain" }))
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `code.${EXTENSIONS[current] ?? current}`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -51,11 +79,26 @@ export function CodeBlockView({ node, extension, editor, updateAttributes }: Nod
             ))}
           </SelectContent>
         </Select>
-        <Button variant="ghost" size="icon-xs" aria-label="Copiar código" onClick={copy}>
-          {copied ? <CheckIcon /> : <CopyIcon />}
-        </Button>
+        <div className="flex items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Ajustar líneas"
+            aria-pressed={wrap}
+            className="aria-pressed:bg-muted"
+            onClick={() => setWrap(!wrap)}
+          >
+            <WrapTextIcon />
+          </Button>
+          <Button variant="ghost" size="icon-xs" aria-label="Descargar código" onClick={download}>
+            <DownloadIcon />
+          </Button>
+          <Button variant="ghost" size="icon-xs" aria-label="Copiar código" onClick={copy}>
+            {copied ? <CheckIcon /> : <CopyIcon />}
+          </Button>
+        </div>
       </div>
-      <pre>
+      <pre className={wrap ? "whitespace-pre-wrap break-words" : undefined}>
         <NodeViewContent<"code"> as="code" />
       </pre>
     </NodeViewWrapper>
