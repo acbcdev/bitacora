@@ -429,13 +429,13 @@
   @apply my-1;
 }
 .tiptap-host .ProseMirror h1 {
-  @apply pt-5 pb-1 text-xl font-semibold tracking-tight;
+  @apply pt-5 pb-1 text-lg font-semibold tracking-tight xl:text-xl;
 }
 .tiptap-host .ProseMirror h2 {
-  @apply pt-4 pb-1 text-lg font-semibold tracking-tight;
+  @apply pt-4 pb-1 text-md font-semibold tracking-tight xl:text-lg;
 }
 .tiptap-host .ProseMirror h3 {
-  @apply pt-3 pb-1 text-md font-semibold;
+  @apply pt-3 pb-1 text-base font-semibold xl:text-md;
 }
 /* Salto del Outline: el heading no queda pegado al borde de arriba del scroller. Solo h1/h2 —
    son los únicos a los que el rail salta. */
