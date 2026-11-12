@@ -212,7 +212,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
       open={indexOpen}
       onOpenChange={setIndexOpen}
       className="fade-in flex-col md:h-full md:min-h-0 md:flex-row"
-      style={{ "--sidebar-width": "17rem" } as React.CSSProperties}
+      style={{ "--sidebar-width": "clamp(14rem, 19vw, 17rem)" } as React.CSSProperties}
     >
       {/* Espejo del SidebarTrigger de App: misma esquina libre, del lado derecho. */}
       {!indexOpen && !focus && (

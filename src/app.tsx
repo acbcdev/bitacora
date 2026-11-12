@@ -258,7 +258,10 @@ function Shell({ user }: { user: AuthUser }) {
         onOpenChange={(open) => setCollapsed(!open)}
         className="h-screen min-h-0 overflow-hidden"
         style={
-          { "--sidebar-width": "260px", "--sidebar-width-icon": "56px" } as React.CSSProperties
+          {
+            "--sidebar-width": "clamp(13.5rem, 18vw, 260px)",
+            "--sidebar-width-icon": "56px",
+          } as React.CSSProperties
         }
       >
         {!focus && (
@@ -273,7 +276,9 @@ function Shell({ user }: { user: AuthUser }) {
             onSearch={() => setPalette(true)}
           />
         )}
-        <main className="relative min-w-0 flex-1 overflow-y-auto">
+        <main
+          className={`relative min-w-0 flex-1 overflow-y-auto ${collapsed && !focus ? "md:px-11" : ""}`}
+        >
           {/* El trigger del Sidebar vive adentro: en mobile (Sheet cerrado) y en desktop colapsado
               (offcanvas) no se ve. Este de acá afuera es el único modo de abrirlo. En mobile va en
               flujo normal (si no, se pisa con el h1); en desktop absolute: el contenido está centrado
