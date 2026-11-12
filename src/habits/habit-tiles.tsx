@@ -158,7 +158,7 @@ export function HabitTiles() {
       ) : (
         <HabitFold
           items={sorted}
-          grid="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-5"
+          grid="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-3"
           arrived={arrived}
           render={(e, hidden) => <HabitTile key={e.h.id} {...props(e)} hidden={hidden} />}
         />
