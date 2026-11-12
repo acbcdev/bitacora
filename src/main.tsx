@@ -12,6 +12,25 @@ import "@/index.css"
 initSentry()
 initWebAnalytics()
 
+// Tooltip nativo (title) para cualquier texto cortado con truncate/line-clamp, en toda la app.
+// Un listener acá y no `title` en cada span: solo aparece cuando el texto REALMENTE no entra.
+document.addEventListener("mouseover", (e) => {
+  const el = e.target
+  if (!(el instanceof HTMLElement)) return
+  const auto = "autoTitle" in el.dataset
+  if ((el.title && !auto) || el.closest("[data-tooltip]")) return
+  const s = getComputedStyle(el)
+  const clamps = s.textOverflow === "ellipsis" || s.webkitLineClamp !== "none"
+  const cut = el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight
+  if (clamps && cut) {
+    el.title = el.textContent ?? ""
+    el.dataset.autoTitle = ""
+  } else if (auto) {
+    el.removeAttribute("title")
+    delete el.dataset.autoTitle
+  }
+})
+
 // El onError de mutations va acá y no hook por hook: son seis mutations y ninguna necesita
 // un mensaje propio.
 const queryClient = new QueryClient({

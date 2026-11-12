@@ -512,7 +512,10 @@ function SidebarMenuButton({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      {/* Expandido el tooltip está hidden: sin data-tooltip, así el label cortado usa el title nativo. */}
+      <TooltipTrigger asChild data-tooltip={state === "collapsed" && !isMobile ? "" : undefined}>
+        {button}
+      </TooltipTrigger>
       <TooltipContent
         side="right"
         align="center"

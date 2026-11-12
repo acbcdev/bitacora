@@ -23,7 +23,9 @@ function Tooltip({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Root
 }
 
 function TooltipTrigger({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
+  // data-tooltip: marca que sobrevive asChild (el data-slot del hijo pisa el nuestro). main.tsx
+  // lo usa para no duplicar con el title nativo.
+  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" data-tooltip="" {...props} />
 }
 
 function TooltipContent({

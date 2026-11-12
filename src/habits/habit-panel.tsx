@@ -237,9 +237,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
             >
               <ChevronLeft className="size-4" />
             </NavBtn>
-            <span className="w-28 truncate text-center font-medium" title={label}>
-              {label}
-            </span>
+            <span className="w-28 truncate text-center font-medium">{label}</span>
             {/* No hay "siguiente" desde hoy: el futuro no se corrige. */}
             <NavBtn
               label="Período siguiente"

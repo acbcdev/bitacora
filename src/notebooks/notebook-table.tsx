@@ -61,9 +61,7 @@ export function NotebookTable({
               <TableCell className="px-6">
                 <span className="flex min-w-0 items-center gap-3">
                   <NotebookIcon icon={c.icon} className="text-muted-foreground" />
-                  <span className="truncate font-medium" title={c.name}>
-                    {c.name}
-                  </span>
+                  <span className="truncate font-medium">{c.name}</span>
                   {c.status !== "done" && (
                     <Tooltip>
                       <TooltipTrigger asChild>
