@@ -59,7 +59,7 @@ export function NoteEditor({
 
   return (
     <div
-      className={`fade-in mx-auto flex min-h-full max-w-read flex-col px-4 sm:px-8 ${focus ? "py-16" : "pt-9 pb-16"}`}
+      className={`fade-in mx-auto flex min-h-full max-w-read flex-col px-4 sm:px-8 md:max-w-note md:px-20 ${focus ? "py-16" : "pt-9 pb-16"}`}
     >
       {focus ? null : (
         <div className="mb-8 flex items-center gap-2.5">

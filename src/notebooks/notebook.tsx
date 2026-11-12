@@ -190,7 +190,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
   if (isLoading) return <NotebookSkeleton />
   if (!notebook)
     return (
-      <div className="mx-auto max-w-read px-4 pt-9 sm:px-8">
+      <div className="mx-auto max-w-read px-4 pt-9 sm:px-8 md:max-w-note md:px-20">
         <div className="mb-8 flex h-8 items-center">
           <Link to="/" className="mono-dim hover:text-foreground">
             ← notebooks
@@ -243,7 +243,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
           />
         ) : (
           // Sin pantalla de vacío: es la primera nota sin escribir. Tipear la crea.
-          <div className="mx-auto max-w-read px-4 pt-9 sm:px-8">
+          <div className="mx-auto max-w-read px-4 pt-9 sm:px-8 md:max-w-note md:px-20">
             <div className="mb-8 flex h-8 items-center">
               <span className="mono-dim">nota nueva · todavía no existe</span>
             </div>

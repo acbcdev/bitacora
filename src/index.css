@@ -61,6 +61,9 @@
   /* Anchos del DS: --container-max 1120px + ancho de lectura 80ch (escala con font-size). */
   --container-shell: 1120px;
   --container-read: 80ch;
+  /* Columna de nota: md:px-20 (gutter del asa de bloque) en vez de px-8 → +6rem para que el texto
+     conserve el mismo ancho que con px-8. */
+  --container-note: calc(80ch + 6rem);
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
