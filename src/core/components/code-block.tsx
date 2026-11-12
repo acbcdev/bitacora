@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react"
 import type { NodeViewProps } from "@tiptap/react"
-import { CheckIcon, CopyIcon, DownloadIcon, WrapTextIcon } from "lucide-react"
+import { BracesIcon, CheckIcon, CopyIcon, DownloadIcon, WrapTextIcon } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/core/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/ui/select"
 
@@ -22,10 +23,46 @@ const EXTENSIONS: Record<string, string> = {
   text: "txt",
 }
 
+// Lenguaje (nombres de lowlight + alias de notas importadas) → parser de prettier y sus plugins.
+// Lazy: prettier y cada parser bajan al primer click en formatear, no con la nota.
+const estree = () => import("prettier/plugins/estree")
+const babel = () => import("prettier/plugins/babel")
+const postcss = () => import("prettier/plugins/postcss")
+const html = () => import("prettier/plugins/html")
+const markdown = () => import("prettier/plugins/markdown")
+const yaml = () => import("prettier/plugins/yaml")
+const ts = () => import("prettier/plugins/typescript")
+const graphql = () => import("prettier/plugins/graphql")
+const PARSERS: Record<string, [string, ...(() => Promise<object>)[]]> = {
+  javascript: ["babel", babel, estree],
+  js: ["babel", babel, estree],
+  jsx: ["babel", babel, estree],
+  typescript: ["typescript", ts, estree],
+  ts: ["typescript", ts, estree],
+  tsx: ["typescript", ts, estree],
+  json: ["json", babel, estree],
+  css: ["css", postcss],
+  scss: ["scss", postcss],
+  less: ["less", postcss],
+  html: ["html", html],
+  xml: ["html", html],
+  markdown: ["markdown", markdown],
+  md: ["markdown", markdown],
+  yaml: ["yaml", yaml],
+  yml: ["yaml", yaml],
+  graphql: ["graphql", graphql],
+}
+
 // Node view del code block: header con el lenguaje (select nativo, opciones = las que registró
 // lowlight) y botón de copiar. contentEditable={false} para que ProseMirror no lo trate como
 // contenido.
-export function CodeBlockView({ node, extension, editor, updateAttributes }: NodeViewProps) {
+export function CodeBlockView({
+  node,
+  extension,
+  editor,
+  getPos,
+  updateAttributes,
+}: NodeViewProps) {
   const [copied, setCopied] = useState(false)
   // Wrap es preferencia de vista, no del documento: estado local, no atributo del nodo.
   const [wrap, setWrap] = useState(false)
@@ -42,6 +79,26 @@ export function CodeBlockView({ node, extension, editor, updateAttributes }: Nod
     navigator.clipboard.writeText(node.textContent)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
+  }
+
+  async function format() {
+    const [parser, ...loaders] = PARSERS[current]!
+    try {
+      const [prettier, ...plugins] = await Promise.all([
+        import("prettier/standalone"),
+        ...loaders.map((load) => load()),
+      ])
+      const code = (await prettier.format(node.textContent, { parser, plugins })).trimEnd()
+      const pos = getPos()
+      if (pos === undefined || code === node.textContent) return
+      // Reemplaza el nodo ENTERO (no solo su texto): el plugin de lowlight solo re-resalta si un
+      // step cubre el bloque completo o el cursor está dentro, y al hacer click el cursor está
+      // afuera. Una sola transacción: Cmd+Z deshace el formateo entero.
+      const block = node.type.create(node.attrs, editor.schema.text(code))
+      editor.view.dispatch(editor.state.tr.replaceWith(pos, pos + node.nodeSize, block))
+    } catch {
+      toast.error("No se pudo formatear: revisa la sintaxis")
+    }
   }
 
   function download() {
@@ -80,6 +137,11 @@ export function CodeBlockView({ node, extension, editor, updateAttributes }: Nod
           </SelectContent>
         </Select>
         <div className="flex items-center gap-0.5">
+          {PARSERS[current] && editor.isEditable && (
+            <Button variant="ghost" size="icon-xs" aria-label="Formatear código" onClick={format}>
+              <BracesIcon />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon-xs"

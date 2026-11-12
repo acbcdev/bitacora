@@ -52,3 +52,21 @@ test("el toggle de wrap ajusta las líneas del bloque", async () => {
   expect(toggle).toHaveAttribute("aria-pressed", "true")
   expect(document.querySelector("pre")).toHaveClass("whitespace-pre-wrap")
 })
+
+test("formatear reescribe el bloque con prettier y conserva el highlight", async () => {
+  const onChange = vi.fn<(doc: TiptapDoc) => void>()
+  // Párrafo antes: el cursor queda fuera del bloque, como al hacer click en el botón.
+  const withParagraph = {
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text: "x" }] }, ...doc.content!],
+  } as TiptapDoc
+  render(<Editor content={withParagraph} onChange={onChange} />)
+
+  fireEvent.click(await screen.findByLabelText("Formatear código"))
+
+  await vi.waitFor(() => {
+    const block = onChange.mock.lastCall![0].content![1] as { content: [{ text: string }] }
+    expect(block.content[0].text).toBe("const a = 1;")
+  })
+  expect(document.querySelector("pre .hljs-keyword")).toHaveTextContent("const")
+})
