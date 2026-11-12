@@ -10,8 +10,8 @@ import { useHabitTimer } from "@/habits/use-habit-timer"
 
 // Cronómetro a mano en el sidebar: una pill con play/pausa como acción primaria; tocar cualquier
 // otro lado abre el timer a pantalla completa (HabitZoom). Corriendo muestra ese hábito; sin
-// cronómetro, el primer `time` pendiente. Si todos están cumplidos, no se muestra. Sin hover:
-// funciona igual en touch.
+// cronómetro, el primer `time` pausado (arrancado hoy, sin cumplir). Si nunca se arrancó, no se
+// muestra: el primer play es en Hoy. Sin hover: funciona igual en touch.
 // El sidebar lo monta sólo fuera de Hoy: ahí la tira ya tiene su useHabitTimer, y dos instancias
 // vivas auto-finalizarían el cronómetro dos veces.
 export function MiniTimer() {
@@ -22,9 +22,13 @@ export function MiniTimer() {
   // Estable: HabitZoom lo tiene de dep y la pill repinta cada segundo con el timer.
   const closeZoom = useCallback(() => setZoom(false), [])
 
-  const timeHabits = habits.filter((x) => x.metric === "time")
   const h =
-    habits.find((x) => x.id === runningId) ?? timeHabits.find((x) => !deriveHabit(x, log).met)
+    habits.find((x) => x.id === runningId) ??
+    habits.find((x) => {
+      if (x.metric !== "time") return false
+      const s = deriveHabit(x, log)
+      return s.total > 0 && !s.met
+    })
   if (!h) return null
 
   const state = deriveHabit(h, log)
