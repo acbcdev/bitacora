@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import { CommandPalette, type Action } from "@/core/components/command-palette"
 import { Cheatsheet } from "@/core/components/cheatsheet"
-import { Sidebar } from "@/core/components/sidebar"
+import { Logo, Sidebar } from "@/core/components/sidebar"
 import { notebookJumps, sidebarNotebookGroups } from "@/core/components/sidebar-groups"
 import { SidebarProvider, SidebarTrigger } from "@/core/ui/sidebar"
 import { Toaster } from "@/core/ui/sonner"
@@ -283,9 +283,13 @@ function Shell({ user }: { user: AuthUser }) {
               (offcanvas) no se ve. Este de acá afuera es el único modo de abrirlo. En mobile va en
               flujo normal (si no, se pisa con el h1); en desktop absolute: el contenido está centrado
               con max-w, la esquina queda libre y no empuja la pantalla hacia abajo al colapsar. */}
+          {/* Logo en reposo, panel en hover/focus (estilo ChatGPT). */}
           <SidebarTrigger
-            className={`mt-4 ml-4 md:absolute md:top-4 md:left-4 md:z-10 md:m-0 ${collapsed && !focus ? "" : "md:hidden"}`}
-          />
+            className={`group/trigger mt-4 ml-4 md:absolute md:top-4 md:left-4 md:z-10 md:m-0 ${collapsed && !focus ? "" : "md:hidden"}`}
+          >
+            <Logo className="size-6 text-foreground group-hover/trigger:hidden group-focus-visible/trigger:hidden" />
+            <PanelLeft className="hidden size-5 group-hover/trigger:block group-focus-visible/trigger:block" />
+          </SidebarTrigger>
           {/* ErrorBoundary por sección: un crash en Review/Notebook/Note no mata el sidebar.
               key con sólo los 2 primeros segmentos resetea al navegar a otra pantalla o notebook,
               pero NO al cambiar de nota dentro del notebook (/notebook/:id/:noteId) — con pathname
