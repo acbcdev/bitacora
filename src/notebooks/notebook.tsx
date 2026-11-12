@@ -220,12 +220,12 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
-              size="icon-sm"
+              size="icon-lg"
               className="absolute top-4 right-4 z-10 max-md:hidden"
               onClick={() => setIndexOpen(true)}
               aria-label="Mostrar notas"
             >
-              <PanelRight />
+              <PanelRight className="size-5" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Mostrar notas · {mod(alt("B"))}</TooltipContent>
@@ -272,41 +272,21 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
           collapsible={isMobile ? "none" : "offcanvas"}
           className="max-md:order-first max-md:h-auto max-md:w-full max-md:border-b"
         >
+          {/* Header "Glifo" (prototype notebook-header): ícono pelado alineado a la 1ra línea del
+              nombre — sin caja, el nombre gana ancho y no se trunca. Source/area como subtítulo. */}
           <div className="shrink-0 px-4 pt-4 pb-2">
-            <div className="flex items-start gap-2.5">
-              <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-card">
-                <NotebookIcon icon={notebook.icon} className="size-4" />
-              </div>
+            <div className="flex items-start gap-2">
+              <NotebookIcon icon={notebook.icon} className="mt-1 size-4.5 shrink-0" />
               <div className="min-w-0 flex-1">
-                <div className="eyebrow truncate">
-                  {[notebook.source, notebook.area].filter(Boolean).join(" · ")}
-                </div>
-                <h1 className="line-clamp-2 text-sm leading-snug font-semibold tracking-tight">
+                <h1 className="text-base leading-snug font-semibold tracking-tight text-balance">
                   {notebook.name}
                 </h1>
+                {(notebook.source || notebook.area) && (
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {[notebook.source, notebook.area].filter(Boolean).join(" · ")}
+                  </p>
+                )}
               </div>
-              {/* Lo frecuente a la vista (fijar acá, cerrar/reabrir en el chip de estado); el ⋯ queda
-                  para lo raro (editar) y lo destructivo (borrar). */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-pressed={pinned}
-                    aria-label={pinned ? "Desfijar" : "Fijar"}
-                    className={cn(
-                      "shrink-0",
-                      pinned ? "bg-muted text-foreground" : "text-muted-foreground",
-                    )}
-                    onClick={() => togglePinnedNotebook(notebook.id)}
-                  >
-                    <Pin className={cn("size-3.5", pinned && "fill-current")} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {pinned ? "Desfijar del sidebar" : "Fijar en el sidebar"}
-                </TooltipContent>
-              </Tooltip>
               <DropdownMenu>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -314,7 +294,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="-mr-1.5 shrink-0 text-muted-foreground"
+                        className="shrink-0 text-muted-foreground max-md:-mr-1.5"
                         aria-label="Acciones del notebook"
                       >
                         <MoreHorizontal className="size-3.5" />
@@ -324,6 +304,10 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                   <TooltipContent>Acciones</TooltipContent>
                 </Tooltip>
                 <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onSelect={() => togglePinnedNotebook(notebook.id)}>
+                    <Pin className={cn(pinned && "fill-current")} />
+                    {pinned ? "Desfijar del sidebar" : "Fijar en el sidebar"}
+                  </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setEditing(true)}>
                     <Pencil />
                     Editar notebook
@@ -335,8 +319,23 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              {/* Espejo del SidebarTrigger del header de App: cerrar desde adentro. Mobile no colapsa. */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-lg"
+                    className="-mt-1.5 -mr-2 shrink-0 text-muted-foreground max-md:hidden"
+                    onClick={() => setIndexOpen(false)}
+                    aria-label="Ocultar notas"
+                  >
+                    <PanelRight className="size-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Ocultar notas · {mod(alt("B"))}</TooltipContent>
+              </Tooltip>
             </div>
-            <div className="mt-3 flex items-center gap-1.5">
+            <div className="mt-3 flex items-center gap-2.5">
               {/* El chip de estado ES el toggle cerrar/reabrir: el fin es cuando apretás, no un date
                   picker. Reabrir limpia `finished_at` (toggleNotebookDone) — si no, un notebook activo
                   quedaría con fecha de fin. Hover cambia el dot por la acción (✓/↺) en un slot fijo de
@@ -373,13 +372,16 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                   {notebook.status === "done" ? "Reabrir notebook" : "Marcar finalizado"}
                 </TooltipContent>
               </Tooltip>
-              <Badge className="normal-case">{notes.length} notas</Badge>
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <div className="h-0.5 flex-1 overflow-hidden rounded-full bg-track">
-                <div className="h-full bg-fg-secondary" style={{ width: `${pct}%` }} />
+              {/* Rotulada: la frase dice QUÉ mide la barra (un % suelto no se entendía) y su total
+                  reemplaza al chip "N notas". */}
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="h-0.5 overflow-hidden rounded-full bg-track">
+                  <div className="h-full bg-fg-secondary" style={{ width: `${pct}%` }} />
+                </div>
+                <span className="truncate text-2xs text-muted-foreground">
+                  {read} de {notes.length} repasadas
+                </span>
               </div>
-              <span className="mono-dim text-2xs">{pct}% repasado</span>
             </div>
           </div>
 
