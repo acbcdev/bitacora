@@ -9,6 +9,7 @@ import { Kbd } from "@/core/ui/kbd"
 import { alt, mod } from "@/core/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useNotebooks } from "@/notebooks/notebooks.api"
+import { NotebookIcon } from "@/notebooks/notebook-icon"
 import { useNoteDraft } from "@/notes/notes.api"
 import { NoteBody } from "@/notes/note-body"
 import { dayOf } from "@/core/lib/day"
@@ -18,7 +19,7 @@ import { EMPTY_READ_STATS, readStats } from "@/core/store/derive"
 // Editor de nota: usado standalone en /note/:id (notas sin notebook) y embebido en Notebook.tsx
 // (notes/06, /notebook/:id/:noteId). F entra/sale de focus mode: se va todo el chrome (el
 // sidebar de App y, si embedded, el aside del notebook) y la nota crece. Autosave debounced.
-// embedded=true: sin botón Volver ni nombre de notebook (ya están en el aside del notebook).
+// embedded=true: sin botón Volver (el aside del notebook ya navega); el nombre del notebook sí va.
 export function NoteEditor({
   id,
   focus,
@@ -59,35 +60,32 @@ export function NoteEditor({
 
   return (
     <div
-      className={`fade-in mx-auto flex min-h-full max-w-read flex-col px-4 sm:px-8 md:max-w-note md:px-20 ${focus ? "py-16" : "pt-9 pb-16"}`}
+      className={`fade-in mx-auto flex min-h-full max-w-read flex-col px-4 sm:px-8 md:max-w-note md:px-20 ${focus ? "py-16" : "pt-6 pb-16"}`}
     >
       {focus ? null : (
-        <div className="mb-8 flex items-center gap-2.5">
+        <div className="mb-4 flex items-center gap-2.5">
           {!embedded && (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() =>
-                      navigate(note.notebook_id ? `/notebook/${note.notebook_id}` : "/")
-                    }
-                    aria-label="Volver"
-                  >
-                    <ArrowLeft className="size-[15px]" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Volver</TooltipContent>
-              </Tooltip>
-              <span className="eyebrow truncate">{notebook?.name ?? "Sin notebook"}</span>
-            </>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => navigate(note.notebook_id ? `/notebook/${note.notebook_id}` : "/")}
+                  aria-label="Volver"
+                >
+                  <ArrowLeft className="size-[15px]" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Volver</TooltipContent>
+            </Tooltip>
           )}
-          <span className="mono-dim hidden whitespace-nowrap sm:inline">
-            · {count} {count === 1 ? "repaso" : "repasos"} · últ. {dayOf(reads?.last)}
+          {/* También en embedded: acompaña al ⋯ (solo en la fila se veía huérfano). */}
+          {/* Mismo patrón que el eyebrow de NoteDialog. */}
+          <span className="eyebrow flex min-w-0 items-center gap-1.5">
+            <NotebookIcon icon={notebook?.icon ?? null} className="size-6" />
+            <span className="truncate">{notebook?.name ?? "Sin notebook"}</span>
           </span>
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {savedAt && <span className="mono-dim hidden sm:inline">Guardado {savedAt}</span>}
+          <div className="-mr-2 ml-auto flex shrink-0 items-center">
             <NoteActions
               note={{ ...note, title }}
               content={getDoc}
@@ -102,7 +100,21 @@ export function NoteEditor({
         </div>
       )}
 
-      <NoteBody draft={draft} large={focus} autoFocusTitle={autoFocusTitle} />
+      <NoteBody
+        draft={draft}
+        large={focus}
+        autoFocusTitle={autoFocusTitle}
+        caption={
+          focus ? undefined : (
+            <>
+              {count === 0
+                ? "Sin repasos"
+                : `${count} ${count === 1 ? "repaso" : "repasos"} · último ${dayOf(reads?.last)}`}
+              {savedAt && ` · guardado ${savedAt}`}
+            </>
+          )
+        }
+      />
 
       {!focus && (
         <p className="pt-10 text-center text-xs text-muted-foreground">

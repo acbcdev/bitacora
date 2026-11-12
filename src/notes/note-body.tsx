@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactElement } from "react"
+import { useEffect, useRef, type ReactElement, type ReactNode } from "react"
 import { Editor } from "@/core/components/editor"
 import type { EditorHandle } from "@/core/components/editor"
 import { useTypeToFocus } from "@/notes/use-type-to-focus"
@@ -13,6 +13,7 @@ export function NoteBody({
   titleSize = "text-2xl xl:text-3xl 2xl:text-4xl leading-tight",
   titleWrap = (el) => el,
   autoFocusTitle = false,
+  caption,
 }: {
   draft: ReturnType<typeof useNoteDraft>
   large?: boolean
@@ -20,6 +21,8 @@ export function NoteBody({
   titleWrap?: (title: ReactElement) => ReactElement
   // Nota recién creada: el foco arranca en el título (si no, type-to-focus manda las letras al body).
   autoFocusTitle?: boolean
+  // Meta bajo el título (NoteEditor). Con caption no hay divider: la línea mono ya separa título/cuerpo.
+  caption?: ReactNode
 }) {
   const { note, title, onTitleChange, onDocChange, flush } = draft
   const editorRef = useRef<EditorHandle>(null)
@@ -87,7 +90,7 @@ export function NoteBody({
       {/* ponytail: textarea + field-sizing:content para que el título wrapee y crezca solo.
           Un <input> no wrapea y los títulos largos se cortaban. Sin JS de auto-resize.
           border-b separa título/cuerpo (se confundían visualmente). */}
-      <div className="mb-6 border-b pb-4">
+      <div className={caption ? "mb-10" : "mb-6 border-b pb-4"}>
         {titleWrap(
           <textarea
             rows={1}
@@ -107,6 +110,7 @@ export function NoteBody({
             className={`field-sizing-content w-full resize-none bg-transparent ${titleSize} font-semibold tracking-tighter text-pretty outline-none placeholder:text-muted-foreground`}
           />,
         )}
+        {caption && <p className="mono-dim mt-2">{caption}</p>}
       </div>
       {/* flex-1 llena el resto del viewport: el footer de shortcuts queda pegado abajo en vez
           de pegado al final del contenido. onClick: clickear la zona vacía debajo del texto
