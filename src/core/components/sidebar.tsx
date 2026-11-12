@@ -194,7 +194,7 @@ export function Sidebar({
       {/* El hueco de arriba del footer: visible también sin cronómetro corriendo. En Hoy no: la tira
           de Hábitos ya lo muestra (redundante) y tiene su propio useHabitTimer. */}
       {pathname !== "/" && (
-        <div className="relative px-2 pb-2">
+        <div className="relative px-2 pb-2 empty:hidden">
           <MiniTimer />
         </div>
       )}
