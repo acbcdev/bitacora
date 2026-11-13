@@ -19,10 +19,11 @@ scripts/notion-import/.out/
 .env.*
 !.env.example
 
-# agent tooling — local, reinstalable desde skills-lock.json
+# agent tooling — local
 .agents/
 .antigravitycli/
 .claude/
+skills-lock.json
 
 # editor / os
 .DS_Store
@@ -34,3 +35,6 @@ scripts/notion-import/.out/
 # playwright
 test-results/
 playwright-report/
+
+# issues/specs locales
+.scratch/
