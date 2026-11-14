@@ -454,7 +454,9 @@ export function BlockControls({
       if (menuOpenRef.current) return
       // Franja izquierda del editor. clientX >= borde = columna de contenido (outline,
       // controles de tabla, bubble…): ahí no aparece el asa.
-      if (e.clientX >= domBox.left) {
+      // Resize de imagen en curso (overlay de image-resize): el asa va pegada al borde de la
+      // imagen y lo perseguiría en cada move.
+      if (e.clientX >= domBox.left || "resizeOverlay" in t.dataset) {
         hide()
         return
       }

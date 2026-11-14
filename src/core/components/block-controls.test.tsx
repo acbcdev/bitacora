@@ -350,6 +350,16 @@ describe("visibilidad del asa (v2: bloque + gutter)", () => {
     fireEvent.mouseMove(h, { clientX: 50, clientY: 36 })
     await waitFor(hidden)
 
+    // Franja pero con resize de imagen en curso (el target es su overlay): esconder.
+    const overlay = document.createElement("div")
+    overlay.dataset.resizeOverlay = ""
+    document.body.append(overlay)
+    fireEvent.mouseMove(h, { clientX: -40, clientY: 36 })
+    await waitFor(visible)
+    fireEvent.mouseMove(overlay, { clientX: -40, clientY: 36 })
+    await waitFor(hidden)
+    overlay.remove()
+
     // Franja otra vez y debajo del último bloque: aparecer y esconder.
     fireEvent.mouseMove(h, { clientX: -40, clientY: 36 })
     await waitFor(visible)
