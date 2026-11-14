@@ -503,10 +503,10 @@
    chevron es una máscara SVG (el triángulo con bordes se antialiaseaba feo) y rota con `is-open`;
    el cuerpo lo esconde el atributo `hidden` que pone la extensión. */
 .tiptap-host .ProseMirror [data-type="details"] {
-  @apply flex py-1;
+  @apply my-0 flex py-0.5;
 }
 .tiptap-host .ProseMirror [data-type="details"] > button {
-  @apply mr-1.5 grid size-6 shrink-0 cursor-pointer place-items-center rounded-full text-fg-secondary hover:bg-muted;
+  @apply -ml-2 mr-1 grid size-6 shrink-0 cursor-pointer place-items-center rounded-full text-fg-secondary hover:bg-muted;
 }
 .tiptap-host .ProseMirror [data-type="details"] > button::before {
   content: "";
