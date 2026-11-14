@@ -47,7 +47,7 @@ export function MiniTimer() {
           aria-hidden
           style={{ width: `${pct}%` }}
           className={cn(
-            "absolute inset-y-0 left-0 -z-10 bg-habit-block transition-[width] duration-1000 ease-linear",
+            "absolute inset-y-0 left-0 -z-10 rounded-full bg-habit-block transition-[width] duration-1000 ease-linear",
             !running && "opacity-60",
           )}
         />
