@@ -7,7 +7,7 @@ import { relativeDay } from "@/core/lib/day"
 import type { NotebookRow } from "@/core/types/database"
 
 // Sin pills: la jerarquía sale de luminancia (ADR 0023). Meta en texto plano, estado como dot en
-// la esquina (label en tooltip), fecha = última lectura (no started_at). Acciones al hover — con opacity, no display,
+// la esquina (label en tooltip), fecha = creación. Acciones al hover — con opacity, no display,
 // para que el footer no salte; siempre visibles en touch.
 export function NotebookCard({
   notebook: c,
@@ -47,8 +47,8 @@ export function NotebookCard({
         <span className="font-mono">
           {c.notes > 0 ? `${c.notes} ${c.notes === 1 ? "nota" : "notas"}` : "vacío"}
         </span>
-        <span className="ml-auto min-w-0 truncate font-mono" title="Última lectura">
-          {c.last_read ? relativeDay(c.last_read) : "sin leer"}
+        <span className="ml-auto min-w-0 truncate font-mono" title="Creado">
+          {relativeDay(c.created_at)}
         </span>
         <div className="opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 focus-within:opacity-100 has-data-[state=open]:opacity-100 pointer-coarse:opacity-100">
           <NotebookRowActions

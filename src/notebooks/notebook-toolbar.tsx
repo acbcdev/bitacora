@@ -35,7 +35,7 @@ const SORT_OPTS: [Sort, string][] = [
 
 // Qué significa la flecha en cada sort: [dirección natural, invertida].
 const DIR_LABEL: Record<Sort, [string, string]> = {
-  recientes: ["Leídos hace poco primero", "Sin leer primero"],
+  recientes: ["Más nuevos primero", "Más viejos primero"],
   nombre: ["A → Z", "Z → A"],
   rondas: ["Más rondas primero", "Menos rondas primero"],
 }
@@ -79,7 +79,7 @@ export function NotebookToolbar({
           onChange={(e) => onQ(e.target.value)}
           onKeyDown={onSearchKey}
           placeholder="Buscar notebook…"
-          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground max-md:text-md"
         />
         {!q && <Kbd className="group-focus-within:hidden max-md:hidden">/</Kbd>}
       </label>

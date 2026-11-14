@@ -82,16 +82,8 @@ function readsByNote(reads: ReadRow[]) {
 const SORTS: Record<NotebooksQuery["sort"], (a: NotebookRow, b: NotebookRow) => number> = {
   nombre: (a, b) => a.name.localeCompare(b.name),
   rondas: (a, b) => b.rounds - a.rounds,
-  // `last_read`: es la única fecha que muestran card y tabla — ordenar por otra (started_at) se
-  // leía como desorden. Sin leer al final.
-  recientes: byLastRead,
-}
-
-function byLastRead(a: NotebookRow, b: NotebookRow) {
-  if (a.last_read === b.last_read) return 0
-  if (!a.last_read) return 1 // nulls last
-  if (!b.last_read) return -1
-  return b.last_read.localeCompare(a.last_read)
+  // created_at desc: la card muestra la fecha de creación, así que el orden coincide con lo visible.
+  recientes: (a, b) => b.created_at.localeCompare(a.created_at),
 }
 
 // La página de la pantalla Notebooks. Reemplaza a la RPC `notebooks_page` (migraciones 0006-0009), que

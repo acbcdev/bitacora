@@ -145,18 +145,16 @@ describe("notebooksPage", () => {
     expect(notebooksPage(snap, query({ status: "done" })).rows[0].id).toBe("c2")
   })
 
-  test("`recientes` ordena por última lectura desc con los sin leer al final", () => {
-    // started_at al revés de last_read: prueba que el sort ignora la fecha de inicio.
+  test("`recientes` ordena por created_at desc, ignorando lecturas", () => {
     const snap = snapshot({
       notebooks: [
-        notebook({ id: "sin", started_at: "2026-09-01T00:00:00Z" }),
-        notebook({ id: "viejo", started_at: "2026-08-01T00:00:00Z" }),
-        notebook({ id: "nuevo", started_at: "2026-01-01T00:00:00Z" }),
+        notebook({ id: "viejo", created_at: "2026-01-01T00:00:00Z" }),
+        notebook({ id: "nuevo", created_at: "2026-09-01T00:00:00Z" }),
       ],
-      notes: [note({ id: "n1", notebook_id: "viejo" }), note({ id: "n2", notebook_id: "nuevo" })],
-      reads: [read("n1", "2026-02-01T10:00:00Z"), read("n2", "2026-06-01T10:00:00Z")],
+      notes: [note({ id: "n1", notebook_id: "viejo" })],
+      reads: [read("n1", "2026-10-01T10:00:00Z")],
     })
-    expect(notebooksPage(snap, query()).rows.map((r) => r.id)).toEqual(["nuevo", "viejo", "sin"])
+    expect(notebooksPage(snap, query()).rows.map((r) => r.id)).toEqual(["nuevo", "viejo"])
   })
 
   test("`rondas` ordena de más a menos vueltas completas", () => {
