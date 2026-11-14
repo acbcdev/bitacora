@@ -433,7 +433,7 @@ function HabitForm({
                 value={target}
                 onChange={(e) => set("target")(e.target.value)}
                 aria-label={metric === "time" ? "Minutos" : "Veces"}
-                className="w-9 bg-transparent text-center tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="w-9 bg-transparent text-center tabular-nums outline-none max-md:text-md [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <span className="text-muted-foreground">
                 {UNIT[metric][goal.target === 1 ? 0 : 1]}

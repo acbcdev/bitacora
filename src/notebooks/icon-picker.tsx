@@ -389,7 +389,7 @@ export function IconPicker({
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={tab === "iconos" ? "Buscar ícono…" : "Buscar emoji…"}
                   aria-label="Buscar icono o emoji"
-                  className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground max-md:text-md [&::-webkit-search-cancel-button]:hidden"
                 />
               </label>
               <Button

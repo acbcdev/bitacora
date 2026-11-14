@@ -318,7 +318,7 @@ function NotebookMenuItem({ notebook, pinned }: { notebook: Notebook; pinned: bo
       <SidebarMenuButton
         asChild
         tooltip={{ children: notebook.name, hidden: false }}
-        className={`${ROW} ${ACTIVE} transition-none group-focus-within/menu-item:pr-15 group-hover/menu-item:pr-15 group-has-data-[state=open]/menu-item:pr-15`}
+        className={`${ROW} ${ACTIVE} transition-none pointer-coarse:pr-15 group-focus-within/menu-item:pr-15 group-hover/menu-item:pr-15 group-has-data-[state=open]/menu-item:pr-15`}
       >
         <NavLink to={`/notebook/${notebook.id}`}>
           <NotebookIcon icon={notebook.icon} className="size-5" />
@@ -327,7 +327,7 @@ function NotebookMenuItem({ notebook, pinned }: { notebook: Notebook; pinned: bo
       </SidebarMenuButton>
       {/* `data-[state=open]` mantiene las acciones visibles mientras el menú está abierto: si no,
           al mover el mouse al dropdown la fila pierde el hover y los botones desaparecen. */}
-      <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5 opacity-0 group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 group-has-data-[state=open]/menu-item:opacity-100">
+      <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5 opacity-0 pointer-coarse:opacity-100 group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 group-has-data-[state=open]/menu-item:opacity-100">
         <Button
           variant="ghost"
           size="icon-xs"

@@ -401,9 +401,9 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                   }
                 }}
                 placeholder="Buscar nota…"
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground max-md:text-md"
               />
-              {!q && <Kbd className="group-focus-within:hidden">/</Kbd>}
+              {!q && <Kbd className="group-focus-within:hidden max-md:hidden">/</Kbd>}
             </label>
           </div>
 
@@ -458,7 +458,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
             {noMatch && (
               <div className="flex h-8 items-center gap-2 px-2.5 text-sm text-muted-foreground">
                 <span className="truncate">Ninguna nota con “{q}”</span>
-                <Kbd className="ml-auto">Esc</Kbd>
+                <Kbd className="ml-auto max-md:hidden">Esc</Kbd>
               </div>
             )}
           </div>

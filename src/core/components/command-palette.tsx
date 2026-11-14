@@ -62,7 +62,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
                   </span>
                   {a.kbd && (
                     // "G H" es secuencia (G, después H): se muestra como chord G → H.
-                    <CommandShortcut className="tracking-normal">
+                    <CommandShortcut className="tracking-normal max-md:hidden">
                       <KbdGroup>
                         {a.kbd.split(" ").map((k, j) => (
                           <span key={k} className="flex items-center gap-1">
@@ -80,7 +80,7 @@ export function CommandPalette({ onClose, actions }: { onClose: () => void; acti
             </CommandGroup>
           ))}
         </CommandList>
-        <div className="flex items-center justify-between gap-3 border-t border-foreground/6 px-3.5 py-2.5 text-2xs text-muted-foreground">
+        <div className="flex items-center justify-between gap-3 border-t border-foreground/6 px-3.5 py-2.5 text-2xs text-muted-foreground max-md:hidden">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
               <Kbd>↑</Kbd>

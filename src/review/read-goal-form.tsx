@@ -33,7 +33,7 @@ export function ReadGoalForm() {
         value={shown}
         onChange={(e) => setValue(e.target.value)}
         aria-label="Notas por día"
-        className="w-16 text-center"
+        className="w-16 text-center max-md:text-md"
       />
       <Button type="submit" variant="secondary" disabled={save.isPending}>
         Guardar

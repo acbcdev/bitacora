@@ -118,14 +118,17 @@ export function NoteEditor({
 
       {!focus && (
         <p className="pt-10 text-center text-xs text-muted-foreground">
-          <Kbd>{mod("Shift+F")}</Kbd> focus mode
-          {embedded && (
-            <>
-              {" "}
-              · <Kbd>{alt("J")}</Kbd>/<Kbd>{alt("K")}</Kbd> entre notas
-            </>
-          )}{" "}
-          · autosave activado
+          <span className="max-md:hidden">
+            <Kbd>{mod("Shift+F")}</Kbd> focus mode
+            {embedded && (
+              <>
+                {" "}
+                · <Kbd>{alt("J")}</Kbd>/<Kbd>{alt("K")}</Kbd> entre notas
+              </>
+            )}{" "}
+            ·{" "}
+          </span>
+          autosave activado
         </p>
       )}
     </div>

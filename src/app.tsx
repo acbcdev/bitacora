@@ -256,7 +256,7 @@ function Shell({ user }: { user: AuthUser }) {
       <SidebarProvider
         open={!collapsed}
         onOpenChange={(open) => setCollapsed(!open)}
-        className="h-screen min-h-0 overflow-hidden"
+        className="h-dvh min-h-0 overflow-hidden"
         style={
           {
             "--sidebar-width": "clamp(13.5rem, 18vw, 260px)",

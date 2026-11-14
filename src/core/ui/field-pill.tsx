@@ -176,7 +176,7 @@ export function FieldPill({
             aria-controls={`${id}-listbox`}
             aria-activedescendant={open && matches.length > 0 ? optionId(highlight) : undefined}
             autoComplete="off"
-            className="min-w-0 flex-1 truncate bg-transparent text-sm font-medium outline-none placeholder:font-normal"
+            className="min-w-0 flex-1 truncate bg-transparent text-sm font-medium outline-none placeholder:font-normal max-md:text-md"
           />
         </span>
         <ChevronDown
