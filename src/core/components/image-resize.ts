@@ -1,5 +1,4 @@
-// Drag-resize de imagen: listeners de window (mousemove/mouseup) + restauración de
-// cursor/userSelect. Cortado de image-view.tsx tal cual.
+// Drag-resize de imagen: listeners de window (mousemove/mouseup) + overlay de cursor.
 // Re-escala el height proporcional al nuevo width. Si no hay dims guardadas, nada que escalar.
 export function scaledHeight(
   newW: number,
@@ -24,15 +23,20 @@ export function startImageResize(
   // Clamp inicial: imágenes importadas más anchas que el max saltaban al primer move.
   let lastW = Math.max(120, Math.min(max, startW))
   setDragWidth(startW)
-  const prevCursor = document.body.style.cursor
-  const prevSelect = document.body.style.userSelect
-  const prevHtmlCursor = document.documentElement.style.cursor
-  document.body.style.cursor = "ew-resize"
-  document.documentElement.style.cursor = "ew-resize"
-  document.body.style.userSelect = "none"
+  // Overlay a pantalla completa: el cursor sale del hit-test, no de la cascada. Con
+  // body.style.cursor, cualquier elemento con cursor propio (la misma imagen, links,
+  // botones) lo pisaba y el cursor parpadeaba a mitad del drag.
+  const overlay = document.createElement("div")
+  overlay.dataset.resizeOverlay = ""
+  // pointer-events:auto explícito: un Dialog modal de Radix (Repaso) pone pointer-events:none
+  // en body y el overlay lo heredaba — el mouse lo atravesaba y no hacía nada.
+  overlay.style.cssText = "position:fixed;inset:0;z-index:9999;cursor:ew-resize;pointer-events:auto"
+  document.body.append(overlay)
 
   const onMove = (ev: MouseEvent) => {
-    const delta = ev.clientX - startX
+    // ×2: la imagen está centrada, así que cada px de width mueve el borde medio px.
+    // Sin esto el handle se queda atrás del mouse.
+    const delta = (ev.clientX - startX) * 2
     let nw = side === "right" ? startW + delta : startW - delta
     nw = Math.max(120, Math.min(max, nw))
     lastW = Math.round(nw)
@@ -41,9 +45,7 @@ export function startImageResize(
   const onUp = () => {
     window.removeEventListener("mousemove", onMove)
     window.removeEventListener("mouseup", onUp)
-    document.body.style.cursor = prevCursor
-    document.documentElement.style.cursor = prevHtmlCursor
-    document.body.style.userSelect = prevSelect
+    overlay.remove()
     commitWidth(lastW)
     // Soltar el override de drag: displayWidth vuelve a salir del atributo width.
     setDragWidth(null)

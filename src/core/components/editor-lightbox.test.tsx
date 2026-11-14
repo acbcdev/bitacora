@@ -375,7 +375,10 @@ test("handles tienen cursor ew-resize y están inset del borde", async () => {
   await getImgs(container)
   const left = container.querySelector<HTMLElement>('[data-resize-handle="left"]')!
   const right = container.querySelector<HTMLElement>('[data-resize-handle="right"]')!
-  // handle es ahora un solo pill de 3px × 48px con cursor-ew-resize directo (hit-area exacta, evita sticky)
+  // pill visible de 3px × 48px con cursor-ew-resize; ::before ensancha la zona de agarre
+  // (3px solos: el cursor se caía a flecha al menor desvío)
+  expect(left.className).toMatch(/before:-inset-x-2/)
+  expect(right.className).toMatch(/before:-inset-x-2/)
   expect(left.className).toMatch(/cursor-ew-resize/)
   expect(right.className).toMatch(/cursor-ew-resize/)
   expect(left.className).toMatch(/w-\[3px\]/)
@@ -387,7 +390,7 @@ test("handles tienen cursor ew-resize y están inset del borde", async () => {
   // cuando está selected es pointer-events-auto directo, cuando no es group-hover:pointer-events-auto
   expect(left.className).toMatch(/pointer-events-auto/)
   expect(left.className).toMatch(/cursor-ew-resize/)
-  // hit-area exacta 3px × 48px, no flex wrapper que deje sticky
+  // sin flex wrapper que deje sticky: la zona extra es un ::before que hereda pointer-events
   expect(left.className).not.toMatch(/flex/)
 })
 
@@ -443,7 +446,8 @@ test("drag handle izquierda aumenta al arrastrar a la izquierda", async () => {
   } as unknown as DOMRect)
 
   fireEvent.mouseDown(handle, { clientX: 200 })
-  fireEvent.mouseMove(window, { clientX: 150 }) // mover izquierda 50px → width +50
+  // mover izquierda 50px → width +100: imagen centrada, el borde sigue al mouse 1:1
+  fireEvent.mouseMove(window, { clientX: 150 })
   fireEvent.mouseUp(window)
 
   await waitFor(() => expect(onChange).toHaveBeenCalled())
@@ -451,10 +455,51 @@ test("drag handle izquierda aumenta al arrastrar a la izquierda", async () => {
   const imageNode = (lastDoc.content as unknown[]).find(
     (n: unknown) => (n as { type: string }).type === "image",
   ) as { attrs: { width: number } }
-  expect(imageNode.attrs.width).toBe(350)
+  expect(imageNode.attrs.width).toBe(400)
 })
 
-test("cursor cambia a ew-resize mientras se arrastra y vuelve", async () => {
+test("drag arranca del ancho renderizado, no del width guardado (sin zona muerta)", async () => {
+  const onChange = vi.fn()
+  // width guardado 1920 (naturalWidth) pero max-width:100% la pinta a 300
+  const doc = {
+    type: "doc",
+    content: [
+      {
+        type: "image",
+        attrs: { src: "https://example.com/big.png", alt: "Grande", width: 1920, height: 1080 },
+      },
+    ],
+  } as unknown as TiptapDoc
+  const { container } = render(<Editor content={doc} onChange={onChange} />)
+  await getImgs(container)
+  onChange.mockClear()
+  const handle = container.querySelector<HTMLElement>('[data-resize-handle="right"]')!
+  const img = container.querySelector<HTMLImageElement>(".ProseMirror img")!
+  vi.spyOn(img, "getBoundingClientRect").mockReturnValue({
+    width: 300,
+    height: 169,
+    top: 0,
+    left: 0,
+    right: 300,
+    bottom: 169,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as unknown as DOMRect)
+
+  fireEvent.mouseDown(handle, { clientX: 100 })
+  fireEvent.mouseMove(window, { clientX: 90 }) // 10px a la izquierda ya achica
+  fireEvent.mouseUp(window)
+
+  await waitFor(() => expect(onChange).toHaveBeenCalled())
+  const lastDoc = onChange.mock.calls.at(-1)![0] as TiptapDoc
+  const imageNode = (lastDoc.content as unknown[]).find(
+    (n: unknown) => (n as { type: string }).type === "image",
+  ) as { attrs: { width: number } }
+  expect(imageNode.attrs.width).toBe(280)
+})
+
+test("overlay con cursor ew-resize mientras se arrastra y se va al soltar", async () => {
   const { container } = render(<Editor content={docOneImage} />)
   await getImgs(container)
   const handle = container.querySelector<HTMLElement>('[data-resize-handle="right"]')!
@@ -472,13 +517,14 @@ test("cursor cambia a ew-resize mientras se arrastra y vuelve", async () => {
   } as unknown as DOMRect)
 
   fireEvent.mouseDown(handle, { clientX: 100 })
-  expect(document.body.style.cursor).toBe("ew-resize")
-  expect(document.documentElement.style.cursor).toBe("ew-resize")
-  expect(document.body.style.userSelect).toBe("none")
+  const overlay = document.querySelector<HTMLElement>("[data-resize-overlay]")!
+  expect(overlay.style.cursor).toBe("ew-resize")
+  // dentro de un Dialog modal body trae pointer-events:none y el overlay lo heredaría
+  expect(overlay.style.pointerEvents).toBe("auto")
+  // con el overlay encima group-hover se cae: los handles deben seguir visibles
+  await waitFor(() => expect(handle.className).toMatch(/(^| )opacity-100/))
   fireEvent.mouseUp(window)
-  expect(document.body.style.cursor).toBe("")
-  expect(document.documentElement.style.cursor).toBe("")
-  expect(document.body.style.userSelect).toBe("")
+  expect(document.querySelector("[data-resize-overlay]")).toBeNull()
 })
 
 // ── Zoom, atajos y acciones ──────────────────────────────────────────────────

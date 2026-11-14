@@ -6,6 +6,11 @@ import { cn } from "@/core/lib/utils"
 import { Skeleton } from "@/core/ui/skeleton"
 import { scaledHeight, startImageResize } from "@/core/components/image-resize"
 
+// El pill visible mide 3px: fuera de él el cursor caía en la imagen (cursor-auto) y volvía a
+// flecha. ::before ensancha la zona a 19px sin tocar lo visible; hereda pointer-events del
+// handle, así que oculto no captura nada sobre la imagen.
+const HANDLE_HIT_AREA = "before:absolute before:inset-y-0 before:-inset-x-2"
+
 export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
   const src = node.attrs.src as string
   const alt = node.attrs.alt as string | null
@@ -15,6 +20,9 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(false)
   const displayWidth = dragWidth ?? width ?? null
+  // Durante el drag el overlay de cursor tapa la imagen y group-hover se cae: sin esto
+  // los handles se desvanecen a mitad del resize.
+  const showHandles = selected || dragWidth != null
 
   useEffect(() => {
     setLoaded(false)
@@ -40,7 +48,10 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
         .closest("[data-image-wrapper]")
         ?.querySelector("img")
       const rectW = img?.getBoundingClientRect().width ?? 0
-      startImageResize(e, width ?? (rectW > 0 ? Math.round(rectW) : 320), s, setDragWidth, (w) =>
+      // Ancho RENDERIZADO primero: el width guardado puede ser el naturalWidth (ej. 1920)
+      // mientras max-width:100% lo pinta a ~700 — arrancar del guardado dejaba una zona
+      // muerta de cientos de px antes de que el drag se notara.
+      startImageResize(e, rectW > 0 ? Math.round(rectW) : (width ?? 320), s, setDragWidth, (w) =>
         updateAttributes({
           width: w,
           // Re-escala height con el width: si no, aspectRatio queda con el height viejo
@@ -150,8 +161,9 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
               onMouseDown={onMouseDown("left")}
               className={cn(
                 "absolute top-1/2 left-2 h-12 w-[3px] -translate-y-1/2 rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10",
+                HANDLE_HIT_AREA,
                 "cursor-ew-resize opacity-0 transition-opacity",
-                selected
+                showHandles
                   ? "pointer-events-auto opacity-100"
                   : "pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100",
               )}
@@ -163,8 +175,9 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
               onMouseDown={onMouseDown("right")}
               className={cn(
                 "absolute top-1/2 right-2 h-12 w-[3px] opacity-80 -translate-y-1/2 rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10",
+                HANDLE_HIT_AREA,
                 "cursor-ew-resize opacity-0 transition-opacity",
-                selected
+                showHandles
                   ? "pointer-events-auto opacity-100"
                   : "pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100",
               )}
