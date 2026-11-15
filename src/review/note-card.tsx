@@ -38,12 +38,12 @@ export function NoteCard({
         aria-label={`Abrir ${note?.title || "nota sin título"}`}
         className="absolute inset-0 cursor-pointer focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset focus-visible:outline-none"
       />
-      <div className="mb-2 flex min-h-[2lh] items-start justify-between gap-3">
-        <p className="eyebrow flex items-center gap-1.5">
+      <div className="mb-2 flex min-h-[2lh] items-start justify-between gap-3 max-md:min-h-0 max-md:flex-col max-md:items-stretch max-md:gap-2">
+        <p className="eyebrow flex min-w-0 items-center gap-1.5">
           <NotebookIcon icon={notebook?.icon ?? null} />
-          {notebook?.name ?? "Sin notebook"}
+          <span className="min-w-0 max-md:truncate">{notebook?.name ?? "Sin notebook"}</span>
         </p>
-        <span className="flex shrink-0 items-center gap-4 whitespace-nowrap">
+        <span className="flex shrink-0 items-center gap-4 whitespace-nowrap max-md:justify-between">
           {stats}
           {position && <span className="mono-dim">{position}</span>}
         </span>

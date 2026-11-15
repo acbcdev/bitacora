@@ -45,9 +45,9 @@ export function FlashcardCard({
   void _onNext
   return (
     <>
-      <div className="mb-6 flex min-h-[2lh] items-start justify-between gap-3">
-        <p className="eyebrow">{notebook?.name ?? "Sin notebook"}</p>
-        <span className="flex shrink-0 items-center gap-4 whitespace-nowrap">
+      <div className="mb-6 flex min-h-[2lh] items-start justify-between gap-3 max-md:min-h-0 max-md:flex-col max-md:items-stretch max-md:gap-2">
+        <p className="eyebrow min-w-0 max-md:truncate">{notebook?.name ?? "Sin notebook"}</p>
+        <span className="flex shrink-0 items-center gap-4 whitespace-nowrap max-md:justify-between">
           {stats}
           {position && <span className="mono-dim">{position}</span>}
         </span>
