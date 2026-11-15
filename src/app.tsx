@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useRef, useState } from "react"
 import { Navigate, Route, Routes, useLocation, useMatch, useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
@@ -16,6 +16,7 @@ import {
 import { CommandPalette, type Action } from "@/core/components/command-palette"
 import { Cheatsheet } from "@/core/components/cheatsheet"
 import { Logo, Sidebar } from "@/core/components/sidebar"
+import { MobileBar, MobileDock } from "@/core/components/mobile-chrome"
 import { notebookJumps, sidebarNotebookGroups } from "@/core/components/sidebar-groups"
 import { SidebarProvider, SidebarTrigger } from "@/core/ui/sidebar"
 import { Toaster } from "@/core/ui/sonner"
@@ -99,6 +100,7 @@ function Shell({ user }: { user: AuthUser }) {
   const [cheat, setCheat] = useState(false)
   const [settings, setSettings] = useState(false)
   const [habitsDialog, setHabitsDialog] = useState<"list" | "new" | null>(null)
+  const scroller = useRef<HTMLElement>(null)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("bita-sb") === "1")
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"))
 
@@ -277,15 +279,24 @@ function Shell({ user }: { user: AuthUser }) {
           />
         )}
         <main
-          className={`relative min-w-0 flex-1 overflow-y-auto ${collapsed && !focus ? "md:px-11" : ""}`}
+          ref={scroller}
+          className={`relative min-w-0 flex-1 overflow-y-auto ${collapsed && !focus ? "md:px-11" : ""} ${focus ? "" : "max-md:pb-24"}`}
         >
-          {/* El trigger del Sidebar vive adentro: en mobile (Sheet cerrado) y en desktop colapsado
-              (offcanvas) no se ve. Este de acá afuera es el único modo de abrirlo. En mobile va en
-              flujo normal (si no, se pisa con el h1); en desktop absolute: el contenido está centrado
-              con max-w, la esquina queda libre y no empuja la pantalla hacia abajo al colapsar. */}
+          {/* Mobile: MobileBar (sticky, en flujo: no pisa el h1 porque ocupa su propio alto) es el
+              acceso al Sidebar. Desktop colapsado (offcanvas): el trigger de acá, absolute en la esquina
+              (el contenido está centrado con max-w, así que no empuja la pantalla al colapsar). */}
           {/* Logo en reposo, panel en hover/focus (estilo ChatGPT). */}
+          {!focus && (
+            <MobileBar
+              scroller={scroller}
+              home={pathname === "/"}
+              onHabits={() => setHabitsDialog("list")}
+              onNewHabit={() => setHabitsDialog("new")}
+              onNewNotebook={() => navigate("/?new=1")}
+            />
+          )}
           <SidebarTrigger
-            className={`group/trigger mt-4 ml-4 md:absolute md:top-4 md:left-4 md:z-10 md:m-0 ${collapsed && !focus ? "" : "md:hidden"}`}
+            className={`group/trigger mt-4 ml-4 md:absolute md:top-4 md:left-4 md:z-10 md:m-0 ${focus ? "" : "max-md:hidden"} ${collapsed && !focus ? "" : "md:hidden"}`}
           >
             <Logo className="size-6 text-foreground group-hover/trigger:hidden group-focus-visible/trigger:hidden" />
             <PanelLeft className="hidden size-5 group-hover/trigger:block group-focus-visible/trigger:block" />
@@ -314,6 +325,13 @@ function Shell({ user }: { user: AuthUser }) {
           </ErrorBoundary>
         </main>
 
+        {!focus && (
+          <MobileDock
+            scroller={scroller}
+            home={pathname === "/"}
+            onSearch={() => setPalette(true)}
+          />
+        )}
         {jumps.map(([n, c]) => (
           <NotebookHotkey key={n} n={n} id={c.id} />
         ))}
@@ -331,7 +349,10 @@ function Shell({ user }: { user: AuthUser }) {
         {habitsDialog && (
           <HabitsDialog startNew={habitsDialog === "new"} onClose={() => setHabitsDialog(null)} />
         )}
-        <Toaster theme={dark ? "dark" : "light"} />
+        <Toaster
+          theme={dark ? "dark" : "light"}
+          mobileOffset={{ bottom: "calc(88px + env(safe-area-inset-bottom))" }}
+        />
       </SidebarProvider>
     </TooltipProvider>
   )

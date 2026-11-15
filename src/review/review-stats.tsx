@@ -55,7 +55,7 @@ function Panel({ days, hovered }: { days: ComplianceDay[]; hovered: number }) {
 // cumplió todos los diarios — hoy incluido. Hoy sin cumplir va en fg-secondary para marcarlo sin mentir verde;
 // días parciales en muted (track sobre bg da 1.35:1, invisible).
 // Cada barra vive en una columna de 7px (4 + 1.5 de cada lado = el gap de antes): hit-area entero, mismo dibujo.
-function DailyBars({ days }: { days: ComplianceDay[] }) {
+export function DailyBars({ days }: { days: ComplianceDay[] }) {
   const [hovered, setHovered] = useState<number | null>(null)
   return (
     <span className="relative flex items-end" onMouseLeave={() => setHovered(null)}>
@@ -95,7 +95,7 @@ function DailyBars({ days }: { days: ComplianceDay[] }) {
 export function ReviewStats({ days }: { days: ComplianceDay[] }) {
   return (
     // pe = padding de la card: las barras terminan alineadas con el contenido de abajo.
-    <div className="mb-4 flex items-end justify-between pe-5 sm:pe-10">
+    <div className="mb-4 flex items-end justify-between pe-5 max-md:hidden sm:pe-10">
       <h2 className="text-xl font-semibold tracking-tight">Repaso</h2>
       <DailyBars days={days} />
     </div>
