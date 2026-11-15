@@ -12,12 +12,12 @@ import {
   type Run,
 } from "@/habits/habit-tile-info"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
-import { todayKey } from "@/core/lib/day"
+import { todayKey, useToday } from "@/core/lib/day"
 import { HabitsSkeleton } from "@/core/components/skeletons"
 import { forceLoading, saveSample } from "@/core/lib/sample"
 import { cn } from "@/core/lib/utils"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
-import { deriveHabit, meets, type HabitState } from "@/habits/habits"
+import { deriveHabit, meets, parseDay, type HabitState } from "@/habits/habits"
 import { useHabitLog, useHabits, useSetDay } from "@/habits/habits.api"
 import { HabitsDialog } from "@/habits/habits-dialog"
 import { formatClock } from "@/habits/habit-timer"
@@ -41,9 +41,10 @@ export function HabitTiles() {
   // Sin persistir, igual que el toggle de Notebooks.
   const [view, setView] = useState<"tarjetas" | "lista">("tarjetas")
 
+  const day = useToday()
   const entries = useMemo(
-    () => habits.map((h): Entry => ({ h, state: deriveHabit(h, log) })),
-    [habits, log],
+    () => habits.map((h): Entry => ({ h, state: deriveHabit(h, log, parseDay(day)) })),
+    [habits, log, day],
   )
 
   const { runningId, shown, clock, toggle } = useHabitTimer(habits, log)
