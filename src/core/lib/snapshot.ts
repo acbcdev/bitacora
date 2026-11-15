@@ -5,6 +5,7 @@ import {
   type UseMutationOptions,
 } from "@tanstack/react-query"
 import { store } from "@/core/store"
+import { useToday } from "@/core/lib/day"
 import type { Note } from "@/core/types/database"
 import type { NoteRef, Snapshot } from "@/core/store/types"
 
@@ -22,6 +23,8 @@ import type { NoteRef, Snapshot } from "@/core/store/types"
 export const SNAPSHOT_KEY = ["snapshot"]
 
 export function useSnapshot<T>(select: (snap: Snapshot) => T) {
+  // derive.* lee new Date(): cambiar de día re-renderiza al consumidor y su select inline re-corre.
+  useToday()
   return useQuery({
     queryKey: SNAPSHOT_KEY,
     queryFn: () => store.snapshot(),
