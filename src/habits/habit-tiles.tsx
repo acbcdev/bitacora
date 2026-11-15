@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { LayoutGrid, List, Pause, Plus, Target } from "lucide-react"
+import { LayoutGrid, LayoutList, List, Pause, Plus, Target } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { ViewPill } from "@/core/components/view-pill"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/core/ui/empty"
@@ -99,13 +99,13 @@ export function HabitTiles() {
       {/* Misma cabecera que Notebooks — mismo `text-xl` + contador `mono-dim`. Antes la tira aparecía
           sin nombre entre el card de repaso y Notebooks, y la única acción era un botón primario que
           pesaba más que los hábitos: crear más competía con lo que ya tenías. */}
-      <div className="mb-4 flex items-center gap-3">
+      <div data-section="habitos" className="mb-4 flex items-center gap-3">
         <div className="flex items-baseline gap-3">
           <h2 className="text-xl font-semibold tracking-tight">Hábitos</h2>
           {/* `met` es por PERÍODO, no por día (ADR 0009): un `3 por semana` cuenta como cumplido
               con la semana hecha. De ahí "cumplidos" y no "hoy". */}
           {entries.length > 0 && (
-            <span className="mono-dim">
+            <span className="mono-dim whitespace-nowrap">
               {met}/{entries.length} cumplidos
             </span>
           )}
@@ -114,10 +114,11 @@ export function HabitTiles() {
         {entries.length > 0 && (
           <button
             type="button"
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+            className="ml-auto text-xs whitespace-nowrap text-muted-foreground hover:text-foreground max-md:grid max-md:size-8 max-md:place-items-center max-md:rounded-full max-md:bg-secondary max-md:text-foreground"
             onClick={() => setOpen("list")}
           >
-            ver todos
+            <span className="max-md:sr-only">ver todos</span>
+            <LayoutList className="size-4 md:hidden" />
           </button>
         )}
         {entries.length > 0 && (
@@ -125,6 +126,7 @@ export function HabitTiles() {
             value={view}
             onChange={setView}
             options={{ tarjetas: <LayoutGrid />, lista: <List /> }}
+            className="max-md:hidden"
           />
         )}
         <Button

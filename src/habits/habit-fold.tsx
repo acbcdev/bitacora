@@ -1,14 +1,17 @@
 import { useState, type ReactNode } from "react"
 import { Check, ChevronDown, Target } from "lucide-react"
 import { cn } from "@/core/lib/utils"
+import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import { NotebookIcon } from "@/notebooks/notebook-icon"
 import type { Habit } from "@/core/types/database"
 
 // Tarjetas plegadas: 2 filas a la vista (6 = 3 columnas en desktop), el resto detrás de una fila
 // fantasma que dice QUÉ hay escondido (íconos + nombres), no solo cuántos.
-// ponytail: 6 fijo = 2 filas solo con 3 columnas; en mobile son 6 filas. Si molesta, medir
-// columnas con ResizeObserver y usar cols*2.
+// Mobile es 1 columna: 3 a la vista (no 6 filas de scroll), el resto detrás del plegado.
+// ponytail: 6 fijo = 2 filas solo con 3 columnas; entre md y xl las columnas varían. Si molesta,
+// medir columnas con ResizeObserver y usar cols*2.
 const VISIBLE = 6
+const VISIBLE_MOBILE = 3
 
 export function HabitFold<T extends { h: Habit; state: { met: boolean } }>({
   items,
@@ -24,7 +27,8 @@ export function HabitFold<T extends { h: Habit; state: { met: boolean } }>({
   arrived?: string | null
 }) {
   const [open, setOpen] = useState(false)
-  const rest = items.slice(VISIBLE)
+  const visible = useIsMobile() ? VISIBLE_MOBILE : VISIBLE
+  const rest = items.slice(visible)
   const landed = rest.find(({ h }) => h.id === arrived)?.h
   // Lo cumplido plegado se ve SIEMPRE, no solo en el aviso de llegada: avatares cumplidos al
   // frente en verde, el conteo aparte y los nombres solo de lo que falta.
@@ -36,7 +40,7 @@ export function HabitFold<T extends { h: Habit; state: { met: boolean } }>({
 
   return (
     <>
-      <div className={grid}>{items.slice(0, VISIBLE).map((i) => render(i, false))}</div>
+      <div className={grid}>{items.slice(0, visible).map((i) => render(i, false))}</div>
       {rest.length > 0 && (
         <>
           {/* grid-rows 0fr→1fr anima el alto real sin medirlo; inert saca lo plegado del tab. */}
@@ -81,7 +85,7 @@ export function HabitFold<T extends { h: Habit; state: { met: boolean } }>({
               </span>
             )}
             {(open || !allDone || landed) && (
-              <span className="text-sm font-medium text-foreground">
+              <span className="shrink-0 text-sm font-medium whitespace-nowrap text-foreground">
                 {open ? "mostrar menos" : `${rest.length} más`}
               </span>
             )}
