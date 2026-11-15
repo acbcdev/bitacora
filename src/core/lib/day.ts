@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react"
+
 // Fecha local (no UTC): la racha se cuenta en los días del usuario, no del servidor.
 export function dayKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
@@ -5,6 +7,22 @@ export function dayKey(d: Date) {
 
 export function todayKey() {
   return dayKey(new Date())
+}
+
+// El día como estado de React: a medianoche re-renderiza a quien lo lea, sin recargar (no se
+// pierde un modal abierto ni un timer). Intervalo y no setTimeout a medianoche: con la laptop
+// dormida el timeout se corre. El snapshot es el string → sólo notifica un cambio real de día.
+function subscribeDay(cb: () => void) {
+  const id = setInterval(cb, 60_000)
+  document.addEventListener("visibilitychange", cb)
+  return () => {
+    clearInterval(id)
+    document.removeEventListener("visibilitychange", cb)
+  }
+}
+
+export function useToday() {
+  return useSyncExternalStore(subscribeDay, todayKey)
 }
 
 // read_at es timestamptz: cortarlo con slice(0,10) daría el día UTC (a la noche, el de mañana).
