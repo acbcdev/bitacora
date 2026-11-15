@@ -10,6 +10,8 @@ import type { NotebookInput } from "@/core/store/types"
 import type { Notebook as NotebookRow, NotebookStatus } from "@/core/types/database"
 
 export const PAGE_SIZE = 12
+// Mobile es 1 columna: 12 tarjetas eran ~4 pantallas de scroll por página.
+export const PAGE_SIZE_MOBILE = 6
 
 // Payload del toggle "Marcar finalizado / Reabrir notebook", compartido por el sidebar y la
 // pantalla Notebook. Reabrir limpia `finished_at` — si no, un notebook activo quedaría con fecha de fin.
@@ -20,15 +22,16 @@ export function toggleNotebookDone(notebook: NotebookRow): NotebookInput & { id:
     : { id: notebook.id, status: "done" as NotebookStatus, finished_at: new Date().toISOString() }
 }
 
-// El tamaño de página lo fija la app, no la pantalla: la query de la UI son los cuatro filtros.
+// El tamaño de página lo fija la app (según el dispositivo), no la pantalla: la query de la UI son
+// los filtros + la página.
 export type NotebooksQuery = Omit<DeriveQuery, "pageSize">
 
 // Una página de la lista de notebooks. Búsqueda, filtro, orden, rondas y últ. repaso salen de
 // `derive.notebooksPage` sobre el snapshot — antes de la RPC `notebooks_page`, que sigue en la DB sin
 // llamador. Cambiar de filtro ya no es otra query: es otro `select` sobre los mismos datos, así
 // que el parpadeo a skeleton que `keepPreviousData` tapaba dejó de existir.
-export function useNotebooksPage(query: NotebooksQuery) {
-  return useSnapshot((snap) => notebooksPage(snap, { ...query, pageSize: PAGE_SIZE }))
+export function useNotebooksPage(query: NotebooksQuery, pageSize = PAGE_SIZE) {
+  return useSnapshot((snap) => notebooksPage(snap, { ...query, pageSize }))
 }
 
 // Lista de notebooks vivos. Orden estable: active → paused → done, luego más nuevo primero.

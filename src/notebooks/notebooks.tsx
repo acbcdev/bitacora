@@ -13,7 +13,12 @@ import { NotebookCardsSkeleton } from "@/core/components/skeletons"
 import { forceLoading, saveSample } from "@/core/lib/sample"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import { useSafeHotkeys } from "@/core/lib/hooks/use-safe-hotkeys"
-import { PAGE_SIZE, useNotebooksPage, useDeleteNotebook } from "@/notebooks/notebooks.api"
+import {
+  PAGE_SIZE,
+  PAGE_SIZE_MOBILE,
+  useNotebooksPage,
+  useDeleteNotebook,
+} from "@/notebooks/notebooks.api"
 import type { Notebook, NotebookRow } from "@/core/types/database"
 
 // Pantalla Notebooks (screen 2) como database view del diseño: buscar, filtrar por estado, ordenar,
@@ -36,23 +41,27 @@ export function Notebooks({ embed, hotkeys = !embed }: { embed?: boolean; hotkey
 
   const filters = useNotebookFilters(searchRef)
 
-  const { data, isLoading } = useNotebooksPage({
-    q: filters.debouncedQ,
-    status: filters.status,
-    sort: filters.sort,
-    reverse: filters.reverse,
-    page: filters.page,
-  })
+  const pageSize = isMobile ? PAGE_SIZE_MOBILE : PAGE_SIZE
+  const { data, isLoading } = useNotebooksPage(
+    {
+      q: filters.debouncedQ,
+      status: filters.status,
+      sort: filters.sort,
+      reverse: filters.reverse,
+      page: filters.page,
+    },
+    pageSize,
+  )
   const rows = data?.rows ?? []
   const total = data?.total ?? 0
-  const pages = Math.max(Math.ceil(total / PAGE_SIZE), 1)
+  const pages = Math.max(Math.ceil(total / pageSize), 1)
   // Distingue "todavía no creaste ningún notebook" de "los filtros no matchean nada": con paginado
   // en server no hay una lista completa en cliente contra la cual comparar.
   const filtering = !!filters.debouncedQ || filters.status !== "todos"
   // Filas de la última carga sin filtrar, para dimensionar el skeleton (sample.ts).
   useEffect(() => {
-    if (data && !filtering) saveSample({ notebooks: Math.min(data.total, PAGE_SIZE) })
-  }, [data, filtering])
+    if (data && !filtering) saveSample({ notebooks: Math.min(data.total, pageSize) })
+  }, [data, filtering, pageSize])
 
   // Borrar el último notebook de la última página la deja vacía: retroceder en vez de mostrar nada.
   useEffect(() => {
@@ -78,6 +87,14 @@ export function Notebooks({ embed, hotkeys = !embed }: { embed?: boolean; hotkey
     setConfirmingDelete,
   })
 
+  // Mobile: cambiar de página deja el scroll al fondo (la paginación está abajo) → volver arriba de la
+  // lista, con el header metido bajo la barra (scroll-mt-5).
+  const headRef = useRef<HTMLDivElement>(null)
+  function goToPage(p: number) {
+    filters.goToPage(p)
+    if (isMobile) headRef.current?.scrollIntoView({ block: "start" })
+  }
+
   function close() {
     setEditing(null)
     if (params.get("new")) setParams({}, { replace: true })
@@ -85,7 +102,11 @@ export function Notebooks({ embed, hotkeys = !embed }: { embed?: boolean; hotkey
 
   return (
     <div className={embed ? "fade-in" : "fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8"}>
-      <div className="mb-4 flex items-baseline gap-3">
+      <div
+        ref={headRef}
+        data-section={embed ? "notebooks" : undefined}
+        className="mb-4 flex scroll-mt-5 items-baseline gap-3"
+      >
         {/* Embebido en Hoy es una sección más (h2, como Repaso/Hábitos): el h1 es de la nota. */}
         {embed ? (
           <h2 className="text-xl font-semibold tracking-tight">Notebooks</h2>
@@ -140,9 +161,7 @@ export function Notebooks({ embed, hotkeys = !embed }: { embed?: boolean; hotkey
         </div>
       )}
 
-      {pages > 1 && (
-        <NotebookPagination page={filters.page} pages={pages} goToPage={filters.goToPage} />
-      )}
+      {pages > 1 && <NotebookPagination page={filters.page} pages={pages} goToPage={goToPage} />}
 
       {form && <NotebookForm notebook={form === "new" ? null : form} onClose={close} />}
 

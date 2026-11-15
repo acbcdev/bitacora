@@ -70,8 +70,8 @@ export function NotebookToolbar({
   onNew: () => void
 }) {
   return (
-    <div className="mb-5 flex items-center gap-2">
-      <label className="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full bg-card px-3 shadow-card ring-1 ring-border focus-within:ring-border-strong sm:w-60 sm:flex-none">
+    <div className="mb-5 flex items-center gap-2 max-md:flex-wrap">
+      <label className="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full max-md:basis-full bg-card px-3 shadow-card ring-1 ring-border focus-within:ring-border-strong sm:w-60 sm:flex-none">
         <Search className="size-3.5 shrink-0 text-muted-foreground" />
         <input
           ref={searchRef}
