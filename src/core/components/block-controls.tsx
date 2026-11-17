@@ -5,6 +5,7 @@ import type { NestedOptions } from "@tiptap/extension-drag-handle"
 import { NodeRangeSelection } from "@tiptap/extension-node-range"
 import { Node } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
+import { dropPoint } from "@tiptap/pm/transform"
 import type { Selection, Transaction } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { EditorView } from "@tiptap/pm/view"
@@ -61,23 +62,34 @@ const itemIcon = "size-4 text-fg-secondary"
 // (visibility: hidden) en cada re-render del editor (autosave, refetch...).
 const POSITION_CONFIG = { placement: "left", strategy: "absolute" } as const
 
-// Desplegable (editor-blocks/01): summary y content son estructura (como tableRow/tableCell en
-// las reglas default), nunca target — hover en el título agarra el bloque entero; los bloques
-// del cuerpo siguen siendo arrastrables solos.
+// Modelo Notion: un bloque tiene sub-bloques. La PRIMERA línea de un contenedor es el contenedor
+// (título del Desplegable, primer párrafo de ítem / cita / callout); todo lo demás adentro es un
+// sub-bloque con asa propia. "Parte" = estructura que nunca es target: esa primera línea, el
+// summary/content del Desplegable y el wrapper de lista (el bloque es el ítem).
+const HEADED = new Set(["listItem", "taskItem", "blockquote", NODE.callout])
+export const isBlockPart = (node: Node, parent: Node | null, isFirst: boolean) =>
+  node.type.name === NODE.detailsSummary ||
+  node.type.name === NODE.detailsContent ||
+  node.type.name.endsWith("List") ||
+  (isFirst && !!parent && HEADED.has(parent.type.name))
+
+// edgeDetection "none": el default del plugin ("left") le regala el hover al PADRE a <12px del
+// borde izquierdo/superior del bloque anidado — justo el camino del mouse hacia el asa: el asa
+// saltaba al contenedor antes de poder clickearla.
 const NESTED_CONFIG: NestedOptions = {
+  edgeDetection: "none",
   rules: [
     {
-      id: "detailsParts",
-      evaluate: ({ node }) =>
-        node.type.name === NODE.detailsSummary || node.type.name === NODE.detailsContent ? 1000 : 0,
+      id: "blockParts",
+      evaluate: ({ node, parent, isFirst }) => (isBlockPart(node, parent, isFirst) ? 1000 : 0),
     },
   ],
 }
 
 // Bloque bajo el handle (hover del plugin) — el menú siempre opera sobre él.
-type BlockTarget = { node: Node; pos: number }
+export type BlockTarget = { node: Node; pos: number }
 
-const CONVERTS: Array<{
+export const CONVERTS: Array<{
   label: string
   icon: ReactNode
   can: (editor: Editor) => boolean
@@ -168,7 +180,10 @@ const CONVERTS: Array<{
 
 // Selección de texto dentro del contenido del bloque: los comandos de conversión
 // (toggleList incluido) operan sobre ella y transforman el bloque entero.
-const rangeOf = (t: BlockTarget) => ({ from: t.pos + 1, to: t.pos + t.node.nodeSize - 1 })
+const rangeOf = (t: BlockTarget) => ({
+  from: t.pos + 1,
+  to: t.pos + t.node.nodeSize - 1,
+})
 
 // Línea guía de 2px en el punto de drop, coordenadas relativas al host (mismo patrón que
 // TableHoverControls). `width` = ancho del bloque destino. Sin highlight del bloque destino:
@@ -178,39 +193,24 @@ type DropLine = { top: number; left: number; width: number }
 function locateLine(
   view: EditorView,
   host: HTMLElement,
-  dragged: Node | null,
   clientX: number,
   clientY: number,
 ): DropLine | null {
   const coords = view.posAtCoords({ left: clientX, top: clientY })
-  if (!coords) return null
-  const { doc } = view.state
-  const $pos = doc.resolve(coords.pos)
-  // Mismo nivel de hermanos que el nodo arrastrado: ítem de lista cae entre ítems,
-  // bloque raíz cae entre bloques raíz.
-  const name = dragged?.type.name
-  let depth = 0
-  let blockPos = -1
-  if (name === "listItem" || name === "taskItem") {
-    for (let d = $pos.depth; d > 0; d--) {
-      if ($pos.node(d).type.name === name) {
-        depth = d
-        break
-      }
-    }
-    if (depth) blockPos = $pos.before(depth)
-  }
-  if (blockPos < 0) {
-    depth = Math.min($pos.depth, 1)
-    blockPos = depth > 0 ? $pos.before(depth) : coords.pos
-  }
-  const dom = view.nodeDOM(blockPos)
+  const slice = view.dragging?.slice
+  if (!coords || !slice) return null
+  // El MISMO cálculo que hace ProseMirror en el drop (dropPoint): la guía no puede mentir. Baja al
+  // nivel más profundo donde el bloque cabe — sub-bloque cae entre sub-bloques, ítem entre ítems.
+  const pos = dropPoint(view.state.doc, coords.pos, slice)
+  if (pos == null) return null
+  const $pos = view.state.doc.resolve(pos)
+  const below = $pos.nodeAfter
+  const dom = view.nodeDOM(below ? pos : pos - ($pos.nodeBefore?.nodeSize ?? 0))
   if (!(dom instanceof HTMLElement)) return null
   const hostBox = host.getBoundingClientRect()
   const box = dom.getBoundingClientRect()
   return {
-    // Mitad superior del bloque → línea arriba; mitad inferior → abajo.
-    top: (clientY < box.top + box.height / 2 ? box.top : box.bottom) - hostBox.top - 1,
+    top: (below ? box.top : box.bottom) - hostBox.top - 1,
     left: box.left - hostBox.left,
     width: box.width,
   }
@@ -273,9 +273,8 @@ function positionHandle(el: HTMLElement, ref: DOMRect, host: HTMLElement) {
 }
 
 // Mapeo por Y (contrato v2 de visibilidad): el bloque más cercano al cursor (distancia al
-// intervalo vertical de su rect — 0 si lo contiene). Desciende un nivel en contenedores de
-// bloques (lista → ítem, blockquote → párrafo) para que el gutter al lado de un ítem ancle
-// ese ítem, como Notion.
+// intervalo vertical de su rect — 0 si lo contiene). Baja hasta el sub-bloque a esa altura con
+// las MISMAS reglas que el hover (isBlockPart): gutter y texto anclan siempre el mismo bloque.
 function blockAtY(view: EditorView, y: number): BlockTarget | null {
   // Fuera de la extensión vertical del contenido (header de la pantalla, pie): null.
   const doc = view.state.doc
@@ -299,16 +298,10 @@ function blockAtY(view: EditorView, y: number): BlockTarget | null {
         const dist = Math.max(box.top - y, y - box.bottom, 0)
         if (dist < bestDist) {
           bestDist = dist
-          // Contenedor de bloques (lista, blockquote): anclar al hijo en esa altura. El
-          // Desplegable no: su primer hijo es el summary, que no se mueve solo.
-          // ponytail: el gutter ancla el Desplegable entero; los bloques del cuerpo se agarran
-          // por hover sobre el contenido (regla NESTED_CONFIG). Descender a detailsContent
-          // si se pide.
-          const first = child.firstChild
+          // null = el hijo a esa altura es una parte (título, primera línea): ancla el padre.
           best =
-            first?.isBlock && child.childCount >= 1 && child.type.name !== NODE.details
-              ? (pick(child, pos + 1) ?? { node: child, pos })
-              : { node: child, pos }
+            (child.firstChild?.isBlock ? pick(child, pos + 1) : null) ??
+            (isBlockPart(child, parent, i === 0) ? null : { node: child, pos })
         }
       }
       pos += child.nodeSize
@@ -383,9 +376,14 @@ export function BlockControls({
     if (!selRef.current.some((b) => b.pos === t.pos)) {
       selRef.current = [...selRef.current, { pos: t.pos, node: t.node }]
     }
+    // Profundidad explícita: con anchor/head en los bordes del nodo NodeRange infiere un nivel de
+    // menos y, en un sub-bloque, seleccionaba el contenedor entero (cuerpo del Desplegable, lista).
+    const { doc } = editor.state
     editor.view.dispatch(
       editor.view.state.tr
-        .setSelection(NodeRangeSelection.create(editor.state.doc, t.pos, t.pos + t.node.nodeSize))
+        .setSelection(
+          NodeRangeSelection.create(doc, t.pos, t.pos + t.node.nodeSize, doc.resolve(t.pos).depth),
+        )
         .setMeta("blockSel", true),
     )
   }
@@ -396,8 +394,8 @@ export function BlockControls({
     if (!dragging) return
     const onDragOver = (e: DragEvent) => {
       e.preventDefault()
-      if (!host.current || !target.current) return
-      setLine(locateLine(editor.view, host.current, target.current.node, e.clientX, e.clientY))
+      if (!host.current) return
+      setLine(locateLine(editor.view, host.current, e.clientX, e.clientY))
     }
     const clear = () => {
       setDragging(false)
@@ -627,13 +625,10 @@ export function BlockControls({
             onMouseDown={preventFocus}
             onDragStart={(e) => e.preventDefault()}
             onClick={withTarget((t) => {
+              // insertContentAt deja el cursor en el párrafo nuevo (after + 1 a mano fallaba
+              // debajo de un ítem: el párrafo parte la lista y queda un nivel más afuera).
               const after = t.pos + t.node.nodeSize
-              editor
-                .chain()
-                .insertContentAt(after, { type: "paragraph" })
-                .setTextSelection(after + 1)
-                .focus()
-                .run()
+              editor.chain().insertContentAt(after, { type: "paragraph" }).focus().run()
             })}
           >
             <PlusIcon className="size-4.5" />
@@ -735,7 +730,12 @@ export function BlockControls({
               <div
                 data-testid="drop-line"
                 className="absolute rounded-full bg-foreground"
-                style={{ top: line.top, left: line.left, width: line.width, height: 2 }}
+                style={{
+                  top: line.top,
+                  left: line.left,
+                  width: line.width,
+                  height: 2,
+                }}
               />
             </>
           )}
@@ -746,7 +746,7 @@ export function BlockControls({
 }
 
 // Duplicar = clone del nodo vía JSON + insert debajo (mismo build propio de la spec).
-function duplicate(editor: Editor) {
+export function duplicate(editor: Editor) {
   return (t: { node: Node; pos: number }) => {
     const clone = Node.fromJSON(editor.state.schema, t.node.toJSON())
     editor.view.dispatch(editor.view.state.tr.insert(t.pos + t.node.nodeSize, clone))
@@ -770,24 +770,20 @@ const BLOCK_LABELS: Record<string, string> = {
 }
 const labelOf = (n: Node) =>
   n.type.name === "heading" ? `Heading ${n.attrs.level}` : BLOCK_LABELS[n.type.name]
-// El gutter baja hasta el textblock (lista → ítem → párrafo, callout → párrafo): un párrafo
-// anidado toma el label del ancestro más cercano con nombre (Lista, Callout, Cita, Tabla...).
-export function blockLabel(doc: Node, t: BlockTarget) {
-  if (t.node.type.name !== "paragraph") return labelOf(t.node)
-  const $p = doc.resolve(t.pos)
-  for (let d = $p.depth; d > 0; d--) {
-    const l = labelOf($p.node(d))
-    if (l) return l
-  }
-  return labelOf(t.node)
-}
+// El ítem de lista no tiene nombre propio: toma el de su lista (Lista, Lista numerada, To-do).
+export const blockLabel = (doc: Node, t: BlockTarget) =>
+  labelOf(t.node) ?? labelOf(doc.resolve(t.pos).parent)
 
 // Copiar como Markdown. Ítem suelto: se envuelve en su lista padre (con sus attrs) para que
 // salga con su marcador (`- `, `1. `, `- [ ] `) — un listItem pelado no serializa.
 async function copyMarkdown(editor: Editor, t: BlockTarget) {
   const parent = editor.state.doc.resolve(t.pos).parent
   const node = t.node.type.name.endsWith("Item")
-    ? { type: parent.type.name, attrs: parent.attrs, content: [t.node.toJSON()] }
+    ? {
+        type: parent.type.name,
+        attrs: parent.attrs,
+        content: [t.node.toJSON()],
+      }
     : t.node.toJSON()
   await navigator.clipboard.writeText(docToMarkdown({ type: "doc", content: [node] }))
   toast.success("Bloque copiado")

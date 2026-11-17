@@ -181,20 +181,21 @@ describe("menú del ⋮⋮", () => {
     expect(menu.textContent).toContain("Párrafo")
   })
 
-  test("header de un párrafo anidado usa el bloque contenedor", async () => {
+  // Modelo Notion: el ítem toma el nombre de su lista; un sub-bloque tiene el suyo propio.
+  test("header: el ítem usa el nombre de su lista, el sub-bloque el propio", async () => {
     const { view } = await setup({
       type: "doc",
       content: [
-        { type: "blockquote", content: [para("Citado")] },
+        { type: "blockquote", content: [para("Citado"), para("Sub")] },
         { type: "bulletList", content: [{ type: "listItem", content: [para("Ítem")] }] },
       ],
     } as TiptapDoc)
-    const at = (text: string) => {
-      const pos = posOf(view, text) - 1
+    const at = (text: string, up = 0) => {
+      const pos = view.state.doc.resolve(posOf(view, text)).before() - up
       return blockLabel(view.state.doc, { node: view.state.doc.nodeAt(pos)!, pos })
     }
-    expect(at("Citado")).toBe("Cita")
-    expect(at("Ítem")).toBe("Lista")
+    expect(at("Sub")).toBe("Párrafo")
+    expect(at("Ítem", 1)).toBe("Lista")
   })
 
   test("Copiar escribe el bloque como Markdown", async () => {
