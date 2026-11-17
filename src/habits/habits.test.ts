@@ -267,28 +267,34 @@ describe("cellColor", () => {
   })
 })
 
-// Historia de hábito (spec habits-dialog-github): 26 semanas que terminan hoy, en el período del
-// hábito. NOW = jue 20 ago → la semana en curso arranca el lun 17; 25 semanas antes, lun 23 feb.
+// Historia de hábito (spec habits-dialog-github): 53 semanas que terminan hoy, en el período del
+// hábito. NOW = jue 20 ago → la semana en curso arranca el lun 17; 52 semanas antes, lun 18 ago 2025.
 describe("habitHistory", () => {
   const key = (d: Date) => dayKey(d)
 
-  test("diario: un día por celda desde el lunes de hace 25 semanas hasta hoy", () => {
+  test("diario: un día por celda desde el lunes de hace 52 semanas hasta hoy", () => {
     const cells = habitHistory(habit(), [], NOW)
-    expect(cells).toHaveLength(25 * 7 + 4)
-    expect(key(cells[0].start)).toBe("2026-02-23")
+    expect(cells).toHaveLength(52 * 7 + 4)
+    expect(key(cells[0].start)).toBe("2025-08-18")
     expect(key(cells.at(-1)!.start)).toBe("2026-08-20")
   })
 
-  test("semanal: 26 semanas, empezando en lunes", () => {
+  test("semanal: 53 semanas, empezando en lunes", () => {
     const cells = habitHistory(habit({ period: "week" }), [], NOW)
-    expect(cells).toHaveLength(26)
-    expect(key(cells[0].start)).toBe("2026-02-23")
+    expect(cells).toHaveLength(53)
+    expect(key(cells[0].start)).toBe("2025-08-18")
     expect(key(cells.at(-1)!.start)).toBe("2026-08-17")
   })
 
   test("mensual: los meses que toca el rango, incluido el parcial del borde", () => {
     const cells = habitHistory(habit({ period: "month" }), [], NOW)
     expect(cells.map((c) => key(c.start))).toEqual([
+      "2025-08-01",
+      "2025-09-01",
+      "2025-10-01",
+      "2025-11-01",
+      "2025-12-01",
+      "2026-01-01",
       "2026-02-01",
       "2026-03-01",
       "2026-04-01",

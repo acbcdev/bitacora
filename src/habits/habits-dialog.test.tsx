@@ -164,7 +164,7 @@ test("desde la palette abre en crear y manda period: week", async () => {
 test("el graph expone un aria-label resumido", async () => {
   renderDialog()
   await waitFor(() => expect(title()).toBe("Read"))
-  expect(screen.getByRole("img", { name: /^Últimas 26 semanas de Read/ })).toBeInTheDocument()
+  expect(screen.getByRole("img", { name: /^Últimas 53 semanas de Read/ })).toBeInTheDocument()
 })
 
 test("sin hábitos muestra el estado vacío con Nuevo", async () => {

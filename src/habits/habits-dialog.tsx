@@ -24,6 +24,7 @@ import {
   periodKey,
   deriveHabit,
   displayAmount,
+  unit,
   displayTarget,
   fromDisplay,
   goalText,
@@ -33,6 +34,7 @@ import {
   streakText,
   type HabitLogRow,
 } from "@/habits/habits"
+import { HabitTip, type TipData } from "@/habits/habit-tip"
 import { useArchiveHabit, useHabitLog, useHabits, useSaveHabit } from "@/habits/habits.api"
 import type { Habit, HabitMetric, HabitPeriod } from "@/core/types/database"
 
@@ -82,7 +84,11 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
   // apaga con el ConfirmDelete encima. Sin vuelta: en el último, ⌥J no hace nada.
   // Navegar estando en "Nuevo" sale del alta y vuelve al seleccionado (descarta el draft, story 33).
   const step = (delta: number) => select(creating ? index : index + delta)
-  const hotkeys = { enableOnFormTags: true, preventDefault: true, enabled: !archiving }
+  const hotkeys = {
+    enableOnFormTags: true,
+    preventDefault: true,
+    enabled: !archiving,
+  }
   useHotkeys("alt+j", () => step(1), hotkeys, [index, creating, habits])
   useHotkeys("alt+k", () => step(-1), hotkeys, [index, creating, habits])
   // ↑/↓ globales en el dialog, sin foco en la lista. SIN enableOnFormTags: en el input numérico y
@@ -478,21 +484,32 @@ function HabitForm({
 
 const MONTH = new Intl.DateTimeFormat("es", { month: "short" })
 const TIP: Record<HabitPeriod, Intl.DateTimeFormat> = {
-  day: new Intl.DateTimeFormat("es", { weekday: "short", day: "numeric", month: "short" }),
+  day: new Intl.DateTimeFormat("es", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }),
   week: new Intl.DateTimeFormat("es", { day: "numeric", month: "short" }),
   month: new Intl.DateTimeFormat("es", { month: "long", year: "numeric" }),
 }
-const NOUN: Record<HabitPeriod, string> = { day: "días", week: "semanas", month: "meses" }
+const NOUN: Record<HabitPeriod, string> = {
+  day: "días",
+  week: "semanas",
+  month: "meses",
+}
 
 // Historia de hábito a lo GitHub (ADR 0023: monocromo, tinta sobre --track). Todo período se dibuja
 // en el grid diario (columna = semana, 7 filas lun→dom). En semana/mes el día con registro va en
 // tinta plena si su período cumplió la meta, a medias si no: el cupo se lee por grupo. Hover apaga
 // todo lo que no es el grupo del día (su período: el día solo en diario) + tooltip.
-// ponytail: tooltip centrado sin clamp — en la última columna puede asomar al borde del scroll.
+// El tooltip se centra en la celda y se clampa a los bordes del contenedor (ref callback).
 function HabitGraph({ habit, log }: { habit: Habit; log: HabitLogRow[] }) {
-  const [hover, setHover] = useState<{ key: string; x: number; y: number; text: string } | null>(
-    null,
-  )
+  const [hover, setHover] = useState<{
+    key: string
+    x: number
+    y: number
+    tip: TipData
+  } | null>(null)
   const isDay = habit.period === "day"
   const days = habitHistory({ ...habit, period: "day" }, log)
   const periods = habitHistory(habit, log)
@@ -500,31 +517,80 @@ function HabitGraph({ habit, log }: { habit: Habit; log: HabitLogRow[] }) {
   const periodOf = (d: Date) => byKey.get(periodKey(d, habit.period))!
   const group = (d: Date) => periodKey(d, habit.period)
 
-  const cols = Math.ceil(days.length / 7)
-  const month = (c: number) => days[c * 7].start.getMonth()
+  // Un tramo = un AÑO en dos bloques apilados (ene–jun arriba, jul–dic abajo), ENTEROS: lo que
+  // todavía no pasó va punteado y lo anterior al historial, hueco. Un bloque sin ningún dato
+  // (anterior a crear el hábito) no se muestra. Sin scroll: celda de 20px que se achica lo justo.
+  // ponytail: el historial son 53 semanas: el año en curso sale completo; del anterior, sólo lo que alcanza.
+  const [page, setPage] = useState(0) // 0 = año actual, 1 = el anterior, …
+  const day0 = days[0].start
+  const today = days[days.length - 1].start
+  const jan1 = new Date(day0.getFullYear(), 0, 1)
+  const startMonday = jan1.getTime() - ((jan1.getDay() + 6) % 7) * 864e5
+  const pre = Math.round((day0.getTime() - startMonday) / 864e5) // días hasta el lunes de la semana del 1 de enero
+  const left = Math.round(
+    (new Date(today.getFullYear(), 12, 0).getTime() - today.getTime()) / 864e5,
+  )
+  const post = left + ((7 - ((pre + days.length + left) % 7)) % 7) // hasta cerrar el año y la semana
+  const hole = (start: Date) => ({ start, amount: 0, target: 0, before: false })
+  const cells = [
+    ...Array.from({ length: pre }, (_, n) => ({
+      ...hole(new Date(day0.getFullYear(), day0.getMonth(), day0.getDate() - pre + n)),
+      before: true,
+    })),
+    ...days,
+    ...Array.from({ length: post }, (_, n) =>
+      hole(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n + 1)),
+    ),
+  ]
+  const weeks = cells.length / 7
+  const thu = (c: number) => cells[c * 7 + 3].start // la semana es del año/semestre de su jueves
+  const blocks: { k: number; f: number; e: number }[] = [] // semestres, del viejo al nuevo
+  for (let c = 0; c < weeks; c++) {
+    const k = thu(c).getFullYear() * 2 + (thu(c).getMonth() >= 6 ? 1 : 0)
+    if (blocks.at(-1)?.k === k) blocks[blocks.length - 1].e = c + 1
+    else blocks.push({ k, f: c, e: c + 1 })
+  }
+  const pages: { year: number; blocks: typeof blocks }[] = [] // del año actual al más viejo
+  for (const b of blocks
+    .filter((x) => cells.slice(x.f * 7, x.e * 7).some((c) => !c.before))
+    .toReversed()) {
+    const year = Math.floor(b.k / 2)
+    if (pages.at(-1)?.year === year) pages[pages.length - 1].blocks.unshift(b)
+    else pages.push({ year, blocks: [b] })
+  }
+  const paged = pages.length > 1
+  const shown = pages[Math.min(page, pages.length - 1)]
+  const cols = Math.max(...shown.blocks.map((b) => b.e - b.f)) // mismo tamaño de celda en ambos bloques
   // Label en la primera columna de cada mes. La columna 0 sólo si su mes sigue 2 columnas más
   // (si no, pisa al label siguiente).
-  const label = (c: number) =>
-    (c > 0 ? month(c) !== month(c - 1) : month(0) === month(2))
-      ? MONTH.format(days[c * 7].start)
-      : ""
+  const labels = ({ f, e }: { f: number; e: number }) => {
+    const month = (c: number) => cells[(f + c) * 7].start.getMonth()
+    return Array.from({ length: e - f }, (_, c) =>
+      (c > 0 ? month(c) !== month(c - 1) : month(0) === month(Math.min(2, e - f - 1)))
+        ? MONTH.format(cells[(f + c) * 7].start)
+        : "",
+    )
+  }
 
   const alive = periods.filter((c) => !c.before)
   const met = alive.filter((c) => meets(habit.kind, c.amount, c.target)).length
-  const grid = { gridTemplateColumns: `repeat(${cols}, 20px)` }
+  const grid = { gridTemplateColumns: `repeat(${cols}, minmax(0, 20px))` }
 
-  const periodTip = (c: (typeof periods)[number]) =>
-    `${habit.period === "week" ? "Semana del " : ""}${TIP[habit.period].format(c.start)} · ${
-      c.before
-        ? "antes de crearlo"
-        : `${displayAmount(habit, c.amount)}/${displayTarget({ metric: habit.metric, target: c.target })}`
-    }`
-  const tip = (c: (typeof days)[number]) =>
-    isDay || c.before
-      ? periodTip(isDay ? c : periodOf(c.start))
-      : `${periodTip(periodOf(c.start))}${
-          c.amount ? ` (${TIP.day.format(c.start)}: +${displayAmount(habit, c.amount)})` : ""
-        }`
+  const tipOf = (c: (typeof days)[number]): TipData => {
+    const p = isDay || c.before ? (isDay ? c : periodOf(c.start)) : periodOf(c.start)
+    return {
+      label: `${habit.period === "week" ? "Semana del " : ""}${TIP[habit.period].format(p.start)}`,
+      amount: displayAmount(habit, p.amount),
+      target: displayTarget({ metric: habit.metric, target: p.target }),
+      unit: unit(habit),
+      before: p.before,
+      period: habit.period,
+      day:
+        isDay || c.before
+          ? undefined
+          : { label: TIP.day.format(c.start), amount: displayAmount(habit, c.amount) },
+    }
+  }
 
   const color = (c: (typeof days)[number], i: number) => {
     // Antes de crearlo no es "no cumplido": hueco (solo borde), no relleno de --track.
@@ -538,51 +604,82 @@ function HabitGraph({ habit, log }: { habit: Habit; log: HabitLogRow[] }) {
   }
 
   return (
-    <div className="relative mt-6 flex flex-col gap-1.5 overflow-x-auto">
-      <span className="mono-dim text-xs">últimas {HISTORY_WEEKS} semanas</span>
-      <div className="mono-dim grid gap-1 text-xs" style={grid} aria-hidden>
-        {Array.from({ length: cols }, (_, c) => (
-          <span key={c} className="whitespace-nowrap">
-            {label(c)}
-          </span>
-        ))}
-      </div>
+    <div className="relative mt-6 flex flex-col gap-1.5">
+      {paged ? (
+        <Select
+          value={String(page)}
+          onValueChange={(v) => {
+            setPage(Number(v))
+            setHover(null)
+          }}
+        >
+          <SelectTrigger
+            aria-label="Período del historial"
+            className="mono-dim h-auto w-fit gap-1 border-0 bg-transparent p-0 shadow-none"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" align="start">
+            {pages.map(({ year }, p) => (
+              <SelectItem key={p} value={String(p)}>
+                {year}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <span className="mono-dim text-xs">{shown.year}</span>
+      )}
       <div
         role="img"
         aria-label={`Últimas ${HISTORY_WEEKS} semanas de ${habit.name}: ${met} de ${alive.length} ${NOUN[habit.period]} con la meta cumplida`}
-        className="grid grid-flow-col gap-1"
-        style={{ ...grid, gridTemplateRows: "repeat(7, 20px)" }}
+        className="flex flex-col gap-4"
         onMouseLeave={() => setHover(null)}
       >
-        {days.map((c, i) => (
-          <span
-            key={i}
-            onMouseEnter={(e) => {
-              const el = e.currentTarget
-              setHover({
-                key: group(c.start),
-                x: el.offsetLeft + el.offsetWidth / 2,
-                y: el.offsetTop,
-                text: tip(c),
-              })
-            }}
-            className={cn(
-              "rounded-sm transition-opacity duration-150 ease-out motion-reduce:transition-none",
-              c.before && "inset-ring inset-ring-track",
-              hover && group(c.start) !== hover.key && "opacity-30",
-            )}
-            style={{ backgroundColor: color(c, i) }}
-          />
+        {shown.blocks.map((b) => (
+          <div key={b.k} className="flex flex-col gap-1.5">
+            <div className="mono-dim grid gap-1 text-xs" style={grid} aria-hidden>
+              {labels(b).map((l, c) => (
+                <span key={c} className="whitespace-nowrap">
+                  {l}
+                </span>
+              ))}
+            </div>
+            <div
+              className="grid grid-flow-col gap-1"
+              style={{ ...grid, gridTemplateRows: "repeat(7, auto)" }}
+            >
+              {cells.slice(b.f * 7, b.e * 7).map((c, n) => {
+                const i = b.f * 7 + n
+                const inert = i < pre || i >= pre + days.length // fuera del historial: sin tooltip
+                return (
+                  <span
+                    key={i}
+                    onMouseEnter={(e) => {
+                      if (inert) return setHover(null)
+                      const el = e.currentTarget
+                      setHover({
+                        key: group(c.start),
+                        x: el.offsetLeft + el.offsetWidth / 2,
+                        y: el.offsetTop,
+                        tip: tipOf(c),
+                      })
+                    }}
+                    className={cn(
+                      "aspect-square rounded-sm transition-opacity duration-150 ease-out motion-reduce:transition-none",
+                      c.before && "inset-ring inset-ring-track",
+                      i >= pre + days.length && "border border-dashed border-muted-foreground/50", // futuro: punteado
+                      hover && group(c.start) !== hover.key && "opacity-30",
+                    )}
+                    style={{ backgroundColor: inert ? "transparent" : color(c, i - pre) }}
+                  />
+                )
+              })}
+            </div>
+          </div>
         ))}
       </div>
-      {hover && (
-        <span
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-2 py-1 font-mono text-xs whitespace-nowrap text-background shadow-md"
-          style={{ left: hover.x, top: hover.y - 6 }}
-        >
-          {hover.text}
-        </span>
-      )}
+      {hover && <HabitTip x={hover.x} y={hover.y} tip={hover.tip} />}
     </div>
   )
 }

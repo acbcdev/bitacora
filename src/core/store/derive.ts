@@ -382,10 +382,11 @@ export function deriveHabit(habit: Habit, rows: HabitLogRow[], now = new Date())
   }
 }
 
-// Historia de hábito (CONTEXT.md): las 26 semanas que terminan hoy, en el período del hábito —
-// días desde el lunes de hace 25 semanas, 26 semanas, o los meses que toca ese rango. No es la
+// Historia de hábito (CONTEXT.md): las 53 semanas que terminan hoy (siempre cubren desde el 1 de enero del año en
+// curso, que es lo que dibuja el graph por año), en el período del hábito — días desde el lunes de
+// hace 52 semanas, 53 semanas, o los meses que toca ese rango. No es la
 // Serie (SERIES, 7/5/4): esa alimenta tile y panel; esta, el graph del HabitsDialog.
-export const HISTORY_WEEKS = 26
+export const HISTORY_WEEKS = 53
 export type HistoryCell = DayCell & { start: Date; before: boolean }
 
 const stepForward: Record<HabitPeriod, (d: Date) => void> = {
