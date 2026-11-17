@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import type { RefObject } from "react"
+import { List } from "lucide-react"
 import { cn } from "@/core/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/core/ui/popover"
 
 type Heading = { el: HTMLElement; level: number; text: string }
 
@@ -72,66 +74,97 @@ export function Outline({
     })
 
   return (
-    // sticky, nunca fixed: se ancla al scrollport ancestro sea cual sea (main, #note-pane o el div
-    // del dialog de Repaso). Va primero en el flujo — sticky no sube por encima de su posición
-    // natural — y con altura 0 para no ocupar espacio del documento.
-    // hidden md:block: en touch no hay hover ni margen donde ponerlo.
-    // El rail arranca arriba y crece hacia abajo (como el de Notion), no centrado — con 40+ ticks,
-    // centrarlo se comía media pantalla.
-    // top-48 + `-top-40` en el nav: sticky no puede subir por encima de su posición natural, que
-    // acá es el arranque del cuerpo de la nota (debajo del título). El offset negativo del nav lo
-    // levanta 160px en scroll 0; la línea de sticky (192px) es más grande que ese offset a
-    // propósito, así cuando queda pegado aterriza a 32px del borde del scroller y nunca se corta.
-    <div className="sticky top-48 z-10 hidden h-0 md:block">
-      <nav
-        aria-label="Secciones"
-        // El offset negativo saca el rail de la columna de texto y lo lleva al gutter, cerca del
-        // borde del contenedor. Escalonado por breakpoint y siempre corto: el rail no puede pasarse
-        // del padding del scroller — `overflow-y-auto` hace que overflow-x compute a `auto`, así que
-        // asomarse un pixel de más le mete un scrollbar horizontal al dialog de Repaso.
-        // pl-6: zona de hover más ancha que los ticks, para no tener que apuntar a 2px.
-        className="group absolute -top-40 -right-6 flex flex-col items-end gap-1.5 py-2 pl-6 lg:-right-10 xl:-right-32 2xl:-right-36"
-        onMouseEnter={() => activeItem.current?.scrollIntoView({ block: "nearest" })}
-      >
-        {headings.map((h, i) => (
-          <button
-            key={i}
-            data-outline-tick
-            aria-label={h.text}
-            aria-current={i === active || undefined}
-            // preventDefault: clickear el rail mientras escribís no le roba el foco al editor.
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => jump(h)}
-            className={cn(
-              "h-0.5 rounded-full transition-colors",
-              TICK[h.level - 1],
-              i === active ? "bg-foreground" : "bg-muted-foreground/40",
-            )}
-          />
-        ))}
-        {/* Panel de títulos: hermano de los ticks, puro CSS — sin estado ni timers. Abre encima
-            del texto (a 1280px el margen contra un texto de 80ch no alcanza) y encima de los ticks:
-            `right-0` lo alinea con el rail y, al ser el único hermano posicionado, pinta arriba.
-            top-0: abre desde el primer tick hacia abajo, igual que el rail. */}
-        <div className="pointer-events-none absolute top-0 right-0 max-h-[70vh] w-60 overflow-y-auto rounded-lg border bg-popover p-1.5 opacity-0 shadow-lg transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
+    <>
+      {/* Touch (<md): sin hover ni gutter, así que un botón sticky + popover con la misma lista.
+          Mismo patrón sticky/h-0 que el rail; se pega arriba del scroller al scrollear. */}
+      <div className="sticky top-2 z-10 h-0 md:hidden">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              aria-label="Secciones"
+              className="absolute top-0 right-0 flex size-9 items-center justify-center rounded-full border bg-popover text-muted-foreground shadow-md"
+            >
+              <List className="size-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="max-h-[50vh] w-64 gap-0 overflow-y-auto p-1.5">
+            {headings.map((h, i) => (
+              <button
+                key={i}
+                onClick={() => jump(h)}
+                className={cn(
+                  "block w-full truncate rounded py-2 pr-2 text-left text-sm active:bg-accent",
+                  INDENT[h.level - 1],
+                  i === active ? "font-medium text-foreground" : "text-fg-secondary",
+                )}
+              >
+                {h.text}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+      </div>
+      {/* sticky, nunca fixed: se ancla al scrollport ancestro sea cual sea (main, #note-pane o el div
+          del dialog de Repaso). Va primero en el flujo — sticky no sube por encima de su posición
+          natural — y con altura 0 para no ocupar espacio del documento.
+          hidden md:block: en touch no hay hover ni margen donde ponerlo.
+          El rail arranca arriba y crece hacia abajo (como el de Notion), no centrado — con 40+ ticks,
+          centrarlo se comía media pantalla.
+          top-48 + `-top-40` en el nav: sticky no puede subir por encima de su posición natural, que
+          acá es el arranque del cuerpo de la nota (debajo del título). El offset negativo del nav lo
+          levanta 160px en scroll 0; la línea de sticky (192px) es más grande que ese offset a
+          propósito, así cuando queda pegado aterriza a 32px del borde del scroller y nunca se corta. */}
+      <div className="sticky top-48 z-10 hidden h-0 md:block">
+        <nav
+          aria-label="Secciones"
+          // El offset negativo saca el rail de la columna de texto y lo lleva al gutter, cerca del
+          // borde del contenedor. Escalonado por breakpoint y siempre corto: el rail no puede pasarse
+          // del padding del scroller — `overflow-y-auto` hace que overflow-x compute a `auto`, así que
+          // asomarse un pixel de más le mete un scrollbar horizontal al dialog de Repaso.
+          // pl-6: zona de hover más ancha que los ticks, para no tener que apuntar a 2px.
+          className="group absolute -top-40 -right-6 flex flex-col items-end gap-1.5 py-2 pl-6 lg:-right-10 xl:-right-32 2xl:-right-36"
+          onMouseEnter={() => activeItem.current?.scrollIntoView({ block: "nearest" })}
+        >
           {headings.map((h, i) => (
             <button
               key={i}
-              ref={i === active ? activeItem : null}
+              data-outline-tick
+              aria-label={h.text}
               aria-current={i === active || undefined}
+              // preventDefault: clickear el rail mientras escribís no le roba el foco al editor.
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => jump(h)}
               className={cn(
-                "block w-full truncate rounded py-1 pr-2 text-left text-sm hover:bg-accent",
-                INDENT[h.level - 1],
-                i === active ? "font-medium text-foreground" : "text-fg-secondary",
+                "h-0.5 rounded-full transition-colors",
+                TICK[h.level - 1],
+                i === active ? "bg-foreground" : "bg-muted-foreground/40",
               )}
-            >
-              {h.text}
-            </button>
+            />
           ))}
-        </div>
-      </nav>
-    </div>
+          {/* Panel de títulos: hermano de los ticks, puro CSS — sin estado ni timers. Abre encima
+              del texto (a 1280px el margen contra un texto de 80ch no alcanza) y encima de los ticks:
+              `right-0` lo alinea con el rail y, al ser el único hermano posicionado, pinta arriba.
+              top-0: abre desde el primer tick hacia abajo, igual que el rail. */}
+          <div className="pointer-events-none absolute top-0 right-0 max-h-[70vh] w-60 overflow-y-auto rounded-lg border bg-popover p-1.5 opacity-0 shadow-lg transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
+            {headings.map((h, i) => (
+              <button
+                key={i}
+                ref={i === active ? activeItem : null}
+                aria-current={i === active || undefined}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => jump(h)}
+                className={cn(
+                  "block w-full truncate rounded py-1 pr-2 text-left text-sm hover:bg-accent",
+                  INDENT[h.level - 1],
+                  i === active ? "font-medium text-foreground" : "text-fg-secondary",
+                )}
+              >
+                {h.text}
+              </button>
+            ))}
+          </div>
+        </nav>
+      </div>
+    </>
   )
 }
