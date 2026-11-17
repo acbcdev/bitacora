@@ -113,38 +113,44 @@ test("Editar notebook abre el form con los datos del notebook", async () => {
   expect(screen.getByLabelText("Nombre")).toHaveValue("Notebook")
 })
 
-// En mobile los dos paneles se apilan (índice arriba, nota abajo): elegir del índice tiene que
-// llevarte a la nota, si no el tap parece no hacer nada.
-test("en mobile, elegir una nota del índice scrollea al panel de la nota", async () => {
-  state.notes = [
-    {
-      id: "n1",
-      title: "Nota 1",
-      content: { type: "doc" },
-      notebook_id: "c1",
-      kind: "note",
-      created_at: "2026-01-01",
-      position: 0,
-    },
-    {
-      id: "n2",
-      title: "Nota 2",
-      content: { type: "doc" },
-      notebook_id: "c1",
-      kind: "note",
-      created_at: "2026-01-01",
-      position: 1,
-    },
-  ]
+// En mobile la nota ocupa la pantalla y el índice es un bottom sheet (prototype notebook-mobile,
+// "Hoja"): la pastilla de la MobileBar lo abre, elegir una nota lo cierra y navega a ella.
+test("en mobile, el índice vive en un sheet que abre la pastilla y cierra al elegir", async () => {
+  state.notes = ["Nota 1", "Nota 2"].map((title, position) => ({
+    id: `n${position + 1}`,
+    title,
+    content: { type: "doc" },
+    notebook_id: "c1",
+    kind: "note",
+    created_at: "2026-01-01",
+    position,
+  }))
   Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 375 })
-  const scrollIntoView = vi.fn()
-  Element.prototype.scrollIntoView = scrollIntoView
+  try {
+    // El slot lo pone la MobileBar de App; acá se simula.
+    const slot = document.createElement("div")
+    slot.id = "mobile-bar-slot"
+    document.body.append(slot)
+    renderNotebook()
 
-  renderNotebook()
-  fireEvent.click(await screen.findByRole("button", { name: /Nota 2/ }))
+    // Cerrado: el índice no está en el DOM, sólo la pastilla con la posición.
+    const pill = await screen.findByRole("button", { name: "Ver todas las notas" })
+    expect(pill).toHaveTextContent("1 / 2")
+    expect(screen.queryByPlaceholderText("Buscar nota…")).not.toBeInTheDocument()
 
-  expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth" })
-  Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 1024 })
+    fireEvent.click(pill)
+    fireEvent.click(await screen.findByRole("button", { name: /Nota 2/ }))
+
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText("Buscar nota…")).not.toBeInTheDocument(),
+    )
+    expect(await screen.findByRole("button", { name: "Ver todas las notas" })).toHaveTextContent(
+      "2 / 2",
+    )
+    slot.remove()
+  } finally {
+    Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 1024 })
+  }
 })
 
 // Selección inicial (spec .scratch/editor-flow, issue 02): al entrar sin noteId se abre la nota

@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import {
   Check,
+  ChevronDown,
+  ListTree,
   MoreHorizontal,
   PanelRight,
   Pencil,
@@ -26,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/core/ui/dropdown-menu"
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/core/ui/drawer"
 import { Kbd } from "@/core/ui/kbd"
 import { Sidebar, SidebarProvider } from "@/core/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
@@ -53,7 +57,7 @@ import { store } from "@/core/store"
 // `shrink-0`: la lista es un flex-col que scrollea — sin esto, con muchas notas el browser achica
 // las filas para que entren en vez de scrollear. Hover a media intensidad: el activo es el único sólido.
 const NOTE_ROW =
-  "group/note flex h-8 shrink-0 items-center rounded-lg px-2.5 text-[13px] text-fg-secondary hover:bg-muted/50 data-[active=true]:bg-muted data-[active=true]:text-foreground"
+  "group/note flex h-8 shrink-0 items-center rounded-lg px-2.5 max-md:h-12 max-md:text-base text-[13px] text-fg-secondary hover:bg-muted/50 data-[active=true]:bg-muted data-[active=true]:text-foreground"
 
 // Frescura por nota: el rótulo y su color. ≤7d verde (recién repasada), ≥30d amarillo (se está
 // enfriando), null = nunca repasada → celda vacía (sin ruido). El repaso vive en Home/Repaso:
@@ -86,6 +90,13 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
   const isMobile = useIsMobile()
   const deleteNotebook = useDeleteNotebook()
   const pinned = usePinnedNotebookIds().includes(id!)
+  // Mobile ("Hoja", prototype notebook-mobile): la nota ocupa la pantalla y el índice es un bottom
+  // sheet que se abre desde la pastilla "3 / 15" de la MobileBar (por portal al slot de la barra).
+  const [indexSheet, setIndexSheet] = useState(false)
+  const [barSlot, setBarSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setBarSlot(isMobile ? document.getElementById("mobile-bar-slot") : null)
+  }, [isMobile])
   const [editing, setEditing] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [q, setQ] = useState("")
@@ -120,8 +131,11 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
 
   function select(target: { id: string }) {
     navigate(`/notebook/${id}/${target.id}`)
-    // Stacked en mobile la nota queda debajo del índice: sin esto, tocar una nota no se ve.
-    if (isMobile) document.getElementById("note-pane")?.scrollIntoView({ behavior: "smooth" })
+    // Mobile: cierra el sheet y la nota nueva arranca desde arriba (scrollea `main`, no el pane).
+    if (isMobile) {
+      setIndexSheet(false)
+      document.getElementById("note-pane")?.closest("main")?.scrollTo({ top: 0 })
+    }
   }
 
   // Auto-corrige la URL: sin noteId, o uno que no matchea ninguna nota del notebook -> la 1ra.
@@ -158,6 +172,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
     createNote.mutate(id!, {
       onSuccess: (note) => {
         setCreated(note.id)
+        setIndexSheet(false)
         navigate(`/notebook/${id}/${note.id}`)
       },
     })
@@ -203,6 +218,215 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
     )
 
   const noMatch = q !== "" && visible.length === 0
+
+  // Índice del notebook: header + búsqueda + notas + Nueva nota. Desktop: segundo Sidebar (derecha).
+  // Mobile: adentro del bottom sheet. Mismo contenido, otro contenedor. Variant E ("UI Bitácora",
+  // .scratch/sidebar-redesign): header compacto + chips, búsqueda con /, filas con frescura y
+  // footer con Nueva nota. Solo la lista scrollea — cabecera y acciones quedan fijas.
+  const index = (
+    <>
+      {/* Header "Glifo" (prototype notebook-header): ícono pelado alineado a la 1ra línea del
+              nombre — sin caja, el nombre gana ancho y no se trunca. Source/area como subtítulo. */}
+      <div className="shrink-0 px-4 pt-4 pb-2">
+        <div className="flex items-start gap-2">
+          <NotebookIcon icon={notebook.icon} className="mt-1 size-4.5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base leading-snug font-semibold tracking-tight text-balance">
+              {notebook.name}
+            </h1>
+            {(notebook.source || notebook.area) && (
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {[notebook.source, notebook.area].filter(Boolean).join(" · ")}
+              </p>
+            )}
+          </div>
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0 text-muted-foreground max-md:-mr-1.5"
+                    aria-label="Acciones del notebook"
+                  >
+                    <MoreHorizontal className="size-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Acciones</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onSelect={() => togglePinnedNotebook(notebook.id)}>
+                <Pin className={cn(pinned && "fill-current")} />
+                {pinned ? "Desfijar del sidebar" : "Fijar en el sidebar"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setEditing(true)}>
+                <Pencil />
+                Editar notebook
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
+                <Trash2 />
+                Borrar notebook
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {/* Espejo del SidebarTrigger del header de App: cerrar desde adentro. Mobile no colapsa. */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-lg"
+                className="-mt-1.5 -mr-2 shrink-0 text-muted-foreground max-md:hidden"
+                onClick={() => setIndexOpen(false)}
+                aria-label="Ocultar notas"
+              >
+                <PanelRight className="size-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Ocultar notas · {mod(alt("B"))}</TooltipContent>
+          </Tooltip>
+        </div>
+        <div className="mt-3 flex items-center gap-2.5">
+          {/* El chip de estado ES el toggle cerrar/reabrir: el fin es cuando apretás, no un date
+                  picker. Reabrir limpia `finished_at` (toggleNotebookDone) — si no, un notebook activo
+                  quedaría con fecha de fin. Hover cambia el dot por la acción (✓/↺) en un slot fijo de
+                  12px, así el chip no cambia de ancho. */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                asChild
+                className={cn(
+                  "cursor-pointer normal-case hover:bg-track",
+                  STATUS[notebook.status].cls,
+                )}
+              >
+                <button onClick={() => updateNotebook.mutate(toggleNotebookDone(notebook))}>
+                  <span className="grid size-3 place-items-center">
+                    <i
+                      aria-hidden
+                      className={cn(
+                        "size-1.5 rounded-full group-hover/badge:hidden",
+                        STATUS_DOT[notebook.status],
+                      )}
+                    />
+                    {notebook.status === "done" ? (
+                      <RotateCcw className="hidden size-3 group-hover/badge:block" />
+                    ) : (
+                      <Check className="hidden size-3 group-hover/badge:block" />
+                    )}
+                  </span>
+                  {STATUS[notebook.status].label}
+                </button>
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              {notebook.status === "done" ? "Reabrir notebook" : "Marcar finalizado"}
+            </TooltipContent>
+          </Tooltip>
+          {/* Rotulada: la frase dice QUÉ mide la barra (un % suelto no se entendía) y su total
+                  reemplaza al chip "N notas". */}
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div className="h-0.5 overflow-hidden rounded-full bg-track">
+              <div className="h-full bg-fg-secondary" style={{ width: `${pct}%` }} />
+            </div>
+            <span className="truncate text-2xs text-muted-foreground">
+              {read} de {notes.length} repasadas
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="shrink-0 px-4 pb-1">
+        {/* Mismo campo que "Buscar notebook…" (notebook-toolbar): ring sutil en vez del borde de
+                InputGroup, y el `/` se va al enfocar o con texto. */}
+        <label className="group flex h-8 items-center max-md:h-11 gap-2 rounded-full bg-card px-3 shadow-card ring-1 ring-border focus-within:ring-border-strong">
+          <Search className="size-3.5 shrink-0 text-muted-foreground" />
+          <input
+            ref={searchRef}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                if (q) setQ("")
+                searchRef.current?.blur()
+              }
+            }}
+            placeholder="Buscar nota…"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground max-md:text-md"
+          />
+          {!q && <Kbd className="group-focus-within:hidden max-md:hidden">/</Kbd>}
+        </label>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-1.5 pb-2">
+        {visible.map((n) => {
+          const f = freshness(stats?.byNote.get(n.id)?.last)
+          return (
+            <div key={n.id} data-active={n.id === selected?.id} className={NOTE_ROW}>
+              <button
+                onClick={() => select(n)}
+                className="flex min-w-0 flex-1 items-center rounded-lg text-left"
+              >
+                <span className="mr-3 w-5 shrink-0 text-2xs text-muted-foreground tabular-nums md:hidden">
+                  {notes.indexOf(n) + 1}
+                </span>
+                <span className="truncate">{n.title || "(sin título)"}</span>
+              </button>
+              {/* Frescura como dot (el rótulo "hace 94d" en cada fila era ruido y le robaba ancho
+                      al título); el detalle va en el tooltip del dot, con hit area de 20px. El ⋯
+                      aparece a la izquierda en hover: el dot queda fijo en el borde. En el flujo (no absoluto): el título se encoge y su
+                      `truncate` pone el `…` antes en vez de quedar tapado. */}
+              <div className="flex shrink-0 items-center">
+                <span className="hidden group-focus-within/note:grid group-has-[[aria-expanded=true]]/note:grid group-hover/note:grid">
+                  <NoteActions
+                    note={n}
+                    // El índice lista refs sin content: se pide la nota entera recién al
+                    // copiar/exportar — igual que el editor, que es el único que la necesita.
+                    content={() => store.note(n.id).then((full) => full.content)}
+                    hideNotebook
+                    confirming={confirmingNote === n.id}
+                    onConfirmingChange={(open) => setConfirmingNote(open ? n.id : null)}
+                    onDeleted={() => navigate(`/notebook/${id}`)}
+                  />
+                </span>
+                {f && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        aria-label={`Repasada ${f.label}`}
+                        className="-mr-1.5 grid size-5 place-items-center"
+                      >
+                        <i className={cn("size-1.5 rounded-full", f.dot)} />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Repasada <span className={cn("font-mono", f.cls)}>{f.label}</span>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </div>
+          )
+        })}
+        {/* Búsqueda sin match: sin esto la lista quedaba en blanco y parecía rota. */}
+        {noMatch && (
+          <div className="flex h-8 items-center gap-2 px-2.5 text-sm text-muted-foreground">
+            <span className="truncate">Ninguna nota con “{q}”</span>
+            <Kbd className="ml-auto max-md:hidden">Esc</Kbd>
+          </div>
+        )}
+      </div>
+
+      <div className="shrink-0 border-t p-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <Button className="w-full max-md:h-11" onClick={create}>
+          <Plus />
+          Nueva nota
+        </Button>
+      </div>
+    </>
+  )
 
   return (
     // Mobile: una columna — índice del notebook arriba, nota abajo (a 393px la nota partida en dos
@@ -262,227 +486,50 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
         )}
       </div>
 
-      {/* Desktop: solo la lista de notas scrollea — cabecera y acciones quedan fijas. Mobile: alto
-          auto, scrollea `main`, así que el overflow va con `md:`. Variant E ("UI Bitácora",
-          .scratch/sidebar-redesign): header compacto + chips, búsqueda con /, filas con frescura
-          y footer con Nueva nota. */}
-      {!focus && (
-        <Sidebar
-          side="right"
-          collapsible={isMobile ? "none" : "offcanvas"}
-          className="max-md:order-first max-md:h-auto max-md:w-full max-md:border-b"
-        >
-          {/* Header "Glifo" (prototype notebook-header): ícono pelado alineado a la 1ra línea del
-              nombre — sin caja, el nombre gana ancho y no se trunca. Source/area como subtítulo. */}
-          <div className="shrink-0 px-4 pt-4 pb-2">
-            <div className="flex items-start gap-2">
-              <NotebookIcon icon={notebook.icon} className="mt-1 size-4.5 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <h1 className="text-base leading-snug font-semibold tracking-tight text-balance">
-                  {notebook.name}
-                </h1>
-                {(notebook.source || notebook.area) && (
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {[notebook.source, notebook.area].filter(Boolean).join(" · ")}
-                  </p>
-                )}
-              </div>
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="shrink-0 text-muted-foreground max-md:-mr-1.5"
-                        aria-label="Acciones del notebook"
-                      >
-                        <MoreHorizontal className="size-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Acciones</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onSelect={() => togglePinnedNotebook(notebook.id)}>
-                    <Pin className={cn(pinned && "fill-current")} />
-                    {pinned ? "Desfijar del sidebar" : "Fijar en el sidebar"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setEditing(true)}>
-                    <Pencil />
-                    Editar notebook
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
-                    <Trash2 />
-                    Borrar notebook
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {/* Espejo del SidebarTrigger del header de App: cerrar desde adentro. Mobile no colapsa. */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-lg"
-                    className="-mt-1.5 -mr-2 shrink-0 text-muted-foreground max-md:hidden"
-                    onClick={() => setIndexOpen(false)}
-                    aria-label="Ocultar notas"
-                  >
-                    <PanelRight className="size-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Ocultar notas · {mod(alt("B"))}</TooltipContent>
-              </Tooltip>
-            </div>
-            <div className="mt-3 flex items-center gap-2.5">
-              {/* El chip de estado ES el toggle cerrar/reabrir: el fin es cuando apretás, no un date
-                  picker. Reabrir limpia `finished_at` (toggleNotebookDone) — si no, un notebook activo
-                  quedaría con fecha de fin. Hover cambia el dot por la acción (✓/↺) en un slot fijo de
-                  12px, así el chip no cambia de ancho. */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge
-                    asChild
-                    className={cn(
-                      "cursor-pointer normal-case hover:bg-track",
-                      STATUS[notebook.status].cls,
-                    )}
-                  >
-                    <button onClick={() => updateNotebook.mutate(toggleNotebookDone(notebook))}>
-                      <span className="grid size-3 place-items-center">
-                        <i
-                          aria-hidden
-                          className={cn(
-                            "size-1.5 rounded-full group-hover/badge:hidden",
-                            STATUS_DOT[notebook.status],
-                          )}
-                        />
-                        {notebook.status === "done" ? (
-                          <RotateCcw className="hidden size-3 group-hover/badge:block" />
-                        ) : (
-                          <Check className="hidden size-3 group-hover/badge:block" />
-                        )}
-                      </span>
-                      {STATUS[notebook.status].label}
-                    </button>
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {notebook.status === "done" ? "Reabrir notebook" : "Marcar finalizado"}
-                </TooltipContent>
-              </Tooltip>
-              {/* Rotulada: la frase dice QUÉ mide la barra (un % suelto no se entendía) y su total
-                  reemplaza al chip "N notas". */}
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="h-0.5 overflow-hidden rounded-full bg-track">
-                  <div className="h-full bg-fg-secondary" style={{ width: `${pct}%` }} />
-                </div>
-                <span className="truncate text-2xs text-muted-foreground">
-                  {read} de {notes.length} repasadas
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="shrink-0 px-4 pb-1">
-            {/* Mismo campo que "Buscar notebook…" (notebook-toolbar): ring sutil en vez del borde de
-                InputGroup, y el `/` se va al enfocar o con texto. */}
-            <label className="group flex h-8 items-center gap-2 rounded-full bg-card px-3 shadow-card ring-1 ring-border focus-within:ring-border-strong">
-              <Search className="size-3.5 shrink-0 text-muted-foreground" />
-              <input
-                ref={searchRef}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    if (q) setQ("")
-                    searchRef.current?.blur()
-                  }
-                }}
-                placeholder="Buscar nota…"
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground max-md:text-md"
-              />
-              {!q && <Kbd className="group-focus-within:hidden max-md:hidden">/</Kbd>}
-            </label>
-          </div>
-
-          <div className="flex flex-col gap-0.5 px-2 py-1.5 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-2">
-            {visible.map((n) => {
-              const f = freshness(stats?.byNote.get(n.id)?.last)
-              return (
-                <div key={n.id} data-active={n.id === selected?.id} className={NOTE_ROW}>
-                  <button
-                    onClick={() => select(n)}
-                    className="flex min-w-0 flex-1 items-center rounded-lg text-left"
-                  >
-                    <span className="truncate">{n.title || "(sin título)"}</span>
-                  </button>
-                  {/* Frescura como dot (el rótulo "hace 94d" en cada fila era ruido y le robaba ancho
-                      al título); el detalle va en el tooltip del dot, con hit area de 20px. El ⋯
-                      aparece a la izquierda en hover: el dot queda fijo en el borde. En el flujo (no absoluto): el título se encoge y su
-                      `truncate` pone el `…` antes en vez de quedar tapado. */}
-                  <div className="flex shrink-0 items-center">
-                    <span className="hidden group-focus-within/note:grid group-has-[[aria-expanded=true]]/note:grid group-hover/note:grid">
-                      <NoteActions
-                        note={n}
-                        // El índice lista refs sin content: se pide la nota entera recién al
-                        // copiar/exportar — igual que el editor, que es el único que la necesita.
-                        content={() => store.note(n.id).then((full) => full.content)}
-                        hideNotebook
-                        confirming={confirmingNote === n.id}
-                        onConfirmingChange={(open) => setConfirmingNote(open ? n.id : null)}
-                        onDeleted={() => navigate(`/notebook/${id}`)}
-                      />
-                    </span>
-                    {f && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            aria-label={`Repasada ${f.label}`}
-                            className="-mr-1.5 grid size-5 place-items-center"
-                          >
-                            <i className={cn("size-1.5 rounded-full", f.dot)} />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          Repasada <span className={cn("font-mono", f.cls)}>{f.label}</span>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-            {/* Búsqueda sin match: sin esto la lista quedaba en blanco y parecía rota. */}
-            {noMatch && (
-              <div className="flex h-8 items-center gap-2 px-2.5 text-sm text-muted-foreground">
-                <span className="truncate">Ninguna nota con “{q}”</span>
-                <Kbd className="ml-auto max-md:hidden">Esc</Kbd>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-auto shrink-0 border-t p-3 md:mt-0">
-            <Button className="w-full" onClick={create}>
-              <Plus />
-              Nueva nota
-            </Button>
-          </div>
-
-          {/* Mismo dialog que la lista de notebooks: `NotebookForm` se monta abierto y se desmonta al
-              cerrar, así el form arranca siempre con los valores frescos del notebook. */}
-          {editing && <NotebookForm notebook={notebook} onClose={() => setEditing(false)} />}
-
-          {/* Borrar deja la pantalla sin notebook que mostrar, así que vuelve a la lista. */}
-          <ConfirmDelete
-            open={confirming}
-            onOpenChange={setConfirming}
-            what={notebook.name}
-            onConfirm={() => deleteNotebook.mutate(notebook.id, { onSuccess: () => navigate("/") })}
-          />
+      {!focus && !isMobile && (
+        <Sidebar side="right" collapsible="offcanvas">
+          {index}
         </Sidebar>
       )}
+
+      {isMobile && (
+        <Drawer open={indexSheet} onOpenChange={setIndexSheet}>
+          <DrawerContent className="h-[85dvh]">
+            <DrawerTitle className="sr-only">Notas del notebook</DrawerTitle>
+            <DrawerDescription className="sr-only">Elegí una nota para abrirla</DrawerDescription>
+            {index}
+          </DrawerContent>
+        </Drawer>
+      )}
+      {isMobile &&
+        !focus &&
+        barSlot &&
+        createPortal(
+          <button
+            onClick={() => setIndexSheet(true)}
+            aria-label="Ver todas las notas"
+            className="mr-1 ml-auto flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-muted px-4 text-base whitespace-nowrap transition-[background-color,scale] duration-150 ease-out active:scale-[0.98]"
+          >
+            <ListTree className="size-4 shrink-0 text-muted-foreground" />
+            <span className="tabular-nums">
+              {selected ? `${notes.indexOf(selected) + 1} / ${notes.length}` : "Notas"}
+            </span>
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+          </button>,
+          barSlot,
+        )}
+
+      {/* Mismo dialog que la lista de notebooks: `NotebookForm` se monta abierto y se desmonta al
+              cerrar, así el form arranca siempre con los valores frescos del notebook. */}
+      {editing && <NotebookForm notebook={notebook} onClose={() => setEditing(false)} />}
+
+      {/* Borrar deja la pantalla sin notebook que mostrar, así que vuelve a la lista. */}
+      <ConfirmDelete
+        open={confirming}
+        onOpenChange={setConfirming}
+        what={notebook.name}
+        onConfirm={() => deleteNotebook.mutate(notebook.id, { onSuccess: () => navigate("/") })}
+      />
     </SidebarProvider>
   )
 }

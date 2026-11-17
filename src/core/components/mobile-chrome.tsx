@@ -81,6 +81,8 @@ export function MobileBar({
       <SidebarTrigger className="size-11 shrink-0" aria-label="Abrir menú">
         <PanelLeft className="size-5" />
       </SidebarTrigger>
+      {/* Slot para acciones de la pantalla (ej. la pastilla de notas del Notebook, por portal). */}
+      {!home && <div id="mobile-bar-slot" className="ml-auto flex min-w-0 items-center" />}
       {home && (
         <>
           <span
