@@ -20,8 +20,8 @@ describe("currentSection", () => {
 })
 
 describe("switchLine", () => {
-  it("queda a mitad del área visible, bajo la barra", () => {
-    // barra 56, viewport 664 → 56 + 608/2
-    expect(switchLine(56, 664)).toBe(360)
+  it("queda a un cuarto del área visible, bajo la barra", () => {
+    // barra 56, viewport 664 → 56 + 608/4
+    expect(switchLine(56, 664)).toBe(208)
   })
 })

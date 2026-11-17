@@ -1,8 +1,8 @@
 export type Section = "repaso" | "habitos" | "notebooks"
 
-// Qué parte del área visible (bajo la barra) marca el cambio de sección: 0.5 = la sección nueva
-// cambia el título cuando ocupa más de la mitad de la pantalla. 0 sería "recién al llegar arriba".
-export const SWITCH_AT = 0.5
+// Qué parte del área visible (bajo la barra) marca el cambio de sección: 0.25 = la sección nueva
+// cambia el título cuando ocupa más de 3/4 de la pantalla. 0 sería "recién al llegar arriba".
+export const SWITCH_AT = 0.25
 
 // Título de la barra mobile: la última sección cuya cabecera ya cruzó la línea de cambio
 // (top <= line). Sin cabeceras cruzadas = Repaso (su header en flujo está oculto en mobile).
