@@ -26,11 +26,10 @@ Notion sirve para **escribir**, pero no para:
 ## Stack (cerrado)
 
 Vite + React + **Tiptap** (editor WYSIWYG, licencia MIT) + **Supabase** (Postgres + Auth + RLS)
-→ **PWA** en Vercel. Hosting y DB $0, **una** función serverless: la Edge Function
-`generate-flashcards` (`supabase/functions/`), que llama a la API de Anthropic con la key
-server-side. Eso es lo único que cuesta plata (por token) y lo único que corre fuera del browser:
-"sin servidores propios" sigue valiendo para todo lo demás. Ver
-`docs/adr/0010-flashcards-como-notas-y-edge-function.md`.
+→ **PWA** en Vercel. Hosting y DB $0, sin servidores propios. La AI es BYOK: el **Agente** corre
+en el browser y llama directo al **Proveedor** del usuario con su key (en `localStorage`), la app no
+paga tokens. La Edge Function `generate-flashcards` está muerta y se borra. Ver
+`docs/adr/0027-agente-byok-en-el-cliente.md` (reemplaza la parte server-side de ADR 0010).
 
 Terceros que reciben datos: **Sentry**, solo errores (sin Replay, sin PII), y **Cloudflare Web
 Analytics** (vitals, sin cookies, vía snippet JS). Analytics de uso (PostHog o similar) recién con un segundo

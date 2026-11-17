@@ -1,6 +1,6 @@
 # ADR 0010 — Flashcards como `notes` + Edge Function para la AI
 
-**Status:** Accepted (implementado 2026-07-30, commit `bcb4267`)
+**Status:** Accepted (implementado 2026-07-30, commit `bcb4267`). §3 y "Por qué la key va en una Edge Function" reemplazados por ADR 0027 (BYOK en el cliente).
 
 ## Contexto
 
