@@ -142,7 +142,10 @@ export function ReadChip({
       </span>
       <span className="font-mono text-xs text-fg-secondary">
         {readToday}
-        <span className="text-muted-foreground">/{goal} leídas</span>
+        <span className="text-muted-foreground">
+          /{goal}
+          <span className="max-md:hidden"> leídas</span>
+        </span>
       </span>
     </span>
   )
