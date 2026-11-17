@@ -104,6 +104,7 @@ export function NoteEditor({
         draft={draft}
         large={focus}
         autoFocusTitle={autoFocusTitle}
+        touchBlocks
         caption={
           focus ? undefined : (
             <>

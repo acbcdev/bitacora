@@ -13,6 +13,7 @@ export function NoteBody({
   titleSize = "text-2xl xl:text-3xl 2xl:text-4xl leading-tight",
   titleWrap = (el) => el,
   autoFocusTitle = false,
+  touchBlocks = false,
   caption,
 }: {
   draft: ReturnType<typeof useNoteDraft>
@@ -21,6 +22,8 @@ export function NoteBody({
   titleWrap?: (title: ReactElement) => ReactElement
   // Nota recién creada: el foco arranca en el título (si no, type-to-focus manda las letras al body).
   autoFocusTitle?: boolean
+  // Acciones de bloque en touch (ver Editor). Solo la pantalla de nota; el dialog de Repaso no.
+  touchBlocks?: boolean
   // Meta bajo el título (NoteEditor). Con caption no hay divider: la línea mono ya separa título/cuerpo.
   caption?: ReactNode
 }) {
@@ -129,6 +132,7 @@ export function NoteBody({
           content={note.content}
           onChange={onDocChange}
           onPaste={onPaste}
+          touchBlocks={touchBlocks}
         />
       </div>
     </>

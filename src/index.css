@@ -281,6 +281,14 @@
        comería sus clicks. */
     isolation: isolate;
   }
+  /* Drag por long-press con mouse (block-touch.tsx): el asa de hover no persigue al cursor y
+     el cursor es el de agarre, no el de texto. */
+  .tiptap-host[data-hold-drag] .block-drag-handle {
+    display: none;
+  }
+  .tiptap-host[data-hold-drag] * {
+    cursor: grabbing !important;
+  }
   .block-drag-handle > div {
     pointer-events: none;
   }

@@ -148,7 +148,7 @@ export function MobileDock({
   return (
     <nav
       aria-label="Navegación"
-      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full bg-hero/90 p-1 shadow-hero ring-1 ring-border backdrop-blur md:hidden"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full bg-hero/90 p-1 shadow-hero ring-1 ring-border backdrop-blur in-data-[editing]:hidden md:hidden"
     >
       <Link
         to="/"

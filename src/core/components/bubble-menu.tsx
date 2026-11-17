@@ -3,6 +3,7 @@ import { BubbleMenu } from "@tiptap/react/menus"
 import { useEditorState } from "@tiptap/react"
 import type { Editor } from "@tiptap/react"
 import { NodeRangeSelection } from "@tiptap/extension-node-range"
+import { dimKey } from "@/core/components/block-touch"
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -309,8 +310,13 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
       if (popoverOpen.current) return true
       if (!ed.isEditable || state.selection.empty || !view.hasFocus()) return false
       // Selección de bloques (node-range) o drag en curso: NUNCA bubble — es modal de
-      // TEXTO. view.dragging es truthy solo durante el drag nativo del asa.
-      if (state.selection instanceof NodeRangeSelection || view.dragging) return false
+      // TEXTO. view.dragging = drag nativo del asa; dimKey != null = hold-drag (touch/mouse).
+      if (
+        state.selection instanceof NodeRangeSelection ||
+        view.dragging ||
+        dimKey.getState(state) != null
+      )
+        return false
       // codeBlock no admite marks: bold/color/etc. no harían nada ahí.
       if (ed.isActive("codeBlock")) return false
       return state.doc.textBetween(from, to).length > 0

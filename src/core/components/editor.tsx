@@ -35,6 +35,9 @@ import { BITACORA_MIME, copyWithMath, editLatex, pasteBitacora } from "@/core/co
 import { FormatBubbleMenu } from "@/core/components/bubble-menu"
 import { TableHoverControls } from "@/core/components/table-controls"
 import { BlockControls } from "@/core/components/block-controls"
+import { BlockHoldDrag, BlockTouch } from "@/core/components/block-touch"
+import { useIsMobile } from "@/core/lib/hooks/use-mobile"
+import { BlockFlip } from "@/core/components/block-flip"
 import { CrossBlockSelect } from "@/core/components/cross-block-select"
 import { BlockSelectionKeys, collapseBlockSelection } from "@/core/components/block-selection-keys"
 import { EditorLightbox } from "@/core/components/editor-lightbox"
@@ -122,6 +125,7 @@ export function Editor({
   content,
   onChange,
   onPaste,
+  touchBlocks = false,
   ref,
 }: {
   content: TiptapDoc
@@ -129,8 +133,12 @@ export function Editor({
   // Preprocesa el texto pegado antes del parseo Markdown (notes/05: le da la 1ra línea al
   // título si estaba vacío). Devuelve el texto que efectivamente se inserta en el body.
   onPaste?: (text: string) => string
+  // Acciones de bloque en touch (barra sobre el teclado + asa + long-press) en vez del gutter por
+  // hover. Opt-in: el vaul del sheet no convive con el focus-trap de un Radix Dialog (NoteDialog).
+  touchBlocks?: boolean
   ref?: Ref<EditorHandle>
 }) {
+  const isMobile = useIsMobile()
   const host = useRef<HTMLDivElement>(null)
   // Señal de rescaneo para el Outline: sube en cada cambio de contenido.
   const [version, setVersion] = useState(0)
@@ -186,6 +194,7 @@ export function Editor({
       // grabaría `id` en el JSON persistido de cada nota).
       NodeRange,
       CrossBlockSelect,
+      BlockFlip,
       BlockSelectionKeys,
       // Formato visible (historia 4): color y highlight son marks oficiales con la paleta fija
       // de 8 (ver bubble-menu.tsx). TextStyleKit trae TextStyle + Color; el resto (fuentes,
@@ -419,8 +428,17 @@ export function Editor({
       <EditorContent editor={editor} className="tiptap-host" />
       {/* Tablas (historia 5): + y handles por hover. */}
       {editor && <TableHoverControls editor={editor} host={host} />}
-      {/* Bloques (historia 6): + ⋮⋮ por hover, menú y drag. */}
-      {editor && <BlockControls editor={editor} host={host} />}
+      {/* Bloques (historia 6): + ⋮⋮ por hover, menú y drag. En touch no hay hover: BlockTouch.
+          Mantener apretado un bloque lo arrastra en los dos. */}
+      {editor &&
+        (touchBlocks && isMobile ? (
+          <BlockTouch editor={editor} />
+        ) : (
+          <>
+            <BlockControls editor={editor} host={host} />
+            <BlockHoldDrag editor={editor} />
+          </>
+        ))}
       {editor && <BlockMarquee editor={editor} host={host} />}
       {/* Bubble de formato (historia 4): aparece con selección no vacía. */}
       {editor && <FormatBubbleMenu editor={editor} />}
