@@ -97,7 +97,7 @@ export function NoteDialog({
         // (`[data-vaul-drawer-direction=bottom]`, especificidad 0,2,0) y le gana a una media query
         // pelada (0,1,0) — y twMerge no las ve en conflicto. Acá el alto es superficie de lectura:
         // hay que llegar al final para que el gate deje marcar leído, así que el 20% muerto molesta.
-        className="flex flex-col gap-0 overflow-hidden p-0 max-md:max-h-[90vh]! md:max-h-[85vh] md:max-w-5xl"
+        className="flex flex-col gap-0 overflow-hidden p-0 max-md:max-h-[90vh]! md:h-[85vh] md:max-w-5xl"
       >
         {/* Sin X: cerrar es Esc o click afuera (swipe hacia abajo en mobile). Expand a la
             izquierda, acciones a la derecha.
@@ -121,7 +121,7 @@ export function NoteDialog({
           tabIndex={-1}
           className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-8 focus:outline-none sm:px-12 sm:pt-6 sm:pb-10"
         >
-          <div className="mx-auto max-w-2xl">
+          <div className="mx-auto flex min-h-full max-w-2xl flex-col">
             <p className="eyebrow mb-4 flex items-center gap-1.5">
               <NotebookIcon icon={notebook?.icon ?? null} />
               {notebook?.name ?? "Sin notebook"}
