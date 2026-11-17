@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { LayoutGrid, LayoutList, List, Pause, Plus, Target } from "lucide-react"
+import { LayoutGrid, List, Pause, Plus, Settings2, Target } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { ViewPill } from "@/core/components/view-pill"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/core/ui/empty"
@@ -100,44 +100,54 @@ export function HabitTiles() {
           sin nombre entre el card de repaso y Notebooks, y la única acción era un botón primario que
           pesaba más que los hábitos: crear más competía con lo que ya tenías. */}
       <div data-section="habitos" className="mb-4 flex items-center gap-3">
-        <div className="flex items-baseline gap-3">
-          <h2 className="text-xl font-semibold tracking-tight">Hábitos</h2>
-          {/* `met` es por PERÍODO, no por día (ADR 0009): un `3 por semana` cuenta como cumplido
-              con la semana hecha. De ahí "cumplidos" y no "hoy". */}
-          {entries.length > 0 && (
-            <span className="mono-dim whitespace-nowrap">
-              {met}/{entries.length} cumplidos
-            </span>
-          )}
-        </div>
-
-        {entries.length > 0 && (
+        <h2 className="text-xl font-semibold tracking-tight">
+          {/* El título + contador abren la misma lista que "Todos": área de click grande. */}
           <button
             type="button"
-            className="ml-auto text-xs whitespace-nowrap text-muted-foreground hover:text-foreground max-md:grid max-md:size-8 max-md:place-items-center max-md:rounded-full max-md:bg-secondary max-md:text-foreground"
             onClick={() => setOpen("list")}
+            className="group flex cursor-pointer items-baseline gap-3 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            <span className="max-md:sr-only">ver todos</span>
-            <LayoutList className="size-4 md:hidden" />
+            Hábitos
+            {/* `met` es por PERÍODO, no por día (ADR 0009): un `3 por semana` cuenta como cumplido
+                con la semana hecha. De ahí "cumplidos" y no "hoy". */}
+            {entries.length > 0 && (
+              <span className="mono-dim whitespace-nowrap transition-colors group-hover:text-foreground">
+                {met}/{entries.length} cumplidos
+              </span>
+            )}
           </button>
-        )}
-        {entries.length > 0 && (
-          <ViewPill
-            value={view}
-            onChange={setView}
-            options={{ tarjetas: <LayoutGrid />, lista: <List /> }}
-            className="max-md:hidden"
-          />
-        )}
-        <Button
-          variant="secondary"
-          onClick={() => setOpen("new")}
-          aria-label="Nuevo hábito"
-          className={cn(entries.length === 0 && "ml-auto", "max-md:size-8 max-md:p-0")}
-        >
-          <Plus />
-          <span className="max-md:hidden">Nuevo</span>
-        </Button>
+        </h2>
+
+        <div className="ml-auto flex items-center gap-3">
+          {entries.length > 0 && (
+            <>
+              <ViewPill
+                value={view}
+                onChange={setView}
+                options={{ tarjetas: <LayoutGrid />, lista: <List /> }}
+                className="max-md:hidden"
+              />
+              <Button
+                variant="secondary"
+                className="max-md:size-8 max-md:p-0"
+                aria-label="Ver todos los hábitos"
+                onClick={() => setOpen("list")}
+              >
+                <Settings2 />
+                <span className="max-md:hidden">Todos</span>
+              </Button>
+            </>
+          )}
+          <Button
+            variant="secondary"
+            onClick={() => setOpen("new")}
+            aria-label="Nuevo hábito"
+            className="max-md:size-8 max-md:p-0"
+          >
+            <Plus />
+            <span className="max-md:hidden">Nuevo</span>
+          </Button>
+        </div>
       </div>
 
       {/* Tarjetas: grid auto-fill 310px (3 por fila en desktop), plegado a 2 filas. Lista: el tile
