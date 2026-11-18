@@ -37,19 +37,83 @@ export function unlockSound() {
   getAudioCtx()
 }
 
+// Cada sonido es una tabla de notas [freq Hz, inicio s, duración s, onda, volumen]: el oscilador
+// ES el sonido, sin assets. La elección vive en localStorage ("bita-sound"), como bita-radius.
+type Note = [number, number, number, OscillatorType?, number?]
+
+export const SOUNDS = {
+  beep: {
+    label: "Beep",
+    notes: [
+      [880, 0, 0.15],
+      [880, 0.18, 0.15],
+      [880, 0.36, 0.15],
+    ],
+  },
+  campana: {
+    label: "Campana",
+    notes: [
+      [1318.5, 0, 1.1, "sine", 0.3],
+      [2637, 0, 0.5, "sine", 0.08],
+    ],
+  },
+  gota: {
+    label: "Gota",
+    notes: [
+      [1200, 0, 0.12],
+      [800, 0.12, 0.3],
+    ],
+  },
+  acorde: {
+    label: "Acorde",
+    notes: [
+      [523.25, 0, 0.4, "triangle"],
+      [659.25, 0.12, 0.4, "triangle"],
+      [783.99, 0.24, 0.6, "triangle"],
+    ],
+  },
+  alarma: {
+    label: "Alarma",
+    notes: [
+      [740, 0, 0.12, "square", 0.1],
+      [988, 0.15, 0.12, "square", 0.1],
+      [740, 0.3, 0.12, "square", 0.1],
+      [988, 0.45, 0.12, "square", 0.1],
+    ],
+  },
+  off: { label: "Off", notes: [] },
+} satisfies Record<string, { label: string; notes: Note[] }>
+
+export type SoundId = keyof typeof SOUNDS
+
+export function getSound(): SoundId {
+  const id = localStorage.getItem("bita-sound")
+  return id && id in SOUNDS ? (id as SoundId) : "beep"
+}
+
+export function setSound(id: SoundId) {
+  localStorage.setItem("bita-sound", id)
+}
+
 function beepWith(ctx: AudioContext) {
   const now = ctx.currentTime
-  for (let i = 0; i < 3; i++) {
+  const notes = SOUNDS[getSound()].notes as Note[]
+  // La melodía suena 3 veces: cada copia se desplaza lo que dura la melodía + 0.4s de pausa.
+  const span = Math.max(...notes.map(([, s, d]) => s + d)) + 0.4
+  const all = [0, 1, 2].flatMap((r) =>
+    notes.map(([f, s, ...rest]): Note => [f, s + r * span, ...rest]),
+  )
+  for (const [freq, start, dur, wave = "sine", vol = 0.25] of all) {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
-    osc.type = "sine"
-    osc.frequency.value = 880
-    gain.gain.setValueAtTime(0, now + i * 0.18)
-    gain.gain.linearRampToValueAtTime(0.25, now + i * 0.18 + 0.02)
-    gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.18 + 0.15)
+    osc.type = wave
+    osc.frequency.value = freq
+    gain.gain.setValueAtTime(0, now + start)
+    gain.gain.linearRampToValueAtTime(vol, now + start + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.01, now + start + dur)
     osc.connect(gain).connect(ctx.destination)
-    osc.start(now + i * 0.18)
-    osc.stop(now + i * 0.18 + 0.16)
+    osc.start(now + start)
+    osc.stop(now + start + dur + 0.01)
   }
 }
 
@@ -77,6 +141,8 @@ function fallbackBeep() {
 }
 
 export function playDoneSound() {
+  // Off = silencio total: ni tono ni vibración.
+  if (getSound() === "off") return
   // Intento 1: Web Audio. Si está suspended, esperamos al resume — sin esto el
   // osc se schedula en un ctx suspendido y NUNCA suena (bug que viste: "no sonó").
   const ctx = getAudioCtx()
