@@ -131,7 +131,7 @@ function SoundPicker() {
     const next = ids[(ids.indexOf(sound) + d + ids.length) % ids.length]
     setSound(next)
     setCurrent(next)
-    playDoneSound()
+    playDoneSound(true)
   }
 
   return (
@@ -140,11 +140,11 @@ function SoundPicker() {
         <p className="text-sm font-medium">Sonido de hábitos</p>
         <p className="text-sm text-muted-foreground">Suena al completar tu meta de tiempo.</p>
       </div>
-      <div className="flex items-center gap-1 rounded-full bg-secondary p-1">
+      <div className="flex items-center gap-1 rounded-pill bg-secondary px-3 py-1">
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-full"
+          className="rounded-pill"
           aria-label="Anterior"
           onClick={() => step(-1)}
         >
@@ -159,7 +159,7 @@ function SoundPicker() {
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-full"
+          className="rounded-pill"
           aria-label="Siguiente"
           onClick={() => step(1)}
         >
@@ -167,9 +167,9 @@ function SoundPicker() {
         </Button>
         <Button
           size="icon"
-          className="rounded-full"
+          className="rounded-pill"
           aria-label="Probar"
-          onClick={() => playDoneSound()}
+          onClick={() => playDoneSound(true)}
         >
           <Play className="fill-current" />
         </Button>
