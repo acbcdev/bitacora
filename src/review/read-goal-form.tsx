@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/core/ui/button"
 import { Input } from "@/core/ui/input"
 import { useSnapshot } from "@/core/lib/snapshot"
@@ -10,19 +10,30 @@ import { useSaveHabit } from "@/habits/habits.api"
 export function ReadGoalForm() {
   const { data: goal } = useSnapshot((s) => readGoal(s))
   const save = useSaveHabit()
+  const { mutate } = save // estable en TanStack: seguro como dep del efecto
   const [value, setValue] = useState<string | null>(null)
   const shown = value ?? String(goal?.target ?? 3)
+  const target = Math.max(1, Math.floor(Number(shown)) || 1)
+
+  // Con meta ya creada se guarda solo, 800ms después de dejar de tipear. Sin meta (onboarding)
+  // queda el botón: crear es una decisión, editar no.
+  useEffect(() => {
+    if (!goal || value === null || target === goal.target) return
+    const t = setTimeout(
+      () => mutate({ id: goal.habit.id, target }, { onSuccess: () => setValue(null) }),
+      800,
+    )
+    return () => clearTimeout(t)
+  }, [goal, value, target, mutate])
 
   return (
     <form
       className="flex items-center gap-2"
       onSubmit={(e) => {
         e.preventDefault()
-        const target = Math.max(1, Math.floor(Number(shown)) || 1)
+        if (goal) return
         save.mutate(
-          goal
-            ? { id: goal.habit.id, target }
-            : { name: "Leer notas", metric: "count", tracks: "reads", target },
+          { name: "Leer notas", metric: "count", tracks: "reads", target },
           { onSuccess: () => setValue(null) },
         )
       }}
@@ -35,9 +46,11 @@ export function ReadGoalForm() {
         aria-label="Notas por día"
         className="w-16 text-center max-md:text-md"
       />
-      <Button type="submit" variant="secondary" disabled={save.isPending}>
-        Guardar
-      </Button>
+      {!goal && (
+        <Button type="submit" variant="secondary" disabled={save.isPending}>
+          Guardar
+        </Button>
+      )}
     </form>
   )
 }
