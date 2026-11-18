@@ -135,8 +135,8 @@ export function NoteDialog({
               titleWrap={wrapTitle}
               titleSize="text-5xl! leading-tight! font-semibold!"
             />
-            <div className="mt-10 flex items-center justify-end gap-4 border-t pt-6 sm:justify-between">
-              <span className="hidden text-xs text-muted-foreground sm:block">
+            <div className="mt-10 flex items-center justify-end gap-4 border-t pt-6 md:justify-between">
+              <span className="hidden text-xs text-muted-foreground md:block">
                 {marked ? (
                   <>
                     Listo — <Kbd>→</Kbd> para la siguiente
@@ -148,7 +148,7 @@ export function NoteDialog({
                 )}
               </span>
               {/* ref: gate de Enter — el hotkey se arma cuando este botón es visible */}
-              <Button ref={setMarkReadBtn} size="lg" disabled={marked} onClick={markRead}>
+              <Button ref={setMarkReadBtn} size="lg" block disabled={marked} onClick={markRead}>
                 {marked ? "Leído" : "Leído y siguiente"}
               </Button>
             </div>

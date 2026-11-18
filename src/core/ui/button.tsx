@@ -35,6 +35,8 @@ const buttonVariants = cva(
         "icon-lg": "size-10",
         "icon-xl": "size-13",
       },
+      // Mobile: ancho completo y 44px de touch target. Desktop no cambia.
+      block: { true: "max-md:h-11 max-md:w-full" },
     },
     compoundVariants: [
       // Botón de icono ghost: gris en reposo, foreground al hover.
@@ -55,6 +57,7 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  block,
   asChild = false,
   ...props
 }: React.ComponentProps<"button"> &
@@ -68,7 +71,7 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={cn(buttonVariants({ variant, size, block, className }))}
       {...props}
     />
   )

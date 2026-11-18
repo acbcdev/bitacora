@@ -119,12 +119,14 @@ export function NotebookForm({
           </div>
 
           {/* Acciones a la izquierda, resumen fuente/área a la derecha. */}
-          <div className="flex items-center justify-between gap-2 border-t px-[18px] py-3.5">
-            <div className="flex gap-2 shrink-0">
-              <Button type="button" variant="ghost" onClick={onClose}>
+          <div className="flex items-center justify-between gap-2 border-t px-[18px] py-3.5 max-md:flex-col-reverse max-md:items-stretch">
+            <div className="flex shrink-0 gap-2 max-md:grid max-md:grid-cols-2">
+              <Button type="button" variant="ghost" block onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="submit">{notebook ? "Guardar" : "Crear notebook"}</Button>
+              <Button type="submit" block>
+                {notebook ? "Guardar" : "Crear notebook"}
+              </Button>
             </div>
             {(() => {
               // Vacío si no hay nada; separador solo entre valores. Cada valor trunca

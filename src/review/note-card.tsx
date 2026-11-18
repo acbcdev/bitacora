@@ -75,7 +75,7 @@ export function NoteCard({
             Vista expandida
           </Button>
         </div>
-        <div className="flex items-center gap-2 max-md:ml-auto">
+        <div className="flex items-center gap-2 max-md:flex-1">
           <Button
             variant="secondary"
             size="icon-xl"
@@ -85,7 +85,7 @@ export function NoteCard({
           >
             <ArrowLeft />
           </Button>
-          <Button size="xl" onClick={onNext}>
+          <Button size="xl" className="max-md:flex-1" onClick={onNext}>
             Siguiente
           </Button>
         </div>

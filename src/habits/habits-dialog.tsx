@@ -462,19 +462,20 @@ function HabitForm({
         {habit && <HabitGraph habit={habit} log={log} />}
       </div>
 
-      <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
+      <div className="flex items-center justify-end gap-2 border-t px-5 py-3 max-md:grid max-md:grid-cols-2">
         {/* La meta escrita, en vivo: es la misma línea que va a mostrar el tile. */}
-        <span className="mono-dim mr-auto text-xs">{goalText(goal)}</span>
+        <span className="mono-dim mr-auto text-xs max-md:col-span-2">{goalText(goal)}</span>
         <Button
           type="button"
           variant="ghost"
+          block
           // Sin cambios no hay draft que descartar; en el alta sí vuelve al anterior.
           disabled={!!habit && !dirty}
           onClick={() => (habit ? setDraft(initial) : onCancelNew())}
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={!dirty}>
+        <Button type="submit" block disabled={!dirty}>
           {habit ? "Guardar" : "Crear"}
         </Button>
       </div>
