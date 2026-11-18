@@ -108,13 +108,44 @@
   --shadow-hero: var(--hero-shadow);
 
   /* Forma D (ADR 0023): xs barras · sm kbd · md ítems de menú · lg inputs/popovers (pill a h-8) ·
-     xl cards y tiles · 2xl card de repaso. Botones, chips y sidebar = rounded-full. */
-  --radius-xs: 2px;
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: var(--radius);
-  --radius-xl: 24px;
-  --radius-2xl: 32px;
+     xl cards y tiles · 2xl card de repaso. Botones, chips y sidebar = rounded-pill
+     (cápsula en Smooth/Curved, cuadrado-ish en presets bajos). rounded-dot = dots y barras mini (1-2px en presets bajos). */
+  --radius-xs: calc(2px * var(--radius-scale));
+  --radius-sm: calc(6px * var(--radius-scale));
+  --radius-md: calc(12px * var(--radius-scale));
+  --radius-lg: calc(var(--radius) * var(--radius-scale));
+  --radius-xl: min(
+    calc(24px * var(--radius-scale)),
+    28px
+  ); /* tope: en Curved (1.5x) el contenido pegado a la esquina se ve apretado */
+  --radius-2xl: min(calc(32px * var(--radius-scale)), 36px);
+  --radius-pill: var(--radius-pill-px);
+  --radius-dot: var(--radius-dot-px);
+}
+
+/* Preset de Ajustes > Radio de borde. Smooth = escala 1 = la Forma D original. */
+:root {
+  --radius-scale: 1;
+  --radius-pill-px: 9999px;
+  --radius-dot-px: 9999px;
+}
+:root[data-radius="sharp"] {
+  --radius-scale: 0;
+  --radius-pill-px: 0px;
+  --radius-dot-px: 0px;
+}
+:root[data-radius="slight"] {
+  --radius-scale: 0.3;
+  --radius-pill-px: 4px;
+  --radius-dot-px: 1px;
+}
+:root[data-radius="medium"] {
+  --radius-scale: 0.6;
+  --radius-pill-px: 8px;
+  --radius-dot-px: 2px;
+}
+:root[data-radius="curved"] {
+  --radius-scale: 1.5;
 }
 
 /* Tema claro — hueso. */
@@ -514,7 +545,7 @@
   @apply my-0 flex py-0.5;
 }
 .tiptap-host .ProseMirror [data-type="details"] > button {
-  @apply -ml-2 mr-1 grid size-6 shrink-0 cursor-pointer place-items-center rounded-full text-fg-secondary hover:bg-muted;
+  @apply -ml-2 mr-1 grid size-6 shrink-0 cursor-pointer place-items-center rounded-pill text-fg-secondary hover:bg-muted;
 }
 .tiptap-host .ProseMirror [data-type="details"] > button::before {
   content: "";

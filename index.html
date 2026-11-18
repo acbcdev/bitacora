@@ -10,6 +10,8 @@
       // Tema antes del primer paint (sin flash). Dark es el default del diseño.
       if (localStorage.getItem("bita-theme") === "light")
         document.documentElement.classList.remove("dark")
+      const radius = localStorage.getItem("bita-radius")
+      if (radius) document.documentElement.dataset.radius = radius
     </script>
   </head>
   <body>
