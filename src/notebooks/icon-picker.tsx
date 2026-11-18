@@ -380,7 +380,7 @@ export function IconPicker({
             <div className="flex items-center gap-1 px-2 py-1.5">
               {/* Mismo buscador pill que el del toolbar de notebooks: el label entero es el
                   target y el anillo se aclara con focus-within, sin el ring grueso del Input. */}
-              <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full bg-card px-3 ring-1 ring-border transition-shadow focus-within:ring-border-strong">
+              <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-pill bg-card px-3 ring-1 ring-border transition-shadow focus-within:ring-border-strong">
                 <Search className="size-3.5 shrink-0 text-muted-foreground" />
                 <input
                   ref={search}
@@ -416,7 +416,7 @@ export function IconPicker({
                       tinte; con tinte la clase bg-* pisa y muestra el color real. */}
                   <span
                     className={cn(
-                      "size-3.5 rounded-full bg-current",
+                      "size-3.5 rounded-dot bg-current",
                       tintIndex >= 0 && TINT_DOTS[tintIndex],
                     )}
                   />

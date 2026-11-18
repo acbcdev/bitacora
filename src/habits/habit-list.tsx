@@ -67,7 +67,7 @@ export function HabitListRow({
 
       <span
         className={cn(
-          "pointer-events-none relative flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-fg-secondary",
+          "pointer-events-none relative flex size-9 shrink-0 items-center justify-center rounded-pill bg-muted text-fg-secondary",
           running && "text-signal",
         )}
       >

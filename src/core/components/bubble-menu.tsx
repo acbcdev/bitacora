@@ -61,7 +61,7 @@ function ColorDot({ color }: { color: string }) {
   return (
     <span
       data-testid="color-dot"
-      className="absolute -top-[3px] -right-[5px] size-[9px] rounded-full border-[1.5px] border-popover"
+      className="absolute -top-[3px] -right-[5px] size-[9px] rounded-dot border-[1.5px] border-popover"
       style={{ backgroundColor: color }}
     />
   )
@@ -183,7 +183,7 @@ function PaletteGrid({
             data-active={isActive || undefined}
             onClick={() => onPick(kind, i)}
             className={cn(
-              "size-6 rounded-full border border-foreground/20 transition-shadow",
+              "size-6 rounded-pill border border-foreground/20 transition-shadow",
               isActive && "ring-2 ring-ring",
             )}
             style={{ backgroundColor: swatch }}
@@ -470,7 +470,7 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
       <div
         onMouseDown={preventFocus}
         data-testid="bubble-menu"
-        className="flex items-center gap-0.5 rounded-full border border-border bg-popover p-1 shadow-md"
+        className="flex items-center gap-0.5 rounded-pill border border-border bg-popover p-1 shadow-md"
       >
         {/* Select de bloque: label del tipo actual + conversión en popover. */}
         <Popover
@@ -485,7 +485,7 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
               type="button"
               data-testid="turn-into"
               aria-label="Convertir bloque"
-              className="flex h-[32px] items-center gap-[7px] rounded-full pr-2.5 pl-3 text-[13px] font-semibold whitespace-nowrap outline-none transition-colors hover:bg-muted"
+              className="flex h-[32px] items-center gap-[7px] rounded-pill pr-2.5 pl-3 text-[13px] font-semibold whitespace-nowrap outline-none transition-colors hover:bg-muted"
             >
               <span className="text-muted-foreground">
                 <TypeIcon size={16} />

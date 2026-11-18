@@ -13,7 +13,7 @@ export function HabitDots({ h, dots }: { h: Habit; dots: DayCell[] }) {
         <i
           key={idx}
           style={{ backgroundColor: cellColor(h.kind, cell, idx === dots.length - 1) }}
-          className={`h-2 ${WIDTH[h.period]} rounded-full`}
+          className={`h-2 ${WIDTH[h.period]} rounded-dot`}
         />
       ))}
     </span>

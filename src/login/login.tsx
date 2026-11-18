@@ -98,7 +98,7 @@ export function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     // text-lg (20px): iOS Safari hace auto-zoom sobre cualquier input < 16px.
-                    className="h-14 rounded-full px-6 text-lg"
+                    className="h-14 rounded-pill px-6 text-lg"
                   />
                 </Field>
                 <Button type="submit" size="lg" disabled={loading} className="h-14 px-8 text-base">

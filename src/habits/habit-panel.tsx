@@ -312,10 +312,10 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
               </RoundBtn>
             </div>
 
-            <div className="h-1 overflow-hidden rounded-full bg-track">
+            <div className="h-1 overflow-hidden rounded-dot bg-track">
               <div
                 style={{ transform: `scaleX(${Math.min(1, shown / Math.max(target, 1))})` }}
-                className="h-full origin-left rounded-full bg-foreground transition-transform duration-200 ease-out motion-reduce:transition-none"
+                className="h-full origin-left rounded-dot bg-foreground transition-transform duration-200 ease-out motion-reduce:transition-none"
               />
             </div>
 
@@ -360,7 +360,7 @@ function NavBtn({ label, keys, ...p }: BtnProps) {
       aria-label={label}
       aria-keyshortcuts={keys}
       title={keys && `${label} (${keys === "ArrowLeft" ? "←" : "→"})`}
-      className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+      className="flex size-8 items-center justify-center rounded-pill text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
       {...p}
     />
   )
@@ -371,7 +371,7 @@ function RoundBtn({ label, ...p }: BtnProps) {
     <button
       type="button"
       aria-label={label}
-      className="flex size-11 items-center justify-center rounded-full bg-secondary transition-[transform,background-color] duration-150 ease-out hover:bg-muted active:scale-95 disabled:pointer-events-none disabled:opacity-30"
+      className="flex size-11 items-center justify-center rounded-pill bg-secondary transition-[transform,background-color] duration-150 ease-out hover:bg-muted active:scale-95 disabled:pointer-events-none disabled:opacity-30"
       {...p}
     />
   )

@@ -53,7 +53,7 @@ function StatusLabel({ h, total, r, tone }: { h: Habit; total: number; r: Run; t
   if (r.running)
     return (
       <span className="inline-flex items-center gap-1.5 text-signal">
-        <i aria-hidden className="size-1.5 animate-pulse rounded-full bg-current" />
+        <i aria-hidden className="size-1.5 animate-pulse rounded-dot bg-current" />
         {r.clock}
       </span>
     )
@@ -63,7 +63,7 @@ function StatusLabel({ h, total, r, tone }: { h: Habit; total: number; r: Run; t
   if (r.paused)
     return (
       <span className="inline-flex items-center gap-1.5">
-        <i aria-hidden className="size-1.5 rounded-full bg-current" />
+        <i aria-hidden className="size-1.5 rounded-dot bg-current" />
         pausado
       </span>
     )

@@ -69,7 +69,7 @@ export function HabitFold<T extends { h: Habit; state: { met: boolean } }>({
                   <span
                     key={h.id}
                     className={cn(
-                      "flex size-6 items-center justify-center rounded-full bg-muted text-fg-secondary ring-2 ring-background transition-colors group-hover:ring-card",
+                      "flex size-6 items-center justify-center rounded-pill bg-muted text-fg-secondary ring-2 ring-background transition-colors group-hover:ring-card",
                       // Aterriza: entra grande y se asienta — el ojo encuentra el que acaba de caer.
                       h.id === arrived && "z-10 animate-in duration-300 ease-out zoom-in-125",
                     )}
@@ -93,7 +93,7 @@ export function HabitFold<T extends { h: Habit; state: { met: boolean } }>({
               (landed ? (
                 <span
                   key={landed.id}
-                  className="inline-flex min-w-0 animate-in items-center gap-1.5 rounded-full bg-signal/10 px-2 py-0.5 font-mono text-xs text-signal duration-200 ease-out fade-in zoom-in-95"
+                  className="inline-flex min-w-0 animate-in items-center gap-1.5 rounded-pill bg-signal/10 px-2 py-0.5 font-mono text-xs text-signal duration-200 ease-out fade-in zoom-in-95"
                 >
                   <Check size={12} strokeWidth={3} className="shrink-0" />
                   <span className="truncate">{landed.name} cumplido</span>

@@ -29,12 +29,12 @@ export function dotColor(value: string) {
 }
 
 const PILL =
-  "flex h-10 w-full min-w-0 items-center gap-2 rounded-full border bg-transparent pl-3 pr-1.5 transition-colors hover:border-border-strong hover:bg-accent focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/10"
+  "flex h-10 w-full min-w-0 items-center gap-2 rounded-pill border bg-transparent pl-3 pr-1.5 transition-colors hover:border-border-strong hover:bg-accent focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/10"
 
 const ValueDot = ({ value }: { value: string }) => (
   <span
     aria-hidden
-    className="pointer-events-none size-[7px] shrink-0 rounded-full"
+    className="pointer-events-none size-[7px] shrink-0 rounded-dot"
     style={{ background: dotColor(value) }}
   />
 )
@@ -214,7 +214,7 @@ export function FieldPill({
                 >
                   <span
                     aria-hidden
-                    className="size-[7px] shrink-0 rounded-full"
+                    className="size-[7px] shrink-0 rounded-dot"
                     style={{ background: dotColor(shown.trim()) }}
                   />
                   Crear “{shown.trim()}”

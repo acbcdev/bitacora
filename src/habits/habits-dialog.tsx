@@ -251,7 +251,7 @@ const UNIT: Record<HabitMetric, [string, string]> = {
 const CUPO = "Es un cupo: no importa qué día lo hagas."
 
 const PILL =
-  "inline-flex h-8 items-center gap-1.5 rounded-full border border-input pr-3 pl-2.5 text-sm text-fg-secondary"
+  "inline-flex h-8 items-center gap-1.5 rounded-pill border border-input pr-3 pl-2.5 text-sm text-fg-secondary"
 
 // Pill con el Select de shadcn: el popover de Radix va en Portal, así que no se pelea con el IconPicker.
 function SelectPill<T extends string>({

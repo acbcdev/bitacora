@@ -160,7 +160,7 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
               data-resize-handle="left"
               onMouseDown={onMouseDown("left")}
               className={cn(
-                "absolute top-1/2 left-2 h-12 w-[3px] -translate-y-1/2 rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10",
+                "absolute top-1/2 left-2 h-12 w-[3px] -translate-y-1/2 rounded-dot bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10",
                 HANDLE_HIT_AREA,
                 "cursor-ew-resize opacity-0 transition-opacity",
                 showHandles
@@ -174,7 +174,7 @@ export function ImageView({ node, selected, updateAttributes }: NodeViewProps) {
               data-resize-handle="right"
               onMouseDown={onMouseDown("right")}
               className={cn(
-                "absolute top-1/2 right-2 h-12 w-[3px] opacity-80 -translate-y-1/2 rounded-full bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10",
+                "absolute top-1/2 right-2 h-12 w-[3px] opacity-80 -translate-y-1/2 rounded-dot bg-white shadow-md ring-1 ring-black/10 dark:bg-zinc-700 dark:ring-white/10",
                 HANDLE_HIT_AREA,
                 "cursor-ew-resize opacity-0 transition-opacity",
                 showHandles

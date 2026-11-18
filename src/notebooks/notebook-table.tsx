@@ -65,9 +65,7 @@ export function NotebookTable({
                   {c.status !== "done" && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span
-                          className={`size-1.5 shrink-0 rounded-full ${STATUS_DOT[c.status]}`}
-                        />
+                        <span className={`size-1.5 shrink-0 rounded-dot ${STATUS_DOT[c.status]}`} />
                       </TooltipTrigger>
                       <TooltipContent className="capitalize">
                         {STATUS[c.status].label}

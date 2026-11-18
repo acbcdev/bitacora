@@ -40,14 +40,14 @@ export function MiniTimer() {
 
   return (
     <>
-      <div className="hatch group relative isolate flex h-11 items-center gap-2 overflow-hidden rounded-full bg-card pl-1.5 shadow-card">
+      <div className="hatch group relative isolate flex h-11 items-center gap-2 overflow-hidden rounded-pill bg-card pl-1.5 shadow-card">
         {/* Mismo bloque que el tile: habit-block, 60% al pausar, borde recto (lo recorta el
             overflow-hidden). -z-10 + isolate: sobre el fondo y bajo el contenido. */}
         <span
           aria-hidden
           style={{ width: `${pct}%` }}
           className={cn(
-            "absolute inset-y-0 left-0 -z-10 rounded-full bg-habit-block transition-[width] duration-1000 ease-linear",
+            "absolute inset-y-0 left-0 -z-10 rounded-pill bg-habit-block transition-[width] duration-1000 ease-linear",
             !running && "opacity-60",
           )}
         />

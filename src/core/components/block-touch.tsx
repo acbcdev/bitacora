@@ -220,7 +220,7 @@ function useHoldDrag(editor: Editor, touch: boolean, onHold?: () => void) {
   const line = dragging && (
     <div
       ref={lineRef}
-      className="pointer-events-none fixed z-50 hidden h-0.5 rounded-full bg-foreground"
+      className="pointer-events-none fixed z-50 hidden h-0.5 rounded-dot bg-foreground"
     />
   )
   return { beginDrag, dragging, line }

@@ -82,7 +82,7 @@ export function Outline({
           <PopoverTrigger asChild>
             <button
               aria-label="Secciones"
-              className="absolute top-0 right-0 flex size-9 items-center justify-center rounded-full border bg-popover text-muted-foreground shadow-md"
+              className="absolute top-0 right-0 flex size-9 items-center justify-center rounded-pill border bg-popover text-muted-foreground shadow-md"
             >
               <List className="size-4" />
             </button>
@@ -135,7 +135,7 @@ export function Outline({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => jump(h)}
               className={cn(
-                "h-0.5 rounded-full transition-colors",
+                "h-0.5 rounded-dot transition-colors",
                 TICK[h.level - 1],
                 i === active ? "bg-foreground" : "bg-muted-foreground/40",
               )}

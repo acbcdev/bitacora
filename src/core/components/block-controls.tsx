@@ -724,12 +724,12 @@ export function BlockControls({
                   de inserción al margen, la línea cruza todo el ancho del bloque destino. */}
               <div
                 data-testid="drop-dot"
-                className="absolute size-2 rounded-full bg-foreground"
+                className="absolute size-2 rounded-dot bg-foreground"
                 style={{ top: line.top - 3, left: line.left - 3 }}
               />
               <div
                 data-testid="drop-line"
-                className="absolute rounded-full bg-foreground"
+                className="absolute rounded-dot bg-foreground"
                 style={{
                   top: line.top,
                   left: line.left,

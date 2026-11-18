@@ -17,7 +17,7 @@ export function ViewPill<T extends string>({
     <div
       role="radiogroup"
       aria-label="vista"
-      className={`flex h-8 items-center gap-0.5 rounded-full bg-card px-1 shadow-card ring-1 ring-border ${className}`}
+      className={`flex h-8 items-center gap-0.5 rounded-pill bg-card px-1 shadow-card ring-1 ring-border ${className}`}
     >
       {(Object.entries(options) as [T, React.ReactNode][]).map(([v, icon]) => (
         <button
@@ -27,7 +27,7 @@ export function ViewPill<T extends string>({
           aria-label={v}
           aria-checked={value === v}
           onClick={() => onChange(v)}
-          className={`flex h-6 w-8 cursor-pointer items-center justify-center rounded-full [&_svg]:size-3.5 ${
+          className={`flex h-6 w-8 cursor-pointer items-center justify-center rounded-pill [&_svg]:size-3.5 ${
             value === v ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
           }`}
         >

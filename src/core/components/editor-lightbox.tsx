@@ -226,7 +226,7 @@ export function EditorLightbox({
           <DialogPrimitive.Title className="sr-only">Imagen ampliada</DialogPrimitive.Title>
           {/* Índice */}
           {count > 1 && (
-            <span className="mono-dim absolute top-4 left-1/2 -translate-x-1/2 rounded-full bg-muted/80 px-2 py-1 text-xs backdrop-blur">
+            <span className="mono-dim absolute top-4 left-1/2 -translate-x-1/2 rounded-pill bg-muted/80 px-2 py-1 text-xs backdrop-blur">
               {index + 1} / {count}
             </span>
           )}
@@ -314,7 +314,7 @@ export function EditorLightbox({
           {/* Toolbar */}
           {!broken && (
             <TooltipProvider>
-              <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-muted/80 p-1 backdrop-blur">
+              <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-pill bg-muted/80 p-1 backdrop-blur">
                 <ToolButton label="Alejar" kbd="-" onClick={() => zoomBy(-ZOOM_STEP)}>
                   <Minus />
                 </ToolButton>

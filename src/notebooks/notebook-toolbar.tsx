@@ -71,7 +71,7 @@ export function NotebookToolbar({
 }) {
   return (
     <div className="mb-5 flex items-center gap-2 max-md:flex-wrap">
-      <label className="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full max-md:basis-full bg-card px-3 shadow-card ring-1 ring-border focus-within:ring-border-strong sm:w-60 sm:flex-none">
+      <label className="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-pill max-md:basis-full bg-card px-3 shadow-card ring-1 ring-border focus-within:ring-border-strong sm:w-60 sm:flex-none">
         <Search className="size-3.5 shrink-0 text-muted-foreground" />
         <input
           ref={searchRef}
@@ -91,7 +91,7 @@ export function NotebookToolbar({
           status === "todos" ? (
             <ListFilter />
           ) : (
-            <span className={`size-1.5 rounded-full ${STATUS_DOT[status]}`} />
+            <span className={`size-1.5 rounded-dot ${STATUS_DOT[status]}`} />
           )
         }
         value={status}
@@ -160,7 +160,7 @@ function FilterChip<T extends string>({
   return (
     <div
       className={cn(
-        "relative flex h-8 items-center rounded-full bg-card pr-1 shadow-card ring-1 ring-border hover:ring-border-strong has-aria-expanded:ring-border-strong",
+        "relative flex h-8 items-center rounded-pill bg-card pr-1 shadow-card ring-1 ring-border hover:ring-border-strong has-aria-expanded:ring-border-strong",
         lead ? "pl-2.5" : "pl-1",
         dirty && "ring-border-strong",
       )}
@@ -171,7 +171,7 @@ function FilterChip<T extends string>({
         <SelectTrigger
           aria-label={name}
           title={name}
-          className="h-8 w-auto cursor-pointer gap-1.5 rounded-full border-0 bg-transparent px-1.5 shadow-none dark:bg-transparent dark:hover:bg-transparent [&>svg:last-child]:hidden"
+          className="h-8 w-auto cursor-pointer gap-1.5 rounded-pill border-0 bg-transparent px-1.5 shadow-none dark:bg-transparent dark:hover:bg-transparent [&>svg:last-child]:hidden"
         >
           {/* Slot fijo: el dot (6px) y el icono (14px) ocupan lo mismo. */}
           {icon && (
@@ -201,7 +201,7 @@ function FilterChip<T extends string>({
           type="button"
           onClick={onClear}
           aria-label={`Quitar ${name}`}
-          className={cn(ICON_BTN, "absolute inset-y-0 right-1.5 w-5.5 justify-center rounded-full")}
+          className={cn(ICON_BTN, "absolute inset-y-0 right-1.5 w-5.5 justify-center rounded-pill")}
         >
           <X />
         </button>

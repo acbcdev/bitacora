@@ -117,7 +117,7 @@ export function ReadChip({
   const p = Math.min(100, (readToday / goal) * 100)
   return (
     <span
-      className="relative isolate inline-flex h-7 items-center gap-2.5 overflow-hidden rounded-full bg-muted px-3"
+      className="relative isolate inline-flex h-7 items-center gap-2.5 overflow-hidden rounded-pill bg-muted px-3"
       aria-label={`Racha de lectura: ${streak} días. Leídas hoy: ${readToday} de ${goal}`}
     >
       {/* Fill como span aparte: un gradient no interpola, width sí. */}
@@ -126,7 +126,7 @@ export function ReadChip({
           width: `${p}%`,
           background: "color-mix(in oklab, var(--signal) 18%, var(--muted))",
         }}
-        className="absolute inset-y-0 left-0 -z-10 rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+        className="absolute inset-y-0 left-0 -z-10 rounded-pill transition-[width] duration-500 ease-out motion-reduce:transition-none"
       />
       {/* Llama verde = racha viva (ADR 0023). Número verde = el día de hoy ya suma (meta cumplida). */}
       <span className="inline-flex items-center gap-1">

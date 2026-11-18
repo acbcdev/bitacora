@@ -139,7 +139,7 @@ export function NotebookForm({
                       <span className="inline-flex min-w-0 items-center gap-1">
                         <span
                           aria-hidden
-                          className="size-[7px] shrink-0 rounded-full"
+                          className="size-[7px] shrink-0 rounded-dot"
                           style={{ background: dotColor(v) }}
                         />
                         <span className="min-w-0 truncate">{v}</span>

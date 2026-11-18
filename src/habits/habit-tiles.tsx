@@ -250,7 +250,7 @@ function HabitTile({
           <span aria-hidden className="habit-sweep absolute inset-0 rounded-xl bg-signal/10" />
           <span
             aria-hidden
-            className="absolute inset-x-4 bottom-2 h-0.5 overflow-hidden rounded-full bg-signal/15"
+            className="absolute inset-x-4 bottom-2 h-0.5 overflow-hidden rounded-dot bg-signal/15"
           >
             <span
               className="habit-drain block h-full bg-signal"
@@ -274,7 +274,7 @@ function HabitTile({
         />
         <span
           className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-fg-secondary transition-colors",
+            "flex size-9 shrink-0 items-center justify-center rounded-pill bg-muted text-fg-secondary transition-colors",
             running && "text-signal",
           )}
         >

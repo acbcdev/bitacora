@@ -52,7 +52,7 @@ function useSection(
 }
 
 const BTN =
-  "grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground transition-[color,scale] duration-150 ease-out active:scale-95 hover:text-foreground"
+  "grid size-11 shrink-0 cursor-pointer place-items-center rounded-pill text-muted-foreground transition-[color,scale] duration-150 ease-out active:scale-95 hover:text-foreground"
 
 export function MobileBar({
   scroller,
@@ -136,7 +136,7 @@ export function MobileBar({
 }
 
 const DOCK_ITEM =
-  "flex h-12 cursor-pointer items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition-[color,background-color,scale] duration-150 ease-out active:scale-95"
+  "flex h-12 cursor-pointer items-center gap-2 rounded-pill px-4 text-sm font-medium text-muted-foreground transition-[color,background-color,scale] duration-150 ease-out active:scale-95"
 
 export function MobileDock({
   scroller,
@@ -150,7 +150,7 @@ export function MobileDock({
   return (
     <nav
       aria-label="Navegación"
-      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full bg-hero/90 p-1 shadow-hero ring-1 ring-border backdrop-blur in-data-[editing]:hidden md:hidden"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-pill bg-hero/90 p-1 shadow-hero ring-1 ring-border backdrop-blur in-data-[editing]:hidden md:hidden"
     >
       <Link
         to="/"

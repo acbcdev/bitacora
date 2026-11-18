@@ -80,7 +80,7 @@ export function HabitZoom({
           >
             <i
               aria-hidden
-              className={cn("size-2 rounded-full bg-current", r.running && "animate-pulse")}
+              className={cn("size-2 rounded-dot bg-current", r.running && "animate-pulse")}
             />
             {h.name}
             {!r.running && <span>· pausado</span>}
@@ -90,7 +90,7 @@ export function HabitZoom({
             type="button"
             onClick={toggle}
             aria-label={r.running ? `Pausar ${h.name}` : `Reanudar ${h.name}`}
-            className="absolute top-6 right-6 flex size-12 items-center justify-center rounded-full bg-foreground text-background"
+            className="absolute top-6 right-6 flex size-12 items-center justify-center rounded-pill bg-foreground text-background"
           >
             {r.running ? (
               <Pause size={18} fill="currentColor" strokeWidth={0} />
