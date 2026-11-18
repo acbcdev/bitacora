@@ -2,6 +2,8 @@ import { Card } from "@/core/ui/card"
 import { Skeleton } from "@/core/ui/skeleton"
 import { readSample } from "@/core/lib/sample"
 import { HISTORY_DAYS } from "@/core/store/derive"
+import { useIsMobile } from "@/core/lib/hooks/use-mobile"
+import { PAGE_SIZE, PAGE_SIZE_MOBILE } from "@/notebooks/notebooks.api"
 
 // Placeholders con la forma del contenido real, no rectángulos genéricos. Se muestran solo en el
 // primer fetch: con datos en caché TanStack deja `isLoading` en false y no pasan por acá.
@@ -29,29 +31,34 @@ export function NoteSkeleton() {
 
 // Grilla de tarjetas de notebook (la vista por defecto), una por fila de la última carga.
 export function NotebookCardsSkeleton() {
-  const count = readSample().notebooks
+  const pageSize = useIsMobile() ? PAGE_SIZE_MOBILE : PAGE_SIZE
+  const count = Math.min(readSample().notebooks, pageSize)
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: count }, (_, i) => (
-        <Card key={i} className="gap-3.5 p-5 ring-0">
-          <div className="flex items-start gap-3">
-            <Skeleton className="size-8 shrink-0" />
-            <span className="flex min-h-[2.6em] flex-1 items-center">
-              <Skeleton className="h-4 w-3/5" />
-            </span>
-            <Skeleton className="mt-2 size-2 shrink-0 rounded-full" />
-          </div>
-          <div className="flex min-h-6 items-center gap-1.5">
-            <Skeleton className="h-5 w-14" />
-            <Skeleton className="h-5 w-24" />
-          </div>
-          <div className="mt-auto flex items-center justify-between">
-            <Skeleton className="h-3 w-6" />
-            <Skeleton className="size-7 rounded-lg" />
-          </div>
-        </Card>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: count }, (_, i) => (
+          // 150.5px = alto de NotebookCard real. Página llena = hay paginación debajo (nav mt-8 h-8).
+          <Card key={i} className="min-h-[150.5px] gap-3 p-5 ring-0">
+            <div className="flex items-start gap-3">
+              <Skeleton className="size-8 shrink-0" />
+              <span className="flex min-h-[2.6em] flex-1 items-center">
+                <Skeleton className="h-4 w-3/5" />
+              </span>
+              <Skeleton className="mt-2 size-2 shrink-0 rounded-dot" />
+            </div>
+            <div className="flex min-h-6 items-center gap-1.5">
+              <Skeleton className="h-5 w-14" />
+              <Skeleton className="h-5 w-24" />
+            </div>
+            <div className="mt-auto flex items-center justify-between">
+              <Skeleton className="h-3 w-6" />
+              <Skeleton className="size-7 rounded-lg" />
+            </div>
+          </Card>
+        ))}
+      </div>
+      {count >= pageSize && <Skeleton className="mx-auto mt-8 h-8 w-48 rounded-pill max-md:mt-6" />}
+    </>
   )
 }
 
@@ -61,24 +68,26 @@ export function HabitsSkeleton() {
   const rest = Math.max(count - 6, 0)
   return (
     <div className="mb-8">
-      {/* Cabecera: "Hábitos" · N/M cumplidos · ver todos · ViewPill · + Nuevo */}
+      {/* Cabecera: "Hábitos" + N/M cumplidos · ViewPill · Todos · Nuevo (medidas del DOM real) */}
       <div className="mb-4 flex h-8 items-center gap-3">
-        <Skeleton className="h-5 w-[91px]" />
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="ml-auto h-3 w-[49px]" />
-        <Skeleton className="h-8 w-[74px] rounded-full" />
-        <Skeleton className="h-8 w-[82px] rounded-full max-md:w-8" />
+        <Skeleton className="h-5 w-[73px]" />
+        <Skeleton className="h-3 w-[106px]" />
+        <div className="ml-auto flex items-center gap-3">
+          <Skeleton className="h-8 w-[74px] rounded-pill max-md:hidden" />
+          <Skeleton className="h-8 w-[83px] rounded-pill max-md:w-8" />
+          <Skeleton className="h-8 w-[85px] rounded-pill max-md:w-8" />
+        </div>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-5">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-3">
         {Array.from({ length: Math.min(count, 6) }, (_, i) => (
           // Mismo bloque que HabitTile vacío: hatch + card de 140px, así la tira no salta al cargar.
           <div
             key={i}
-            className="hatch relative flex min-h-35 flex-col justify-between gap-3 overflow-hidden rounded-xl bg-card p-4 shadow-card"
+            className="hatch relative flex min-h-[146px] flex-col justify-between gap-3 overflow-hidden rounded-xl bg-card p-4 shadow-card"
           >
             {/* Arriba: ícono redondo · nombre + estado · botón de acción rápida */}
             <div className="flex items-center gap-3">
-              <Skeleton className="size-9 shrink-0 rounded-full" />
+              <Skeleton className="size-9 shrink-0 rounded-pill" />
               <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <Skeleton className="h-3.5 w-24" />
                 <Skeleton className="h-3 w-10" />
@@ -92,7 +101,7 @@ export function HabitsSkeleton() {
                 <Skeleton className="h-[11px] w-20" />
                 <span className="flex gap-1">
                   {Array.from({ length: 7 }, (__, d) => (
-                    <Skeleton key={d} className="size-2 rounded-full" />
+                    <Skeleton key={d} className="size-2 rounded-dot" />
                   ))}
                 </span>
               </span>
@@ -105,7 +114,7 @@ export function HabitsSkeleton() {
         <div className="mt-2 flex h-11 items-center gap-2.5 px-3">
           <span className="flex -space-x-1.5">
             {Array.from({ length: Math.min(rest, 4) }, (_, i) => (
-              <Skeleton key={i} className="size-6 rounded-full ring-2 ring-background" />
+              <Skeleton key={i} className="size-6 rounded-pill ring-2 ring-background" />
             ))}
           </span>
           <Skeleton className="h-3.5 w-12" />
@@ -156,16 +165,17 @@ export function SidebarGroupSkeleton({
 // Contenido de la hero card de Repaso (NoteCard). Lo usa también Repaso adentro de su Card
 // cuando la nota completa todavía no llegó y no hay card anterior: la página queda montada.
 export function ReviewCardSkeleton() {
+  if (useIsMobile()) return <ReviewCardSkeletonMobile />
   return (
     <div className="w-full px-5 sm:px-10">
       {/* Eyebrow: ícono + nombre del notebook · ReadChip (h-7) + posición en la cola (min-h 2lh) */}
-      <div className="mb-2 flex h-[28.6px] items-start justify-between gap-3">
-        <span className="flex h-[14.3px] items-center gap-1.5">
+      <div className="mb-2 flex h-[39px] items-start justify-between gap-3">
+        <span className="flex h-[19.5px] items-center gap-1.5">
           <Skeleton className="size-3.5 rounded-xs" />
           <Skeleton className="h-2.5 w-28" />
         </span>
         <span className="flex items-center gap-4">
-          <Skeleton className="h-7 w-[136px] rounded-full" />
+          <Skeleton className="h-7 w-[136px] rounded-pill" />
           <Skeleton className="h-3 w-9" />
         </span>
       </div>
@@ -178,9 +188,9 @@ export function ReviewCardSkeleton() {
             </div>
           ))}
         </div>
-        {/* Preview del cuerpo: 5 líneas de text-base (lh 22.5px) */}
+        {/* Preview del cuerpo: 5 líneas de text-base (lh 19.5px) */}
         {["100%", "96%", "92%", "88%", "70%"].map((w) => (
-          <div key={w} className="flex h-[22.5px] items-center">
+          <div key={w} className="flex h-[19.5px] items-center">
             <Skeleton className="h-3.5" style={{ width: w }} />
           </div>
         ))}
@@ -200,16 +210,79 @@ export function ReviewCardSkeleton() {
   )
 }
 
+// Card en mobile (NoteCard con max-md): una fila notebook + chip, título 2xl, 4 líneas, footer con
+// posición a la izquierda y ← / Siguiente a la derecha. Sin alturas mínimas: el texto real tampoco.
+function ReviewCardSkeletonMobile() {
+  return (
+    <div className="w-full px-5">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <Skeleton className="h-2.5 w-24" />
+        <Skeleton className="h-7 w-[88px] rounded-pill" />
+      </div>
+      <div className="mb-5 flex flex-col gap-2">
+        <Skeleton className="h-6 w-4/5" />
+        <Skeleton className="mb-1 h-6 w-1/2" />
+        <Skeleton className="h-3.5 w-full" />
+        <Skeleton className="h-3.5 w-11/12" />
+        <Skeleton className="h-3.5 w-3/4" />
+      </div>
+      <div className="mt-2 flex items-center justify-between border-t pt-5">
+        <Skeleton className="h-3 w-9" />
+        <div className="flex gap-2">
+          <Skeleton className="size-13" />
+          <Skeleton className="h-13 w-[130px]" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Hoy en mobile, más simple a propósito: sin barras de cumplimiento (el real las oculta), la card,
+// y de hábitos/notebooks solo cabecera + 2 bloques — lo de abajo del fold no necesita ser fiel.
+function ReviewSkeletonMobile() {
+  return (
+    <>
+      <Card className="mb-8 rounded-2xl bg-hero py-5 shadow-hero">
+        <ReviewCardSkeletonMobile />
+      </Card>
+      <div className="mb-8">
+        <div className="mb-4 flex h-8 items-center gap-3">
+          <Skeleton className="h-5 w-[91px]" />
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="ml-auto size-8 rounded-pill" />
+          <Skeleton className="size-8 rounded-pill" />
+        </div>
+        <div className="flex flex-col gap-3">
+          {[0, 1].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+      </div>
+      <div className="mb-4 flex h-[31.2px] items-center gap-3">
+        <Skeleton className="h-5 w-[129px]" />
+        <Skeleton className="h-3 w-[86px]" />
+      </div>
+      <Skeleton className="mb-5 h-8 w-full rounded-pill" />
+      <div className="flex flex-col gap-3">
+        {[0, 1].map((i) => (
+          <Skeleton key={i} className="h-28 rounded-xl" />
+        ))}
+      </div>
+    </>
+  )
+}
+
 // Pantalla Hoy completa: stats, meta, card de repaso, hábitos y notebooks (cabecera, toolbar,
 // tarjetas), con las mismas medidas que el contenido real para que al cargar no salte nada.
 export function ReviewSkeleton() {
+  if (useIsMobile()) return <ReviewSkeletonMobile />
   return (
     <>
       {/* ReviewStats: h2 "Repaso" · barras de cumplimiento 14d (h-7), alineadas al padding de la
           card. Racha y meta viven ahora en el ReadChip de la card. */}
-      <div className="mb-4 flex h-7 items-center justify-between pe-5 sm:pe-10">
+      <div className="mb-4 flex h-[31.2px] items-center justify-between pe-5 sm:pe-10">
         <Skeleton className="h-5 w-[86px]" />
-        <span className="flex h-7 items-end gap-[3px]">
+        <span className="flex h-7 items-end gap-[3px] self-end">
           {Array.from({ length: HISTORY_DAYS }, (_, i) => (
             <Skeleton key={i} className="h-full w-1 rounded-xs" />
           ))}
@@ -229,11 +302,11 @@ export function ReviewSkeleton() {
         <Skeleton className="h-3 w-[86px]" />
       </div>
       <div className="mb-5 flex items-center gap-2">
-        <Skeleton className="h-8 flex-1 rounded-full sm:w-60 sm:flex-none" />
-        <Skeleton className="h-8 w-[120px] rounded-full max-md:w-16" />
-        <Skeleton className="h-8 w-[140px] rounded-full max-md:w-20" />
-        <Skeleton className="ml-auto h-8 w-[74px] rounded-full max-md:hidden" />
-        <Skeleton className="h-8 w-[141px] rounded-full max-md:w-8" />
+        <Skeleton className="h-8 flex-1 rounded-pill sm:w-60 sm:flex-none" />
+        <Skeleton className="h-8 w-[120px] rounded-pill max-md:w-16" />
+        <Skeleton className="h-8 w-[140px] rounded-pill max-md:w-20" />
+        <Skeleton className="ml-auto h-8 w-[74px] rounded-pill max-md:hidden" />
+        <Skeleton className="h-8 w-[141px] rounded-pill max-md:w-8" />
       </div>
       <NotebookCardsSkeleton />
     </>

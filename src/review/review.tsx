@@ -166,7 +166,7 @@ export function Review() {
 
   if (loading)
     return (
-      <div className="fade-in mx-auto max-w-shell px-4 pt-9 pb-16 sm:px-8">
+      <div className="fade-in mx-auto max-w-shell px-4 pt-9 pb-16 max-md:pt-3 sm:px-8">
         <ReviewSkeleton />
       </div>
     )
