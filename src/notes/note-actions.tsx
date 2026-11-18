@@ -1,5 +1,15 @@
+import { useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { BookOpen, Download, Link2, Maximize2, MoreHorizontal, Copy, Trash2 } from "lucide-react"
+import {
+  BookOpen,
+  Download,
+  Link2,
+  Maximize2,
+  MoreHorizontal,
+  Copy,
+  Pencil,
+  Trash2,
+} from "lucide-react"
 import { toast } from "sonner"
 import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { Button } from "@/core/ui/button"
@@ -36,6 +46,7 @@ export function NoteActions({
   onConfirmingChange,
   onDeleted,
   hideNotebook,
+  onRename,
 }: {
   note: Pick<Note, "id" | "title" | "notebook_id">
   content: () => TiptapDoc | Promise<TiptapDoc>
@@ -43,9 +54,13 @@ export function NoteActions({
   onConfirmingChange: (open: boolean) => void
   onDeleted: () => void
   hideNotebook?: boolean
+  // Solo el sidebar lo pasa: en el resto el título ya es editable en la propia pantalla.
+  onRename?: () => void
 }) {
   const navigate = useNavigate()
   const del = useDeleteNote()
+  // Radix devuelve el foco al ⋯ al cerrar: eso blurearía (y cerraría) el input de rename.
+  const renamed = useRef(false)
 
   // "Focus": misma navegación que expandir, ya en focus mode — cruza el seam de useFocusMode
   // (visión?focus=1) sin props perforados desde las pantallas.
@@ -75,7 +90,14 @@ export function NoteActions({
           </TooltipTrigger>
           <TooltipContent>Acciones</TooltipContent>
         </Tooltip>
-        <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuContent
+          align="end"
+          className="w-52"
+          onCloseAutoFocus={(e) => {
+            if (renamed.current) e.preventDefault()
+            renamed.current = false
+          }}
+        >
           <DropdownMenuItem onSelect={openFocused}>
             <Maximize2 />
             Focus
@@ -87,6 +109,17 @@ export function NoteActions({
             >
               <BookOpen />
               Ir al notebook
+            </DropdownMenuItem>
+          )}
+          {onRename && (
+            <DropdownMenuItem
+              onSelect={() => {
+                renamed.current = true
+                onRename()
+              }}
+            >
+              <Pencil />
+              Renombrar
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />

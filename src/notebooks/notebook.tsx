@@ -102,6 +102,10 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
   const [q, setQ] = useState("")
   const searchRef = useRef<HTMLInputElement>(null)
   const [confirmingNote, setConfirmingNote] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
+  // ponytail: remonta el editor al renombrar la nota abierta (su draft local pisaría el título
+  // nuevo en el próximo autosave). Si hay tipeo sin guardar, el flush del unmount va primero.
+  const [editorKey, setEditorKey] = useState(0)
   // Nota recién creada desde este pane: su título monta con foco (ver `ghostType`, Nueva nota).
   const [created, setCreated] = useState<string | null>(null)
   const ghost = useRef("")
@@ -128,6 +132,16 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
     () => searchRef.current?.focus(),
     { preventDefault: true },
   )
+
+  async function rename(n: { id: string; title: string }, value: string) {
+    setRenaming(null)
+    const title = value.trim()
+    if (!title || title === n.title) return
+    if (n.id === selected?.id) setEditorKey((k) => k + 1)
+    // El índice lista refs sin content, y save exige title+content: se pide la nota entera.
+    const { content } = await store.note(n.id)
+    updateNote.mutate({ id: n.id, title, content })
+  }
 
   function select(target: { id: string }) {
     navigate(`/notebook/${id}/${target.id}`)
@@ -307,7 +321,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                     <i
                       aria-hidden
                       className={cn(
-                        "size-1.5 rounded-full group-hover/badge:hidden",
+                        "size-1.5 rounded-dot group-hover/badge:hidden",
                         STATUS_DOT[notebook.status],
                       )}
                     />
@@ -328,7 +342,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
           {/* Rotulada: la frase dice QUÉ mide la barra (un % suelto no se entendía) y su total
                   reemplaza al chip "N notas". */}
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <div className="h-0.5 overflow-hidden rounded-full bg-track">
+            <div className="h-0.5 overflow-hidden rounded-dot bg-track">
               <div className="h-full bg-fg-secondary" style={{ width: `${pct}%` }} />
             </div>
             <span className="truncate text-2xs text-muted-foreground">
@@ -341,7 +355,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
       <div className="shrink-0 px-4 pb-1">
         {/* Mismo campo que "Buscar notebook…" (notebook-toolbar): ring sutil en vez del borde de
                 InputGroup, y el `/` se va al enfocar o con texto. */}
-        <label className="group flex h-8 items-center max-md:h-11 gap-2 rounded-full bg-card px-3 shadow-card ring-1 ring-border focus-within:ring-border-strong">
+        <label className="group flex h-8 items-center max-md:h-11 gap-2 rounded-pill bg-card px-3 shadow-card ring-1 ring-border focus-within:ring-border-strong">
           <Search className="size-3.5 shrink-0 text-muted-foreground" />
           <input
             ref={searchRef}
@@ -365,15 +379,34 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
           const f = freshness(stats?.byNote.get(n.id)?.last)
           return (
             <div key={n.id} data-active={n.id === selected?.id} className={NOTE_ROW}>
-              <button
-                onClick={() => select(n)}
-                className="flex min-w-0 flex-1 items-center rounded-lg text-left"
-              >
-                <span className="mr-3 w-5 shrink-0 text-2xs text-muted-foreground tabular-nums md:hidden">
-                  {notes.indexOf(n) + 1}
-                </span>
-                <span className="truncate">{n.title || "(sin título)"}</span>
-              </button>
+              {renaming === n.id ? (
+                <input
+                  autoFocus
+                  defaultValue={n.title}
+                  aria-label="Renombrar nota"
+                  onFocus={(e) => e.currentTarget.select()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur()
+                    if (e.key === "Escape") {
+                      e.currentTarget.value = n.title // blur guarda: igualar el valor = no-op
+                      e.currentTarget.blur()
+                    }
+                  }}
+                  onBlur={(e) => rename(n, e.currentTarget.value)}
+                  className="min-w-0 flex-1 bg-transparent outline-none"
+                />
+              ) : (
+                <button
+                  onClick={() => select(n)}
+                  onDoubleClick={() => setRenaming(n.id)}
+                  className="flex min-w-0 flex-1 items-center rounded-lg text-left"
+                >
+                  <span className="mr-3 w-5 shrink-0 text-2xs text-muted-foreground tabular-nums md:hidden">
+                    {notes.indexOf(n) + 1}
+                  </span>
+                  <span className="truncate">{n.title || "(sin título)"}</span>
+                </button>
+              )}
               {/* Frescura como dot (el rótulo "hace 94d" en cada fila era ruido y le robaba ancho
                       al título); el detalle va en el tooltip del dot, con hit area de 20px. El ⋯
                       aparece a la izquierda en hover: el dot queda fijo en el borde. En el flujo (no absoluto): el título se encoge y su
@@ -386,6 +419,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                     // copiar/exportar — igual que el editor, que es el único que la necesita.
                     content={() => store.note(n.id).then((full) => full.content)}
                     hideNotebook
+                    onRename={() => setRenaming(n.id)}
                     confirming={confirmingNote === n.id}
                     onConfirmingChange={(open) => setConfirmingNote(open ? n.id : null)}
                     onDeleted={() => navigate(`/notebook/${id}`)}
@@ -398,7 +432,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                         aria-label={`Repasada ${f.label}`}
                         className="-mr-1.5 grid size-5 place-items-center"
                       >
-                        <i className={cn("size-1.5 rounded-full", f.dot)} />
+                        <i className={cn("size-1.5 rounded-dot", f.dot)} />
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -458,7 +492,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
       <div id="note-pane" className="min-w-0 flex-1 md:overflow-y-auto">
         {selected ? (
           <NoteEditor
-            key={selected.id}
+            key={`${selected.id}:${editorKey}`}
             id={selected.id}
             focus={focus}
             onToggleFocus={onToggleFocus}
@@ -508,7 +542,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
           <button
             onClick={() => setIndexSheet(true)}
             aria-label="Ver todas las notas"
-            className="mr-1 ml-auto flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-muted px-4 text-base whitespace-nowrap transition-[background-color,scale] duration-150 ease-out active:scale-[0.98]"
+            className="mr-1 ml-auto flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-pill bg-muted px-4 text-base whitespace-nowrap transition-[background-color,scale] duration-150 ease-out active:scale-[0.98]"
           >
             <ListTree className="size-4 shrink-0 text-muted-foreground" />
             <span className="tabular-nums">
