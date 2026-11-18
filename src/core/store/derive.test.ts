@@ -242,9 +242,11 @@ describe("reviewQueue", () => {
     expect(reviewQueue(snap)).toHaveLength(2)
   })
 
-  test("las flashcards entran a la cola (sólo se mezclan por antigüedad)", () => {
-    const snap = snapshot({ notes: [note({ id: "n" }), note({ id: "f", kind: "flashcard" })] })
-    expect(reviewQueue(snap)).toHaveLength(2)
+  test("las filas viejas kind=flashcard no entran a la cola", () => {
+    const snap = snapshot({
+      notes: [note({ id: "n" }), note({ id: "f", kind: "flashcard" })],
+    })
+    expect(reviewQueue(snap).map((n) => n.id)).toEqual(["n"])
   })
 
   test("sin límite: devuelve la cola completa", () => {

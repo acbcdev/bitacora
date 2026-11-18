@@ -71,16 +71,16 @@ test("los defaults de la tabla los pone el adapter, igual que Postgres", async (
   })
 })
 
-test("read_log es append-only y guarda el grade de la flashcard", async () => {
+test("read_log es append-only", async () => {
   const notebook = await seedNotebook()
   const nota = await store.save("notes", { notebook_id: notebook.id, position: 0 })
 
   await store.save("read_log", { note_id: nota.id })
-  await store.save("read_log", { note_id: nota.id, grade: "correcto" })
+  await store.save("read_log", { note_id: nota.id })
 
   expect((await store.snapshot()).reads).toEqual([
     { note_id: nota.id, read_at: expect.any(String), grade: null },
-    { note_id: nota.id, read_at: expect.any(String), grade: "correcto" },
+    { note_id: nota.id, read_at: expect.any(String), grade: null },
   ])
 })
 

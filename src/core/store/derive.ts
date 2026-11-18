@@ -41,8 +41,8 @@ export function liveNotebooks(snap: Snapshot): Notebook[] {
   )
 }
 
-// Las notas de un notebook, en orden de `position`. Las flashcards no entran: no se listan en el
-// notebook (ADR 0010).
+// Las notas de un notebook, en orden de `position`. Las filas viejas `kind = 'flashcard'` (feature
+// borrada, quedan en la DB) no entran.
 export function notebookNotes(snap: Snapshot, notebookId: string): NoteRef[] {
   return snap.notes
     .filter((n) => n.notebook_id === notebookId && n.kind === "note")
@@ -167,7 +167,7 @@ export function reviewQueue(snap: Snapshot): NoteRef[] {
   const live = new Set(snap.notebooks.map((c) => c.id))
 
   return snap.notes
-    .filter((n) => n.notebook_id && live.has(n.notebook_id))
+    .filter((n) => n.kind === "note" && n.notebook_id && live.has(n.notebook_id))
     .toSorted((a, b) => {
       const la = perNote.get(a.id)?.last ?? null
       const lb = perNote.get(b.id)?.last ?? null
