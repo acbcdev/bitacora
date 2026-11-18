@@ -41,22 +41,23 @@ export function Login() {
 
   return (
     // dvh, no screen: en iOS 100vh incluye la zona bajo la barra del navegador.
-    // Mobile apila: panel de marca arriba, form abajo. Desde lg, 50/50 a sangre.
-    <div className="fade-in grid min-h-dvh lg:grid-cols-2">
-      <section className="flex flex-col justify-between gap-16 bg-hero p-8 sm:p-12 lg:p-16">
-        <img src="/favicon.svg" alt="" className="size-16 sm:size-24" />
+    // Mobile: marca arriba, acciones ancladas abajo (zona del pulgar). Desde lg, 50/50 a sangre.
+    <div className="fade-in group flex min-h-dvh flex-col lg:grid lg:grid-cols-2">
+      <section className="flex flex-1 flex-col justify-between gap-8 p-6 sm:p-12 lg:bg-hero lg:p-16">
+        <img src="/favicon.svg" alt="" className="size-12 sm:size-24" />
         <div>
-          <h1 className="text-6xl font-semibold tracking-tighter sm:text-8xl">Bitácora</h1>
-          <p className="mt-6 max-w-md text-xl text-muted-foreground">
+          <h1 className="text-4xl font-semibold tracking-tighter sm:text-8xl">Bitácora</h1>
+          {/* Se oculta al enfocar el input (mobile) para dejarle aire al teclado. */}
+          <p className="mt-3 max-w-md text-lg text-muted-foreground transition-opacity duration-200 group-has-[input:focus]:opacity-0 sm:mt-6 sm:text-xl lg:group-has-[input:focus]:opacity-100">
             Tu registro de estudio. Repasá, trackeá, avanzá.
           </p>
         </div>
       </section>
 
-      <section className="flex flex-col justify-center gap-10 p-8 sm:p-12 lg:p-20">
+      <section className="flex flex-col gap-3 border-t border-border p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-12 lg:justify-center lg:gap-10 lg:border-t-0 lg:p-20">
         <div>
-          <h2 className="text-4xl font-semibold tracking-tighter sm:text-5xl">Entrá.</h2>
-          <p className="mt-3 text-lg text-muted-foreground">
+          <h2 className="text-xl font-semibold tracking-tighter sm:text-5xl">Entrá.</h2>
+          <p className="mt-1 text-base text-muted-foreground sm:mt-3 sm:text-lg">
             Te mandamos un link al mail. Sin contraseña.
           </p>
         </div>
@@ -69,11 +70,12 @@ export function Login() {
                 Link enviado
               </p>
               <p className="text-base text-fg-secondary">
-                Revisá <span className="text-foreground">{email}</span> y abrí el magic link.
+                Revisá <span className="break-all text-foreground">{email}</span> y abrí el magic
+                link.
               </p>
               <Button
                 variant="link"
-                className="self-start px-0 text-muted-foreground"
+                className="min-h-11 self-start px-0 text-muted-foreground"
                 onClick={() => setSent(false)}
               >
                 Usar otro email
@@ -81,7 +83,7 @@ export function Login() {
             </div>
           ) : (
             <form onSubmit={send}>
-              <FieldGroup className="gap-4">
+              <FieldGroup className="gap-3">
                 <Field>
                   <FieldLabel htmlFor="email" className="eyebrow">
                     Email
@@ -101,16 +103,6 @@ export function Login() {
                     className="h-14 rounded-pill px-6 text-lg"
                   />
                 </Field>
-                <Button type="submit" size="lg" disabled={loading} className="h-14 px-8 text-base">
-                  {loading ? (
-                    <>
-                      <LoaderCircle className="animate-spin" />
-                      Enviando…
-                    </>
-                  ) : (
-                    "Enviar magic link"
-                  )}
-                </Button>
                 {errorCopy && (
                   <div
                     role="alert"
@@ -123,31 +115,36 @@ export function Login() {
                     </div>
                   </div>
                 )}
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={loading}
+                  className="h-14 px-8 text-base max-md:w-full"
+                >
+                  {loading ? (
+                    <>
+                      <LoaderCircle className="animate-spin" />
+                      Enviando…
+                    </>
+                  ) : (
+                    "Enviar magic link"
+                  )}
+                </Button>
               </FieldGroup>
             </form>
           )}
         </div>
 
-        <div className="flex max-w-lg items-center gap-4 text-sm text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />o<span className="h-px flex-1 bg-border" />
-        </div>
-
         {/* La puerta al modo local: vive acá porque resuelve justo el caso de quien todavía no
             tiene cuenta. Recarga (setStorageMode) y arranca contra el navegador. */}
-        <div className="flex max-w-lg flex-col gap-2">
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => setStorageMode("local")}
-            className="h-14 px-8 text-base"
-          >
-            <HardDrive />
-            Probar sin cuenta
-          </Button>
-          <p className="text-center text-sm text-muted-foreground">
-            Todo queda guardado en este navegador.
-          </p>
-        </div>
+        <Button
+          variant="ghost"
+          onClick={() => setStorageMode("local")}
+          className="min-h-12 max-w-lg text-base text-fg-secondary"
+        >
+          <HardDrive />
+          Probar sin cuenta · queda en este navegador
+        </Button>
       </section>
     </div>
   )
