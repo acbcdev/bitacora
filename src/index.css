@@ -711,3 +711,8 @@
 [data-size="lg"] .tiptap-host .ProseMirror {
   @apply text-lg;
 }
+
+/* Cambio de tema: sin nombres propios, todo viaja en el snapshot del root (ver toggleTheme). */
+.theme-switching * {
+  view-transition-name: none !important;
+}

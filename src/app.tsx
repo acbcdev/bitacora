@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react"
+import { flushSync } from "react-dom"
 import { Navigate, Route, Routes, useLocation, useMatch, useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
@@ -119,6 +120,20 @@ function Shell({ user }: { user: AuthUser }) {
     localStorage.setItem("bita-sb", collapsed ? "1" : "0")
   }, [collapsed])
 
+  // View Transition nativa: cross-fade del root entre temas. Sin soporte o con reduced-motion, cambio seco.
+  function toggleTheme() {
+    const flip = () => setDark((d) => !d)
+    if (!document.startViewTransition || matchMedia("(prefers-reduced-motion: reduce)").matches)
+      return flip()
+    // Los tiles de hábitos tienen view-transition-name propio y se pintarían ENCIMA del dialog:
+    // se anulan (index.css) mientras dura el cambio de tema.
+    const root = document.documentElement
+    root.classList.add("theme-switching")
+    document
+      .startViewTransition(() => flushSync(flip))
+      .finished.finally(() => root.classList.remove("theme-switching"))
+  }
+
   function toggleSidebar() {
     setCollapsed((c) => !c)
   }
@@ -215,7 +230,7 @@ function Shell({ user }: { user: AuthUser }) {
         group: "Vista",
         label: dark ? "Tema claro" : "Tema oscuro",
         icon: dark ? <Sun /> : <Moon />,
-        run: () => setDark((d) => !d),
+        run: () => toggleTheme(),
       },
       ...(noteOpen
         ? [
@@ -272,7 +287,7 @@ function Shell({ user }: { user: AuthUser }) {
             loading={notebooksLoading || forceLoading()}
             email={user.email}
             dark={dark}
-            onToggleTheme={() => setDark((d) => !d)}
+            onToggleTheme={() => toggleTheme()}
             onLogout={() => store.auth.signOut()}
             onSettings={() => setSettings(true)}
             onSearch={() => setPalette(true)}
@@ -283,7 +298,7 @@ function Shell({ user }: { user: AuthUser }) {
           className={`relative min-w-0 flex-1 overflow-y-auto ${collapsed && !focus ? "md:px-11" : ""} ${focus ? "" : "max-md:pb-24"}`}
         >
           {/* Mobile: MobileBar (sticky, en flujo: no pisa el h1 porque ocupa su propio alto) es el
-              acceso al Sidebar. Desktop colapsado (offcanvas): el trigger de acá, absolute en la esquina
+              acceso al Sidebar. Desktop colapsado (offcanvas): el trigger de acá, fixed en la esquina
               (el contenido está centrado con max-w, así que no empuja la pantalla al colapsar). */}
           {/* Logo en reposo, panel en hover/focus (estilo ChatGPT). */}
           {!focus && (
@@ -296,7 +311,7 @@ function Shell({ user }: { user: AuthUser }) {
             />
           )}
           <SidebarTrigger
-            className={`group/trigger mt-4 ml-4 md:absolute md:top-4 md:left-4 md:z-10 md:m-0 ${focus ? "" : "max-md:hidden"} ${collapsed && !focus ? "" : "md:hidden"}`}
+            className={`group/trigger mt-4 ml-4 md:fixed md:top-4 md:left-4 md:z-10 md:m-0 ${focus ? "" : "max-md:hidden"} ${collapsed && !focus ? "" : "md:hidden"}`}
           >
             <Logo className="size-6 text-foreground group-hover/trigger:hidden group-focus-visible/trigger:hidden" />
             <PanelLeft className="hidden size-5 group-hover/trigger:block group-focus-visible/trigger:block" />
@@ -342,7 +357,7 @@ function Shell({ user }: { user: AuthUser }) {
             <Settings
               onClose={() => setSettings(false)}
               dark={dark}
-              onToggleTheme={() => setDark((d) => !d)}
+              onToggleTheme={() => toggleTheme()}
             />
           </Suspense>
         )}
