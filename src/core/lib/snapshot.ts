@@ -60,7 +60,7 @@ export function useSnapshotMutation<TArgs, TResult>(
 ) {
   const qc = useQueryClient()
   const { sow, ...rest } = options
-  return useMutation({
+  return useMutation<TResult, Error, TArgs, { previous?: Snapshot }>({
     ...rest,
     mutationFn: (args) => mutationFn(args, qc.getQueryData<Snapshot>(SNAPSHOT_KEY)),
     // `sow` corre sobre el cache en el instante del mutate — no sobre la render, que puede estar
@@ -68,6 +68,9 @@ export function useSnapshotMutation<TArgs, TResult>(
     // previo para el rollback.
     onMutate: sow
       ? (args) => {
+          // Sin await (el cancel es síncrono): un refetch en vuelo trae el estado del server SIN
+          // este tap y pisaría el optimismo → check/uncheck rápido parpadea.
+          qc.cancelQueries({ queryKey: SNAPSHOT_KEY })
           const previous = qc.getQueryData<Snapshot>(SNAPSHOT_KEY)
           const next = sow(previous, args)
           if (next && next !== previous) qc.setQueryData(SNAPSHOT_KEY, next)
@@ -81,8 +84,13 @@ export function useSnapshotMutation<TArgs, TResult>(
     onSuccess: (data, args, result, ctx) => {
       rest.onSuccess?.(data, args, result, ctx)
       if (isNoteRow(data)) seedNote(qc, data)
+    },
+    onSettled: (data, error, args, result, ctx) => {
+      rest.onSettled?.(data, error, args, result, ctx)
+      // Solo la ÚLTIMA mutation pendiente reconcilia (isMutating cuenta a esta misma): si hay otra
+      // en vuelo, el refetch traería un estado intermedio y pisaría su optimismo.
       // Sin `await`: nadie navega colgado del refetch (ADR 0008, medido 372ms).
-      qc.invalidateQueries({ queryKey: SNAPSHOT_KEY })
+      if (qc.isMutating() <= 1) qc.invalidateQueries({ queryKey: SNAPSHOT_KEY })
     },
   })
 }
