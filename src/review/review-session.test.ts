@@ -130,32 +130,16 @@ describe("useReviewSession", () => {
     expect(result.current.index).toBe(0)
   })
 
-  test("cambiar index resetea revealed", () => {
-    h.queue.current = [ref("n1"), ref("n2")]
-    const { result } = session()
-    expect(result.current.revealed).toBe(false)
-    act(() => result.current.reveal())
-    expect(result.current.revealed).toBe(true)
-    act(() => result.current.next())
-    expect(result.current.revealed).toBe(false)
-    act(() => result.current.reveal())
-    expect(result.current.revealed).toBe(true)
-    act(() => result.current.prev())
-    expect(result.current.revealed).toBe(false)
-  })
-
   test("mark idempotente no duplica el repaso", () => {
     h.queue.current = [ref("n1"), ref("n2")]
     const { result } = session()
     expect(result.current.marked).toBe(false)
     act(() => result.current.mark())
     expect(h.markMutate).toHaveBeenCalledTimes(1)
-    expect(h.markMutate).toHaveBeenCalledWith({ noteId: "n1", grade: undefined })
+    expect(h.markMutate).toHaveBeenCalledWith({ noteId: "n1" })
     expect(result.current.marked).toBe(true)
     act(() => result.current.mark())
     expect(h.markMutate).toHaveBeenCalledTimes(1) // segundo no dispara
-    act(() => result.current.mark("correcto"))
-    expect(h.markMutate).toHaveBeenCalledTimes(1)
     // mover y volver no re-dispara si es el mismo id
     act(() => result.current.next())
     expect(result.current.marked).toBe(false)
@@ -163,14 +147,6 @@ describe("useReviewSession", () => {
     expect(result.current.marked).toBe(true) // sigue marcado
     act(() => result.current.mark())
     expect(h.markMutate).toHaveBeenCalledTimes(1)
-  })
-
-  test("mark con grade lo forwardéa", () => {
-    h.queue.current = [ref("f1", { kind: "flashcard" })]
-    const { result } = session()
-    act(() => result.current.mark("correcto"))
-    expect(h.markMutate).toHaveBeenCalledWith({ noteId: "f1", grade: "correcto" })
-    expect(result.current.marked).toBe(true)
   })
 
   test("mark sin item es no-op", () => {
@@ -195,16 +171,6 @@ describe("useReviewSession", () => {
     h.queue.current = [ref("n99")]
     const { result: r2 } = session()
     expect(r2.current.reads).toBe(0)
-  })
-
-  test("reveal no-op cuando done", () => {
-    h.queue.current = [ref("n1")]
-    const { result } = session()
-    act(() => result.current.next())
-    expect(result.current.done).toBe(true)
-    act(() => result.current.reveal())
-    // en done no hay item, no debería prender revealed — pero tampoco explota
-    expect(result.current.revealed).toBe(false)
   })
 
   test("position = i / vistas: vacía con una vista, ← no achica vistas", () => {

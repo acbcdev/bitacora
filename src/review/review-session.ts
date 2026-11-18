@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react"
-import type { Grade } from "@/core/types/database"
 import type { NoteRef } from "@/core/store/types"
 import { EMPTY_READ_STATS, readStats } from "@/core/store/derive"
 import { useSnapshot } from "@/core/lib/snapshot"
@@ -12,11 +11,9 @@ export type ReviewSession = {
   readonly index: number
   readonly length: number
   readonly done: boolean
-  readonly revealed: boolean
   readonly marked: boolean
   readonly reads: number // stats.byNote.get(item.id)?.count
-  reveal(): void
-  mark(grade?: Grade): void // idempotente por markedIds interno
+  mark(): void // idempotente por markedIds interno
   next(): void
   prev(): void
 }
@@ -30,16 +27,11 @@ export function useReviewSession(): ReviewSession {
   // vistas = max + 1: con la cola congelada, el índice más alto alcanzado basta (ADR 0025).
   // Juntos en un estado: next() sube los dos en el mismo update.
   const [{ index, max }, setCursor] = useState({ index: 0, max: 0 })
-  const [revealed, setRevealed] = useState(false)
   const [markedIds, setMarkedIds] = useState<ReadonlySet<string>>(() => new Set<string>())
 
   useEffect(() => {
     setFrozen((prev) => (prev.length === 0 && derived.length > 0 ? derived : prev))
   }, [derived])
-
-  useEffect(() => {
-    setRevealed(false)
-  }, [index])
 
   const item = frozen[index] ?? null
   // Prefetch de la siguiente (una sola adelante, misma query ["note", id]). No toca vistas.
@@ -49,18 +41,11 @@ export function useReviewSession(): ReviewSession {
   const marked = !!item && markedIds.has(item.id)
   const reads = item ? (stats.byNote.get(item.id)?.count ?? 0) : 0
 
-  const reveal = useCallback(() => {
-    if (item) setRevealed(true)
-  }, [item])
-
-  const mark = useCallback(
-    (grade?: Grade) => {
-      if (!item || marked) return
-      markRead.mutate({ noteId: item.id, grade })
-      setMarkedIds((ids) => new Set(ids).add(item.id))
-    },
-    [item, marked, markRead],
-  )
+  const mark = useCallback(() => {
+    if (!item || marked) return
+    markRead.mutate({ noteId: item.id })
+    setMarkedIds((ids) => new Set(ids).add(item.id))
+  }, [item, marked, markRead])
 
   const next = useCallback(() => {
     setCursor((c) => {
@@ -80,10 +65,8 @@ export function useReviewSession(): ReviewSession {
     index,
     length: frozen.length,
     done,
-    revealed,
     marked,
     reads,
-    reveal,
     mark,
     next,
     prev,

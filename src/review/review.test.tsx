@@ -48,14 +48,6 @@ function baseSeed(over: Partial<Snapshot> = {}): Snapshot {
         kind: "note",
         created_at: "2026-01-01T00:00:02Z",
       }),
-      note({
-        id: "f1",
-        title: "Pregunta uno",
-        notebook_id: "c1",
-        position: 0,
-        kind: "flashcard",
-        created_at: "2026-01-01T00:00:03Z",
-      }),
     ] as unknown as Snapshot["notes"],
     reads: [],
     habits: [habit({ id: "h1", name: "Gym", metric: "count", target: 3, period: "week" })],
@@ -92,24 +84,6 @@ test("Enter abre nota sin marcar; Enter en dialog gateado a IntersectionObserver
   await screen.findByText("Nota dos")
   expect((await store.snapshot()).reads).toEqual([expect.objectContaining({ note_id: "n1" })])
   expect(screen.getByText("2 / 2")).toBeInTheDocument()
-})
-
-test("Flashcard Enter revela y Correcto idempotente sin avanzar", async () => {
-  const { store } = renderReview()
-  await screen.findByText("Nota uno")
-  fireEvent.keyDown(document, { code: "ArrowRight" })
-  fireEvent.keyDown(document, { code: "ArrowRight" })
-  await screen.findByText("Pregunta uno")
-  expect(screen.queryByTestId("editor")).not.toBeInTheDocument()
-  fireEvent.keyDown(document, { code: "Enter" })
-  // Historia 7: la respuesta revelada es texto simple (sin editor); la flashcard seedeada viene vacía.
-  await screen.findByText("Nota sin contenido todavía.")
-  fireEvent.click(screen.getByRole("button", { name: "Correcto" }))
-  await waitFor(async () => expect((await store.snapshot()).reads).toHaveLength(1))
-  expect(screen.getByRole("button", { name: "Correcto" })).toBeDisabled()
-  fireEvent.click(screen.getByRole("button", { name: "Correcto" }))
-  expect((await store.snapshot()).reads).toHaveLength(1)
-  expect(await screen.findByText("Pregunta uno")).toBeInTheDocument()
 })
 
 test("sesión continua: pasa de 3 sin corte, i / vistas, fin sin Cargar más", async () => {
@@ -171,20 +145,6 @@ test("sesión continua: pasa de 3 sin corte, i / vistas, fin sin Cargar más", a
   fireEvent.keyDown(document, { code: "ArrowRight" })
   await screen.findByText("Repasaste todo.")
   expect(screen.queryByRole("button", { name: "Cargar más" })).toBeNull()
-})
-
-test("con ConfirmDelete abierto, Enter no queda capturado por Repaso", async () => {
-  const { store } = renderReview()
-  await screen.findByText("Nota uno")
-  fireEvent.keyDown(document, { code: "ArrowRight" })
-  fireEvent.keyDown(document, { code: "ArrowRight" })
-  await screen.findByText("Pregunta uno")
-  fireEvent.click(screen.getByRole("button", { name: "Revelar respuesta" }))
-  fireEvent.click(screen.getByRole("button", { name: "Borrar flashcard" }))
-  await screen.findByRole("alertdialog")
-  const notPrevented = fireEvent.keyDown(document, { code: "Enter" })
-  expect(notPrevented).toBe(true)
-  expect((await store.snapshot()).reads).toHaveLength(0)
 })
 
 test("sin notas: invita a escribir, sin Cargar más", async () => {
@@ -261,33 +221,6 @@ function gateNote(gatedId: string) {
   })
   return { spy, release: () => act(() => release()) }
 }
-
-test("flashcard → nota demorada: el placeholder nunca es la flashcard (no filtra la respuesta)", async () => {
-  const { release } = gateNote("n2")
-  renderReview({
-    notes: [
-      note({ id: "n1", title: "Nota uno", created_at: "2026-01-01T00:00:01Z" }),
-      note({
-        id: "f1",
-        title: "Pregunta uno",
-        kind: "flashcard",
-        content: doc("Respuesta secreta"),
-        created_at: "2026-01-01T00:00:02Z",
-      }),
-      note({ id: "n2", title: "Nota dos", created_at: "2026-01-01T00:00:03Z" }),
-    ] as unknown as Snapshot["notes"],
-  })
-  await screen.findByText("Nota uno")
-  fireEvent.keyDown(document, { code: "ArrowRight" })
-  fireEvent.click(await screen.findByRole("button", { name: "Revelar respuesta" }))
-  await screen.findByText("Respuesta secreta")
-  fireEvent.keyDown(document, { code: "ArrowRight" })
-  expect(screen.queryByText("Pregunta uno")).toBeNull()
-  expect(screen.queryByText("Respuesta secreta")).toBeNull()
-  expect(screen.getByText("Gym")).toBeInTheDocument() // skeleton sólo en la card
-  release()
-  await screen.findByText("Nota dos")
-})
 
 test("placeholder: la card entera es la anterior (notebook, posición, ←), no mezclada", async () => {
   const { release } = gateNote("n2")
