@@ -9,9 +9,9 @@ Fuente de verdad del routing. Si agregás una ruta, actualizá acá y en `src/ap
 
 | Path | Component | Archivo | Notas |
 |---|---|---|---|
-| `/` | `<Review />` | `src/review/review.tsx` | Repaso: cola `derive.reviewQueue(snapshot)` completa (notas + flashcards mezcladas), congelada al montar y servida de a una. `Enter` abre dialog, `J`/`K` navega sin contar |
+| `/` | `<Review />` | `src/review/review.tsx` | Repaso: cola `derive.reviewQueue(snapshot)` completa (solo notas), congelada al montar y servida de a una. `Enter` abre dialog, `J`/`K` navega sin contar |
 | `/courses` | `<Courses />` | `src/courses/courses.tsx` | Lista cursos con estado/progreso derivado. `?new=1` abre form creación |
-| `/course/:id` | `<Course />` | `src/courses/course.tsx` | Curso + sus notas (`kind='note'`). Botón "Generar flashcards" + % retención |
+| `/course/:id` | `<Course />` | `src/courses/course.tsx` | Curso + sus notas (`kind='note'`). % retención |
 | `/course/:id/:noteId` | `<Course />` | `src/courses/course.tsx` | Misma pantalla, nota enfocada. Con `?focus=1` entra en focus mode |
 | `/note/:id` | `<Note />` | `src/notes/note.tsx` | Solo orphans (`course_id null`). Con curso, usa la ruta de arriba |
 
@@ -26,7 +26,6 @@ Shell: `src/app.tsx:55` — sidebar + overlays (`⌘K` palette `src/core/compone
 |---|---|---|
 | Hábitos — tira + panel | `src/review/review.tsx` + `src/habits/habit-tiles.tsx` / `habit-panel.tsx` | Tiles en Hoy debajo del repaso, `Dropover` (`src/core/ui/dropover.tsx`) para 14 días, `Dialog` (`src/habits/habits-dialog.tsx`) para CRUD |
 | Settings / Themes | `Dialog` (Radix vía shadcn, `CONTEXT.md:151-155`) | Toggle `bita-theme` ya en `src/app.tsx:64-69` + `src/core/components/sidebar.tsx`. Multi-theme futuro mismo Dialog, no ruta |
-| Flashcards gen | Botón en `src/courses/course.tsx:208` → `supabase/functions/generate-flashcards` (ADR 0010) | No es pantalla, es acción |
 
 ## Pendientes para seguir — NO son rutas nuevas
 
@@ -40,7 +39,7 @@ Ordenado por costo/conflicto (`/.scratch/platform-features/to-grill-platform-fea
    la superficie de overlay: viewport meta, Sidebar→Sheet, `useIsMobile`, `Dropover` y
    Cursos-fuerza-cards ya existían. `Drialog` (`src/core/ui/drialog.tsx`) cierra el hueco.
 3. **Más shortcuts** — inventario de acciones sin tecla (`docs/ui-principles.md:24-46`).
-4. **Tonos de nota vía AI** — vive en `Note` (`src/notes/note.tsx` + `src/core/components/editor.tsx`), reusa Edge Function `generate-flashcards` (ADR 0010). Solo falta spec.
+4. **Tonos de nota vía AI** — vive en `Note` (`src/notes/note.tsx` + `src/core/components/editor.tsx`). Solo falta spec.
 
 ### Gateados — no tocar sin grill
 - **Sidebar AI** — bloqueado por `ui-principles.md#3` "chrome mínimo". Infra resuelta (ADR 0010), falta caso de uso.
