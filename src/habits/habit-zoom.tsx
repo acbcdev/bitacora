@@ -106,7 +106,7 @@ export function HabitZoom({
             aria-hidden
             onClick={toggle}
             className={cn(
-              "relative flex items-baseline text-[min(24vw,42vh)] leading-none font-normal tracking-tighter tabular-nums transition-colors dark:font-light",
+              "relative flex items-baseline select-none text-[min(24vw,42vh)] leading-none font-normal tracking-tighter tabular-nums transition-colors dark:font-light",
               !r.running && "text-muted-foreground",
             )}
           >
