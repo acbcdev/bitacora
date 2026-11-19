@@ -599,9 +599,9 @@
   @apply rounded bg-muted px-[0.15em] font-mono text-[0.8em] tracking-[-0.01em] text-[var(--p-red)];
   box-decoration-break: clone;
 }
-/* pt-10: deja lugar al header del node view (lenguaje + copiar), que va absoluto arriba. */
+/* pt-12: deja lugar al header del node view (lenguaje + acciones), que va absoluto arriba. */
 .tiptap-host .ProseMirror pre {
-  @apply overflow-x-auto rounded-lg border bg-sunken px-4 pt-10 pb-4 font-mono text-sm leading-relaxed;
+  @apply overflow-x-auto rounded-lg border bg-sunken px-5 pt-12 pb-5 font-mono text-sm leading-relaxed;
 }
 .tiptap-host .ProseMirror pre code {
   @apply bg-transparent p-0 text-[length:inherit] tracking-normal text-inherit;

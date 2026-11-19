@@ -1,10 +1,12 @@
 import { useState } from "react"
+import type { ReactNode } from "react"
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react"
 import type { NodeViewProps } from "@tiptap/react"
 import { BracesIcon, CheckIcon, CopyIcon, DownloadIcon, WrapTextIcon } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/core/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/core/ui/select"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/core/ui/tooltip"
 
 // ponytail: solo los lenguajes comunes; el resto cae a .txt
 const EXTENSIONS: Record<string, string> = {
@@ -51,6 +53,39 @@ const PARSERS: Record<string, [string, ...(() => Promise<object>)[]]> = {
   yaml: ["yaml", yaml],
   yml: ["yaml", yaml],
   graphql: ["graphql", graphql],
+}
+
+function Action({
+  label,
+  pressed,
+  onClick,
+  children,
+}: {
+  label: string
+  pressed?: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  // Provider propio: los node views de TipTap se renderizan fuera del contexto de la app.
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={label}
+            aria-pressed={pressed}
+            className="aria-pressed:bg-muted"
+            onClick={onClick}
+          >
+            {children}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 }
 
 // Node view del code block: header con el lenguaje (select nativo, opciones = las que registró
@@ -114,7 +149,7 @@ export function CodeBlockView({
     <NodeViewWrapper className="relative py-1">
       <div
         contentEditable={false}
-        className="absolute inset-x-2.5 top-2.5 flex items-center justify-between"
+        className="absolute inset-x-[max(0.625rem,calc(var(--radius-lg)*0.6))] top-[max(0.625rem,calc(var(--radius-lg)*0.4))] flex items-center justify-between"
       >
         <Select
           value={current}
@@ -136,28 +171,21 @@ export function CodeBlockView({
             ))}
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1 [&>button:hover]:bg-foreground/12">
           {PARSERS[current] && editor.isEditable && (
-            <Button variant="ghost" size="icon-xs" aria-label="Formatear código" onClick={format}>
+            <Action label="Formatear código" onClick={format}>
               <BracesIcon />
-            </Button>
+            </Action>
           )}
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label="Ajustar líneas"
-            aria-pressed={wrap}
-            className="aria-pressed:bg-muted"
-            onClick={() => setWrap(!wrap)}
-          >
+          <Action label="Ajustar líneas" pressed={wrap} onClick={() => setWrap(!wrap)}>
             <WrapTextIcon />
-          </Button>
-          <Button variant="ghost" size="icon-xs" aria-label="Descargar código" onClick={download}>
+          </Action>
+          <Action label="Descargar código" onClick={download}>
             <DownloadIcon />
-          </Button>
-          <Button variant="ghost" size="icon-xs" aria-label="Copiar código" onClick={copy}>
+          </Action>
+          <Action label="Copiar código" onClick={copy}>
             {copied ? <CheckIcon /> : <CopyIcon />}
-          </Button>
+          </Action>
         </div>
       </div>
       <pre className={wrap ? "whitespace-pre-wrap break-words" : undefined}>
