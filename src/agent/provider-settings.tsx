@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Plus } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Input } from "@/core/ui/input"
+import { fetchCapabilities } from "@/core/agent/capabilities"
 import {
   DEFAULT_ANTHROPIC_MODEL,
   PRESETS,
@@ -140,8 +141,10 @@ function ProviderForm({ initial, onDone }: { initial: ProviderConfig; onDone: ()
     setTesting(true)
     setStatus(null)
     try {
-      const ids = await fetchModels({ ...draft, apiKey: draft.apiKey.trim() })
-      setDraft((d) => ({ ...d, models: mergeModels(d.models, ids) }))
+      const probe = { ...draft, apiKey: draft.apiKey.trim() }
+      const ids = await fetchModels(probe)
+      const caps = await fetchCapabilities(probe, ids)
+      setDraft((d) => ({ ...d, models: mergeModels(d.models, ids, caps) }))
       setStatus({ ok: true, text: `Conexión OK: ${ids.length} modelos.` })
     } catch (e) {
       // Error crudo; el usuario puede tipear el id del modelo a mano.

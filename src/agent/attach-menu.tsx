@@ -13,15 +13,16 @@ import {
 } from "@/core/ui/dropdown-menu"
 import { store } from "@/core/store"
 import { useSnapshot } from "@/core/lib/snapshot"
+import type { Caps } from "@/core/agent/capabilities"
 import { supportsVision, type Attachment } from "@/core/agent/attachments"
 import { readFile, resolveRef, type AttachRef } from "@/agent/attachments"
 
 export type Picked = { label: string; attachment: Attachment }
 
 // El `+` del composer: referencias (nota/notebook/hábito) y archivos. Imágenes solo con visión.
-export function AttachMenu({ model, onPick }: { model: string; onPick: (p: Picked) => void }) {
+export function AttachMenu({ caps, onPick }: { caps?: Caps; onPick: (p: Picked) => void }) {
   const fileInput = useRef<HTMLInputElement>(null)
-  const vision = supportsVision(model)
+  const vision = supportsVision(caps)
   const { data } = useSnapshot((s) => ({
     nota: s.notes.filter((n) => n.kind === "note").map((n) => ({ id: n.id, label: n.title })),
     notebook: s.notebooks.map((n) => ({ id: n.id, label: n.name })),

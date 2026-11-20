@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useMatch } from "react-router-dom"
-import { Bot, Send, X } from "lucide-react"
+import { Bot, Send, Square, X } from "lucide-react"
 import type { ModelMessage } from "ai"
 import { Button } from "@/core/ui/button"
 import { Textarea } from "@/core/ui/textarea"
@@ -74,10 +74,20 @@ function Chat({
   modelId: string
   settings: AgentSettings
 }) {
-  const { messages, busy, error, last, proposal, send, approve, discard } = useAgentChat(
-    provider,
-    modelId,
-  )
+  const {
+    messages,
+    busy,
+    error,
+    malformed,
+    last,
+    session,
+    proposal,
+    send,
+    stop,
+    approve,
+    discard,
+  } = useAgentChat(provider, modelId)
+  const caps = provider.models.find((m) => m.id === modelId)?.caps
   const open = useOpenContext()
   const [chipOff, setChipOff] = useState(false)
   const [draft, setDraft] = useState("")
@@ -124,13 +134,20 @@ function Chat({
             {error}
           </p>
         )}
+        {malformed !== null && (
+          <details className="text-xs text-muted-foreground">
+            <summary>El modelo no logró llamar bien a las tools</summary>
+            <pre className="mt-1 break-words whitespace-pre-wrap">{malformed}</pre>
+          </details>
+        )}
         {last && !busy && (
           <span
             className="mono-dim"
-            title={`${last.usage.input} entrada · ${last.usage.output} salida · ${last.steps} pasos · ${modelId}`}
+            title={`${last.usage.input} entrada · ${last.usage.output} salida · ${last.steps} pasos · ${modelId} · sesión: ${session.input + session.output} tokens`}
           >
             {last.usage.input + last.usage.output} tokens
-            {last.finish === "limit" && " · llegué al límite de pasos"}
+            {last.finish === "limit" && " · Llegué al límite de pasos"}
+            {last.finish === "aborted" && " · detenido"}
           </span>
         )}
         <div ref={end} />
@@ -166,7 +183,7 @@ function Chat({
           </span>
         ))}
         <div className="flex items-end gap-2">
-          <AttachMenu model={modelId} onPick={(p) => setPicked((l) => [...l, p])} />
+          <AttachMenu caps={caps} onPick={(p) => setPicked((l) => [...l, p])} />
           <Textarea
             aria-label="Mensaje al Agente"
             rows={1}
@@ -181,9 +198,15 @@ function Chat({
             }}
             className="max-h-40 min-h-9 flex-1 resize-none"
           />
-          <Button size="icon" aria-label="Enviar" disabled={busy || !draft.trim()} onClick={submit}>
-            <Send />
-          </Button>
+          {busy ? (
+            <Button size="icon" aria-label="Detener" onClick={stop}>
+              <Square />
+            </Button>
+          ) : (
+            <Button size="icon" aria-label="Enviar" disabled={!draft.trim()} onClick={submit}>
+              <Send />
+            </Button>
+          )}
         </div>
         <ModelPicker settings={settings} active={{ provider, modelId }} />
       </div>

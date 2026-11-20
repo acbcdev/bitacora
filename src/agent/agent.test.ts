@@ -1,5 +1,5 @@
 import { MockLanguageModelV4 } from "ai/test"
-import { runTurn } from "@/core/agent/turn"
+import { MAX_STEPS, runTurn } from "@/core/agent/turn"
 import { localStore } from "@/core/store/local-store"
 import { docToMarkdown, markdownToDoc } from "@/core/lib/tiptap-markdown"
 import { applyProposal } from "@/core/agent/proposal"
@@ -15,11 +15,23 @@ const store = localStore()
 beforeEach(() => localStorage.clear())
 
 const usage = {
-  inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined },
+  inputTokens: {
+    total: 10,
+    noCache: 10,
+    cacheRead: undefined,
+    cacheWrite: undefined,
+  },
   outputTokens: { total: 5, text: 5, reasoning: undefined },
 }
 const call = (toolName: string, input: object, id = "c1") => ({
-  content: [{ type: "tool-call" as const, toolCallId: id, toolName, input: JSON.stringify(input) }],
+  content: [
+    {
+      type: "tool-call" as const,
+      toolCallId: id,
+      toolName,
+      input: JSON.stringify(input),
+    },
+  ],
   finishReason: { unified: "tool-calls" as const, raw: undefined },
   usage,
   warnings: [],
@@ -79,7 +91,11 @@ test("un turno que lee: el modelo llama read_note, ve la nota como dato y respon
 test("get_overview y list_notes exploran sin recibir todo empujado", async () => {
   await store.save("notebooks", { name: "Álgebra" })
   const [nb] = (await store.snapshot()).notebooks
-  await store.save("notes", { notebook_id: nb.id, position: 0, title: "Matrices" })
+  await store.save("notes", {
+    notebook_id: nb.id,
+    position: 0,
+    title: "Matrices",
+  })
 
   const model = new MockLanguageModelV4({
     doGenerate: [
@@ -88,7 +104,12 @@ test("get_overview y list_notes exploran sin recibir todo empujado", async () =>
       say("Listo."),
     ],
   })
-  await runTurn({ model, store, tools: agentTools, messages: user("qué tengo") })
+  await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("qué tengo"),
+  })
 
   expect(seen(model, 1)).toContain("Álgebra")
   expect(seen(model, 2)).toContain("Matrices")
@@ -98,7 +119,12 @@ test("tool inexistente o args inválidos vuelven al modelo, el turno no explota"
   const model = new MockLanguageModelV4({
     doGenerate: [call("borrar_todo", {}), call("read_note", {}, "c2"), say("No pude.")],
   })
-  const turn = await runTurn({ model, store, tools: agentTools, messages: user("hola") })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("hola"),
+  })
   expect(turn.text).toBe("No pude.")
   expect(turn.steps).toBe(3)
 })
@@ -113,7 +139,12 @@ test("las lecturas del turno ven el overlay y el Store no cambia hasta aprobar",
       say("Listo."),
     ],
   })
-  const turn = await runTurn({ model, store, tools: agentTools, messages: user("armá Física") })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("armá Física"),
+  })
   expect(seen(model, 1)).toContain("Propuesto")
   expect(seen(model, 2)).toContain("Física") // get_overview ve el notebook borrador
   expect((await store.snapshot()).notebooks).toHaveLength(0)
@@ -138,7 +169,12 @@ test("crear notebook y notas adentro: aprobar escribe todo con los ids definitiv
       return say("Listo.")
     },
   })
-  const turn = await runTurn({ model, store, tools: agentTools, messages: user("armá Física") })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("armá Física"),
+  })
   expect(seen(model, 3)).toContain("Cinemática") // list_notes ve la nota borrador
   expect(turn.proposal?.ops.map((o) => o.entity)).toEqual(["notebooks", "notes"])
 
@@ -153,7 +189,12 @@ test("descartar no deja rastro: sin aprobar el Store queda intacto", async () =>
   const model = new MockLanguageModelV4({
     doGenerate: [call("create_notebook", { name: "Nuevo" }), say("ok")],
   })
-  await runTurn({ model, store, tools: agentTools, messages: user("hacé uno") })
+  await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("hacé uno"),
+  })
   expect((await store.snapshot()).notebooks.map((n) => n.name)).toEqual(["Viejo"])
 })
 
@@ -165,7 +206,12 @@ test("update_note reemplaza el cuerpo y deja before para deshacer; log_habit_day
   })
   await store.save("habits", { name: "Leer", metric: "count", target: 5 })
   const [habit] = (await store.snapshot()).habits
-  await store.save("habit_log", { habit_id: habit.id, day: "2026-01-02", amount: 1, target: 3 })
+  await store.save("habit_log", {
+    habit_id: habit.id,
+    day: "2026-01-02",
+    amount: 1,
+    target: 3,
+  })
 
   const model = new MockLanguageModelV4({
     doGenerate: [
@@ -174,7 +220,12 @@ test("update_note reemplaza el cuerpo y deja before para deshacer; log_habit_day
       say("ok"),
     ],
   })
-  const turn = await runTurn({ model, store, tools: agentTools, messages: user("editá") })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("editá"),
+  })
   const [upd, log] = turn.proposal!.ops
   expect(upd.before).toMatchObject({ id: nota.id, content: nota.content })
   expect(log.after).toMatchObject({ amount: 4, target: 3 }) // el congelado, no el vivo (5)
@@ -190,7 +241,12 @@ test("un turno sin escrituras no propone nada; un id inexistente vuelve al model
   const model = new MockLanguageModelV4({
     doGenerate: [call("update_habit", { id: "nope", name: "x" }), say("no existe")],
   })
-  const turn = await runTurn({ model, store, tools: agentTools, messages: user("editá") })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("editá"),
+  })
   expect(turn.proposal).toBeNull()
   expect(seen(model, 1)).toContain("nope")
 })
@@ -218,7 +274,12 @@ test("adjuntos: la nota referenciada llega al modelo entera y envuelta como dato
   })
   const model = new MockLanguageModelV4({ doGenerate: [say("ok")] })
   const att = await resolveRef(store, { kind: "nota", id: nota.id })
-  await runTurn({ model, store, tools: agentTools, messages: [userMessage("resumí", [att])] })
+  await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: [userMessage("resumí", [att])],
+  })
 
   const sent = JSON.stringify(model.doGenerateCalls[0].prompt.filter((m) => m.role === "user"))
   expect(sent).toContain("resumí")
@@ -230,9 +291,119 @@ test("adjuntos: archivo de texto va como dato, imagen como archivo de imagen, PD
   const model = new MockLanguageModelV4({ doGenerate: [say("ok")] })
   const txt = await readFile(new File(["a,b\n1,2"], "datos.csv", { type: "text/csv" }))
   const img = await readFile(new File(["x"], "foto.png", { type: "image/png" }))
-  await runTurn({ model, store, tools: agentTools, messages: [userMessage("mirá", [txt, img])] })
+  await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: [userMessage("mirá", [txt, img])],
+  })
   const content = model.doGenerateCalls[0].prompt.find((m) => m.role === "user")!.content
   expect(JSON.stringify(content)).toContain('<archivo nombre=\\"datos.csv\\">')
   expect(content.some((p) => p.type === "file" && p.mediaType.startsWith("image/"))).toBe(true)
   await expect(readFile(new File(["%PDF"], "a.pdf", { type: "application/pdf" }))).rejects.toThrow()
+})
+
+// ── Costo y robustez (ticket 08) ──────────────────────────────────────────────────────────────
+
+test("tope de pasos: un modelo que no para corta en MAX_STEPS con finish 'limit'", async () => {
+  const model = new MockLanguageModelV4({
+    doGenerate: async () => call("get_overview", {}, crypto.randomUUID()),
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("seguí"),
+  })
+  expect(turn.steps).toBe(MAX_STEPS)
+  expect(turn.finish).toBe("limit")
+})
+
+test("el tope de pasos deja intacta la Propuesta parcial", async () => {
+  const model = new MockLanguageModelV4({
+    doGenerate: async ({ prompt }) =>
+      prompt.some((m) => m.role === "tool")
+        ? call("get_overview", {}, crypto.randomUUID())
+        : call("create_notebook", { name: "Parcial" }, "w"),
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("seguí"),
+  })
+  expect(turn.finish).toBe("limit")
+  expect(turn.proposal?.ops).toHaveLength(1)
+})
+
+test("Detener: abortar corta el turno y lo ya borrador queda como Propuesta normal", async () => {
+  const ctl = new AbortController()
+  let n = 0
+  const model = new MockLanguageModelV4({
+    doGenerate: async () => {
+      if (n++ === 0) return call("create_notebook", { name: "A medias" }, "w")
+      ctl.abort()
+      throw ctl.signal.reason
+    },
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("armá"),
+    abortSignal: ctl.signal,
+  })
+  expect(turn.finish).toBe("aborted")
+  expect(turn.proposal?.ops.map((o) => o.entity)).toEqual(["notebooks"])
+  // El hilo parcial queda consistente (assistant + tool) para poder seguir conversando.
+  expect(turn.messages.map((m) => m.role)).toEqual(["assistant", "tool"])
+  expect(turn.usage).toEqual({ input: 10, output: 5 })
+})
+
+test("tool-call malformado: vuelve al modelo y se reintenta hasta 2 veces", async () => {
+  const model = new MockLanguageModelV4({
+    doGenerate: [
+      call("borrar_todo", {}, "a"), // tool inexistente
+      call("read_note", {}, "b"), // args fuera de schema
+      say("Ahora sí."),
+    ],
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("hola"),
+  })
+  expect(turn.finish).toBe("stop")
+  expect(turn.text).toBe("Ahora sí.")
+  expect(turn.malformed).toBeUndefined()
+})
+
+test("tool-call malformado: al tercer fallo seguido el turno corta con el detalle crudo", async () => {
+  const model = new MockLanguageModelV4({
+    doGenerate: async () => call("borrar_todo", { x: 1 }, crypto.randomUUID()),
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("hola"),
+  })
+  expect(turn.finish).toBe("malformed")
+  expect(turn.steps).toBe(3) // 1 intento + 2 reintentos
+  expect(turn.malformed).toContain("borrar_todo")
+})
+
+test("un tool-call válido en el medio reinicia la cuenta de reintentos", async () => {
+  const bad = (id: string) => call("borrar_todo", {}, id)
+  const model = new MockLanguageModelV4({
+    doGenerate: [bad("a"), bad("b"), call("get_overview", {}, "c"), bad("d"), bad("e"), say("ok")],
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("hola"),
+  })
+  expect(turn.finish).toBe("stop")
 })
