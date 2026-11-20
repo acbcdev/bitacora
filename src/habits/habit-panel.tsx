@@ -300,7 +300,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
                   onChange={(e) => write(Math.max(0, Number(e.target.value) || 0))}
                   aria-label={`Cantidad de ${label}`}
                   style={{ width: `${Math.max(1, String(shown).length) + 0.2}ch` }}
-                  className="rounded-md bg-transparent text-center text-4xl font-normal tracking-tighter tabular-nums outline-none transition-colors [appearance:textfield] hover:bg-muted/60 focus:bg-muted [&::-webkit-inner-spin-button]:appearance-none"
+                  className="bg-transparent text-center text-4xl font-normal tracking-tighter tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <small className="ml-1 text-base text-muted-foreground">
                   /{target}
