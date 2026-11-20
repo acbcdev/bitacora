@@ -153,7 +153,7 @@ function Chat({
           </span>
         ))}
         <div className="flex items-end gap-2">
-          <AttachMenu model={provider.model} onPick={(p) => setPicked((l) => [...l, p])} />
+          <AttachMenu model={modelId} onPick={(p) => setPicked((l) => [...l, p])} />
           <Textarea
             aria-label="Mensaje al Agente"
             rows={1}
