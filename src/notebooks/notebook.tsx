@@ -5,6 +5,7 @@ import {
   Check,
   ChevronDown,
   ListTree,
+  Bot,
   MoreHorizontal,
   PanelRight,
   Pencil,
@@ -34,7 +35,7 @@ import { Kbd } from "@/core/ui/kbd"
 import { Sidebar, SidebarProvider } from "@/core/ui/sidebar"
 import { Tabs, TabsList, TabsTrigger } from "@/core/ui/tabs"
 import { useAgentUi } from "@/agent/agent-ui"
-import { AgentContent } from "@/agent/agent-sidebar"
+import { AgentContent, AgentSlot } from "@/agent/agent-sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useQueryClient } from "@tanstack/react-query"
 import {
@@ -547,11 +548,34 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
       )}
 
       {isMobile && (
-        <Drawer open={indexSheet} onOpenChange={setIndexSheet}>
+        // Un solo Drawer con pestañas "Notas | Agente": la pastilla abre en Notas, el ícono en Agente.
+        <Drawer
+          open={indexSheet || agent.open}
+          onOpenChange={(o) => {
+            if (o) return
+            setIndexSheet(false)
+            agent.setOpen(false)
+          }}
+        >
           <DrawerContent className="h-[85dvh]">
-            <DrawerTitle className="sr-only">Notas del notebook</DrawerTitle>
-            <DrawerDescription className="sr-only">Elegí una nota para abrirla</DrawerDescription>
-            {index}
+            <DrawerTitle className="sr-only">Notas y Agente</DrawerTitle>
+            <DrawerDescription className="sr-only">
+              Elegí una nota para abrirla o hablá con el Agente
+            </DrawerDescription>
+            <Tabs
+              value={agent.open ? "agent" : "notes"}
+              onValueChange={(v) => {
+                agent.setOpen(v === "agent")
+                setIndexSheet(v !== "agent")
+              }}
+              className="shrink-0 px-4 pt-3"
+            >
+              <TabsList className="w-full">
+                <TabsTrigger value="notes">Notas</TabsTrigger>
+                <TabsTrigger value="agent">Agente</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {agent.open ? <AgentSlot /> : index}
           </DrawerContent>
         </Drawer>
       )}
@@ -559,17 +583,29 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
         !focus &&
         barSlot &&
         createPortal(
-          <button
-            onClick={() => setIndexSheet(true)}
-            aria-label="Ver todas las notas"
-            className="mr-1 ml-auto flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-pill bg-muted px-4 text-base whitespace-nowrap transition-[background-color,scale] duration-150 ease-out active:scale-[0.98]"
-          >
-            <ListTree className="size-4 shrink-0 text-muted-foreground" />
-            <span className="tabular-nums">
-              {selected ? `${notes.indexOf(selected) + 1} / ${notes.length}` : "Notas"}
-            </span>
-            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-          </button>,
+          <>
+            <button
+              onClick={() => agent.setOpen(true)}
+              aria-label="Agente"
+              className="ml-auto grid size-11 shrink-0 cursor-pointer place-items-center rounded-pill text-muted-foreground transition-[color,scale] duration-150 ease-out hover:text-foreground active:scale-95"
+            >
+              <Bot className="size-5" />
+            </button>
+            <button
+              onClick={() => {
+                agent.setOpen(false)
+                setIndexSheet(true)
+              }}
+              aria-label="Ver todas las notas"
+              className="mr-1 flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-pill bg-muted px-4 text-base whitespace-nowrap transition-[background-color,scale] duration-150 ease-out active:scale-[0.98]"
+            >
+              <ListTree className="size-4 shrink-0 text-muted-foreground" />
+              <span className="tabular-nums">
+                {selected ? `${notes.indexOf(selected) + 1} / ${notes.length}` : "Notas"}
+              </span>
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+            </button>
+          </>,
           barSlot,
         )}
 

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import { useMatch } from "react-router-dom"
 import { Bot, Plus, Send, X } from "lucide-react"
+import { toast } from "sonner"
+import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import type { ModelMessage } from "ai"
 import { Button } from "@/core/ui/button"
 import {
@@ -100,6 +102,19 @@ function Chat({
     hasApplied,
   } = useAgentChat(provider, modelId)
   const [confirmReset, setConfirmReset] = useState(false)
+  const isMobile = useIsMobile()
+  // Mobile: el toast con Deshacer sobrevive al Drawer (el chat vive en AgentHost, no en el Drawer).
+  const applied = proposal?.status === "applied"
+  useEffect(() => {
+    if (!isMobile || !applied) return
+    toast("Cambios aplicados", {
+      description: undoable.join(" · "),
+      duration: 8000,
+      action: { label: "Deshacer", onClick: () => void undo() },
+    })
+    // Solo al pasar a "applied": undoable/undo cambian después sin ser un cambio nuevo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applied])
   const open = useOpenContext()
   const [chipOff, setChipOff] = useState(false)
   const [draft, setDraft] = useState("")
@@ -235,8 +250,8 @@ function Chat({
             </Button>
           </span>
         ))}
-        <div className="flex items-end gap-2">
-          <AttachMenu model={modelId} onPick={(p) => setPicked((l) => [...l, p])} />
+        {/* Desktop: una fila + selector de modelo abajo. Mobile: dos filas (texto / acciones). */}
+        <div className="flex flex-wrap items-end gap-2 md:flex-nowrap">
           <Textarea
             aria-label="Mensaje al Agente"
             rows={1}
@@ -249,13 +264,27 @@ function Chat({
                 submit()
               }
             }}
-            className="max-h-40 min-h-9 flex-1 resize-none"
+            className="order-1 max-h-40 min-h-11 w-full flex-1 resize-none md:order-2 md:min-h-9 md:w-auto"
           />
-          <Button size="icon" aria-label="Enviar" disabled={busy || !draft.trim()} onClick={submit}>
+          <div className="order-2 md:order-1 [&_button]:max-md:size-11">
+            <AttachMenu model={modelId} onPick={(p) => setPicked((l) => [...l, p])} />
+          </div>
+          {isMobile && (
+            <div className="order-3 min-w-0 flex-1 [&_button]:h-11">
+              <ModelPicker settings={settings} active={{ provider, modelId }} />
+            </div>
+          )}
+          <Button
+            size="icon"
+            aria-label="Enviar"
+            disabled={busy || !draft.trim()}
+            onClick={submit}
+            className="order-4 max-md:size-11"
+          >
             <Send />
           </Button>
         </div>
-        <ModelPicker settings={settings} active={{ provider, modelId }} />
+        {!isMobile && <ModelPicker settings={settings} active={{ provider, modelId }} />}
       </div>
     </div>
   )

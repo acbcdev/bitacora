@@ -44,3 +44,32 @@ test("sin tocar la pestaña Cambios, aprueba la Propuesta intacta", () => {
   fireEvent.click(screen.getByRole("button", { name: /Aprobar/ }))
   expect(onApprove.mock.calls[0][0].ops[0]).toBe(op)
 })
+
+describe("mobile", () => {
+  const width = window.innerWidth
+  beforeEach(() => {
+    window.innerWidth = 375
+  })
+  afterEach(() => {
+    window.innerWidth = width
+  })
+
+  test("card resumen: Aprobar/Descartar sin atajo; la operación abre Diff | Cambios", async () => {
+    const onApprove = vi.fn()
+    render(
+      <ProposalCard
+        proposal={{ ops: [op] }}
+        status="pending"
+        onApprove={onApprove}
+        onDiscard={() => {}}
+      />,
+    )
+    expect(screen.getByRole("button", { name: "Descartar" })).toBeVisible()
+    expect(screen.queryByText("⌘↵")).toBeNull()
+    fireEvent.keyDown(window, { key: "Enter", metaKey: true })
+    expect(onApprove).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole("button", { name: /Editar nota/ }))
+    expect(await screen.findByRole("tab", { name: "Diff" })).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "Cambios" })).toBeInTheDocument()
+  })
+})
