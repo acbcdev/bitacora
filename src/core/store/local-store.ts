@@ -228,7 +228,11 @@ export function localStore(): Store {
             updated_at,
           }),
         ),
-        reads: read("read_log").map(({ note_id, read_at, grade }) => ({ note_id, read_at, grade })),
+        reads: read("read_log").map(({ note_id, read_at, grade }) => ({
+          note_id,
+          read_at,
+          grade,
+        })),
         habits: live(read("habits")),
         habitLog: read("habit_log").map(({ habit_id, day, amount, target }) => ({
           habit_id,
@@ -246,7 +250,11 @@ export function localStore(): Store {
       return found
     },
 
-    async save<E extends Writable>(entity: E, input: WriteInput[E]): Promise<WriteResult[E]> {
+    async save<E extends Writable>(
+      entity: E,
+      input: WriteInput[E],
+      opts?: { create?: boolean },
+    ): Promise<WriteResult[E]> {
       const { id, ...values } = input as { id?: string } & Record<string, unknown>
 
       // habit_log se identifica por su clave natural (habit_id, day), no por id — el unique de la
@@ -257,7 +265,11 @@ export function localStore(): Store {
         // completos; TS no lo ve porque WriteInput[E] se resuelve en runtime.
         const v = values as unknown as Omit<HabitLog, "id" | "user_id">
         const i = rows.findIndex((r) => r.habit_id === v.habit_id && r.day === v.day)
-        const row = { ...v, id: rows[i]?.id ?? crypto.randomUUID(), user_id: LOCAL_USER_ID }
+        const row = {
+          ...v,
+          id: rows[i]?.id ?? crypto.randomUUID(),
+          user_id: LOCAL_USER_ID,
+        }
         write("habit_log", i >= 0 ? rows.map((r, j) => (j === i ? row : r)) : [...rows, row])
         return undefined as WriteResult[E]
       }
@@ -280,7 +292,7 @@ export function localStore(): Store {
       const table = entity as "notebooks" | "notes" | "habits"
       const rows = read(table)
 
-      if (id) {
+      if (id && !opts?.create) {
         // updated_at es la señal de "última editada" (migración 0013): en Postgres lo pone el
         // trigger, acá lo setea el adapter — sólo notes, la única tabla con la columna.
         const touch = table === "notes" ? { updated_at: now() } : null
@@ -292,7 +304,7 @@ export function localStore(): Store {
       }
 
       const base = {
-        id: crypto.randomUUID(),
+        id: id ?? crypto.randomUUID(),
         user_id: LOCAL_USER_ID,
         ...DEFAULTS[table],
         ...values,

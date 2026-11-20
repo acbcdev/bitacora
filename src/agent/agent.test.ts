@@ -1,7 +1,9 @@
 import { MockLanguageModelV4 } from "ai/test"
 import { runTurn } from "@/core/agent/turn"
 import { localStore } from "@/core/store/local-store"
-import { markdownToDoc } from "@/core/lib/tiptap-markdown"
+import { docToMarkdown, markdownToDoc } from "@/core/lib/tiptap-markdown"
+import { applyProposal } from "@/core/agent/proposal"
+import { diffLines } from "@/core/agent/diff"
 import { agentTools } from "@/agent/tools"
 
 // Seam principal del Agente: núcleo + modelo falso + local-store real (en memoria vía jsdom).
@@ -97,4 +99,111 @@ test("tool inexistente o args inválidos vuelven al modelo, el turno no explota"
   const turn = await runTurn({ model, store, tools: agentTools, messages: user("hola") })
   expect(turn.text).toBe("No pude.")
   expect(turn.steps).toBe(3)
+})
+
+// ── Escrituras: Propuesta, Borradores, aprobar/descartar ──────────────────────────────────────
+
+test("las lecturas del turno ven el overlay y el Store no cambia hasta aprobar", async () => {
+  const model = new MockLanguageModelV4({
+    doGenerate: [
+      call("create_notebook", { name: "Física" }, "a"),
+      call("get_overview", {}, "b"),
+      say("Listo."),
+    ],
+  })
+  const turn = await runTurn({ model, store, tools: agentTools, messages: user("armá Física") })
+  expect(seen(model, 1)).toContain("Propuesto")
+  expect(seen(model, 2)).toContain("Física") // get_overview ve el notebook borrador
+  expect((await store.snapshot()).notebooks).toHaveLength(0)
+  expect(turn.proposal?.ops).toHaveLength(1)
+})
+
+test("crear notebook y notas adentro: aprobar escribe todo con los ids definitivos", async () => {
+  let nbId = ""
+  const model = new MockLanguageModelV4({
+    doGenerate: async ({ prompt }) => {
+      const n = prompt.filter((m) => m.role === "tool").length
+      if (n === 0) return call("create_notebook", { name: "Física" }, "a")
+      if (n === 1) {
+        nbId = /id ([0-9a-f-]{36})/.exec(JSON.stringify(prompt))![1]
+        return call(
+          "create_note",
+          { title: "Cinemática", content: "# v = d/t", notebook_id: nbId },
+          "b",
+        )
+      }
+      if (n === 2) return call("list_notes", { notebook_id: nbId }, "c")
+      return say("Listo.")
+    },
+  })
+  const turn = await runTurn({ model, store, tools: agentTools, messages: user("armá Física") })
+  expect(seen(model, 3)).toContain("Cinemática") // list_notes ve la nota borrador
+  expect(turn.proposal?.ops.map((o) => o.entity)).toEqual(["notebooks", "notes"])
+
+  await applyProposal(store, turn.proposal!)
+  const snap = await store.snapshot()
+  expect(snap.notebooks.map((n) => n.id)).toEqual([nbId])
+  expect(snap.notes.map((n) => [n.title, n.notebook_id])).toEqual([["Cinemática", nbId]])
+})
+
+test("descartar no deja rastro: sin aprobar el Store queda intacto", async () => {
+  await store.save("notebooks", { name: "Viejo" })
+  const model = new MockLanguageModelV4({
+    doGenerate: [call("create_notebook", { name: "Nuevo" }), say("ok")],
+  })
+  await runTurn({ model, store, tools: agentTools, messages: user("hacé uno") })
+  expect((await store.snapshot()).notebooks.map((n) => n.name)).toEqual(["Viejo"])
+})
+
+test("update_note reemplaza el cuerpo y deja before para deshacer; log_habit_day congela el target", async () => {
+  const nota = await store.save("notes", {
+    title: "A",
+    position: 0,
+    content: markdownToDoc("uno\n\ndos"),
+  })
+  await store.save("habits", { name: "Leer", metric: "count", target: 5 })
+  const [habit] = (await store.snapshot()).habits
+  await store.save("habit_log", { habit_id: habit.id, day: "2026-01-02", amount: 1, target: 3 })
+
+  const model = new MockLanguageModelV4({
+    doGenerate: [
+      call("update_note", { id: nota.id, content: "uno\n\ntres" }, "a"),
+      call("log_habit_day", { habit_id: habit.id, day: "2026-01-02", amount: 4 }, "b"),
+      say("ok"),
+    ],
+  })
+  const turn = await runTurn({ model, store, tools: agentTools, messages: user("editá") })
+  const [upd, log] = turn.proposal!.ops
+  expect(upd.before).toMatchObject({ id: nota.id, content: nota.content })
+  expect(log.after).toMatchObject({ amount: 4, target: 3 }) // el congelado, no el vivo (5)
+
+  const undo = await applyProposal(store, turn.proposal!)
+  expect(docToMarkdown((await store.note(nota.id)).content)).toBe("uno\n\ntres")
+  // Deshacer = re-aplicar `before` por el mismo camino.
+  await applyProposal(store, { ops: undo })
+  expect(docToMarkdown((await store.note(nota.id)).content)).toBe("uno\n\ndos")
+})
+
+test("un turno sin escrituras no propone nada; un id inexistente vuelve al modelo", async () => {
+  const model = new MockLanguageModelV4({
+    doGenerate: [call("update_habit", { id: "nope", name: "x" }), say("no existe")],
+  })
+  const turn = await runTurn({ model, store, tools: agentTools, messages: user("editá") })
+  expect(turn.proposal).toBeNull()
+  expect(seen(model, 1)).toContain("nope")
+})
+
+test("diffLines: LCS por línea", () => {
+  expect(diffLines("a\nb\nc", "a\nx\nc")).toEqual([
+    { type: "same", text: "a" },
+    { type: "del", text: "b" },
+    { type: "add", text: "x" },
+    { type: "same", text: "c" },
+  ])
+  expect(diffLines("", "a")).toEqual([{ type: "add", text: "a" }])
+  expect(diffLines("a", "")).toEqual([{ type: "del", text: "a" }])
+  expect(diffLines("a\nb", "a\nb")).toEqual([
+    { type: "same", text: "a" },
+    { type: "same", text: "b" },
+  ])
 })
