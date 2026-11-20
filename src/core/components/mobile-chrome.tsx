@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react"
 import { Link } from "react-router-dom"
-import { House, LayoutList, PanelLeft, Plus, Search } from "lucide-react"
+import { Bot, House, LayoutList, PanelLeft, Plus, Search } from "lucide-react"
 import { cn } from "@/core/lib/utils"
 import { useSnapshot } from "@/core/lib/snapshot"
 import { dailyCompliance } from "@/core/store/derive"
@@ -142,10 +142,13 @@ export function MobileDock({
   scroller,
   home,
   onSearch,
+  onAgent,
 }: {
   scroller: RefObject<HTMLElement | null>
   home: boolean
   onSearch: () => void
+  // Sin esto no hay ícono: en notebooks el Agente vive en la barra, junto a la pastilla de notas.
+  onAgent?: () => void
 }) {
   return (
     <nav
@@ -166,6 +169,12 @@ export function MobileDock({
         <Search className="size-5" />
         Buscar
       </button>
+      {onAgent && (
+        <button type="button" onClick={onAgent} className={DOCK_ITEM}>
+          <Bot className="size-5" />
+          Agente
+        </button>
+      )}
     </nav>
   )
 }

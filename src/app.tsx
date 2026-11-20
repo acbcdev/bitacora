@@ -38,7 +38,7 @@ import { ErrorBoundary } from "@/core/components/error-boundary"
 import { Review } from "@/review/review"
 import { HabitsDialog } from "@/habits/habits-dialog"
 import { AgentUiContext } from "@/agent/agent-ui"
-import { AgentSidebar } from "@/agent/agent-sidebar"
+import { AgentHost, AgentSidebar } from "@/agent/agent-sidebar"
 
 // Code splitting por ruta: tiptap/lowlight (el grueso del bundle) solo baja al abrir un notebook/nota.
 // Review es la home → eager. Named exports → el .then adapta a { default }.
@@ -368,8 +368,10 @@ function Shell({ user }: { user: AuthUser }) {
               scroller={scroller}
               home={pathname === "/"}
               onSearch={() => setPalette(true)}
+              onAgent={notebookId ? undefined : () => setAgentOpen(true)}
             />
           )}
+          <AgentHost />
           {jumps.map(([n, c]) => (
             <NotebookHotkey key={n} n={n} id={c.id} />
           ))}
