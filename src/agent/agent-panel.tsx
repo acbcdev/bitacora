@@ -1,8 +1,18 @@
 import { useEffect, useRef, useState } from "react"
 import { useMatch } from "react-router-dom"
-import { Bot, Send, Square, X } from "lucide-react"
+import { Bot, Plus, Send, Square, X } from "lucide-react"
 import type { ModelMessage } from "ai"
 import { Button } from "@/core/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/core/ui/alert-dialog"
 import { Textarea } from "@/core/ui/textarea"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
 import { useSnapshot } from "@/core/lib/snapshot"
@@ -80,13 +90,19 @@ function Chat({
     error,
     malformed,
     last,
-    session,
+    tokens,
     proposal,
     send,
     stop,
     approve,
     discard,
+    undoable,
+    blocked,
+    undo,
+    reset,
+    hasApplied,
   } = useAgentChat(provider, modelId)
+  const [confirmReset, setConfirmReset] = useState(false)
   const caps = provider.models.find((m) => m.id === modelId)?.caps
   const open = useOpenContext()
   const [chipOff, setChipOff] = useState(false)
@@ -112,6 +128,33 @@ function Chat({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {messages.length > 0 && (
+        <div className="flex shrink-0 justify-end border-b px-3 py-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onClick={() => (hasApplied() ? setConfirmReset(true) : reset())}
+          >
+            <Plus /> Nuevo chat
+          </Button>
+        </div>
+      )}
+      <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Empezar un chat nuevo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ya se aplicaron cambios en este chat. Si seguís, ya no vas a poder deshacerlos desde
+              acá.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={reset}>Nuevo chat</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
         {messages.length === 0 && (
           <p className="text-sm text-muted-foreground">
@@ -124,9 +167,30 @@ function Chat({
           <ProposalCard
             proposal={proposal.value}
             status={proposal.status}
-            onApprove={() => void approve()}
+            onApprove={(edited) => void approve(edited)}
             onDiscard={discard}
           />
+        )}
+        {undoable.length > 0 && !busy && (
+          <div className="flex flex-col gap-2 rounded-xl border p-3 text-sm">
+            <span className="mono-dim">Último cambio aplicado: {undoable.join(" · ")}</span>
+            {blocked && (
+              <p role="alert" className="text-destructive">
+                Esto cambió desde que se aplicó: {blocked.join(", ")}
+              </p>
+            )}
+            <div className="flex gap-2">
+              {blocked ? (
+                <Button size="sm" variant="destructive" onClick={() => void undo(true)}>
+                  Deshacer igual
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => void undo()}>
+                  Deshacer
+                </Button>
+              )}
+            </div>
+          </div>
         )}
         {busy && <span className="mono-dim">pensando…</span>}
         {error && (
@@ -143,7 +207,7 @@ function Chat({
         {last && !busy && (
           <span
             className="mono-dim"
-            title={`${last.usage.input} entrada · ${last.usage.output} salida · ${last.steps} pasos · ${modelId} · sesión: ${session.input + session.output} tokens`}
+            title={`${last.usage.input} entrada · ${last.usage.output} salida · ${last.steps} pasos · ${modelId} · sesión: ${tokens.input + tokens.output} tokens`}
           >
             {last.usage.input + last.usage.output} tokens
             {last.finish === "limit" && " · Llegué al límite de pasos"}

@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
+import { Textarea } from "@/core/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/ui/tabs"
 import { cn } from "@/core/lib/utils"
 import { diffLines } from "@/core/agent/diff"
 import type { Proposal } from "@/core/agent/proposal"
 import type { Op } from "@/core/agent/tool"
-import { docToMarkdown } from "@/core/lib/tiptap-markdown"
+import { docToMarkdown, markdownToDoc } from "@/core/lib/tiptap-markdown"
 import type { TiptapDoc } from "@/core/types/database"
 
 type Status = "pending" | "applied" | "discarded"
@@ -62,22 +63,34 @@ export function ProposalCard({
 }: {
   proposal: Proposal
   status: Status
-  onApprove(): void
+  onApprove(edited: Proposal): void
   onDiscard(): void
 }) {
   const [tab, setTab] = useState("resumen")
+  // Ediciones del usuario al Markdown del "después" de las notas, por índice de Op.
+  const [edits, setEdits] = useState<Record<number, string>>({})
   const pending = status === "pending"
+  const editable = proposal.ops.flatMap((op, i) =>
+    op.entity === "notes" && "content" in op.after ? [{ op, i }] : [],
+  )
+  const approve = useCallback(() => {
+    // Solo se reemplaza el cuerpo si el texto cambió: evita un round-trip Markdown innecesario.
+    const ops = proposal.ops.map((op, i) =>
+      i in edits ? { ...op, after: { ...op.after, content: markdownToDoc(edits[i]) } } : op,
+    )
+    onApprove({ ops })
+  }, [proposal, edits, onApprove])
   useEffect(() => {
     if (!pending) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
-        onApprove()
+        approve()
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [pending, onApprove])
+  }, [pending, approve])
 
   return (
     <section aria-label="Propuesta" className="flex flex-col gap-2 rounded-xl border p-3">
@@ -85,6 +98,7 @@ export function ProposalCard({
         <TabsList>
           <TabsTrigger value="resumen">Propuesta</TabsTrigger>
           <TabsTrigger value="diff">Diff</TabsTrigger>
+          {editable.length > 0 && <TabsTrigger value="cambios">Cambios</TabsTrigger>}
         </TabsList>
         <TabsContent value="resumen">
           <ul className="flex flex-col gap-1 text-sm">
@@ -98,10 +112,24 @@ export function ProposalCard({
             <OpDiff key={i} op={op} />
           ))}
         </TabsContent>
+        <TabsContent value="cambios" className="flex flex-col gap-3">
+          {editable.map(({ op, i }) => (
+            <label key={i} className="flex flex-col gap-1 text-xs">
+              <span className="font-medium">{op.label.replace(/ \(id [0-9a-f-]+\)$/, "")}</span>
+              <Textarea
+                aria-label={`Cuerpo: ${op.label}`}
+                disabled={!pending}
+                className="max-h-60 font-mono"
+                value={edits[i] ?? docToMarkdown((op.after as { content: TiptapDoc }).content)}
+                onChange={(e) => setEdits((m) => ({ ...m, [i]: e.target.value }))}
+              />
+            </label>
+          ))}
+        </TabsContent>
       </Tabs>
       {pending ? (
         <div className="flex gap-2">
-          <Button size="sm" onClick={onApprove}>
+          <Button size="sm" onClick={approve}>
             Aprobar <Kbd>⌘↵</Kbd>
           </Button>
           <Button size="sm" variant="ghost" onClick={onDiscard}>
