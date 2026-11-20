@@ -9,7 +9,9 @@ import {
 import { dayKey } from "@/core/lib/day"
 import type { Store } from "@/core/store/types"
 import { buildSystemPrompt, type OpenContext } from "@/core/agent/prompt"
-import type { AgentTool, AgentView, ToolContext } from "@/core/agent/tool"
+import type { AgentTool, ToolContext } from "@/core/agent/tool"
+import { createDrafts } from "@/core/agent/drafts"
+import type { Proposal } from "@/core/agent/proposal"
 
 // Tope fijo de pasos (LLM ↔ tools) por turno.
 export const MAX_STEPS = 25
@@ -33,17 +35,16 @@ export type TurnResult = {
   usage: { input: number; output: number }
   // "limit": cortó el tope de pasos con tools pendientes.
   finish: "stop" | "limit"
+  // Las escrituras del turno, sin aplicar. null = el turno no propuso nada.
+  proposal: Proposal | null
 }
 
 // El núcleo: un turno = loop LLM ↔ tools hasta que el modelo responde sin pedir más tools.
 // No conoce módulos de dominio: recibe las tools ya armadas (architecture.test.ts lo exige).
 export async function runTurn(input: TurnInput): Promise<TurnResult> {
   const now = input.now ?? new Date()
-  const view: AgentView = {
-    snapshot: () => input.store.snapshot(),
-    note: (id) => input.store.note(id),
-  }
-  const ctx: ToolContext = { view, now }
+  const drafts = createDrafts(input.store)
+  const ctx: ToolContext = { view: drafts.view, now }
 
   const tools = Object.fromEntries(
     input.tools.map((t) => [
@@ -51,14 +52,24 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
       tool({
         description: t.description,
         inputSchema: jsonSchema(t.schema),
-        execute: (args) => t.run(args as Record<string, unknown>, ctx),
+        execute: async (args) => {
+          const a = args as Record<string, unknown>
+          if (t.risk === "read") return t.run(a, ctx)
+          // Escribir = proponer: la Op entra a los Borradores y las lecturas siguientes la ven.
+          const op = await t.plan(a, ctx)
+          drafts.add(op)
+          return `Propuesto (pendiente de aprobación del usuario, aún no aplicado): ${op.label}`
+        },
       }),
     ]),
   )
 
   const result = await generateText({
     model: input.model,
-    instructions: buildSystemPrompt({ today: dayKey(now), open: input.open ?? null }),
+    instructions: buildSystemPrompt({
+      today: dayKey(now),
+      open: input.open ?? null,
+    }),
     messages: input.messages,
     tools,
     stopWhen: stepCountIs(MAX_STEPS),
@@ -74,5 +85,6 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
       output: result.totalUsage.outputTokens ?? 0,
     },
     finish: result.finishReason === "tool-calls" ? "limit" : "stop",
+    proposal: drafts.ops().length ? { ops: drafts.ops() } : null,
   }
 }

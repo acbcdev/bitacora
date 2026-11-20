@@ -2,9 +2,22 @@ import { asData } from "@/core/agent/prompt"
 import type { AgentTool } from "@/core/agent/tool"
 import { notebooksPage, readStats } from "@/core/store/derive"
 import { dayKey } from "@/core/lib/day"
+import type { NotebookInput } from "@/core/store/types"
 
 // Tools del Agente de este módulo (ADR 0027): lógica de dominio, no CRUD sobre el Store.
 // Las lecturas salen de `derive.ts` sobre el snapshot de la `AgentView`.
+const fields = {
+  status: { enum: ["active", "paused", "done"] },
+  area: { type: "string" },
+  source: { type: "string" },
+}
+const pick = (args: Record<string, unknown>): NotebookInput =>
+  Object.fromEntries(
+    ["name", "status", "area", "source"]
+      .filter((k) => args[k] !== undefined)
+      .map((k) => [k, args[k]]),
+  )
+
 export const notebooksTools: AgentTool[] = [
   {
     name: "get_overview",
@@ -37,6 +50,55 @@ export const notebooksTools: AgentTool[] = [
         `Notebooks: ${rows.length}. Notas sin notebook: ${orphans}. Hábitos: ${snap.habits.length}. Repasos hoy: ${readStats(snap, now).today}.`,
         ...lines,
       ].join("\n")
+    },
+  },
+  {
+    name: "create_notebook",
+    description: "Propone crear un notebook. Devuelve su id: usalo para crear notas adentro.",
+    schema: {
+      type: "object",
+      properties: { name: { type: "string" }, ...fields },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    risk: "safe",
+    async plan(args) {
+      const after: NotebookInput = { id: crypto.randomUUID(), ...pick(args) }
+      return {
+        entity: "notebooks",
+        label: `Crear notebook «${after.name}» (id ${after.id})`,
+        before: null,
+        after,
+      }
+    },
+  },
+  {
+    name: "update_notebook",
+    description: "Propone editar campos de un notebook (solo los que pasás).",
+    schema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        name: { type: "string" },
+        ...fields,
+      },
+      required: ["id"],
+      additionalProperties: false,
+    },
+    risk: "unsafe",
+    async plan(args, { view }) {
+      const nb = (await view.snapshot()).notebooks.find((n) => n.id === args.id)
+      if (!nb) throw new Error(`No existe el notebook ${args.id}`)
+      const after: NotebookInput = { id: nb.id, ...pick(args) }
+      const before = Object.fromEntries(
+        Object.keys(after).map((k) => [k, nb[k as keyof typeof nb]]),
+      ) as NotebookInput
+      return {
+        entity: "notebooks",
+        label: `Editar notebook «${nb.name}»`,
+        before,
+        after,
+      }
     },
   },
 ]

@@ -79,9 +79,16 @@ export function supabaseStore(): Store {
       return data
     },
 
-    async save<E extends Writable>(entity: E, input: WriteInput[E]): Promise<WriteResult[E]> {
+    async save<E extends Writable>(
+      entity: E,
+      input: WriteInput[E],
+      opts?: { create?: boolean },
+    ): Promise<WriteResult[E]> {
       const supabase = getSupabase()
-      const { id, ...row } = input as { id?: string } & Record<string, unknown>
+      const { id: givenId, ...values } = input as { id?: string } & Record<string, unknown>
+      // Alta con id del cliente: el id viaja en la fila y deja de ser edición.
+      const id = opts?.create ? undefined : givenId
+      const row = opts?.create && givenId ? { ...values, id: givenId } : values
 
       if (entity === "habit_log") {
         // Upsert sobre la clave natural (habit_id, day) — el unique de la migración 0010.

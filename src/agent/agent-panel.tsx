@@ -11,6 +11,7 @@ import type { AgentSettings, ProviderConfig } from "@/core/agent/provider"
 import { useAgentUi } from "@/agent/agent-ui"
 import { AttachMenu, type Picked } from "@/agent/attach-menu"
 import { ChatMarkdown } from "@/agent/chat-markdown"
+import { ProposalCard } from "@/agent/proposal-card"
 import { useAgentChat } from "@/agent/use-agent-chat"
 import { ModelPicker } from "@/agent/model-picker"
 import { useAgentSettings } from "@/agent/use-provider"
@@ -73,7 +74,10 @@ function Chat({
   modelId: string
   settings: AgentSettings
 }) {
-  const { messages, busy, error, last, send } = useAgentChat(provider, modelId)
+  const { messages, busy, error, last, proposal, send, approve, discard } = useAgentChat(
+    provider,
+    modelId,
+  )
   const open = useOpenContext()
   const [chipOff, setChipOff] = useState(false)
   const [draft, setDraft] = useState("")
@@ -82,7 +86,7 @@ function Chat({
   // El chip quitado vuelve cuando cambia lo abierto: es contexto por turno, no preferencia.
   const openId = open?.id
   useEffect(() => setChipOff(false), [openId])
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [messages, busy, error])
+  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [messages, busy, error, proposal])
 
   function submit() {
     const text = draft.trim()
@@ -101,10 +105,19 @@ function Chat({
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
         {messages.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            Pedime que explore tus notebooks, notas y hábitos. Por ahora solo leo: no escribo nada.
+            Pedime que explore tus notebooks, notas y hábitos. Si quiero cambiar algo, te lo
+            propongo y vos aprobás o descartás.
           </p>
         )}
         <Thread messages={messages} />
+        {proposal && (
+          <ProposalCard
+            proposal={proposal.value}
+            status={proposal.status}
+            onApprove={() => void approve()}
+            onDiscard={discard}
+          />
+        )}
         {busy && <span className="mono-dim">pensando…</span>}
         {error && (
           <p role="alert" className="text-sm break-words text-destructive">
