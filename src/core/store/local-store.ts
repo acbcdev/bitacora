@@ -228,11 +228,7 @@ export function localStore(): Store {
             updated_at,
           }),
         ),
-        reads: read("read_log").map(({ note_id, read_at, grade }) => ({
-          note_id,
-          read_at,
-          grade,
-        })),
+        reads: read("read_log").map(({ note_id, read_at, grade }) => ({ note_id, read_at, grade })),
         habits: live(read("habits")),
         habitLog: read("habit_log").map(({ habit_id, day, amount, target }) => ({
           habit_id,
@@ -265,11 +261,7 @@ export function localStore(): Store {
         // completos; TS no lo ve porque WriteInput[E] se resuelve en runtime.
         const v = values as unknown as Omit<HabitLog, "id" | "user_id">
         const i = rows.findIndex((r) => r.habit_id === v.habit_id && r.day === v.day)
-        const row = {
-          ...v,
-          id: rows[i]?.id ?? crypto.randomUUID(),
-          user_id: LOCAL_USER_ID,
-        }
+        const row = { ...v, id: rows[i]?.id ?? crypto.randomUUID(), user_id: LOCAL_USER_ID }
         write("habit_log", i >= 0 ? rows.map((r, j) => (j === i ? row : r)) : [...rows, row])
         return undefined as WriteResult[E]
       }

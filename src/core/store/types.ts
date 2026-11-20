@@ -105,12 +105,7 @@ export type HabitInput = {
 // La fila de habit_log se escribe COMPLETA, con el `target` ya resuelto por quien llama
 // (`frozenTarget` en derive.ts). El adapter no decide nada: escribe lo que le dan.
 // Antes cada adapter resolvía el congelado por su cuenta y los dos no coincidían.
-export type HabitDayInput = {
-  habit_id: string
-  day: string
-  amount: number
-  target: number
-}
+export type HabitDayInput = { habit_id: string; day: string; amount: number; target: number }
 
 export type WriteInput = {
   notebooks: NotebookInput
