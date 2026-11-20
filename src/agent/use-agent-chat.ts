@@ -1,11 +1,12 @@
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import type { ModelMessage } from "ai"
 import { useQueryClient } from "@tanstack/react-query"
 import { store } from "@/core/store"
 import { createModel, type ProviderConfig } from "@/core/agent/provider"
 import { userMessage, type Attachment } from "@/core/agent/attachments"
 import type { OpenContext } from "@/core/agent/prompt"
-import { applyProposal, type Proposal } from "@/core/agent/proposal"
+import type { Proposal } from "@/core/agent/proposal"
+import { createSession, type UndoResult } from "@/core/agent/session"
 import { runTurn, type TurnResult } from "@/core/agent/turn"
 import { agentTools } from "@/agent/tools"
 
@@ -21,7 +22,15 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     value: Proposal
     status: "pending" | "applied" | "discarded"
   } | null>(null)
+  // La pila de undo vive con el hilo: "Nuevo chat" y recargar la pierden.
+  const session = useMemo(() => createSession(store), [])
+  const [undoable, setUndoable] = useState<string[]>([])
+  const [blocked, setBlocked] = useState<string[] | null>(null)
   const qc = useQueryClient()
+  const syncUndo = useCallback(
+    () => setUndoable(session.canUndo() ? session.last() : []),
+    [session],
+  )
 
   const send = useCallback(
     async (text: string, open: OpenContext, attachments: Attachment[] = []) => {
@@ -51,21 +60,65 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     [messages, provider, modelId],
   )
 
-  const approve = useCallback(async () => {
-    if (proposal?.status !== "pending") return
-    try {
-      await applyProposal(store, proposal.value)
-      setProposal({ ...proposal, status: "applied" })
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
-    // Aplicó total o parcialmente: la UI relee de todos modos.
-    void qc.invalidateQueries()
-  }, [proposal, qc])
+  // `edited` = la Propuesta con los cuerpos que el usuario tocó en la pestaña Cambios.
+  const approve = useCallback(
+    async (edited?: Proposal) => {
+      if (proposal?.status !== "pending") return
+      try {
+        await session.apply(edited ?? proposal.value)
+        setProposal({ ...proposal, status: "applied" })
+        setBlocked(null)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      }
+      syncUndo()
+      // Aplicó total o parcialmente: la UI relee de todos modos.
+      void qc.invalidateQueries()
+    },
+    [proposal, qc, session, syncUndo],
+  )
+
+  const undo = useCallback(
+    async (force = false) => {
+      try {
+        const r: UndoResult = await session.undo({ force })
+        setBlocked(r.status === "changed" ? r.labels : null)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      }
+      syncUndo()
+      void qc.invalidateQueries()
+    },
+    [qc, session, syncUndo],
+  )
+
+  const reset = useCallback(() => {
+    session.clear()
+    setMessages([])
+    setProposal(null)
+    setLast(null)
+    setError(null)
+    setBlocked(null)
+    setUndoable([])
+  }, [session])
 
   const discard = useCallback(() => {
     if (proposal?.status === "pending") setProposal({ ...proposal, status: "discarded" })
   }, [proposal])
 
-  return { messages, busy, error, last, proposal, send, approve, discard }
+  return {
+    messages,
+    busy,
+    error,
+    last,
+    proposal,
+    send,
+    approve,
+    discard,
+    undoable,
+    blocked,
+    undo,
+    reset,
+    hasApplied: () => session.hasApplied(),
+  }
 }
