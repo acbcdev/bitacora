@@ -7,6 +7,7 @@ import { userMessage, type Attachment } from "@/core/agent/attachments"
 import type { OpenContext } from "@/core/agent/prompt"
 import { applyProposal, type Proposal } from "@/core/agent/proposal"
 import { runTurn, type TurnResult } from "@/core/agent/turn"
+import { useApprovalLevel } from "@/agent/approval-picker"
 import { agentTools } from "@/agent/tools"
 
 // Cliente fino del núcleo: guarda el hilo (en memoria; recargar lo pierde) y delega cada turno
@@ -22,6 +23,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     status: "pending" | "applied" | "discarded"
   } | null>(null)
   const qc = useQueryClient()
+  const approval = useApprovalLevel()
 
   const send = useCallback(
     async (text: string, open: OpenContext, attachments: Attachment[] = []) => {
@@ -37,6 +39,9 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
           tools: agentTools,
           messages: next,
           open,
+          approval,
+          // Seam del ticket 04: acá se empuja `inverse` a la pila de undo de la sesión.
+          onApplied: () => {},
         })
         setMessages([...next, ...turn.messages])
         setLast(turn)
@@ -45,10 +50,12 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
         // Error crudo del Proveedor (401, CORS, red): el usuario necesita verlo tal cual.
         setError(e instanceof Error ? e.message : String(e))
       } finally {
+        // Puede haber auto-aplicado escrituras: la UI relee.
+        void qc.invalidateQueries()
         setBusy(false)
       }
     },
-    [messages, provider, modelId],
+    [messages, provider, modelId, approval, qc],
   )
 
   const approve = useCallback(async () => {

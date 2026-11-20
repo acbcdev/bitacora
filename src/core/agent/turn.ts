@@ -9,9 +9,10 @@ import {
 import { dayKey } from "@/core/lib/day"
 import type { Store } from "@/core/store/types"
 import { buildSystemPrompt, type OpenContext } from "@/core/agent/prompt"
-import type { AgentTool, ToolContext } from "@/core/agent/tool"
+import type { AgentTool, Op, ToolContext } from "@/core/agent/tool"
 import { createDrafts } from "@/core/agent/drafts"
-import type { Proposal } from "@/core/agent/proposal"
+import { applyProposal, type Proposal } from "@/core/agent/proposal"
+import { autoApplies, type ApprovalLevel } from "@/core/agent/approval"
 
 // Tope fijo de pasos (LLM ↔ tools) por turno.
 export const MAX_STEPS = 25
@@ -24,6 +25,10 @@ export type TurnInput = {
   messages: ModelMessage[]
   open?: OpenContext
   abortSignal?: AbortSignal
+  // Default "ask": todo va a la Propuesta.
+  approval?: ApprovalLevel
+  // Lo auto-aplicado entrega acá sus Ops inversas (la pila de undo del caller).
+  onApplied?: (inverse: Op[]) => void
   now?: Date
 }
 
@@ -57,6 +62,11 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
           if (t.risk === "read") return t.run(a, ctx)
           // Escribir = proponer: la Op entra a los Borradores y las lecturas siguientes la ven.
           const op = await t.plan(a, ctx)
+          if (autoApplies(input.approval ?? "ask", t.risk)) {
+            const inverse = await applyProposal(input.store, { ops: [op] })
+            if (inverse.length) input.onApplied?.(inverse) // creaciones: sin inversa
+            return `Aplicado: ${op.label}`
+          }
           drafts.add(op)
           return `Propuesto (pendiente de aprobación del usuario, aún no aplicado): ${op.label}`
         },
