@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/core/ui/alert-dialog"
 import { Textarea } from "@/core/ui/textarea"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
 import { useSnapshot } from "@/core/lib/snapshot"
 import type { OpenContext } from "@/core/agent/prompt"
@@ -221,14 +222,18 @@ function Chat({
           </details>
         )}
         {last && !busy && (
-          <span
-            className="mono-dim"
-            title={`${last.usage.input} entrada · ${last.usage.output} salida · ${last.steps} pasos · ${modelId} · sesión: ${tokens.input + tokens.output} tokens`}
-          >
-            {last.usage.input + last.usage.output} tokens
-            {last.finish === "limit" && " · Llegué al límite de pasos"}
-            {last.finish === "aborted" && " · detenido"}
-          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="mono-dim w-fit" tabIndex={0}>
+                {last.usage.input + last.usage.output} tokens
+                {last.finish === "limit" && " · Llegué al límite de pasos"}
+                {last.finish === "aborted" && " · detenido"}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {`${last.usage.input} entrada · ${last.usage.output} salida · ${last.steps} pasos · ${modelId} · sesión: ${tokens.input + tokens.output} tokens`}
+            </TooltipContent>
+          </Tooltip>
         )}
         <div ref={end} />
       </div>

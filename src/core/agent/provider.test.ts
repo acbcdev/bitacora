@@ -30,15 +30,21 @@ test("parseAgentSettings: vacío o corrupto = sin Proveedores", () => {
   expect(parseAgentSettings("{x")).toEqual({ providers: [], active: null })
 })
 
-test("parseAgentSettings migra el Proveedor único del ticket 02", () => {
-  const s = parseAgentSettings(JSON.stringify({ kind: "anthropic", apiKey: "k", model: "m" }))
-  expect(s.providers).toHaveLength(1)
-  expect(s.providers[0]).toMatchObject({
-    kind: "anthropic",
-    apiKey: "k",
-    models: [{ id: "m", visible: true }],
-  })
-  expect(s.active).toEqual({ providerId: s.providers[0].id, modelId: "m" })
+test("parseAgentSettings: forma inválida = sin Proveedores", () => {
+  const empty = { providers: [], active: null }
+  for (const bad of [
+    '{"providers":"x"}',
+    '{"providers":[null]}',
+    '{"providers":[{"id":"p"}]}',
+    '{"providers":[{"id":"p","kind":"anthropic","name":"A","apiKey":"k","models":"x"}]}',
+    '{"kind":"anthropic","apiKey":"k","model":"m"}',
+  ])
+    expect(parseAgentSettings(bad)).toEqual(empty)
+})
+
+test("parseAgentSettings: acepta settings válidos", () => {
+  const s = { providers: [prov()], active: { providerId: "p1", modelId: "a" } }
+  expect(parseAgentSettings(JSON.stringify(s))).toEqual(s)
 })
 
 test("fetchModels: Anthropic pega a /v1/models con sus headers", async () => {
@@ -60,6 +66,13 @@ test("fetchModels: compatible usa baseUrl/models y key opcional", async () => {
   const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit]
   expect(url).toBe("http://localhost:11434/v1/models")
   expect(init.headers).not.toHaveProperty("Authorization")
+})
+
+test("fetchModels: trunca el body del error", async () => {
+  const err = await fetchModels(prov(), (() => json("x".repeat(5000), 500)) as never).catch(
+    (e: Error) => e,
+  )
+  expect((err as Error).message.length).toBeLessThan(400)
 })
 
 test("fetchModels: el fallo sale con el error crudo", async () => {

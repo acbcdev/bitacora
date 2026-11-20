@@ -5,6 +5,7 @@ import { Input } from "@/core/ui/input"
 import { fetchCapabilities } from "@/core/agent/capabilities"
 import {
   DEFAULT_ANTHROPIC_MODEL,
+  MAX_VISIBLE,
   PRESETS,
   fetchModels,
   mergeModels,
@@ -88,7 +89,7 @@ function Models({
       <p className="text-sm font-medium">
         Modelos visibles ({draft.models.filter((m) => m.visible).length}/{draft.models.length})
       </p>
-      {draft.models.length > 8 && (
+      {draft.models.length > MAX_VISIBLE && (
         <Input
           aria-label="Buscar modelo"
           placeholder="Buscar…"

@@ -92,10 +92,7 @@ export function AttachMenu({ caps, onPick }: { caps?: Caps; onPick: (p: Picked) 
             Archivo{vision ? " o imagen" : ""}…
           </DropdownMenuItem>
           {!vision && (
-            <span
-              className="block px-2 py-1.5 text-xs text-muted-foreground"
-              title="Este modelo no soporta imágenes"
-            >
+            <span className="block px-2 py-1.5 text-xs text-muted-foreground">
               Imágenes deshabilitadas: el modelo no tiene visión
             </span>
           )}

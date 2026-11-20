@@ -44,8 +44,8 @@ function OpDiff({ op }: { op: Op }) {
               key={i}
               className={cn(
                 "block",
-                l.type === "add" && "bg-green-500/15",
-                l.type === "del" && "bg-red-500/15 line-through",
+                l.type === "add" && "font-medium text-foreground",
+                l.type === "del" && "text-muted-foreground line-through",
               )}
             >
               {l.type === "add" ? "+ " : l.type === "del" ? "- " : "  "}

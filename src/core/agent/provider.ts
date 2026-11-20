@@ -56,22 +56,23 @@ export const PRESETS = [
 
 const EMPTY: AgentSettings = { providers: [], active: null }
 
+const isObj = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null
+
+function validProvider(p: unknown): boolean {
+  return (
+    isObj(p) &&
+    typeof p.id === "string" &&
+    typeof p.kind === "string" &&
+    typeof p.apiKey === "string" &&
+    Array.isArray(p.models) &&
+    p.models.every((m) => isObj(m) && typeof m.id === "string" && typeof m.visible === "boolean")
+  )
+}
+
 export function parseAgentSettings(stored: string | null): AgentSettings {
   try {
     const raw = JSON.parse(stored ?? "null")
-    if (Array.isArray(raw?.providers)) return raw
-    // Formato del ticket 02: un solo Proveedor Anthropic { kind, apiKey, model }.
-    if (raw?.kind === "anthropic" && raw.apiKey && raw.model) {
-      const id = crypto.randomUUID()
-      const p: ProviderConfig = {
-        id,
-        kind: "anthropic",
-        name: "Anthropic",
-        apiKey: raw.apiKey,
-        models: [{ id: raw.model, visible: true }],
-      }
-      return { providers: [p], active: { providerId: id, modelId: raw.model } }
-    }
+    if (Array.isArray(raw?.providers) && raw.providers.every(validProvider)) return raw
   } catch {
     // corrupto: se trata como sin configurar
   }
@@ -158,7 +159,7 @@ export async function fetchModels(c: ProviderConfig, f: typeof fetch = fetch): P
   const [url, headers] = modelsRequest(c)
   const res = await f(url, { headers })
   const text = await res.text()
-  if (!res.ok) throw new Error(`${res.status} ${text}`)
+  if (!res.ok) throw new Error(`${res.status} ${text.slice(0, 300)}`)
   const data = JSON.parse(text)?.data
   if (!Array.isArray(data)) throw new Error("Respuesta inesperada de /models")
   return data.map((m: { id: string }) => m.id)

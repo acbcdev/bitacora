@@ -9,6 +9,7 @@ const GROUPS: [string, [string, string][]][] = [
       [mod("K"), "Command palette"],
       [mod("/"), "Este cheatsheet"],
       [mod(","), "Ajustes"],
+      [mod("."), "Abrir / cerrar el Agente"],
       [mod("B"), "Mostrar / ocultar sidebar"],
       [mod(alt("B")), "Mostrar / ocultar notas del notebook"],
       ["N", "Nuevo notebook"],
