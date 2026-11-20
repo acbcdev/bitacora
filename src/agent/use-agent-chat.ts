@@ -8,6 +8,7 @@ import type { OpenContext } from "@/core/agent/prompt"
 import type { Proposal } from "@/core/agent/proposal"
 import { createSession, type UndoResult } from "@/core/agent/session"
 import { runTurn, type TurnResult } from "@/core/agent/turn"
+import { useApprovalLevel } from "@/agent/approval-picker"
 import { agentTools } from "@/agent/tools"
 
 // Cliente fino del núcleo: guarda el hilo (en memoria; recargar lo pierde) y delega cada turno
@@ -31,6 +32,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     () => setUndoable(session.canUndo() ? session.last() : []),
     [session],
   )
+  const approval = useApprovalLevel()
 
   const send = useCallback(
     async (text: string, open: OpenContext, attachments: Attachment[] = []) => {
@@ -46,6 +48,11 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
           tools: agentTools,
           messages: next,
           open,
+          approval,
+          onApplied: (ops, inverse) => {
+            session.pushApplied(ops, inverse)
+            syncUndo()
+          },
         })
         setMessages([...next, ...turn.messages])
         setLast(turn)
@@ -54,10 +61,12 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
         // Error crudo del Proveedor (401, CORS, red): el usuario necesita verlo tal cual.
         setError(e instanceof Error ? e.message : String(e))
       } finally {
+        // Puede haber auto-aplicado escrituras: la UI relee.
+        void qc.invalidateQueries()
         setBusy(false)
       }
     },
-    [messages, provider, modelId],
+    [messages, provider, modelId, approval, qc, session, syncUndo],
   )
 
   // `edited` = la Propuesta con los cuerpos que el usuario tocó en la pestaña Cambios.

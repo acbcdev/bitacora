@@ -28,7 +28,11 @@ export function AgentSidebar() {
       open={open}
       onOpenChange={setOpen}
       className="contents"
-      style={{ "--sidebar-width": "clamp(18rem, 24vw, 24rem)" } as React.CSSProperties}
+      style={
+        {
+          "--sidebar-width": "clamp(18rem, 24vw, 24rem)",
+        } as React.CSSProperties
+      }
     >
       <Sidebar side="right" collapsible="offcanvas" aria-label="Agente">
         <AgentContent />

@@ -18,7 +18,11 @@ function editOp(id: string, from: string, to: string): Op {
 }
 
 test("undo es LIFO: cada deshacer revierte solo el último turno aplicado", async () => {
-  const nota = await store.save("notes", { title: "A", position: 0, content: markdownToDoc("uno") })
+  const nota = await store.save("notes", {
+    title: "A",
+    position: 0,
+    content: markdownToDoc("uno"),
+  })
   const session = createSession(store)
   await session.apply({ ops: [editOp(nota.id, "uno", "dos")] })
   await session.apply({ ops: [editOp(nota.id, "dos", "tres")] })
@@ -33,10 +37,17 @@ test("undo es LIFO: cada deshacer revierte solo el último turno aplicado", asyn
 })
 
 test("si la nota cambió desde que se aplicó, bloquea; force = Deshacer igual", async () => {
-  const nota = await store.save("notes", { title: "A", position: 0, content: markdownToDoc("uno") })
+  const nota = await store.save("notes", {
+    title: "A",
+    position: 0,
+    content: markdownToDoc("uno"),
+  })
   const session = createSession(store)
   await session.apply({ ops: [editOp(nota.id, "uno", "dos")] })
-  await store.save("notes", { id: nota.id, content: markdownToDoc("dos, editado a mano") })
+  await store.save("notes", {
+    id: nota.id,
+    content: markdownToDoc("dos, editado a mano"),
+  })
 
   expect(await session.undo()).toMatchObject({ status: "changed" })
   expect(await md(nota.id)).toBe("dos, editado a mano")
@@ -47,7 +58,11 @@ test("si la nota cambió desde que se aplicó, bloquea; force = Deshacer igual",
 })
 
 test("pushApplied (turnos auto-aplicados) entra a la misma pila", async () => {
-  const nota = await store.save("notes", { title: "A", position: 0, content: markdownToDoc("uno") })
+  const nota = await store.save("notes", {
+    title: "A",
+    position: 0,
+    content: markdownToDoc("uno"),
+  })
   const session = createSession(store)
   const op = editOp(nota.id, "uno", "dos")
   await store.save("notes", op.after as never)
@@ -73,7 +88,11 @@ test("clear vacía la pila; hasApplied cuenta hasta las creaciones (sin inversa)
 
 test("una nota con imágenes reescrita conserva src y width", async () => {
   const body = 'texto\n\n![foto](https://x.test/a.png "w=320")'
-  const nota = await store.save("notes", { title: "A", position: 0, content: markdownToDoc(body) })
+  const nota = await store.save("notes", {
+    title: "A",
+    position: 0,
+    content: markdownToDoc(body),
+  })
   const session = createSession(store)
   const before = (await store.note(nota.id)).content
   const after = markdownToDoc(`${docToMarkdown(before)}\n\nfin`)

@@ -18,7 +18,9 @@ test("Compatible: probar conexión fallida muestra el error crudo y deja guardar
   fireEvent.click(screen.getByRole("button", { name: "Probar conexión" }))
   expect(await screen.findByRole("alert")).toHaveTextContent("Failed to fetch")
   expect(screen.getByRole("button", { name: "Guardar" })).toBeDisabled()
-  fireEvent.change(screen.getByLabelText("Id de modelo"), { target: { value: "llama3" } })
+  fireEvent.change(screen.getByLabelText("Id de modelo"), {
+    target: { value: "llama3" },
+  })
   fireEvent.click(screen.getByRole("button", { name: "Agregar" }))
   fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
   await waitFor(() => expect(saved().providers).toHaveLength(1))

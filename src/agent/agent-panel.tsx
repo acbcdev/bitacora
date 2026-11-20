@@ -23,6 +23,7 @@ import { AttachMenu, type Picked } from "@/agent/attach-menu"
 import { ChatMarkdown } from "@/agent/chat-markdown"
 import { ProposalCard } from "@/agent/proposal-card"
 import { useAgentChat } from "@/agent/use-agent-chat"
+import { ApprovalPicker } from "@/agent/approval-picker"
 import { ModelPicker } from "@/agent/model-picker"
 import { useAgentSettings } from "@/agent/use-provider"
 
@@ -255,7 +256,10 @@ function Chat({
             <Send />
           </Button>
         </div>
-        <ModelPicker settings={settings} active={{ provider, modelId }} />
+        <div className="flex flex-wrap items-center gap-1">
+          <ModelPicker settings={settings} active={{ provider, modelId }} />
+          <ApprovalPicker />
+        </div>
       </div>
     </div>
   )

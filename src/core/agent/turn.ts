@@ -9,9 +9,10 @@ import {
 import { dayKey } from "@/core/lib/day"
 import type { Store } from "@/core/store/types"
 import { buildSystemPrompt, type OpenContext } from "@/core/agent/prompt"
-import type { AgentTool, ToolContext } from "@/core/agent/tool"
+import type { AgentTool, Op, ToolContext } from "@/core/agent/tool"
 import { createDrafts } from "@/core/agent/drafts"
-import type { Proposal } from "@/core/agent/proposal"
+import { applyProposal, type Proposal } from "@/core/agent/proposal"
+import { autoApplies, type ApprovalLevel } from "@/core/agent/approval"
 
 // Tope fijo de pasos (LLM ↔ tools) por turno.
 export const MAX_STEPS = 25
@@ -24,6 +25,11 @@ export type TurnInput = {
   messages: ModelMessage[]
   open?: OpenContext
   abortSignal?: AbortSignal
+  // Default "ask": todo va a la Propuesta.
+  approval?: ApprovalLevel
+  // Una vez por turno (si algo se auto-aplicó): las Ops aplicadas y sus inversas, en orden de
+  // reaplicación (la pila de undo del caller). `inverse` vacío = solo creaciones.
+  onApplied?: (ops: Op[], inverse: Op[]) => void
   now?: Date
 }
 
@@ -45,6 +51,8 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
   const now = input.now ?? new Date()
   const drafts = createDrafts(input.store)
   const ctx: ToolContext = { view: drafts.view, now }
+  const applied: Op[] = []
+  let inverse: Op[] = []
 
   const tools = Object.fromEntries(
     input.tools.map((t) => [
@@ -57,6 +65,12 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
           if (t.risk === "read") return t.run(a, ctx)
           // Escribir = proponer: la Op entra a los Borradores y las lecturas siguientes la ven.
           const op = await t.plan(a, ctx)
+          if (autoApplies(input.approval ?? "ask", t.risk)) {
+            const inv = await applyProposal(input.store, { ops: [op] })
+            applied.push(op)
+            inverse = [...inv, ...inverse] // orden inverso al de aplicación, como applyProposal
+            return `Aplicado: ${op.label}`
+          }
           drafts.add(op)
           return `Propuesto (pendiente de aprobación del usuario, aún no aplicado): ${op.label}`
         },
@@ -64,17 +78,23 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
     ]),
   )
 
-  const result = await generateText({
-    model: input.model,
-    instructions: buildSystemPrompt({
-      today: dayKey(now),
-      open: input.open ?? null,
-    }),
-    messages: input.messages,
-    tools,
-    stopWhen: stepCountIs(MAX_STEPS),
-    abortSignal: input.abortSignal,
-  })
+  let result
+  try {
+    result = await generateText({
+      model: input.model,
+      instructions: buildSystemPrompt({
+        today: dayKey(now),
+        open: input.open ?? null,
+      }),
+      messages: input.messages,
+      tools,
+      stopWhen: stepCountIs(MAX_STEPS),
+      abortSignal: input.abortSignal,
+    })
+  } finally {
+    // También si el turno falla a mitad: lo ya aplicado tiene que poder deshacerse.
+    if (applied.length) input.onApplied?.(applied, inverse)
+  }
 
   return {
     messages: result.responseMessages,

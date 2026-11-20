@@ -72,5 +72,10 @@ export async function readFile(f: File): Promise<Attachment> {
   }
   if (!isTextFile(f))
     throw new Error(`"${f.name}": solo acepto imágenes y archivos de texto (PDF no).`)
-  return { kind: "text", tag: "archivo", attrs: { nombre: f.name }, body: await f.text() }
+  return {
+    kind: "text",
+    tag: "archivo",
+    attrs: { nombre: f.name },
+    body: await f.text(),
+  }
 }

@@ -20,7 +20,9 @@ test("aprobar con cuerpo editado manda la Propuesta con el Markdown del usuario"
       onDiscard={() => {}}
     />,
   )
-  fireEvent.mouseDown(screen.getByRole("tab", { name: "Cambios" }), { button: 0 })
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Cambios" }), {
+    button: 0,
+  })
   const box = screen.getByRole("textbox")
   expect(box).toHaveValue("dos")
   fireEvent.change(box, { target: { value: "dos, mejorado" } })
