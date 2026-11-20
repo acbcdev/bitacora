@@ -30,7 +30,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/core/ui/dropdown-menu"
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/core/ui/drawer"
+import {
+  DRAWER_TALL,
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+} from "@/core/ui/drawer"
 import { Kbd } from "@/core/ui/kbd"
 import { Sidebar, SidebarProvider } from "@/core/ui/sidebar"
 import { Tabs, TabsList, TabsTrigger } from "@/core/ui/tabs"
@@ -557,7 +563,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
             agent.setOpen(false)
           }}
         >
-          <DrawerContent className="h-[85dvh]">
+          <DrawerContent className={DRAWER_TALL}>
             <DrawerTitle className="sr-only">Notas y Agente</DrawerTitle>
             <DrawerDescription className="sr-only">
               Elegí una nota para abrirla o hablá con el Agente

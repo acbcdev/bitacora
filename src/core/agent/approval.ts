@@ -1,3 +1,4 @@
+import { setStored } from "@/core/lib/hooks/use-stored"
 import type { ToolRisk } from "@/core/agent/tool"
 
 // Nivel de aprobación: cuánto pregunta el Agente. Por dispositivo (localStorage), como el Proveedor.
@@ -10,7 +11,6 @@ export const APPROVAL_LEVELS: { id: ApprovalLevel; name: string }[] = [
 ]
 
 export const APPROVAL_KEY = "bita-agent-approval"
-export const APPROVAL_EVENT = "bita-agent-approval"
 
 // ¿Se aplica sin pasar por la Propuesta? `ask` nunca; `review` solo lo aditivo; `skip` todo.
 export function autoApplies(level: ApprovalLevel, risk: ToolRisk): boolean {
@@ -22,6 +22,5 @@ export function parseApprovalLevel(raw: string | null): ApprovalLevel {
 }
 
 export function saveApprovalLevel(level: ApprovalLevel) {
-  localStorage.setItem(APPROVAL_KEY, level)
-  window.dispatchEvent(new Event(APPROVAL_EVENT))
+  setStored(APPROVAL_KEY, level)
 }

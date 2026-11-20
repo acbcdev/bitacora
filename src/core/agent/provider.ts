@@ -1,5 +1,6 @@
 import type { LanguageModel } from "ai"
 import type { Caps } from "@/core/agent/capabilities"
+import { setStored } from "@/core/lib/hooks/use-stored"
 
 // Proveedores del Agente: por dispositivo, en localStorage (ADR 0027). Varios a la vez; cada uno
 // guarda su lista de modelos con visibilidad. `ModelEntry` es el punto de extensión de metadata
@@ -22,7 +23,6 @@ export type AgentSettings = {
 }
 
 export const PROVIDER_KEY = "bita-agent-provider"
-export const PROVIDER_EVENT = "bita-agent-provider"
 export const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-5"
 export const MAX_VISIBLE = 30
 
@@ -80,9 +80,7 @@ export function parseAgentSettings(stored: string | null): AgentSettings {
 }
 
 export function saveAgentSettings(settings: AgentSettings) {
-  if (settings.providers.length) localStorage.setItem(PROVIDER_KEY, JSON.stringify(settings))
-  else localStorage.removeItem(PROVIDER_KEY)
-  window.dispatchEvent(new Event(PROVIDER_EVENT))
+  setStored(PROVIDER_KEY, settings.providers.length ? JSON.stringify(settings) : null)
 }
 
 export type VisibleModel = ModelEntry & { provider: ProviderConfig }

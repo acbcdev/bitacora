@@ -43,7 +43,7 @@ export function ModelPicker({
           <ChevronDown />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-80 max-w-[min(20rem,90vw)]">
+      <DropdownMenuContent align="start" className="max-h-80 max-w-xs">
         <DropdownMenuRadioGroup
           value={`${active.provider.id}\n${active.modelId}`}
           onValueChange={(v) => {

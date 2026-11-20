@@ -1,6 +1,12 @@
 import { lazy, Suspense, useCallback, useRef } from "react"
 import { createPortal } from "react-dom"
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/core/ui/drawer"
+import {
+  DRAWER_TALL,
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+} from "@/core/ui/drawer"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import { Sidebar, SidebarProvider } from "@/core/ui/sidebar"
 import { useAgentUi } from "@/agent/agent-ui"
@@ -58,7 +64,7 @@ export function AgentSidebar() {
   if (isMobile)
     return (
       <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className="h-[85dvh]">
+        <DrawerContent className={DRAWER_TALL}>
           <DrawerTitle className="sr-only">Agente</DrawerTitle>
           <DrawerDescription className="sr-only">Chat con el Agente</DrawerDescription>
           <AgentSlot />

@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react"
+import { useStored } from "@/core/lib/hooks/use-stored"
 import { ChevronDown } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import {
@@ -9,7 +9,6 @@ import {
   DropdownMenuTrigger,
 } from "@/core/ui/dropdown-menu"
 import {
-  APPROVAL_EVENT,
   APPROVAL_KEY,
   APPROVAL_LEVELS,
   parseApprovalLevel,
@@ -17,19 +16,8 @@ import {
   type ApprovalLevel,
 } from "@/core/agent/approval"
 
-const subscribe = (cb: () => void) => {
-  window.addEventListener(APPROVAL_EVENT, cb)
-  window.addEventListener("storage", cb)
-  return () => {
-    window.removeEventListener(APPROVAL_EVENT, cb)
-    window.removeEventListener("storage", cb)
-  }
-}
-
 export function useApprovalLevel(): ApprovalLevel {
-  return parseApprovalLevel(
-    useSyncExternalStore(subscribe, () => localStorage.getItem(APPROVAL_KEY)),
-  )
+  return parseApprovalLevel(useStored(APPROVAL_KEY))
 }
 
 // Selector del Nivel de aprobación en el composer; persiste por dispositivo.

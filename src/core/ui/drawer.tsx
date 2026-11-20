@@ -141,6 +141,9 @@ function DrawerDescription({
   )
 }
 
+// Altura de los drawers de pantalla casi completa (clase literal: Tailwind la detecta acá).
+export const DRAWER_TALL = "h-[85dvh]"
+
 export {
   Drawer,
   DrawerNested,
