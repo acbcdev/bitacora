@@ -34,3 +34,9 @@ razón ya no aplica.
 - `supabase/functions/generate-flashcards/` queda muerta (sin llamador desde `efe19b4`) y se borra;
   con eso la app vuelve a no tener superficie server-side.
 - El Worker de Cloudflare sigue siendo solo assets.
+- `Store.save(entity, input, { create })`: nuevo parámetro opcional para altas con id elegido por el
+  cliente. Los Borradores del Agente crean notebooks/notas con el id que el modelo ya vio, y ese
+  tiene que ser el definitivo; antes `save` con `id` era siempre una edición. Sin la flag nada cambia.
+- Un turno que solo crea (notebooks, notas, hábitos) no se puede deshacer: el Agente no tiene tool
+  de borrado, así que las creaciones no tienen inversa y quedan fuera de la pila de undo. Solo se
+  deshacen las ediciones (reaplican `before`).
