@@ -185,3 +185,39 @@ test("seam undo: turno de solo creaciones cuenta como aplicado pero no se deshac
   expect(session.hasApplied()).toBe(true)
   expect(session.canUndo()).toBe(false)
 })
+
+test("seam undo: abortar tras una escritura auto-aplicada igual llama onApplied y queda deshacible", async () => {
+  const nota = await store.save("notes", {
+    title: "A",
+    position: 0,
+    content: markdownToDoc("uno"),
+  })
+  const ctl = new AbortController()
+  let n = 0
+  const model = new MockLanguageModelV4({
+    doGenerate: async () => {
+      if (n++ === 0) return call("update_note", { id: nota.id, content: "dos" }, "a")
+      ctl.abort()
+      throw ctl.signal.reason
+    },
+  })
+  const session = createSession(store)
+  let calls = 0
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: [{ role: "user", content: "x" }],
+    approval: "skip",
+    abortSignal: ctl.signal,
+    onApplied: (ops, inverse) => {
+      calls++
+      session.pushApplied(ops, inverse)
+    },
+  })
+  expect(turn.finish).toBe("aborted")
+  expect(calls).toBe(1)
+  expect(session.canUndo()).toBe(true)
+  await session.undo()
+  expect(docToMarkdown((await store.note(nota.id)).content)).toBe("uno")
+})

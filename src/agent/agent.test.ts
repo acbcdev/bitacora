@@ -1,5 +1,5 @@
 import { MockLanguageModelV4 } from "ai/test"
-import { runTurn } from "@/core/agent/turn"
+import { MAX_STEPS, runTurn } from "@/core/agent/turn"
 import { localStore } from "@/core/store/local-store"
 import { docToMarkdown, markdownToDoc } from "@/core/lib/tiptap-markdown"
 import { applyProposal } from "@/core/agent/proposal"
@@ -301,4 +301,109 @@ test("adjuntos: archivo de texto va como dato, imagen como archivo de imagen, PD
   expect(JSON.stringify(content)).toContain('<archivo nombre=\\"datos.csv\\">')
   expect(content.some((p) => p.type === "file" && p.mediaType.startsWith("image/"))).toBe(true)
   await expect(readFile(new File(["%PDF"], "a.pdf", { type: "application/pdf" }))).rejects.toThrow()
+})
+
+// ── Costo y robustez (ticket 08) ──────────────────────────────────────────────────────────────
+
+test("tope de pasos: un modelo que no para corta en MAX_STEPS con finish 'limit'", async () => {
+  const model = new MockLanguageModelV4({
+    doGenerate: async () => call("get_overview", {}, crypto.randomUUID()),
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("seguí"),
+  })
+  expect(turn.steps).toBe(MAX_STEPS)
+  expect(turn.finish).toBe("limit")
+})
+
+test("el tope de pasos deja intacta la Propuesta parcial", async () => {
+  const model = new MockLanguageModelV4({
+    doGenerate: async ({ prompt }) =>
+      prompt.some((m) => m.role === "tool")
+        ? call("get_overview", {}, crypto.randomUUID())
+        : call("create_notebook", { name: "Parcial" }, "w"),
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("seguí"),
+  })
+  expect(turn.finish).toBe("limit")
+  expect(turn.proposal?.ops).toHaveLength(1)
+})
+
+test("Detener: abortar corta el turno y lo ya borrador queda como Propuesta normal", async () => {
+  const ctl = new AbortController()
+  let n = 0
+  const model = new MockLanguageModelV4({
+    doGenerate: async () => {
+      if (n++ === 0) return call("create_notebook", { name: "A medias" }, "w")
+      ctl.abort()
+      throw ctl.signal.reason
+    },
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("armá"),
+    abortSignal: ctl.signal,
+  })
+  expect(turn.finish).toBe("aborted")
+  expect(turn.proposal?.ops.map((o) => o.entity)).toEqual(["notebooks"])
+  // El hilo parcial queda consistente (assistant + tool) para poder seguir conversando.
+  expect(turn.messages.map((m) => m.role)).toEqual(["assistant", "tool"])
+  expect(turn.usage).toEqual({ input: 10, output: 5 })
+})
+
+test("tool-call malformado: vuelve al modelo y se reintenta hasta 2 veces", async () => {
+  const model = new MockLanguageModelV4({
+    doGenerate: [
+      call("borrar_todo", {}, "a"), // tool inexistente
+      call("read_note", {}, "b"), // args fuera de schema
+      say("Ahora sí."),
+    ],
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("hola"),
+  })
+  expect(turn.finish).toBe("stop")
+  expect(turn.text).toBe("Ahora sí.")
+  expect(turn.malformed).toBeUndefined()
+})
+
+test("tool-call malformado: al tercer fallo seguido el turno corta con el detalle crudo", async () => {
+  const model = new MockLanguageModelV4({
+    doGenerate: async () => call("borrar_todo", { x: 1 }, crypto.randomUUID()),
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("hola"),
+  })
+  expect(turn.finish).toBe("malformed")
+  expect(turn.steps).toBe(3) // 1 intento + 2 reintentos
+  expect(turn.malformed).toContain("borrar_todo")
+})
+
+test("un tool-call válido en el medio reinicia la cuenta de reintentos", async () => {
+  const bad = (id: string) => call("borrar_todo", {}, id)
+  const model = new MockLanguageModelV4({
+    doGenerate: [bad("a"), bad("b"), call("get_overview", {}, "c"), bad("d"), bad("e"), say("ok")],
+  })
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("hola"),
+  })
+  expect(turn.finish).toBe("stop")
 })

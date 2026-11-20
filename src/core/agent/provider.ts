@@ -1,10 +1,11 @@
 import type { LanguageModel } from "ai"
+import type { Caps } from "@/core/agent/capabilities"
 
 // Proveedores del Agente: por dispositivo, en localStorage (ADR 0027). Varios a la vez; cada uno
 // guarda su lista de modelos con visibilidad. `ModelEntry` es el punto de extensión de metadata
 // por modelo (ej. capacidades).
 export type ProviderKind = "anthropic" | "openrouter" | "openai-compatible"
-export type ModelEntry = { id: string; visible: boolean }
+export type ModelEntry = { id: string; visible: boolean; caps?: Caps }
 export type ProviderConfig = {
   id: string
   kind: ProviderKind
@@ -120,15 +121,21 @@ export function withProvider(s: AgentSettings, p: ProviderConfig): AgentSettings
 }
 
 // Mantiene la visibilidad ya elegida; los nuevos quedan visibles hasta llenar MAX_VISIBLE.
-export function mergeModels(prev: ModelEntry[], ids: string[]): ModelEntry[] {
-  const seen = new Map(prev.map((m) => [m.id, m.visible]))
-  let visible = ids.filter((id) => seen.get(id)).length
+export function mergeModels(
+  prev: ModelEntry[],
+  ids: string[],
+  caps: Record<string, Caps> = {},
+): ModelEntry[] {
+  const seen = new Map(prev.map((m) => [m.id, m]))
+  let visible = ids.filter((id) => seen.get(id)?.visible).length
   return ids.map((id) => {
     const known = seen.get(id)
-    if (known !== undefined) return { id, visible: known }
+    const c = caps[id] ?? known?.caps
+    const withCaps = c ? { caps: c } : {}
+    if (known) return { id, visible: known.visible, ...withCaps }
     const show = visible < MAX_VISIBLE
     if (show) visible++
-    return { id, visible: show }
+    return { id, visible: show, ...withCaps }
   })
 }
 

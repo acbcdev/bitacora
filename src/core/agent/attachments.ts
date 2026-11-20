@@ -1,4 +1,5 @@
 import type { ModelMessage } from "ai"
+import type { Caps } from "@/core/agent/capabilities"
 import { asData } from "@/core/agent/prompt"
 
 // Adjuntos del `+` del composer (ticket 07): efímeros, viven en el hilo (el mensaje del usuario),
@@ -12,9 +13,9 @@ export type Attachment =
     }
   | { kind: "image"; name: string; mediaType: string; data: string } // data = base64
 
-// TODO(05/08): leer la capacidad real del modelo; por ahora todo modelo es capaz (Anthropic).
-export function supportsVision(_model: string) {
-  return true
+// Desconocido = capaz: solo un `vision: false` explícito (ticket 08) deshabilita las imágenes.
+export function supportsVision(caps?: Caps) {
+  return caps?.vision !== false
 }
 
 export function userMessage(text: string, attachments: Attachment[] = []): ModelMessage {

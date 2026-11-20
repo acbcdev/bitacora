@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import type { ModelMessage } from "ai"
 import { useQueryClient } from "@tanstack/react-query"
 import { store } from "@/core/store"
@@ -17,6 +17,8 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
   const [messages, setMessages] = useState<ModelMessage[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Detalle crudo del tool-call inválido que agotó los reintentos (línea de error colapsable).
+  const [malformed, setMalformed] = useState<string | null>(null)
   const [last, setLast] = useState<TurnResult | null>(null)
   // La Propuesta del último turno. Un mensaje nuevo la reemplaza: los Borradores eran de ese turno.
   const [proposal, setProposal] = useState<{
@@ -27,6 +29,9 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
   const session = useMemo(() => createSession(store), [])
   const [undoable, setUndoable] = useState<string[]>([])
   const [blocked, setBlocked] = useState<string[] | null>(null)
+  // Tokens acumulados de la sesión (sin dólares). "Nuevo chat" los limpia (en `reset`).
+  const [tokens, setTokens] = useState({ input: 0, output: 0 })
+  const abort = useRef<AbortController | null>(null)
   const qc = useQueryClient()
   const syncUndo = useCallback(
     () => setUndoable(session.canUndo() ? session.last() : []),
@@ -40,7 +45,10 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
       setMessages(next)
       setBusy(true)
       setError(null)
+      setMalformed(null)
       setProposal(null)
+      const ctl = new AbortController()
+      abort.current = ctl
       try {
         const turn = await runTurn({
           model: await createModel(provider, modelId),
@@ -53,9 +61,15 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
             session.pushApplied(ops, inverse)
             syncUndo()
           },
+          abortSignal: ctl.signal,
         })
         setMessages([...next, ...turn.messages])
         setLast(turn)
+        setTokens((t) => ({
+          input: t.input + turn.usage.input,
+          output: t.output + turn.usage.output,
+        }))
+        if (turn.finish === "malformed") setMalformed(turn.malformed ?? "")
         if (turn.proposal) setProposal({ value: turn.proposal, status: "pending" })
       } catch (e) {
         // Error crudo del Proveedor (401, CORS, red): el usuario necesita verlo tal cual.
@@ -68,6 +82,8 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     },
     [messages, provider, modelId, approval, qc, session, syncUndo],
   )
+
+  const stop = useCallback(() => abort.current?.abort(), [])
 
   // `edited` = la Propuesta con los cuerpos que el usuario tocó en la pestaña Cambios.
   const approve = useCallback(
@@ -103,6 +119,8 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
 
   const reset = useCallback(() => {
     session.clear()
+    setTokens({ input: 0, output: 0 })
+    setMalformed(null)
     setMessages([])
     setProposal(null)
     setLast(null)
@@ -119,6 +137,9 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     messages,
     busy,
     error,
+    malformed,
+    tokens,
+    stop,
     last,
     proposal,
     send,
