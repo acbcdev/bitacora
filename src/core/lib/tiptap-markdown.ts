@@ -93,6 +93,11 @@ function block(node: Node): string {
       return `$$\n${String(node.attrs?.latex ?? "")}\n$$`
     case "table":
       return tableToMarkdown(node)
+    // `src` intacto; width en el título (`"w=320"`). height no se serializa: se re-mide en onLoad.
+    case "image": {
+      const { src, alt, width } = node.attrs ?? {}
+      return `![${alt ?? ""}](${src ?? ""}${width ? ` "w=${width}"` : ""})`
+    }
     default:
       return inline(node.content) // fallback: nodo desconocido → su texto
   }
@@ -235,6 +240,8 @@ const QUOTE_RE = /^>\s?/
 export const CALLOUT_KINDS = ["note", "warning", "tip"] as const
 export type CalloutKind = (typeof CALLOUT_KINDS)[number]
 const CALLOUT_RE = new RegExp(`^\\[!(${CALLOUT_KINDS.join("|")})\\]\\s*$`, "i")
+// Imagen en su propia línea: `![alt](src "w=320")`. El título `w=` es opcional.
+const IMAGE_RE = /^!\[([^\]]*)\]\((\S+?)(?: "w=(\d+)")?\)\s*$/
 const BULLET_RE = /^[-*]\s+/
 const ORDERED_RE = /^\d+\.\s+/
 // Ecuación bloque: abre una línea que empieza con `$$`; cierra la primera línea (la misma u otra)
@@ -243,7 +250,7 @@ const ORDERED_RE = /^\d+\.\s+/
 const BLOCK_MATH_OPEN_RE = /^\$\$/
 const BLOCK_MATH_CLOSE_RE = /\$\$\s*$/
 const SPECIAL_LINE_RE = new RegExp(
-  [FENCE_RE, HEADING_RE, HR_RE, QUOTE_RE, BULLET_RE, ORDERED_RE, BLOCK_MATH_OPEN_RE]
+  [FENCE_RE, HEADING_RE, HR_RE, QUOTE_RE, BULLET_RE, ORDERED_RE, BLOCK_MATH_OPEN_RE, IMAGE_RE]
     .map((r) => r.source)
     .join("|"),
 )
@@ -378,6 +385,17 @@ function parseBlocks(text: string): Node[] {
         i = end + 1
         continue
       }
+    }
+
+    const image = line.match(IMAGE_RE)
+    if (image) {
+      const [, alt, src, width] = image
+      result.push({
+        type: "image",
+        attrs: { src, ...(alt && { alt }), ...(width && { width: Number(width) }) },
+      })
+      i++
+      continue
     }
 
     if (HR_RE.test(line.trim())) {
