@@ -3,6 +3,7 @@ import type { ModelMessage } from "ai"
 import { useQueryClient } from "@tanstack/react-query"
 import { store } from "@/core/store"
 import { createModel, type ProviderConfig } from "@/core/agent/provider"
+import { userMessage, type Attachment } from "@/core/agent/attachments"
 import type { OpenContext } from "@/core/agent/prompt"
 import { applyProposal, type Proposal } from "@/core/agent/proposal"
 import { runTurn, type TurnResult } from "@/core/agent/turn"
@@ -23,8 +24,8 @@ export function useAgentChat(provider: ProviderConfig) {
   const qc = useQueryClient()
 
   const send = useCallback(
-    async (text: string, open: OpenContext) => {
-      const next: ModelMessage[] = [...messages, { role: "user", content: text }]
+    async (text: string, open: OpenContext, attachments: Attachment[] = []) => {
+      const next: ModelMessage[] = [...messages, userMessage(text, attachments)]
       setMessages(next)
       setBusy(true)
       setError(null)

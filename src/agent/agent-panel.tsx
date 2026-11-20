@@ -9,6 +9,7 @@ import { useSnapshot } from "@/core/lib/snapshot"
 import type { OpenContext } from "@/core/agent/prompt"
 import type { ProviderConfig } from "@/core/agent/provider"
 import { useAgentUi } from "@/agent/agent-ui"
+import { AttachMenu, type Picked } from "@/agent/attach-menu"
 import { ChatMarkdown } from "@/agent/chat-markdown"
 import { ProposalCard } from "@/agent/proposal-card"
 import { useAgentChat } from "@/agent/use-agent-chat"
@@ -35,7 +36,12 @@ function Thread({ messages }: { messages: ModelMessage[] }) {
     if (m.role === "user")
       return (
         <p key={i} className="self-end rounded-2xl bg-muted px-3 py-2 text-sm whitespace-pre-wrap">
-          {typeof m.content === "string" ? m.content : ""}
+          {typeof m.content === "string"
+            ? m.content
+            : m.content.map((p) => (p.type === "text" ? p.text : "")).slice(0, 1)}
+          {Array.isArray(m.content) && m.content.length > 1 && (
+            <span className="mono-dim block">adjuntos: {m.content.length - 1}</span>
+          )}
         </p>
       )
     if (m.role !== "assistant" || typeof m.content === "string")
@@ -63,6 +69,7 @@ function Chat({ provider }: { provider: ProviderConfig }) {
   const open = useOpenContext()
   const [chipOff, setChipOff] = useState(false)
   const [draft, setDraft] = useState("")
+  const [picked, setPicked] = useState<Picked[]>([])
   const end = useRef<HTMLDivElement>(null)
   // El chip quitado vuelve cuando cambia lo abierto: es contexto por turno, no preferencia.
   const openId = open?.id
@@ -73,7 +80,12 @@ function Chat({ provider }: { provider: ProviderConfig }) {
     const text = draft.trim()
     if (!text || busy) return
     setDraft("")
-    void send(text, chipOff ? null : open)
+    setPicked([])
+    void send(
+      text,
+      chipOff ? null : open,
+      picked.map((p) => p.attachment),
+    )
   }
 
   return (
@@ -125,7 +137,24 @@ function Chat({ provider }: { provider: ProviderConfig }) {
             </Button>
           </span>
         )}
+        {picked.map((p, i) => (
+          <span
+            key={i}
+            className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs"
+          >
+            <span className="truncate">{p.label}</span>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Quitar adjunto"
+              onClick={() => setPicked((l) => l.filter((_, j) => j !== i))}
+            >
+              <X />
+            </Button>
+          </span>
+        ))}
         <div className="flex items-end gap-2">
+          <AttachMenu model={provider.model} onPick={(p) => setPicked((l) => [...l, p])} />
           <Textarea
             aria-label="Mensaje al Agente"
             rows={1}
