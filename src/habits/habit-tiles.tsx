@@ -240,7 +240,7 @@ function HabitTile({
         aria-hidden
         style={{ height: `${block}%` }}
         className={cn(
-          "absolute inset-x-0 bottom-0 rounded-xl bg-habit-block transition-[height] duration-300",
+          "absolute inset-x-0 bottom-0 rounded-xl bg-habit-block transition-[height] duration-300 ease-out motion-reduce:transition-none",
           paused && "opacity-60",
         )}
       />
