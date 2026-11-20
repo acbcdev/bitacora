@@ -93,10 +93,15 @@ function block(node: Node): string {
       return `$$\n${String(node.attrs?.latex ?? "")}\n$$`
     case "table":
       return tableToMarkdown(node)
-    // `src` intacto; width en el título (`"w=320"`). height no se serializa: se re-mide en onLoad.
+    // width en el título (`"w=320"`). height no se serializa: se re-mide en onLoad.
+    // Espacios y paréntesis del `src` se percent-encodean (equivalente como URL) para no romper el link.
     case "image": {
       const { src, alt, width } = node.attrs ?? {}
-      return `![${alt ?? ""}](${src ?? ""}${width ? ` "w=${width}"` : ""})`
+      const safeSrc = String(src ?? "").replace(/[\s()]/g, (c) =>
+        encodeURIComponent(c).replace("(", "%28").replace(")", "%29"),
+      )
+      const safeAlt = String(alt ?? "").replace(/[[\]\n]/g, " ")
+      return `![${safeAlt}](${safeSrc}${width ? ` "w=${width}"` : ""})`
     }
     default:
       return inline(node.content) // fallback: nodo desconocido → su texto
@@ -241,6 +246,8 @@ export const CALLOUT_KINDS = ["note", "warning", "tip"] as const
 export type CalloutKind = (typeof CALLOUT_KINDS)[number]
 const CALLOUT_RE = new RegExp(`^\\[!(${CALLOUT_KINDS.join("|")})\\]\\s*$`, "i")
 // Imagen en su propia línea: `![alt](src "w=320")`. El título `w=` es opcional.
+// Solo http(s), data:image y relativas: el markdown puede venir del modelo/pegado (sin `javascript:`).
+const SAFE_SRC_RE = /^(?:https?:|data:image\/|[^:]*$)/i
 const IMAGE_RE = /^!\[([^\]]*)\]\((\S+?)(?: "w=(\d+)")?\)\s*$/
 const BULLET_RE = /^[-*]\s+/
 const ORDERED_RE = /^\d+\.\s+/
@@ -388,7 +395,7 @@ function parseBlocks(text: string): Node[] {
     }
 
     const image = line.match(IMAGE_RE)
-    if (image) {
+    if (image && SAFE_SRC_RE.test(image[2])) {
       const [, alt, src, width] = image
       result.push({
         type: "image",
