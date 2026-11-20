@@ -8,7 +8,7 @@ import { agentTools } from "@/agent/tools"
 
 // Cliente fino del núcleo: guarda el hilo (en memoria; recargar lo pierde) y delega cada turno
 // a `runTurn`. No sabe de loops, tools ni aprobación.
-export function useAgentChat(provider: ProviderConfig) {
+export function useAgentChat(provider: ProviderConfig, modelId: string) {
   const [messages, setMessages] = useState<ModelMessage[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -22,7 +22,7 @@ export function useAgentChat(provider: ProviderConfig) {
       setError(null)
       try {
         const turn = await runTurn({
-          model: await createModel(provider),
+          model: await createModel(provider, modelId),
           store,
           tools: agentTools,
           messages: next,
@@ -37,7 +37,7 @@ export function useAgentChat(provider: ProviderConfig) {
         setBusy(false)
       }
     },
-    [messages, provider],
+    [messages, provider, modelId],
   )
 
   return { messages, busy, error, last, send }

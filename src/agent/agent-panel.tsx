@@ -7,11 +7,12 @@ import { Textarea } from "@/core/ui/textarea"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
 import { useSnapshot } from "@/core/lib/snapshot"
 import type { OpenContext } from "@/core/agent/prompt"
-import type { ProviderConfig } from "@/core/agent/provider"
+import type { AgentSettings, ProviderConfig } from "@/core/agent/provider"
 import { useAgentUi } from "@/agent/agent-ui"
 import { ChatMarkdown } from "@/agent/chat-markdown"
 import { useAgentChat } from "@/agent/use-agent-chat"
-import { useProvider } from "@/agent/use-provider"
+import { ModelPicker } from "@/agent/model-picker"
+import { useAgentSettings } from "@/agent/use-provider"
 
 // Qué tiene abierto el usuario, según la ruta: la nota (con notebook o suelta) o el notebook.
 function useOpenContext(): OpenContext {
@@ -57,8 +58,16 @@ function Thread({ messages }: { messages: ModelMessage[] }) {
   })
 }
 
-function Chat({ provider }: { provider: ProviderConfig }) {
-  const { messages, busy, error, last, send } = useAgentChat(provider)
+function Chat({
+  provider,
+  modelId,
+  settings,
+}: {
+  provider: ProviderConfig
+  modelId: string
+  settings: AgentSettings
+}) {
+  const { messages, busy, error, last, send } = useAgentChat(provider, modelId)
   const open = useOpenContext()
   const [chipOff, setChipOff] = useState(false)
   const [draft, setDraft] = useState("")
@@ -93,7 +102,7 @@ function Chat({ provider }: { provider: ProviderConfig }) {
         {last && !busy && (
           <span
             className="mono-dim"
-            title={`${last.usage.input} entrada · ${last.usage.output} salida · ${last.steps} pasos · ${provider.model}`}
+            title={`${last.usage.input} entrada · ${last.usage.output} salida · ${last.steps} pasos · ${modelId}`}
           >
             {last.usage.input + last.usage.output} tokens
             {last.finish === "limit" && " · llegué al límite de pasos"}
@@ -134,7 +143,7 @@ function Chat({ provider }: { provider: ProviderConfig }) {
             <Send />
           </Button>
         </div>
-        <span className="mono-dim">{provider.model}</span>
+        <ModelPicker settings={settings} active={{ provider, modelId }} />
       </div>
     </div>
   )
@@ -143,16 +152,17 @@ function Chat({ provider }: { provider: ProviderConfig }) {
 // Contenido del Agente (sidebar propio o pestaña del notebook). Es el chunk lazy: el AI SDK
 // baja recién la primera vez que se abre.
 export default function AgentPanel() {
-  const provider = useProvider()
+  const { settings, active } = useAgentSettings()
   const { openSettings } = useAgentUi()
-  if (!provider)
+  if (!active)
     return (
       <Empty>
         <EmptyHeader>
           <Bot className="size-6 text-muted-foreground" />
           <EmptyTitle>Sin Proveedor</EmptyTitle>
           <EmptyDescription>
-            Configurá tu key de Anthropic para hablar con el Agente. Vive solo en este navegador.
+            Configurá un Proveedor (Anthropic, OpenRouter o uno compatible con OpenAI) para hablar
+            con el Agente. Las keys viven solo en este navegador.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
@@ -161,5 +171,12 @@ export default function AgentPanel() {
       </Empty>
     )
   // key: cambiar de Proveedor/modelo arranca un hilo limpio.
-  return <Chat key={`${provider.kind}:${provider.model}`} provider={provider} />
+  return (
+    <Chat
+      key={`${active.provider.id}:${active.modelId}`}
+      provider={active.provider}
+      modelId={active.modelId}
+      settings={settings}
+    />
+  )
 }

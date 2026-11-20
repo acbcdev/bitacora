@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import AgentPanel from "@/agent/agent-panel"
 import { AgentUiContext } from "@/agent/agent-ui"
 import { ChatMarkdown } from "@/agent/chat-markdown"
-import { saveProvider } from "@/core/agent/provider"
+import { saveAgentSettings } from "@/core/agent/provider"
 
 beforeEach(() => localStorage.clear())
 
@@ -32,6 +32,19 @@ test("el chat no carga imágenes remotas: la URL queda como texto inerte", () =>
 })
 
 test("guardar el Proveedor lo persiste por dispositivo", () => {
-  saveProvider({ kind: "anthropic", apiKey: "k", model: "m" })
-  expect(JSON.parse(localStorage.getItem("bita-agent-provider")!)).toMatchObject({ model: "m" })
+  saveAgentSettings({
+    providers: [
+      {
+        id: "p",
+        kind: "anthropic",
+        name: "A",
+        apiKey: "k",
+        models: [{ id: "m", visible: true }],
+      },
+    ],
+    active: { providerId: "p", modelId: "m" },
+  })
+  expect(JSON.parse(localStorage.getItem("bita-agent-provider")!)).toMatchObject({
+    active: { modelId: "m" },
+  })
 })
