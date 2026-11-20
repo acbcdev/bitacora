@@ -38,6 +38,14 @@ describe("ADR 0011 — la DB solo se toca por el seam Store", () => {
     expect(offenders, `cruzan el seam hacia el cliente crudo:\n${offenders.join("\n")}`).toEqual([])
   })
 
+  it("el núcleo del Agente (core/agent) no importa módulos de dominio (ADR 0027)", () => {
+    const DOMAIN = /from\s+["']@\/(notebooks|notes|habits|review|settings|login|agent)\//
+    const offenders = files
+      .filter((f) => f.rel.startsWith("core/agent/") && DOMAIN.test(f.text))
+      .map((f) => f.rel)
+    expect(offenders, `el núcleo conoce módulos de dominio:\n${offenders.join("\n")}`).toEqual([])
+  })
+
   it("solo core/lib/supabase.ts llama createClient()", () => {
     const offenders = files
       .filter((f) => f.rel !== CLIENT_FACTORY && /createClient\s*[(<]/.test(f.text))

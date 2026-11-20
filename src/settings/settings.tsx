@@ -19,6 +19,7 @@ import { cn } from "@/core/lib/utils"
 import type { StorageMode } from "@/core/store/types"
 import { getSound, playDoneSound, setSound, SOUNDS, type SoundId } from "@/habits/sound"
 import { ReadGoalForm } from "@/review/read-goal-form"
+import { ProviderSettings } from "@/agent/provider-settings"
 
 // Ajustes como Drialog y no como ruta: un overlay no reabre "solo 3 pantallas" (ui-principles),
 // mismo criterio que el dialog de hábitos. CONTEXT.md ya dejaba escrita esta dirección.
@@ -222,6 +223,8 @@ export function Settings({
             </div>
             <ReadGoalForm />
           </section>
+
+          <ProviderSettings />
 
           <section>
             <p className="text-sm font-medium">Dónde se guardan los datos</p>

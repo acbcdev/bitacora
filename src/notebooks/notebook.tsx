@@ -32,6 +32,9 @@ import {
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/core/ui/drawer"
 import { Kbd } from "@/core/ui/kbd"
 import { Sidebar, SidebarProvider } from "@/core/ui/sidebar"
+import { Tabs, TabsList, TabsTrigger } from "@/core/ui/tabs"
+import { useAgentUi } from "@/agent/agent-ui"
+import { AgentContent } from "@/agent/agent-sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useQueryClient } from "@tanstack/react-query"
 import {
@@ -115,6 +118,12 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
   useEffect(() => {
     localStorage.setItem("bita-nb-index", indexOpen ? "1" : "0")
   }, [indexOpen])
+
+  // ⌘. con el índice colapsado: abrir el Agente también despliega el sidebar.
+  const agent = useAgentUi()
+  useEffect(() => {
+    if (agent.open) setIndexOpen(true)
+  }, [agent.open])
 
   const notebook = notebooks.find((c) => c.id === id)
   // Selección inicial = la última editada (spec .scratch/editor-flow, issue 02). El índice NO se
@@ -522,7 +531,18 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
 
       {!focus && !isMobile && (
         <Sidebar side="right" collapsible="offcanvas">
-          {index}
+          {/* Pestañas "Notas | Agente": el Agente comparte este sidebar (sin tercera columna). */}
+          <Tabs
+            value={agent.open ? "agent" : "notes"}
+            onValueChange={(v) => agent.setOpen(v === "agent")}
+            className="shrink-0 px-4 pt-3"
+          >
+            <TabsList className="w-full">
+              <TabsTrigger value="notes">Notas</TabsTrigger>
+              <TabsTrigger value="agent">Agente</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {agent.open ? <AgentContent /> : index}
         </Sidebar>
       )}
 

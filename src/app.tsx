@@ -3,6 +3,7 @@ import { flushSync } from "react-dom"
 import { Navigate, Route, Routes, useLocation, useMatch, useNavigate } from "react-router-dom"
 import { useHotkeys } from "react-hotkeys-hook"
 import {
+  Bot,
   Command,
   LogOut,
   Maximize2,
@@ -36,6 +37,8 @@ import { NoteSkeleton } from "@/core/components/skeletons"
 import { ErrorBoundary } from "@/core/components/error-boundary"
 import { Review } from "@/review/review"
 import { HabitsDialog } from "@/habits/habits-dialog"
+import { AgentUiContext } from "@/agent/agent-ui"
+import { AgentSidebar } from "@/agent/agent-sidebar"
 
 // Code splitting por ruta: tiptap/lowlight (el grueso del bundle) solo baja al abrir un notebook/nota.
 // Review es la home → eager. Named exports → el .then adapta a { default }.
@@ -100,6 +103,7 @@ function Shell({ user }: { user: AuthUser }) {
   const [palette, setPalette] = useState(false)
   const [cheat, setCheat] = useState(false)
   const [settings, setSettings] = useState(false)
+  const [agentOpen, setAgentOpen] = useState(false)
   const [habitsDialog, setHabitsDialog] = useState<"list" | "new" | null>(null)
   const scroller = useRef<HTMLElement>(null)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("bita-sb") === "1")
@@ -147,6 +151,12 @@ function Shell({ user }: { user: AuthUser }) {
   })
   // "slash", no "/": la lib matchea por tecla física (e.code), no por e.key.
   useHotkeys("mod+slash", () => setCheat((c) => !c), {
+    enableOnFormTags: true,
+    enableOnContentEditable: true,
+    preventDefault: true,
+  })
+  // ⌘. abre/cierra el Agente (también dentro del editor).
+  useHotkeys("mod+period", () => setAgentOpen((o) => !o), {
     enableOnFormTags: true,
     enableOnContentEditable: true,
     preventDefault: true,
@@ -245,6 +255,13 @@ function Shell({ user }: { user: AuthUser }) {
         : []),
       {
         group: "Vista",
+        label: agentOpen ? "Cerrar Agente" : "Abrir Agente",
+        kbd: mod("."),
+        icon: <Bot />,
+        run: () => setAgentOpen((o) => !o),
+      },
+      {
+        group: "Vista",
         label: "Atajos de teclado",
         kbd: mod("/"),
         icon: <Command />,
@@ -270,105 +287,112 @@ function Shell({ user }: { user: AuthUser }) {
     // Un solo TooltipProvider para toda la app: los tooltips del sidebar y los de los botones de
     // icono de las pantallas cuelgan de acá.
     <TooltipProvider>
-      <SidebarProvider
-        open={!collapsed}
-        onOpenChange={(open) => setCollapsed(!open)}
-        className="h-dvh min-h-0 overflow-hidden"
-        style={
-          {
-            "--sidebar-width": "clamp(13.5rem, 18vw, 260px)",
-            "--sidebar-width-icon": "56px",
-          } as React.CSSProperties
-        }
+      <AgentUiContext.Provider
+        value={{ open: agentOpen, setOpen: setAgentOpen, openSettings: () => setSettings(true) }}
       >
-        {!focus && (
-          <Sidebar
-            notebooks={notebooks}
-            loading={notebooksLoading || forceLoading()}
-            email={user.email}
-            dark={dark}
-            onToggleTheme={() => toggleTheme()}
-            onLogout={() => store.auth.signOut()}
-            onSettings={() => setSettings(true)}
-            onSearch={() => setPalette(true)}
-          />
-        )}
-        <main
-          ref={scroller}
-          className={`relative min-w-0 flex-1 overflow-y-auto ${collapsed && !focus ? "md:px-11" : ""} ${focus ? "" : "max-md:pb-24"}`}
+        <SidebarProvider
+          open={!collapsed}
+          onOpenChange={(open) => setCollapsed(!open)}
+          className="h-dvh min-h-0 overflow-hidden"
+          style={
+            {
+              "--sidebar-width": "clamp(13.5rem, 18vw, 260px)",
+              "--sidebar-width-icon": "56px",
+            } as React.CSSProperties
+          }
         >
-          {/* Mobile: MobileBar (sticky, en flujo: no pisa el h1 porque ocupa su propio alto) es el
-              acceso al Sidebar. Desktop colapsado (offcanvas): el trigger de acá, fixed en la esquina
-              (el contenido está centrado con max-w, así que no empuja la pantalla al colapsar). */}
-          {/* Logo en reposo, panel en hover/focus (estilo ChatGPT). */}
           {!focus && (
-            <MobileBar
-              scroller={scroller}
-              home={pathname === "/"}
-              onHabits={() => setHabitsDialog("list")}
-              onNewHabit={() => setHabitsDialog("new")}
-              onNewNotebook={() => navigate("/?new=1")}
+            <Sidebar
+              notebooks={notebooks}
+              loading={notebooksLoading || forceLoading()}
+              email={user.email}
+              dark={dark}
+              onToggleTheme={() => toggleTheme()}
+              onLogout={() => store.auth.signOut()}
+              onSettings={() => setSettings(true)}
+              onSearch={() => setPalette(true)}
             />
           )}
-          <SidebarTrigger
-            className={`group/trigger mt-4 ml-4 md:fixed md:top-4 md:left-4 md:z-10 md:m-0 ${focus ? "" : "max-md:hidden"} ${collapsed && !focus ? "" : "md:hidden"}`}
+          <main
+            ref={scroller}
+            className={`relative min-w-0 flex-1 overflow-y-auto ${collapsed && !focus ? "md:px-11" : ""} ${focus ? "" : "max-md:pb-24"}`}
           >
-            <Logo className="size-6 text-foreground group-hover/trigger:hidden group-focus-visible/trigger:hidden" />
-            <PanelLeft className="hidden size-5 group-hover/trigger:block group-focus-visible/trigger:block" />
-          </SidebarTrigger>
-          {/* ErrorBoundary por sección: un crash en Review/Notebook/Note no mata el sidebar.
+            {/* Mobile: MobileBar (sticky, en flujo: no pisa el h1 porque ocupa su propio alto) es el
+              acceso al Sidebar. Desktop colapsado (offcanvas): el trigger de acá, fixed en la esquina
+              (el contenido está centrado con max-w, así que no empuja la pantalla al colapsar). */}
+            {/* Logo en reposo, panel en hover/focus (estilo ChatGPT). */}
+            {!focus && (
+              <MobileBar
+                scroller={scroller}
+                home={pathname === "/"}
+                onHabits={() => setHabitsDialog("list")}
+                onNewHabit={() => setHabitsDialog("new")}
+                onNewNotebook={() => navigate("/?new=1")}
+              />
+            )}
+            <SidebarTrigger
+              className={`group/trigger mt-4 ml-4 md:fixed md:top-4 md:left-4 md:z-10 md:m-0 ${focus ? "" : "max-md:hidden"} ${collapsed && !focus ? "" : "md:hidden"}`}
+            >
+              <Logo className="size-6 text-foreground group-hover/trigger:hidden group-focus-visible/trigger:hidden" />
+              <PanelLeft className="hidden size-5 group-hover/trigger:block group-focus-visible/trigger:block" />
+            </SidebarTrigger>
+            {/* ErrorBoundary por sección: un crash en Review/Notebook/Note no mata el sidebar.
               key con sólo los 2 primeros segmentos resetea al navegar a otra pantalla o notebook,
               pero NO al cambiar de nota dentro del notebook (/notebook/:id/:noteId) — con pathname
               completo el Notebook entero (lista de notas incluida) se remontaba en cada J/K. */}
-          <ErrorBoundary key={pathname.split("/").slice(1, 3).join("/")}>
-            <Suspense fallback={<NoteSkeleton />}>
-              <Routes>
-                <Route path="/" element={<Review />} />
-                <Route
-                  path="/notebook/:id"
-                  element={<Notebook focus={focus} onToggleFocus={exit} />}
-                />
-                <Route
-                  path="/notebook/:id/:noteId"
-                  element={<Notebook focus={focus} onToggleFocus={exit} />}
-                />
-                {/* Solo para notas sin notebook (note.notebook_id null) — con notebook, la ruta principal
+            <ErrorBoundary key={pathname.split("/").slice(1, 3).join("/")}>
+              <Suspense fallback={<NoteSkeleton />}>
+                <Routes>
+                  <Route path="/" element={<Review />} />
+                  <Route
+                    path="/notebook/:id"
+                    element={<Notebook focus={focus} onToggleFocus={exit} />}
+                  />
+                  <Route
+                    path="/notebook/:id/:noteId"
+                    element={<Notebook focus={focus} onToggleFocus={exit} />}
+                  />
+                  {/* Solo para notas sin notebook (note.notebook_id null) — con notebook, la ruta principal
                   es /notebook/:id/:noteId de arriba. */}
-                <Route path="/note/:id" element={<Note focus={focus} onToggleFocus={exit} />} />
-              </Routes>
-            </Suspense>
-          </ErrorBoundary>
-        </main>
+                  <Route path="/note/:id" element={<Note focus={focus} onToggleFocus={exit} />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
+          </main>
 
-        {!focus && (
-          <MobileDock
-            scroller={scroller}
-            home={pathname === "/"}
-            onSearch={() => setPalette(true)}
-          />
-        )}
-        {jumps.map(([n, c]) => (
-          <NotebookHotkey key={n} n={n} id={c.id} />
-        ))}
-        {palette && <CommandPalette onClose={() => setPalette(false)} actions={actions()} />}
-        {cheat && <Cheatsheet onClose={() => setCheat(false)} />}
-        {settings && (
-          <Suspense fallback={null}>
-            <Settings
-              onClose={() => setSettings(false)}
-              dark={dark}
-              onToggleTheme={() => toggleTheme()}
+          {/* En notebooks el Agente es una pestaña del sidebar del índice (ver Notebook). */}
+          {!focus && !notebookId && <AgentSidebar />}
+
+          {!focus && (
+            <MobileDock
+              scroller={scroller}
+              home={pathname === "/"}
+              onSearch={() => setPalette(true)}
             />
-          </Suspense>
-        )}
-        {habitsDialog && (
-          <HabitsDialog startNew={habitsDialog === "new"} onClose={() => setHabitsDialog(null)} />
-        )}
-        <Toaster
-          theme={dark ? "dark" : "light"}
-          mobileOffset={{ bottom: "calc(88px + env(safe-area-inset-bottom))" }}
-        />
-      </SidebarProvider>
+          )}
+          {jumps.map(([n, c]) => (
+            <NotebookHotkey key={n} n={n} id={c.id} />
+          ))}
+          {palette && <CommandPalette onClose={() => setPalette(false)} actions={actions()} />}
+          {cheat && <Cheatsheet onClose={() => setCheat(false)} />}
+          {settings && (
+            <Suspense fallback={null}>
+              <Settings
+                onClose={() => setSettings(false)}
+                dark={dark}
+                onToggleTheme={() => toggleTheme()}
+              />
+            </Suspense>
+          )}
+          {habitsDialog && (
+            <HabitsDialog startNew={habitsDialog === "new"} onClose={() => setHabitsDialog(null)} />
+          )}
+          <Toaster
+            theme={dark ? "dark" : "light"}
+            mobileOffset={{ bottom: "calc(88px + env(safe-area-inset-bottom))" }}
+          />
+        </SidebarProvider>
+      </AgentUiContext.Provider>
     </TooltipProvider>
   )
 }

@@ -47,6 +47,7 @@ function SidebarProvider({
   open: openProp,
   onOpenChange: setOpenProp,
   alt = false,
+  shortcut = true,
   className,
   style,
   children,
@@ -57,6 +58,8 @@ function SidebarProvider({
   onOpenChange?: (open: boolean) => void
   // ⌘⌥B en vez de ⌘B: segundo sidebar (índice del notebook) anidado sin pisarse con el global.
   alt?: boolean
+  // false = sin atajo ⌘B propio (el sidebar del Agente se abre con ⌘.).
+  shortcut?: boolean
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
@@ -87,6 +90,7 @@ function SidebarProvider({
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
+    if (!shortcut) return
     const handleKeyDown = (event: KeyboardEvent) => {
       // e.code, no e.key: en Mac ⌥B da e.key "∫".
       if (
@@ -101,7 +105,7 @@ function SidebarProvider({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [toggleSidebar, alt])
+  }, [toggleSidebar, alt, shortcut])
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
