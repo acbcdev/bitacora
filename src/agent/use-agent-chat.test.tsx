@@ -81,3 +81,40 @@ test("Nuevo chat limpia hilo, Propuesta, pila de undo y tokens", async () => {
   expect(result.current.tokens).toEqual({ input: 0, output: 0 })
   expect(result.current.hasApplied()).toBe(false) // sin nada aplicado, el próximo reset no confirma
 })
+
+describe("historial", () => {
+  beforeEach(() => localStorage.clear())
+
+  test("persiste el chat, abrir uno vuelve a sus mensajes y borrar el activo pasa a uno nuevo", async () => {
+    const { result } = renderHook(() => useAgentChat(provider, "m"), { wrapper })
+    await act(() => result.current.send("primero", null as never))
+    const first = result.current.chatId
+    expect(result.current.chats.map((c) => c.id)).toEqual([first])
+
+    act(() => result.current.discard()) // la Propuesta pendiente bloquea el cambio
+    act(() => result.current.reset())
+    expect(result.current.chatId).not.toBe(first)
+    await act(() => result.current.send("segundo", null as never))
+    expect(result.current.chats).toHaveLength(2)
+
+    act(() => result.current.discard())
+    act(() => result.current.openChat(first))
+    expect(result.current.chatId).toBe(first)
+    expect(result.current.messages[0]).toMatchObject({ content: "primero" })
+    expect(result.current.undoable).toEqual([]) // el undo no persiste
+
+    act(() => result.current.remove(first))
+    expect(result.current.chats).toHaveLength(1)
+    expect(result.current.messages).toEqual([])
+    expect(result.current.chatId).not.toBe(first)
+  })
+
+  test("con una Propuesta pendiente no se puede cambiar de chat", async () => {
+    const { result } = renderHook(() => useAgentChat(provider, "m"), { wrapper })
+    await act(() => result.current.send("a", null as never))
+    const id = result.current.chatId
+    expect(result.current.canSwitch).toBe(false)
+    act(() => result.current.openChat("otro"))
+    expect(result.current.chatId).toBe(id)
+  })
+})
