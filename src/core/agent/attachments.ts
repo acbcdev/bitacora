@@ -18,8 +18,28 @@ export function supportsVision(caps?: Caps) {
   return caps?.vision !== false
 }
 
-export function userMessage(text: string, attachments: Attachment[] = []): ModelMessage {
-  if (attachments.length === 0) return { role: "user", content: text }
+// Un Skill invocado viaja como INSTRUCCIÓN del turno (segunda parte del mensaje), no como DATO:
+// es texto del propio usuario. El `text` original (`/nombre args`) queda primero para mostrarlo.
+export const SKILL_TAG = "skill"
+
+export function userMessage(
+  text: string,
+  attachments: Attachment[] = [],
+  skill?: { name: string; prompt: string; args: string },
+): ModelMessage {
+  if (attachments.length === 0 && !skill) return { role: "user", content: text }
+  const instruction = skill
+    ? [
+        {
+          type: "text" as const,
+          text: asData(
+            SKILL_TAG,
+            { nombre: skill.name },
+            skill.args ? `${skill.prompt}\n\nArgumentos: ${skill.args}` : skill.prompt,
+          ),
+        },
+      ]
+    : []
   const parts = attachments.flatMap((a) =>
     a.kind === "text"
       ? [{ type: "text" as const, text: asData(a.tag, a.attrs, a.body) }]
@@ -31,5 +51,5 @@ export function userMessage(text: string, attachments: Attachment[] = []): Model
           { type: "file" as const, data: a.data, mediaType: a.mediaType },
         ],
   )
-  return { role: "user", content: [{ type: "text", text }, ...parts] }
+  return { role: "user", content: [{ type: "text", text }, ...instruction, ...parts] }
 }

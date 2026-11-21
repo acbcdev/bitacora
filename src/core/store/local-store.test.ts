@@ -125,6 +125,27 @@ test("sin env de Supabase, salir del modo local avisa que no hay a dónde ir", a
   expect(await store.auth.signOut()).toBe(false)
 })
 
+test("skills: se crean, se editan y borrar es hard delete", async () => {
+  await store.skills.save({ name: "poema", description: "d", prompt: "rimá" })
+  const [creado] = await store.skills.list()
+  expect(creado).toMatchObject({ name: "poema", prompt: "rimá" })
+
+  await store.skills.save({ id: creado.id, name: "poema", description: "d", prompt: "otro" })
+  expect((await store.skills.list())[0].prompt).toBe("otro")
+
+  await store.skills.remove(creado.id)
+  expect(await store.skills.list()).toEqual([])
+  // A diferencia de notas y hábitos (ADR 0002), la fila sale de verdad (ADR 0028).
+  expect(JSON.parse(localStorage.getItem("bita-local:skills")!)).toEqual([])
+})
+
+test("skills: el nombre es único", async () => {
+  await store.skills.save({ name: "poema", description: "", prompt: "a" })
+  await expect(store.skills.save({ name: "poema", description: "", prompt: "b" })).rejects.toThrow(
+    "Ya existe",
+  )
+})
+
 test("un localStorage corrupto no rompe la app: se lee como vacío", async () => {
   localStorage.setItem("bita-local:notebooks", "{ esto no es JSON")
   expect((await store.snapshot()).notebooks).toEqual([])

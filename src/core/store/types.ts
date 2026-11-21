@@ -4,6 +4,7 @@ import type {
   Habit,
   HabitLog,
   Note,
+  SkillRow,
   NoteKind,
   TiptapDoc,
 } from "@/core/types/database"
@@ -125,6 +126,8 @@ export type WriteResult = {
   habit_log: void
 }
 
+export type SkillInput = { id?: string; name: string; description: string; prompt: string }
+
 export type Store = {
   readonly mode: StorageMode
 
@@ -135,6 +138,14 @@ export type Store = {
     signIn(email: string): Promise<void>
     // Devuelve true si efectivamente se salió. En local sin env de Supabase no hay a dónde ir.
     signOut(): Promise<boolean>
+  }
+
+  // Skills del usuario (overrides + creados, ADR 0028). Fuera del Snapshot: no entran en ninguna
+  // derivación. Hard delete. `save` sin `id` crea; con `id` edita. Nombre repetido tira Error.
+  skills: {
+    list(): Promise<SkillRow[]>
+    save(input: SkillInput): Promise<void>
+    remove(id: string): Promise<void>
   }
 
   snapshot(): Promise<Snapshot>
