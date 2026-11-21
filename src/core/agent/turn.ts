@@ -21,6 +21,52 @@ export const MAX_STEPS = 25
 // Un tool-call malformado vuelve al modelo como tool-result; tras 1 intento + 2 reintentos seguidos
 // el turno corta.
 export const MAX_MALFORMED = 3
+// Extended thinking de Anthropic: presupuesto fijo, sin config (el SDK lo suma a max_tokens).
+export const THINKING_BUDGET = 4000
+// Anthropic sin extended thinking: pedírselo da 400.
+const NO_THINKING = /^claude-(3-5|3-haiku|3-opus|3-sonnet|2|instant)/
+
+// Namespace propio en providerOptions de la parte reasoning: guarda cuánto tardó el paso.
+export const THINK_NS = "bitacora"
+export const thinkingMs = (p: { providerOptions?: Record<string, Record<string, unknown>> }) => {
+  const ms = p.providerOptions?.[THINK_NS]?.thinkingMs
+  return typeof ms === "number" ? ms : undefined
+}
+
+// El reasoning de turnos anteriores no se reenvía; dentro del loop de tools del turno el SDK
+// conserva el suyo (Anthropic exige devolver el thinking block firmado junto al tool_use).
+export function stripReasoning(messages: ModelMessage[]): ModelMessage[] {
+  return messages.flatMap((m) => {
+    if (m.role !== "assistant" || typeof m.content === "string") return [m]
+    const content = m.content.filter((p) => p.type !== "reasoning")
+    return content.length ? [{ ...m, content }] : []
+  })
+}
+
+// Cada paso produce un mensaje assistant (en orden): ahí se anota cuánto tardó el paso.
+function withDurations(messages: ModelMessage[], ms: number[]): ModelMessage[] {
+  let i = 0
+  return messages.map((m) => {
+    if (m.role !== "assistant") return m
+    const d = ms[i++]
+    if (typeof m.content === "string" || d === undefined) return m
+    return {
+      ...m,
+      content: m.content.map((p) =>
+        p.type === "reasoning"
+          ? { ...p, providerOptions: { ...p.providerOptions, [THINK_NS]: { thinkingMs: d } } }
+          : p,
+      ),
+    }
+  })
+}
+
+const thinkingOptions = (model: LanguageModel) =>
+  typeof model === "object" &&
+  model.provider.startsWith("anthropic") &&
+  !NO_THINKING.test(model.modelId)
+    ? { anthropic: { thinking: { type: "enabled" as const, budgetTokens: THINKING_BUDGET } } }
+    : undefined
 
 const malformedCalls: StopCondition<ToolSet> = ({ steps }) => {
   let n = 0
@@ -52,7 +98,8 @@ export type TurnResult = {
   messages: ModelMessage[]
   text: string
   steps: number
-  usage: { input: number; output: number }
+  // `output` ya incluye los tokens de reasoning; `reasoning` es su parte (0 si no hubo).
+  usage: { input: number; output: number; reasoning: number }
   // "limit": cortó el tope de pasos con tools pendientes. "aborted": el usuario apretó Detener.
   // "malformed": el modelo agotó los reintentos de tool-call inválido (detalle en `malformed`).
   finish: "stop" | "limit" | "aborted" | "malformed"
@@ -97,7 +144,9 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
   // Lo completado hasta ahora, para devolverlo parcial si el usuario detiene el turno.
   let done: ModelMessage[] = []
   let steps = 0
-  const usage = { input: 0, output: 0 }
+  const usage = { input: 0, output: 0, reasoning: 0 }
+  const stepMs: number[] = []
+  let stepStart = Date.now()
   const propose = () => (drafts.ops().length ? { ops: drafts.ops() } : null)
 
   try {
@@ -107,16 +156,20 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
         today: dayKey(now),
         open: input.open ?? null,
       }),
-      messages: input.messages,
+      messages: stripReasoning(input.messages),
+      providerOptions: thinkingOptions(input.model),
       tools,
       stopWhen: [stepCountIs(MAX_STEPS), malformedCalls],
       abortSignal: input.abortSignal,
       prepareStep: ({ responseMessages }) => {
-        done = responseMessages
+        done = withDurations(responseMessages, stepMs)
+        stepStart = Date.now()
         return undefined
       },
       onStepFinish: (step) => {
         steps++
+        stepMs.push(Date.now() - stepStart)
+        usage.reasoning += step.usage.outputTokenDetails.reasoningTokens ?? 0
         usage.input += step.usage.inputTokens ?? 0
         usage.output += step.usage.outputTokens ?? 0
       },
@@ -129,12 +182,13 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
     const stoppedMalformed =
       result.steps.length >= MAX_MALFORMED && malformedCalls({ steps: result.steps })
     return {
-      messages: result.responseMessages,
+      messages: withDurations(result.responseMessages, stepMs),
       text: result.text,
       steps: result.steps.length,
       usage: {
         input: result.totalUsage.inputTokens ?? 0,
         output: result.totalUsage.outputTokens ?? 0,
+        reasoning: result.totalUsage.outputTokenDetails.reasoningTokens ?? 0,
       },
       finish: stoppedMalformed
         ? "malformed"
