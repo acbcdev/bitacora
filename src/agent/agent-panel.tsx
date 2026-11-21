@@ -49,14 +49,17 @@ function useOpenContext(): OpenContext {
 }
 
 // Resultado de cada tool-call (viene en un mensaje `tool` aparte, por toolCallId).
-function toolResults(messages: ModelMessage[]) {
-  const out = new Map<string, string>()
+export function toolResults(messages: ModelMessage[]) {
+  const out = new Map<string, { text: string; isError: boolean }>()
   for (const m of messages)
     if (m.role === "tool")
       for (const p of m.content)
         if (p.type === "tool-result") {
-          const v = (p.output as { value?: unknown }).value
-          out.set(p.toolCallId, typeof v === "string" ? v : JSON.stringify(v ?? p.output, null, 2))
+          const o = p.output as { type?: string; value?: unknown }
+          out.set(p.toolCallId, {
+            text: typeof o.value === "string" ? o.value : JSON.stringify(o.value ?? o, null, 2),
+            isError: o.type === "error-text" || o.type === "error-json",
+          })
         }
   return out
 }
@@ -100,7 +103,8 @@ function Thread({ messages, busy }: { messages: ModelMessage[]; busy: boolean })
               key={j}
               name={part.toolName}
               input={part.input}
-              result={results.get(part.toolCallId)}
+              result={results.get(part.toolCallId)?.text}
+              isError={results.get(part.toolCallId)?.isError}
               busy={busy}
             />
           ) : null,
