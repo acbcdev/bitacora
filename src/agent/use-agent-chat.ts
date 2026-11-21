@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react"
+import { setStored, useStored } from "@/core/lib/hooks/use-stored"
+import { parseChats, upsertChat } from "@/core/agent/chats"
 import type { ModelMessage } from "ai"
 import { useQueryClient } from "@tanstack/react-query"
 import { store } from "@/core/store"
@@ -11,10 +13,25 @@ import { runTurn, type TurnResult } from "@/core/agent/turn"
 import { useApprovalLevel } from "@/agent/approval-picker"
 import { agentTools } from "@/agent/tools"
 
-// Cliente fino del núcleo: guarda el hilo (en memoria; recargar lo pierde) y delega cada turno
-// a `runTurn`. No sabe de loops, tools ni aprobación.
+export const CHATS_KEY = "agent.chats"
+
+// Cliente fino del núcleo: guarda el hilo (los mensajes persisten en localStorage como Chat;
+// undo y Propuesta no) y delega cada turno a `runTurn`. No sabe de loops, tools ni aprobación.
 export function useAgentChat(provider: ProviderConfig, modelId: string) {
   const [messages, setMessages] = useState<ModelMessage[]>([])
+  const [chatId, setChatId] = useState<string>(() => crypto.randomUUID())
+  const raw = useStored(CHATS_KEY)
+  const chats = useMemo(() => parseChats(raw), [raw])
+  const persist = useCallback(
+    (id: string, msgs: ModelMessage[]) =>
+      setStored(
+        CHATS_KEY,
+        JSON.stringify(
+          upsertChat(parseChats(localStorage.getItem(CHATS_KEY)), id, msgs, Date.now()),
+        ),
+      ),
+    [],
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Detalle crudo del tool-call inválido que agotó los reintentos (línea de error colapsable).
@@ -43,6 +60,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     async (text: string, open: OpenContext, attachments: Attachment[] = []) => {
       const next: ModelMessage[] = [...messages, userMessage(text, attachments)]
       setMessages(next)
+      persist(chatId, next)
       setBusy(true)
       setError(null)
       setMalformed(null)
@@ -64,6 +82,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
           abortSignal: ctl.signal,
         })
         setMessages([...next, ...turn.messages])
+        persist(chatId, [...next, ...turn.messages])
         setLast(turn)
         setTokens((t) => ({
           input: t.input + turn.usage.input,
@@ -80,7 +99,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
         setBusy(false)
       }
     },
-    [messages, provider, modelId, approval, qc, session, syncUndo],
+    [messages, chatId, persist, provider, modelId, approval, qc, session, syncUndo],
   )
 
   const stop = useCallback(() => abort.current?.abort(), [])
@@ -117,17 +136,43 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     [qc, session, syncUndo],
   )
 
-  const reset = useCallback(() => {
-    session.clear()
-    setTokens({ input: 0, output: 0 })
-    setMalformed(null)
-    setMessages([])
-    setProposal(null)
-    setLast(null)
-    setError(null)
-    setBlocked(null)
-    setUndoable([])
-  }, [session])
+  // Vacía lo efímero del hilo actual (undo, Propuesta, tokens) y deja los mensajes dados.
+  const load = useCallback(
+    (id: string, msgs: ModelMessage[]) => {
+      session.clear()
+      setChatId(id)
+      setTokens({ input: 0, output: 0 })
+      setMalformed(null)
+      setMessages(msgs)
+      setProposal(null)
+      setLast(null)
+      setError(null)
+      setBlocked(null)
+      setUndoable([])
+    },
+    [session],
+  )
+
+  const reset = useCallback(() => load(crypto.randomUUID(), []), [load])
+
+  // Cambiar de chat: no con el Agente ocupado ni con una Propuesta pendiente (se perdería).
+  const canSwitch = !busy && proposal?.status !== "pending"
+  const openChat = useCallback(
+    (id: string) => {
+      const c = chats.find((x) => x.id === id)
+      if (c && canSwitch) load(c.id, c.messages)
+    },
+    [chats, canSwitch, load],
+  )
+
+  // Borrar: si era el activo pasa a uno nuevo.
+  const remove = useCallback(
+    (id: string) => {
+      setStored(CHATS_KEY, JSON.stringify(chats.filter((c) => c.id !== id)))
+      if (id === chatId) reset()
+    },
+    [chats, chatId, reset],
+  )
 
   const discard = useCallback(() => {
     if (proposal?.status === "pending") setProposal({ ...proposal, status: "discarded" })
@@ -135,6 +180,11 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
 
   return {
     messages,
+    chatId,
+    chats,
+    canSwitch,
+    openChat,
+    remove,
     busy,
     error,
     malformed,

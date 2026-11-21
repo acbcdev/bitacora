@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useMatch } from "react-router-dom"
-import { Bot, Send, Square, SquarePen, X } from "lucide-react"
+import { Bot, Check, ChevronDown, Send, Square, SquarePen, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import type { ModelMessage } from "ai"
@@ -15,10 +15,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/core/ui/alert-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/core/ui/dropdown-menu"
 import { Textarea } from "@/core/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
 import { useSnapshot } from "@/core/lib/snapshot"
+import { chatTitle, relativeDay, type Chat } from "@/core/agent/chats"
 import type { OpenContext } from "@/core/agent/prompt"
 import type { AgentSettings, ProviderConfig } from "@/core/agent/provider"
 import { useAgentUi } from "@/agent/agent-ui"
@@ -64,15 +73,84 @@ export function toolResults(messages: ModelMessage[]) {
   return out
 }
 
-// Título del chat: la primera pregunta del usuario.
-function chatTitle(messages: ModelMessage[]) {
-  const m = messages.find((x) => x.role === "user")
-  if (!m) return "Nuevo chat"
-  const t =
-    typeof m.content === "string"
-      ? m.content
-      : m.content.map((p) => (p.type === "text" ? p.text : "")).join("")
-  return t.trim() || "Nuevo chat"
+const RECENT = 5
+
+// Título del header = trigger del historial. Bloqueado con el Agente ocupado o una Propuesta
+// pendiente (cambiar de chat la perdería).
+function ChatsMenu({
+  title,
+  chats,
+  activeId,
+  disabled,
+  onOpen,
+  onRemove,
+}: {
+  title: string
+  chats: Chat[]
+  activeId: string
+  disabled: boolean
+  onOpen: (id: string) => void
+  onRemove: (id: string) => void
+}) {
+  const [all, setAll] = useState(false)
+  const shown = all ? chats : chats.slice(0, RECENT)
+  return (
+    <DropdownMenu onOpenChange={(o) => o || setAll(false)}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Chats"
+          disabled={disabled}
+          className="min-w-0 shrink px-2 text-sm font-medium"
+        >
+          <span className="truncate">{title}</span>
+          <ChevronDown />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-80 w-72">
+        <DropdownMenuLabel>Chats</DropdownMenuLabel>
+        {shown.length === 0 && <p className="mono-dim px-2 py-1.5">Todavía no hay chats</p>}
+        {shown.map((c) => (
+          <DropdownMenuItem key={c.id} className="gap-2" onSelect={() => onOpen(c.id)}>
+            <span className="truncate">{chatTitle(c.messages)}</span>
+            {c.id === activeId ? (
+              <Check className="ml-auto size-4 shrink-0" />
+            ) : (
+              <span className="mono-dim ml-auto shrink-0">
+                {relativeDay(c.updatedAt, Date.now())}
+              </span>
+            )}
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Borrar chat"
+              className="shrink-0"
+              onClick={(e) => {
+                e.stopPropagation()
+                onRemove(c.id)
+              }}
+            >
+              <Trash2 />
+            </Button>
+          </DropdownMenuItem>
+        ))}
+        {!all && chats.length > RECENT && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault()
+                setAll(true)
+              }}
+            >
+              Ver todos
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 function Thread({ messages, busy }: { messages: ModelMessage[]; busy: boolean }) {
@@ -125,6 +203,11 @@ function Chat({
 }) {
   const {
     messages,
+    chatId,
+    chats,
+    canSwitch,
+    openChat,
+    remove,
     busy,
     error,
     malformed,
@@ -141,7 +224,9 @@ function Chat({
     reset,
     hasApplied,
   } = useAgentChat(provider, modelId)
-  const [confirmReset, setConfirmReset] = useState(false)
+  // Acción que pierde el undo (nuevo chat / cambiar de chat) pendiente de confirmar.
+  const [confirm, setConfirm] = useState<(() => void) | null>(null)
+  const guard = (fn: () => void) => (hasApplied() ? setConfirm(() => fn) : fn())
   const caps = provider.models.find((m) => m.id === modelId)?.caps
   const isMobile = useIsMobile()
   // Mobile: el toast con Deshacer sobrevive al Drawer (el chat vive en AgentHost, no en el Drawer).
@@ -196,7 +281,14 @@ function Chat({
         <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted">
           <Bot className="size-3.5" />
         </span>
-        <h2 className="truncate text-sm font-medium">{chatTitle(messages)}</h2>
+        <ChatsMenu
+          title={chatTitle(messages)}
+          chats={chats}
+          activeId={chatId}
+          disabled={!canSwitch}
+          onOpen={(id) => guard(() => openChat(id))}
+          onRemove={remove}
+        />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -205,7 +297,7 @@ function Chat({
               aria-label="Nuevo chat"
               className="ml-auto shrink-0"
               disabled={busy || messages.length === 0}
-              onClick={() => (hasApplied() ? setConfirmReset(true) : reset())}
+              onClick={() => guard(reset)}
             >
               <SquarePen />
             </Button>
@@ -213,10 +305,10 @@ function Chat({
           <TooltipContent>Nuevo chat</TooltipContent>
         </Tooltip>
       </header>
-      <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
+      <AlertDialog open={!!confirm} onOpenChange={(o) => o || setConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Empezar un chat nuevo?</AlertDialogTitle>
+            <AlertDialogTitle>¿Salir de este chat?</AlertDialogTitle>
             <AlertDialogDescription>
               Ya se aplicaron cambios en este chat. Si seguís, ya no vas a poder deshacerlos desde
               acá.
@@ -224,7 +316,7 @@ function Chat({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={reset}>Nuevo chat</AlertDialogAction>
+            <AlertDialogAction onClick={() => confirm?.()}>Continuar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
