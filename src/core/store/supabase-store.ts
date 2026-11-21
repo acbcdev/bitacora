@@ -41,6 +41,25 @@ export function supabaseStore(): Store {
       },
     },
 
+    skills: {
+      async list() {
+        const { data, error } = await getSupabase().from("skills").select("*").order("created_at")
+        if (error) throw error
+        return data
+      },
+      async save({ id, ...values }) {
+        const table = getSupabase().from("skills")
+        const { error } = id ? await table.update(values).eq("id", id) : await table.insert(values)
+        if (error)
+          throw error.code === "23505" ? new Error("Ya existe un skill con ese nombre") : error
+      },
+      // Hard delete (ADR 0028).
+      async remove(id) {
+        const { error } = await getSupabase().from("skills").delete().eq("id", id)
+        if (error) throw error
+      },
+    },
+
     // Las cinco tablas vivas en paralelo. Cinco requests que salen juntos y llegan juntos: en la
     // versión anterior eran seis queries encadenadas a lo largo del arranque, cada una con su
     // propio waterfall de React Query.

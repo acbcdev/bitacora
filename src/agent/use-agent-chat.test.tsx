@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import type { ReactNode } from "react"
+import type { ModelMessage } from "ai"
 import { useAgentChat } from "@/agent/use-agent-chat"
 import type { ProviderConfig } from "@/core/agent/provider"
 import type { Op } from "@/core/agent/tool"
@@ -17,8 +18,13 @@ vi.mock("@/core/agent/provider", async (orig) => ({
   ...(await orig<object>()),
   createModel: async () => ({}),
 }))
+const turns: { messages: ModelMessage[] }[] = []
 vi.mock("@/core/agent/turn", () => ({
-  runTurn: async (o: { onApplied: (ops: Op[], inverse: Op[]) => void }) => {
+  runTurn: async (o: {
+    messages: ModelMessage[]
+    onApplied: (ops: Op[], inverse: Op[]) => void
+  }) => {
+    turns.push(o)
     o.onApplied([edit], [{ ...edit, before: edit.after, after: edit.before! }])
     return {
       messages: [{ role: "assistant", content: "listo" }],
@@ -41,6 +47,20 @@ const provider: ProviderConfig = {
 const wrapper = ({ children }: { children: ReactNode }) => (
   <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
 )
+
+test("/skill args llega al modelo como instrucción del turno; /foo va como texto", async () => {
+  const { result } = renderHook(() => useAgentChat(provider, "m"), { wrapper })
+  await act(() => result.current.send("/resumir esta nota", null as never))
+
+  const content = turns.at(-1)!.messages.at(-1)!.content as { type: string; text: string }[]
+  expect(content[0].text).toBe("/resumir esta nota") // lo que ve el usuario
+  expect(content[1].text).toContain('<skill nombre="resumir">')
+  expect(content[1].text).toContain("Argumentos: esta nota")
+
+  act(() => result.current.reset())
+  await act(() => result.current.send("/foo bar", null as never))
+  expect(turns.at(-1)!.messages.at(-1)!.content).toBe("/foo bar")
+})
 
 test("Nuevo chat limpia hilo, Propuesta, pila de undo y tokens", async () => {
   const { result } = renderHook(() => useAgentChat(provider, "m"), { wrapper })

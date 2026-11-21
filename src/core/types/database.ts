@@ -150,6 +150,27 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["habit_log"]["Insert"]>
         Relationships: []
       }
+      // Overrides de built-ins (misma `name`) y skills del usuario (ADR 0028). Hard delete: sin deleted_at.
+      skills: {
+        Row: {
+          id: string
+          user_id: string
+          name: string // slug [a-z0-9-], único por usuario
+          description: string
+          prompt: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          name: string
+          description?: string
+          prompt: string
+          created_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["skills"]["Insert"]>
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -187,6 +208,7 @@ export type Notebook = Database["public"]["Tables"]["notebooks"]["Row"]
 export type Note = Database["public"]["Tables"]["notes"]["Row"]
 export type ReadLog = Database["public"]["Tables"]["read_log"]["Row"]
 export type Habit = Database["public"]["Tables"]["habits"]["Row"]
+export type SkillRow = Database["public"]["Tables"]["skills"]["Row"]
 export type HabitLog = Database["public"]["Tables"]["habit_log"]["Row"]
 export type NotebookProgress =
   Database["public"]["Functions"]["notebook_progress"]["Returns"][number]
