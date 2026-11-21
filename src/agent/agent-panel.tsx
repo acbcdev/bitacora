@@ -35,6 +35,8 @@ import { AttachMenu, addPicked, usePickRef, type Picked } from "@/agent/attach-m
 import { ChatMarkdown } from "@/agent/chat-markdown"
 import { MentionMenu, useMention } from "@/agent/mention-menu"
 import { ToolBlock } from "@/agent/tool-block"
+import { ReasoningBlock } from "@/agent/reasoning-block"
+import { thinkingMs } from "@/core/agent/turn"
 import { ProposalCard } from "@/agent/proposal-card"
 import { useAgentChat } from "@/agent/use-agent-chat"
 import { ApprovalPicker } from "@/agent/approval-picker"
@@ -176,6 +178,12 @@ function Thread({ messages, busy }: { messages: ModelMessage[]; busy: boolean })
         {m.content.map((part, j) =>
           part.type === "text" ? (
             <ChatMarkdown key={j}>{part.text}</ChatMarkdown>
+          ) : part.type === "reasoning" ? (
+            part.text ? (
+              <ReasoningBlock key={j} ms={thinkingMs(part)}>
+                {part.text}
+              </ReasoningBlock>
+            ) : null
           ) : part.type === "tool-call" ? (
             <ToolBlock
               key={j}
@@ -360,7 +368,7 @@ function Chat({
             </div>
           </div>
         )}
-        {busy && <span className="mono-dim">pensando…</span>}
+        {busy && <ReasoningBlock streaming />}
         {error && (
           <p role="alert" className="text-sm break-words text-destructive">
             {error}
@@ -382,7 +390,7 @@ function Chat({
               </span>
             </TooltipTrigger>
             <TooltipContent>
-              {`${last.usage.input} entrada · ${last.usage.output} salida · ${last.steps} pasos · ${modelId} · sesión: ${tokens.input + tokens.output} tokens`}
+              {`${last.usage.input} entrada · ${last.usage.output} salida${last.usage.reasoning ? ` (${last.usage.reasoning} razonando)` : ""} · ${last.steps} pasos · ${modelId} · sesión: ${tokens.input + tokens.output} tokens`}
             </TooltipContent>
           </Tooltip>
         )}

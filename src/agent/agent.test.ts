@@ -75,7 +75,7 @@ test("un turno que lee: el modelo llama read_note, ve la nota como dato y respon
   expect(turn.text).toBe("La nota habla de límites.")
   expect(turn.finish).toBe("stop")
   expect(turn.steps).toBe(2)
-  expect(turn.usage).toEqual({ input: 20, output: 10 })
+  expect(turn.usage).toEqual({ input: 20, output: 10, reasoning: 0 })
   // La nota llegó envuelta como dato y sin poder cerrar su propio envoltorio.
   const result = seen(model, 1)
   expect(result).toContain(`<nota id=`)
@@ -382,7 +382,7 @@ test("Detener: abortar corta el turno y lo ya borrador queda como Propuesta norm
   expect(turn.proposal?.ops.map((o) => o.entity)).toEqual(["notebooks"])
   // El hilo parcial queda consistente (assistant + tool) para poder seguir conversando.
   expect(turn.messages.map((m) => m.role)).toEqual(["assistant", "tool"])
-  expect(turn.usage).toEqual({ input: 10, output: 5 })
+  expect(turn.usage).toEqual({ input: 10, output: 5, reasoning: 0 })
 })
 
 test("tool-call malformado: vuelve al modelo y se reintenta hasta 2 veces", async () => {
