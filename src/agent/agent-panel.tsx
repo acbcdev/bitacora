@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from "react"
-import { useMatch } from "react-router-dom"
-import { Bot, Check, ChevronDown, Send, Square, SquarePen, Trash2, X } from "lucide-react"
+import { useLocation, useMatch, useNavigate } from "react-router-dom"
+import {
+  Bot,
+  Check,
+  ChevronDown,
+  Maximize2,
+  Minimize2,
+  Send,
+  Square,
+  SquarePen,
+  Trash2,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import type { ModelMessage } from "ai"
@@ -24,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/core/ui/dropdown-menu"
 import { Textarea } from "@/core/ui/textarea"
+import { Kbd } from "@/core/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/core/ui/empty"
 import { useSnapshot } from "@/core/lib/snapshot"
@@ -224,6 +236,28 @@ function Chat({
     reset,
     hasApplied,
   } = useAgentChat(provider, modelId)
+  // En la ruta `/chat/:id` la URL manda: cambiar de chat navega junto con el estado.
+  const route = useMatch("/chat/:id")
+  const routeId = route?.params.id
+  const navigate = useNavigate()
+  const { setOpen } = useAgentUi()
+  const fromApp = useLocation().key !== "default"
+  const back = (reopen: boolean) => {
+    setOpen(reopen)
+    if (fromApp) navigate(-1)
+    else navigate("/", { replace: true })
+  }
+  // URL externa (link, atrás, id borrado): un id que no es el activo se abre si existe; si no,
+  // al chat más reciente, o al activo (nuevo) si no hay.
+  useEffect(() => {
+    if (!routeId || routeId === chatId) return
+    const target = chats.some((c) => c.id === routeId) ? routeId : (chats[0]?.id ?? chatId)
+    if (target !== chatId && !canSwitch) navigate(`/chat/${chatId}`, { replace: true })
+    else {
+      if (target !== chatId) openChat(target)
+      navigate(`/chat/${target}`, { replace: true })
+    }
+  }, [routeId, chatId, chats, canSwitch, openChat, navigate])
   // Acción que pierde el undo (nuevo chat / cambiar de chat) pendiente de confirmar.
   const [confirm, setConfirm] = useState<(() => void) | null>(null)
   const guard = (fn: () => void) => (hasApplied() ? setConfirm(() => fn) : fn())
@@ -254,6 +288,7 @@ function Chat({
     (o) => void pickRef({ kind: o.kind, id: o.id }, o.label || "(sin título)"),
   )
   const end = useRef<HTMLDivElement>(null)
+  const column = route ? "mx-auto w-full max-w-3xl" : ""
   // El chip quitado vuelve cuando cambia lo abierto: es contexto por turno, no preferencia.
   const openId = open?.id
   useEffect(() => {
@@ -277,7 +312,7 @@ function Chat({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-2 px-3">
+      <header className="flex h-12 shrink-0 items-center gap-1 px-3">
         <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted">
           <Bot className="size-3.5" />
         </span>
@@ -286,7 +321,12 @@ function Chat({
           chats={chats}
           activeId={chatId}
           disabled={!canSwitch}
-          onOpen={(id) => guard(() => openChat(id))}
+          onOpen={(id) =>
+            guard(() => {
+              openChat(id)
+              if (route) navigate(`/chat/${id}`)
+            })
+          }
           onRemove={remove}
         />
         <Tooltip>
@@ -297,12 +337,48 @@ function Chat({
               aria-label="Nuevo chat"
               className="ml-auto shrink-0"
               disabled={busy || messages.length === 0}
-              onClick={() => guard(reset)}
+              onClick={() =>
+                guard(() => {
+                  const id = crypto.randomUUID()
+                  reset(id)
+                  if (route) navigate(`/chat/${id}`)
+                })
+              }
             >
               <SquarePen />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Nuevo chat</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={route ? "Contraer" : "Abrir en grande"}
+              className="shrink-0"
+              onClick={() => (route ? back(true) : navigate(`/chat/${chatId}`))}
+            >
+              {route ? <Minimize2 /> : <Maximize2 />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{route ? "Contraer" : "Abrir en grande"}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Cerrar"
+              className="shrink-0"
+              onClick={() => (route ? back(false) : setOpen(false))}
+            >
+              <X />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            Cerrar <Kbd>⌘.</Kbd>
+          </TooltipContent>
         </Tooltip>
       </header>
       <AlertDialog open={!!confirm} onOpenChange={(o) => o || setConfirm(null)}>
@@ -320,162 +396,166 @@ function Chat({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
-        {messages.length === 0 && (
-          <div className="flex flex-1 flex-col justify-end gap-2 pb-2">
-            <h3 className="text-lg font-medium">¿En qué te ayudo?</h3>
-            <p className="text-sm text-muted-foreground">
-              Pedime que explore tus notebooks, notas y hábitos. Si quiero cambiar algo, te lo
-              propongo y vos aprobás o descartás.
-            </p>
-          </div>
-        )}
-        <Thread messages={messages} busy={busy} />
-        {proposal && (
-          <ProposalCard
-            proposal={proposal.value}
-            status={proposal.status}
-            onApprove={(edited) => void approve(edited)}
-            onDiscard={discard}
-          />
-        )}
-        {undoable.length > 0 && !busy && (
-          <div className="flex flex-col gap-2 rounded-xl border p-3 text-sm">
-            <span className="mono-dim">Último cambio aplicado: {undoable.join(" · ")}</span>
-            {blocked && (
-              <p role="alert" className="text-destructive">
-                Esto cambió desde que se aplicó: {blocked.join(", ")}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div className={`flex min-h-0 flex-1 flex-col gap-3 px-4 py-3 ${column}`}>
+          {messages.length === 0 && (
+            <div className="flex flex-1 flex-col justify-end gap-2 pb-2">
+              <h3 className="text-lg font-medium">¿En qué te ayudo?</h3>
+              <p className="text-sm text-muted-foreground">
+                Pedime que explore tus notebooks, notas y hábitos. Si quiero cambiar algo, te lo
+                propongo y vos aprobás o descartás.
               </p>
-            )}
-            <div className="flex gap-2">
-              {blocked ? (
-                <Button size="sm" variant="destructive" onClick={() => void undo(true)}>
-                  Deshacer igual
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => void undo()}>
-                  Deshacer
-                </Button>
-              )}
             </div>
-          </div>
-        )}
-        {busy && <span className="mono-dim">pensando…</span>}
-        {error && (
-          <p role="alert" className="text-sm break-words text-destructive">
-            {error}
-          </p>
-        )}
-        {malformed !== null && (
-          <details className="text-xs text-muted-foreground">
-            <summary>El modelo no logró llamar bien a las tools</summary>
-            <pre className="mt-1 break-words whitespace-pre-wrap">{malformed}</pre>
-          </details>
-        )}
-        {last && !busy && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="mono-dim w-fit" tabIndex={0}>
-                {last.usage.input + last.usage.output} tokens
-                {last.finish === "limit" && " · Llegué al límite de pasos"}
-                {last.finish === "aborted" && " · detenido"}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              {`${last.usage.input} entrada · ${last.usage.output} salida · ${last.steps} pasos · ${modelId} · sesión: ${tokens.input + tokens.output} tokens`}
-            </TooltipContent>
-          </Tooltip>
-        )}
-        <div ref={end} />
+          )}
+          <Thread messages={messages} busy={busy} />
+          {proposal && (
+            <ProposalCard
+              proposal={proposal.value}
+              status={proposal.status}
+              onApprove={(edited) => void approve(edited)}
+              onDiscard={discard}
+            />
+          )}
+          {undoable.length > 0 && !busy && (
+            <div className="flex flex-col gap-2 rounded-xl border p-3 text-sm">
+              <span className="mono-dim">Último cambio aplicado: {undoable.join(" · ")}</span>
+              {blocked && (
+                <p role="alert" className="text-destructive">
+                  Esto cambió desde que se aplicó: {blocked.join(", ")}
+                </p>
+              )}
+              <div className="flex gap-2">
+                {blocked ? (
+                  <Button size="sm" variant="destructive" onClick={() => void undo(true)}>
+                    Deshacer igual
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => void undo()}>
+                    Deshacer
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+          {busy && <span className="mono-dim">pensando…</span>}
+          {error && (
+            <p role="alert" className="text-sm break-words text-destructive">
+              {error}
+            </p>
+          )}
+          {malformed !== null && (
+            <details className="text-xs text-muted-foreground">
+              <summary>El modelo no logró llamar bien a las tools</summary>
+              <pre className="mt-1 break-words whitespace-pre-wrap">{malformed}</pre>
+            </details>
+          )}
+          {last && !busy && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="mono-dim w-fit" tabIndex={0}>
+                  {last.usage.input + last.usage.output} tokens
+                  {last.finish === "limit" && " · Llegué al límite de pasos"}
+                  {last.finish === "aborted" && " · detenido"}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {`${last.usage.input} entrada · ${last.usage.output} salida · ${last.steps} pasos · ${modelId} · sesión: ${tokens.input + tokens.output} tokens`}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <div ref={end} />
+        </div>
       </div>
       <div className="relative flex shrink-0 flex-col gap-2 border-t p-3">
-        {mention.open && <MentionMenu mention={mention} />}
-        {open && !chipOff && (
-          <span className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs">
-            <span className="truncate">{open.title || "(sin título)"}</span>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Quitar contexto"
-              onClick={() => setChipOff(true)}
+        <div className={`flex flex-col gap-2 ${column}`}>
+          {mention.open && <MentionMenu mention={mention} />}
+          {open && !chipOff && (
+            <span className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs">
+              <span className="truncate">{open.title || "(sin título)"}</span>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Quitar contexto"
+                onClick={() => setChipOff(true)}
+              >
+                <X />
+              </Button>
+            </span>
+          )}
+          {picked.map((p, i) => (
+            <span
+              key={i}
+              className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs"
             >
-              <X />
-            </Button>
-          </span>
-        )}
-        {picked.map((p, i) => (
-          <span
-            key={i}
-            className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs"
-          >
-            <span className="truncate">{p.label}</span>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Quitar adjunto"
-              onClick={() => setPicked((l) => l.filter((_, j) => j !== i))}
-            >
-              <X />
-            </Button>
-          </span>
-        ))}
-        {/* Desktop: una fila + selectores abajo. Mobile: dos filas (texto / acciones). */}
-        <div className="flex flex-wrap items-end gap-2 md:flex-nowrap">
-          <Textarea
-            aria-label="Mensaje al Agente"
-            rows={1}
-            value={draft}
-            placeholder="Preguntale al Agente, @ contexto"
-            onChange={(e) => {
-              setDraft(e.target.value)
-              setCaret(e.target.selectionStart)
-            }}
-            onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
-            onKeyDown={(e) => {
-              if (mention.onKeyDown(e)) return
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault()
-                submit()
-              }
-            }}
-            className="order-1 max-h-40 min-h-11 w-full flex-1 resize-none md:order-2 md:min-h-9 md:w-auto"
-          />
-          <div className="order-2 md:order-1 [&_button]:max-md:size-11">
-            <AttachMenu caps={caps} onPick={(p) => setPicked((l) => addPicked(l, p))} />
+              <span className="truncate">{p.label}</span>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Quitar adjunto"
+                onClick={() => setPicked((l) => l.filter((_, j) => j !== i))}
+              >
+                <X />
+              </Button>
+            </span>
+          ))}
+          {/* Desktop: una fila + selectores abajo. Mobile: dos filas (texto / acciones). */}
+          <div className="flex flex-wrap items-end gap-2 md:flex-nowrap">
+            <Textarea
+              aria-label="Mensaje al Agente"
+              rows={1}
+              value={draft}
+              placeholder="Preguntale al Agente, @ contexto"
+              onChange={(e) => {
+                setDraft(e.target.value)
+                setCaret(e.target.selectionStart)
+              }}
+              onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
+              onKeyDown={(e) => {
+                if (mention.onKeyDown(e)) return
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault()
+                  submit()
+                }
+              }}
+              className="order-1 max-h-40 min-h-11 w-full flex-1 resize-none md:order-2 md:min-h-9 md:w-auto"
+            />
+            <div className="order-2 md:order-1 [&_button]:max-md:size-11">
+              <AttachMenu caps={caps} onPick={(p) => setPicked((l) => addPicked(l, p))} />
+            </div>
+            {isMobile && (
+              <div className="order-3 flex min-w-0 flex-1 items-center gap-1 [&_button]:h-11">
+                <ModelPicker settings={settings} active={{ provider, modelId }} />
+                <ApprovalPicker />
+              </div>
+            )}
+            {busy ? (
+              <Button
+                size="icon"
+                aria-label="Detener"
+                onClick={stop}
+                className="order-4 max-md:size-11"
+              >
+                <Square />
+              </Button>
+            ) : (
+              <Button
+                size="icon"
+                aria-label="Enviar"
+                disabled={!draft.trim()}
+                onClick={submit}
+                className="order-4 max-md:size-11"
+              >
+                <Send />
+              </Button>
+            )}
           </div>
-          {isMobile && (
-            <div className="order-3 flex min-w-0 flex-1 items-center gap-1 [&_button]:h-11">
+          {!isMobile && (
+            <div className="flex flex-wrap items-center gap-1">
               <ModelPicker settings={settings} active={{ provider, modelId }} />
               <ApprovalPicker />
             </div>
           )}
-          {busy ? (
-            <Button
-              size="icon"
-              aria-label="Detener"
-              onClick={stop}
-              className="order-4 max-md:size-11"
-            >
-              <Square />
-            </Button>
-          ) : (
-            <Button
-              size="icon"
-              aria-label="Enviar"
-              disabled={!draft.trim()}
-              onClick={submit}
-              className="order-4 max-md:size-11"
-            >
-              <Send />
-            </Button>
-          )}
         </div>
-        {!isMobile && (
-          <div className="flex flex-wrap items-center gap-1">
-            <ModelPicker settings={settings} active={{ provider, modelId }} />
-            <ApprovalPicker />
-          </div>
-        )}
       </div>
     </div>
   )

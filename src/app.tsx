@@ -38,7 +38,7 @@ import { ErrorBoundary } from "@/core/components/error-boundary"
 import { Review } from "@/review/review"
 import { HabitsDialog } from "@/habits/habits-dialog"
 import { AgentUiContext } from "@/agent/agent-ui"
-import { AgentHost, AgentSidebar } from "@/agent/agent-sidebar"
+import { AgentHost, AgentSidebar, ChatRoute } from "@/agent/agent-sidebar"
 
 // Code splitting por ruta: tiptap/lowlight (el grueso del bundle) solo baja al abrir un notebook/nota.
 // Review es la home → eager. Named exports → el .then adapta a { default }.
@@ -95,6 +95,7 @@ function Shell({ user }: { user: AuthUser }) {
   // "Nueva nota" en la palette solo dentro de un notebook: ⌘N es del browser (ADR 0024).
   const notebookId = useMatch("/notebook/:id/*")?.params.id
   // Focus mode sólo existe con una nota abierta: en el home escondía el chrome sin salida.
+  const inChat = !!useMatch("/chat/:id")
   const inNote = useMatch("/notebook/:id/:noteId")
   const inStandaloneNote = useMatch("/note/:id")
   const noteOpen = !!(inNote || inStandaloneNote)
@@ -355,13 +356,14 @@ function Shell({ user }: { user: AuthUser }) {
                   {/* Solo para notas sin notebook (note.notebook_id null) — con notebook, la ruta principal
                   es /notebook/:id/:noteId de arriba. */}
                   <Route path="/note/:id" element={<Note focus={focus} onToggleFocus={exit} />} />
+                  <Route path="/chat/:id" element={<ChatRoute />} />
                 </Routes>
               </Suspense>
             </ErrorBoundary>
           </main>
 
           {/* En notebooks el Agente es una pestaña del sidebar del índice (ver Notebook). */}
-          {!focus && !notebookId && <AgentSidebar />}
+          {!focus && !notebookId && !inChat && <AgentSidebar />}
 
           {!focus && (
             <MobileDock

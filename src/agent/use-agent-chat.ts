@@ -153,7 +153,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     [session],
   )
 
-  const reset = useCallback(() => load(crypto.randomUUID(), []), [load])
+  const reset = useCallback((id: string = crypto.randomUUID()) => load(id, []), [load])
 
   // Cambiar de chat: no con el Agente ocupado ni con una Propuesta pendiente (se perdería).
   const canSwitch = !busy && proposal?.status !== "pending"

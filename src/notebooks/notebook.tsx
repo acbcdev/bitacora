@@ -41,7 +41,7 @@ import { Kbd } from "@/core/ui/kbd"
 import { Sidebar, SidebarProvider } from "@/core/ui/sidebar"
 import { Tabs, TabsList, TabsTrigger } from "@/core/ui/tabs"
 import { useAgentUi } from "@/agent/agent-ui"
-import { AgentContent, AgentSlot } from "@/agent/agent-sidebar"
+import { AgentSlot } from "@/agent/agent-sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useQueryClient } from "@tanstack/react-query"
 import {
@@ -549,7 +549,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
               <TabsTrigger value="agent">Agente</TabsTrigger>
             </TabsList>
           </Tabs>
-          {agent.open ? <AgentContent /> : index}
+          {agent.open ? <AgentSlot /> : index}
         </Sidebar>
       )}
 

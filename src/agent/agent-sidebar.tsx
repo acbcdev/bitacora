@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useRef } from "react"
 import { createPortal } from "react-dom"
+import { useMatch } from "react-router-dom"
 import {
   DRAWER_TALL,
   Drawer,
@@ -14,32 +15,20 @@ import { useAgentUi } from "@/agent/agent-ui"
 // Lazy: el AI SDK y el chat bajan recién la primera vez que se abre el Agente.
 const AgentPanel = lazy(() => import("@/agent/agent-panel"))
 
-// El panel solo se monta una vez abierto, y después queda montado (cerrar no pierde el hilo).
-export function AgentContent() {
-  const { open } = useAgentUi()
-  const opened = useRef(false)
-  if (open) opened.current = true
-  if (!opened.current) return null
-  return (
-    <Suspense fallback={null}>
-      <AgentPanel />
-    </Suspense>
-  )
-}
-
-// Mobile: el chat vive en un nodo propio que se re-parenta al Drawer abierto. Vaul desmonta su
-// contenido al cerrar y el hilo (más el Deshacer del toast) no puede morir con él, así que
-// `AgentHost` (siempre montado en la app) renderiza el panel en `host` por portal y `AgentSlot`
-// lo cuelga donde esté el Drawer.
+// UN solo panel (y por eso un solo hilo activo) para sidebar, pestaña del notebook, Drawer y ruta
+// `/chat/:id`. Vaul desmonta su contenido al cerrar y la ruta/sidebar se montan y desmontan al
+// navegar, así que `AgentHost` (siempre montado en la app) renderiza el panel en `host` por portal
+// y `AgentSlot` cuelga ese nodo donde esté la superficie visible. Solo se monta una vez abierto
+// (o al entrar a la ruta) y después queda: cerrar no pierde el hilo ni el Deshacer del toast.
 const host = document.createElement("div")
 host.className = "flex min-h-0 flex-1 flex-col"
 
 export function AgentHost() {
   const { open } = useAgentUi()
-  const isMobile = useIsMobile()
+  const inChat = useMatch("/chat/:id")
   const opened = useRef(false)
-  if (open) opened.current = true
-  if (!isMobile || !opened.current) return null
+  if (open || inChat) opened.current = true
+  if (!opened.current) return null
   return createPortal(
     <Suspense fallback={null}>
       <AgentPanel />
@@ -84,8 +73,17 @@ export function AgentSidebar() {
       }
     >
       <Sidebar side="right" collapsible="offcanvas" aria-label="Agente">
-        <AgentContent />
+        <AgentSlot />
       </Sidebar>
     </SidebarProvider>
+  )
+}
+
+// Vista grande del mismo hilo: `/chat/:id`. El panel (en `host`) resuelve el id.
+export function ChatRoute() {
+  return (
+    <div className="flex h-dvh flex-col">
+      <AgentSlot />
+    </div>
   )
 }
