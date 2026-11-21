@@ -19,6 +19,17 @@ import { readFile, resolveRef, type AttachRef } from "@/agent/attachments"
 
 export type Picked = { label: string; attachment: Attachment }
 
+// Referencia → adjunto (con toast si falla). Lo comparten el `+` y el `@` del composer.
+export function usePickRef(onPick: (p: Picked) => void) {
+  return async (r: AttachRef, label: string) => {
+    try {
+      onPick({ label, attachment: await resolveRef(store, r) })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    }
+  }
+}
+
 // El `+` del composer: referencias (nota/notebook/hábito) y archivos. Imágenes solo con visión.
 export function AttachMenu({ caps, onPick }: { caps?: Caps; onPick: (p: Picked) => void }) {
   const fileInput = useRef<HTMLInputElement>(null)
@@ -29,13 +40,7 @@ export function AttachMenu({ caps, onPick }: { caps?: Caps; onPick: (p: Picked) 
     habito: s.habits.map((h) => ({ id: h.id, label: h.name })),
   }))
 
-  async function pickRef(r: AttachRef, label: string) {
-    try {
-      onPick({ label, attachment: await resolveRef(store, r) })
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
-    }
-  }
+  const pickRef = usePickRef(onPick)
 
   async function pickFiles(files: FileList | null) {
     for (const f of files ?? []) {

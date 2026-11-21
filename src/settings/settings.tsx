@@ -201,7 +201,7 @@ export function Settings({
             elegir. Las dos mitades del Drawer acotan distinto: el Drawer es flex-col con
             max-h-90vh (gobierna `flex-1 min-h-0` + max-md:max-h-70vh), y el Dialog tiene alto
             fijo (md:h-85vh) y scrollea acá adentro. En desktop el contenido va a ancho de lectura. */}
-        <div className="flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto px-1 pb-2 max-md:max-h-[70vh] md:mx-auto md:w-full md:max-w-2xl">
+        <div className="flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto pr-6 pl-1 pb-2 max-md:max-h-[70vh] md:mx-auto md:w-full md:max-w-2xl">
           <section className="flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch">
             <div>
               <p className="text-sm font-medium">Tema</p>

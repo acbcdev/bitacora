@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useMatch } from "react-router-dom"
-import { Bot, Plus, Send, Square, X } from "lucide-react"
+import { Bot, Send, Square, SquarePen, X } from "lucide-react"
 import { toast } from "sonner"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
 import type { ModelMessage } from "ai"
@@ -22,8 +22,10 @@ import { useSnapshot } from "@/core/lib/snapshot"
 import type { OpenContext } from "@/core/agent/prompt"
 import type { AgentSettings, ProviderConfig } from "@/core/agent/provider"
 import { useAgentUi } from "@/agent/agent-ui"
-import { AttachMenu, type Picked } from "@/agent/attach-menu"
+import { AttachMenu, usePickRef, type Picked } from "@/agent/attach-menu"
 import { ChatMarkdown } from "@/agent/chat-markdown"
+import { MentionMenu, useMention } from "@/agent/mention-menu"
+import { ToolBlock } from "@/agent/tool-block"
 import { ProposalCard } from "@/agent/proposal-card"
 import { useAgentChat } from "@/agent/use-agent-chat"
 import { ApprovalPicker } from "@/agent/approval-picker"
@@ -46,7 +48,32 @@ function useOpenContext(): OpenContext {
   return data ?? null
 }
 
-function Thread({ messages }: { messages: ModelMessage[] }) {
+// Resultado de cada tool-call (viene en un mensaje `tool` aparte, por toolCallId).
+function toolResults(messages: ModelMessage[]) {
+  const out = new Map<string, string>()
+  for (const m of messages)
+    if (m.role === "tool")
+      for (const p of m.content)
+        if (p.type === "tool-result") {
+          const v = (p.output as { value?: unknown }).value
+          out.set(p.toolCallId, typeof v === "string" ? v : JSON.stringify(v ?? p.output, null, 2))
+        }
+  return out
+}
+
+// Título del chat: la primera pregunta del usuario.
+function chatTitle(messages: ModelMessage[]) {
+  const m = messages.find((x) => x.role === "user")
+  if (!m) return "Nuevo chat"
+  const t =
+    typeof m.content === "string"
+      ? m.content
+      : m.content.map((p) => (p.type === "text" ? p.text : "")).join("")
+  return t.trim() || "Nuevo chat"
+}
+
+function Thread({ messages, busy }: { messages: ModelMessage[]; busy: boolean }) {
+  const results = toolResults(messages)
   return messages.map((m, i) => {
     if (m.role === "user")
       return (
@@ -64,14 +91,18 @@ function Thread({ messages }: { messages: ModelMessage[] }) {
         <ChatMarkdown key={i}>{m.content as string}</ChatMarkdown>
       ) : null
     return (
-      <div key={i} className="flex flex-col gap-1">
+      <div key={i} className="flex flex-col gap-2">
         {m.content.map((part, j) =>
           part.type === "text" ? (
             <ChatMarkdown key={j}>{part.text}</ChatMarkdown>
           ) : part.type === "tool-call" ? (
-            <span key={j} className="mono-dim">
-              · {part.toolName}
-            </span>
+            <ToolBlock
+              key={j}
+              name={part.toolName}
+              input={part.input}
+              result={results.get(part.toolCallId)}
+              busy={busy}
+            />
           ) : null,
         )}
       </div>
@@ -125,11 +156,23 @@ function Chat({
   const [chipOff, setChipOff] = useState(false)
   const [draft, setDraft] = useState("")
   const [picked, setPicked] = useState<Picked[]>([])
+  const [caret, setCaret] = useState(0)
+  const pickRef = usePickRef((p) => setPicked((l) => [...l, p]))
+  const mention = useMention(
+    draft,
+    caret,
+    (a, b) => setDraft((d) => d.slice(0, a) + d.slice(b)),
+    (o) => void pickRef({ kind: o.kind, id: o.id }, o.label || "(sin título)"),
+  )
   const end = useRef<HTMLDivElement>(null)
   // El chip quitado vuelve cuando cambia lo abierto: es contexto por turno, no preferencia.
   const openId = open?.id
-  useEffect(() => setChipOff(false), [openId])
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [messages, busy, error, proposal])
+  useEffect(() => {
+    setChipOff(false)
+  }, [openId])
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" })
+  }, [messages, busy, error, proposal])
 
   function submit() {
     const text = draft.trim()
@@ -145,18 +188,27 @@ function Chat({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {messages.length > 0 && (
-        <div className="flex shrink-0 justify-end border-b px-3 py-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={busy}
-            onClick={() => (hasApplied() ? setConfirmReset(true) : reset())}
-          >
-            <Plus /> Nuevo chat
-          </Button>
-        </div>
-      )}
+      <header className="flex h-12 shrink-0 items-center gap-2 px-3">
+        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted">
+          <Bot className="size-3.5" />
+        </span>
+        <h2 className="truncate text-sm font-medium">{chatTitle(messages)}</h2>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Nuevo chat"
+              className="ml-auto shrink-0"
+              disabled={busy || messages.length === 0}
+              onClick={() => (hasApplied() ? setConfirmReset(true) : reset())}
+            >
+              <SquarePen />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Nuevo chat</TooltipContent>
+        </Tooltip>
+      </header>
       <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -174,12 +226,15 @@ function Chat({
       </AlertDialog>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
         {messages.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            Pedime que explore tus notebooks, notas y hábitos. Si quiero cambiar algo, te lo
-            propongo y vos aprobás o descartás.
-          </p>
+          <div className="flex flex-1 flex-col justify-end gap-2 pb-2">
+            <h3 className="text-lg font-medium">¿En qué te ayudo?</h3>
+            <p className="text-sm text-muted-foreground">
+              Pedime que explore tus notebooks, notas y hábitos. Si quiero cambiar algo, te lo
+              propongo y vos aprobás o descartás.
+            </p>
+          </div>
         )}
-        <Thread messages={messages} />
+        <Thread messages={messages} busy={busy} />
         {proposal && (
           <ProposalCard
             proposal={proposal.value}
@@ -237,7 +292,8 @@ function Chat({
         )}
         <div ref={end} />
       </div>
-      <div className="flex shrink-0 flex-col gap-2 border-t p-3">
+      <div className="relative flex shrink-0 flex-col gap-2 border-t p-3">
+        {mention.open && <MentionMenu mention={mention} />}
         {open && !chipOff && (
           <span className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs">
             <span className="truncate">{open.title || "(sin título)"}</span>
@@ -273,9 +329,14 @@ function Chat({
             aria-label="Mensaje al Agente"
             rows={1}
             value={draft}
-            placeholder="Preguntale al Agente…"
-            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Preguntale al Agente, @ contexto"
+            onChange={(e) => {
+              setDraft(e.target.value)
+              setCaret(e.target.selectionStart)
+            }}
+            onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
             onKeyDown={(e) => {
+              if (mention.onKeyDown(e)) return
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault()
                 submit()
