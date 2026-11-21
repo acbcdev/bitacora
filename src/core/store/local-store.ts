@@ -1,6 +1,6 @@
 import { hasSupabaseEnv } from "@/core/lib/supabase"
 import { setStorageMode } from "@/core/store/mode"
-import type { Notebook, Habit, HabitLog, Note, ReadLog } from "@/core/types/database"
+import type { Notebook, Habit, HabitLog, Note, ReadLog, SkillRow } from "@/core/types/database"
 import type {
   AuthUser,
   Snapshot,
@@ -39,6 +39,7 @@ type Tables = {
   read_log: ReadLog
   habits: Habit
   habit_log: HabitLog
+  skills: SkillRow
 }
 
 function read<K extends keyof Tables>(table: K): Tables[K][] {
@@ -209,6 +210,33 @@ export function localStore(): Store {
         if (!hasSupabaseEnv) return false
         setStorageMode("supabase")
         return true
+      },
+    },
+
+    skills: {
+      async list() {
+        return read("skills")
+      },
+      async save({ id, ...values }) {
+        const rows = read("skills")
+        if (rows.some((r) => r.name === values.name && r.id !== id))
+          throw new Error("Ya existe un skill con ese nombre")
+        write(
+          "skills",
+          id
+            ? rows.map((r) => (r.id === id ? { ...r, ...values } : r))
+            : [
+                ...rows,
+                { id: crypto.randomUUID(), user_id: LOCAL_USER_ID, ...values, created_at: now() },
+              ],
+        )
+      },
+      // Hard delete (ADR 0028): a diferencia del resto, acá la fila sí sale del array.
+      async remove(id) {
+        write(
+          "skills",
+          read("skills").filter((r) => r.id !== id),
+        )
       },
     },
 

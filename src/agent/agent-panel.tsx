@@ -42,7 +42,10 @@ import { useSnapshot } from "@/core/lib/snapshot"
 import { chatTitle, relativeDay, type Chat } from "@/core/agent/chats"
 import type { OpenContext } from "@/core/agent/prompt"
 import type { AgentSettings, ProviderConfig } from "@/core/agent/provider"
+import { SKILL_TAG } from "@/core/agent/attachments"
 import { useAgentUi } from "@/agent/agent-ui"
+import { SlashMenu, useSlash } from "@/agent/slash-menu"
+import { useSkills } from "@/agent/use-skills"
 import { AttachMenu, addPicked, usePickRef, type Picked } from "@/agent/attach-menu"
 import { ChatMarkdown } from "@/agent/chat-markdown"
 import { MentionMenu, useMention } from "@/agent/mention-menu"
@@ -165,20 +168,48 @@ function ChatsMenu({
   )
 }
 
+// El Skill de un mensaje de usuario: nombre, argumentos (lo que sigue a `/nombre` en el texto) y
+// la instrucción expandida. null = mensaje sin Skill.
+function invokedSkill(content: ModelMessage["content"]) {
+  if (typeof content === "string") return null
+  const [first, second] = content
+  if (first?.type !== "text" || second?.type !== "text") return null
+  const name = new RegExp(`^<${SKILL_TAG} nombre="([^"]*)">`).exec(second.text)?.[1]
+  if (!name) return null
+  return {
+    name,
+    args: first.text.replace(/^\/\S+\s*/, ""),
+    instruction: second.text,
+  }
+}
+
 function Thread({ messages, busy }: { messages: ModelMessage[]; busy: boolean }) {
   const results = toolResults(messages)
   return messages.map((m, i) => {
-    if (m.role === "user")
+    if (m.role === "user") {
+      const parts = Array.isArray(m.content) ? m.content : []
+      // El Skill invocado va como segunda parte (`userMessage`): en la UI es un ToolBlock, no texto.
+      const skill = invokedSkill(m.content)
+      const attached = parts.length - 1 - (skill ? 1 : 0)
       return (
-        <p key={i} className="self-end rounded-2xl bg-muted px-3 py-2 text-sm whitespace-pre-wrap">
-          {typeof m.content === "string"
-            ? m.content
-            : m.content.map((p) => (p.type === "text" ? p.text : "")).slice(0, 1)}
-          {Array.isArray(m.content) && m.content.length > 1 && (
-            <span className="mono-dim block">adjuntos: {m.content.length - 1}</span>
+        <div key={i} className="flex flex-col items-end gap-2 self-end">
+          <p className="rounded-2xl bg-muted px-3 py-2 text-sm whitespace-pre-wrap">
+            {typeof m.content === "string"
+              ? m.content
+              : parts.map((p) => (p.type === "text" ? p.text : "")).slice(0, 1)}
+            {attached > 0 && <span className="mono-dim block">adjuntos: {attached}</span>}
+          </p>
+          {skill && (
+            <ToolBlock
+              name={`skill_${skill.name}`}
+              input={{ argumentos: skill.args }}
+              result={skill.instruction}
+              busy={false}
+            />
           )}
-        </p>
+        </div>
       )
+    }
     if (m.role !== "assistant" || typeof m.content === "string")
       return m.role === "assistant" ? (
         <ChatMarkdown key={i}>{m.content as string}</ChatMarkdown>
@@ -287,6 +318,15 @@ function Chat({
     (a, b) => setDraft((d) => d.slice(0, a) + d.slice(b)),
     (o) => void pickRef({ kind: o.kind, id: o.id }, o.label || "(sin título)"),
   )
+  const skills = useSkills()
+  const input = useRef<HTMLTextAreaElement>(null)
+  // Elegir un skill (menú o estado vacío) solo escribe `/nombre `: los argumentos van después.
+  function fill(text: string) {
+    setDraft(text)
+    setCaret(text.length)
+    input.current?.focus()
+  }
+  const slash = useSlash(draft, caret, skills, fill)
   const end = useRef<HTMLDivElement>(null)
   const column = route ? "mx-auto w-full max-w-3xl" : ""
   // El chip quitado vuelve cuando cambia lo abierto: es contexto por turno, no preferencia.
@@ -405,6 +445,21 @@ function Chat({
                 Pedime que explore tus notebooks, notas y hábitos. Si quiero cambiar algo, te lo
                 propongo y vos aprobás o descartás.
               </p>
+              <div className="flex flex-col">
+                {skills.slice(0, 4).map((s) => (
+                  <Button
+                    key={s.name}
+                    variant="ghost"
+                    onClick={() => fill(`/${s.name} `)}
+                    className="h-auto justify-start gap-3 rounded-lg px-2 py-2 text-left text-sm font-normal"
+                  >
+                    <span className="truncate">{s.description || s.name}</span>
+                    <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
+                      /{s.name}
+                    </span>
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
           <Thread messages={messages} busy={busy} />
@@ -469,6 +524,7 @@ function Chat({
       <div className="relative flex shrink-0 flex-col gap-2 border-t p-3">
         <div className={`flex flex-col gap-2 ${column}`}>
           {mention.open && <MentionMenu mention={mention} />}
+          {slash.open && <SlashMenu slash={slash} />}
           {open && !chipOff && (
             <span className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs">
               <span className="truncate">{open.title || "(sin título)"}</span>
@@ -502,16 +558,17 @@ function Chat({
           <div className="flex flex-wrap items-end gap-2 md:flex-nowrap">
             <Textarea
               aria-label="Mensaje al Agente"
+              ref={input}
               rows={1}
               value={draft}
-              placeholder="Preguntale al Agente, @ contexto"
+              placeholder="Preguntale al Agente, @ contexto, / skills"
               onChange={(e) => {
                 setDraft(e.target.value)
                 setCaret(e.target.selectionStart)
               }}
               onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
               onKeyDown={(e) => {
-                if (mention.onKeyDown(e)) return
+                if (mention.onKeyDown(e) || slash.onKeyDown(e)) return
                 if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault()
                   submit()

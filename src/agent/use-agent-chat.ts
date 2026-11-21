@@ -6,12 +6,14 @@ import { useQueryClient } from "@tanstack/react-query"
 import { store } from "@/core/store"
 import { createModel, type ProviderConfig } from "@/core/agent/provider"
 import { userMessage, type Attachment } from "@/core/agent/attachments"
+import { matchSkill } from "@/core/agent/skills"
 import type { OpenContext } from "@/core/agent/prompt"
 import type { Proposal } from "@/core/agent/proposal"
 import { createSession, type UndoResult } from "@/core/agent/session"
 import { runTurn, type TurnResult } from "@/core/agent/turn"
 import { useApprovalLevel } from "@/agent/approval-picker"
 import { agentTools } from "@/agent/tools"
+import { useSkills } from "@/agent/use-skills"
 
 export const CHATS_KEY = "agent.chats"
 
@@ -55,10 +57,16 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     [session],
   )
   const approval = useApprovalLevel()
+  const skills = useSkills()
 
   const send = useCallback(
     async (text: string, open: OpenContext, attachments: Attachment[] = []) => {
-      const next: ModelMessage[] = [...messages, userMessage(text, attachments)]
+      // `/nombre args` expande el Skill como instrucción del turno; un `/foo` inexistente va como texto.
+      const hit = matchSkill(text, skills)
+      const next: ModelMessage[] = [
+        ...messages,
+        userMessage(text, attachments, hit ? { ...hit.skill, args: hit.args } : undefined),
+      ]
       setMessages(next)
       persist(chatId, next)
       setBusy(true)
@@ -99,7 +107,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
         setBusy(false)
       }
     },
-    [messages, chatId, persist, provider, modelId, approval, qc, session, syncUndo],
+    [messages, chatId, persist, provider, modelId, approval, qc, session, syncUndo, skills],
   )
 
   const stop = useCallback(() => abort.current?.abort(), [])
