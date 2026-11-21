@@ -22,7 +22,7 @@ import { useSnapshot } from "@/core/lib/snapshot"
 import type { OpenContext } from "@/core/agent/prompt"
 import type { AgentSettings, ProviderConfig } from "@/core/agent/provider"
 import { useAgentUi } from "@/agent/agent-ui"
-import { AttachMenu, usePickRef, type Picked } from "@/agent/attach-menu"
+import { AttachMenu, addPicked, usePickRef, type Picked } from "@/agent/attach-menu"
 import { ChatMarkdown } from "@/agent/chat-markdown"
 import { MentionMenu, useMention } from "@/agent/mention-menu"
 import { ToolBlock } from "@/agent/tool-block"
@@ -157,7 +157,7 @@ function Chat({
   const [draft, setDraft] = useState("")
   const [picked, setPicked] = useState<Picked[]>([])
   const [caret, setCaret] = useState(0)
-  const pickRef = usePickRef((p) => setPicked((l) => [...l, p]))
+  const pickRef = usePickRef((p) => setPicked((l) => addPicked(l, p)))
   const mention = useMention(
     draft,
     caret,
@@ -345,7 +345,7 @@ function Chat({
             className="order-1 max-h-40 min-h-11 w-full flex-1 resize-none md:order-2 md:min-h-9 md:w-auto"
           />
           <div className="order-2 md:order-1 [&_button]:max-md:size-11">
-            <AttachMenu caps={caps} onPick={(p) => setPicked((l) => [...l, p])} />
+            <AttachMenu caps={caps} onPick={(p) => setPicked((l) => addPicked(l, p))} />
           </div>
           {isMobile && (
             <div className="order-3 flex min-w-0 flex-1 items-center gap-1 [&_button]:h-11">

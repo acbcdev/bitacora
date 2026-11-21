@@ -15,9 +15,17 @@ import { store } from "@/core/store"
 import { useSnapshot } from "@/core/lib/snapshot"
 import type { Caps } from "@/core/agent/capabilities"
 import { supportsVision, type Attachment } from "@/core/agent/attachments"
-import { readFile, resolveRef, type AttachRef } from "@/agent/attachments"
+import { ALL_HABITS, readFile, resolveRef, type AttachRef } from "@/agent/attachments"
 
 export type Picked = { label: string; attachment: Attachment }
+
+// Un chip por referencia: re-elegir la misma no la duplica.
+export const addPicked = (list: Picked[], p: Picked) =>
+  list.some(
+    (x) => x.label === p.label && JSON.stringify(x.attachment) === JSON.stringify(p.attachment),
+  )
+    ? list
+    : [...list, p]
 
 // Referencia → adjunto (con toast si falla). Lo comparten el `+` y el `@` del composer.
 export function usePickRef(onPick: (p: Picked) => void) {
@@ -93,6 +101,12 @@ export function AttachMenu({ caps, onPick }: { caps?: Caps; onPick: (p: Picked) 
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           ))}
+          <DropdownMenuItem
+            disabled={!data?.habito.length}
+            onSelect={() => void pickRef(ALL_HABITS, "Todos los hábitos")}
+          >
+            Todos los hábitos
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => fileInput.current?.click()}>
             Archivo{vision ? " o imagen" : ""}…
           </DropdownMenuItem>

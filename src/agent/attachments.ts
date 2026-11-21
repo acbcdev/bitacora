@@ -3,7 +3,8 @@ import { docToMarkdown } from "@/core/lib/tiptap-markdown"
 import { habitState, notebookNotes } from "@/core/store/derive"
 import type { Store } from "@/core/store/types"
 
-export type AttachRef = { kind: "nota" | "notebook" | "habito"; id: string }
+export type AttachRef = { kind: "nota" | "notebook" | "habito" | "habitos"; id: string }
+export const ALL_HABITS: AttachRef = { kind: "habitos", id: "*" }
 
 // Referencia → contenido COMPLETO de ese turno (no un puntero): nota, notebook con todas sus
 // notas, o hábito con su estado.
@@ -33,6 +34,13 @@ export async function resolveRef(
         .map((n) => `# ${n.title || "(sin título)"}\n\n${docToMarkdown(n.content)}`)
         .join("\n\n"),
     }
+  }
+  if (r.kind === "habitos") {
+    const lines = snap.habits.map((h) => {
+      const s = habitState(snap, h.id, now)
+      return `${h.name} (id ${h.id}) · ${h.kind} ${h.metric} · meta ${h.target}/${h.period} · hoy ${s?.today ?? 0} · racha ${s?.streak ?? 0} · cumple ${s?.met ? "si" : "no"}`
+    })
+    return { kind: "text", tag: "habitos", attrs: { total: lines.length }, body: lines.join("\n") }
   }
   const h = snap.habits.find((x) => x.id === r.id)
   const s = habitState(snap, r.id, now)

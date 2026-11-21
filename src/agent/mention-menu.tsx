@@ -1,16 +1,18 @@
 import { useMemo, useState } from "react"
-import { BookOpen, FileText } from "lucide-react"
+import { BookOpen, FileText, Target } from "lucide-react"
 import { useSnapshot } from "@/core/lib/snapshot"
 import { cn } from "@/core/lib/utils"
 
-export type MentionOption = { kind: "nota" | "notebook"; id: string; label: string }
+export type MentionOption = { kind: "nota" | "notebook" | "habitos"; id: string; label: string }
 type Tab = "todo" | MentionOption["kind"]
 const TABS: { id: Tab; name: string }[] = [
   { id: "todo", name: "Todo" },
   { id: "nota", name: "Notas" },
   { id: "notebook", name: "Notebooks" },
+  { id: "habitos", name: "Hábitos" },
 ]
-const ICON = { nota: FileText, notebook: BookOpen }
+const ICON = { nota: FileText, notebook: BookOpen, habitos: Target }
+const ALL_HABITS_OPTION: MentionOption = { kind: "habitos", id: "*", label: "Todos los hábitos" }
 const MAX = 50
 
 const norm = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
@@ -22,7 +24,7 @@ export function findMention(text: string, caret: number) {
 }
 
 // `@` en el composer: elegir una nota o notebook la saca del texto y la adjunta (mismo
-// camino que el `+`). Todos los hábitos y los skills (`/`) están pendientes: `.scratch/agent-ui-v2/`.
+// camino que el `+`). Los skills (`/`) están pendientes: `.scratch/agent-ui-v2/`.
 export function useMention(
   draft: string,
   caret: number,
@@ -39,6 +41,7 @@ export function useMention(
       .filter((n) => n.kind === "note")
       .map((n): MentionOption => ({ kind: "nota", id: n.id, label: n.title })),
     ...s.notebooks.map((n): MentionOption => ({ kind: "notebook", id: n.id, label: n.name })),
+    ...(s.habits.length ? [ALL_HABITS_OPTION] : []),
   ])
   const options = useMemo(() => {
     const q = norm(m?.query ?? "")
