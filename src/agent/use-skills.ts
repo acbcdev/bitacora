@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { store } from "@/core/store"
-import { BUILTIN_SKILLS, effectiveSkills, type EffectiveSkill } from "@/core/agent/skills"
+import { effectiveSkills, type EffectiveSkill } from "@/core/agent/skills"
 
 export const SKILLS_KEY = ["skills"]
 
@@ -11,5 +11,5 @@ export function useSkills(): EffectiveSkill[] {
     queryKey: SKILLS_KEY,
     queryFn: async () => effectiveSkills(await store.skills.list()),
   })
-  return data ?? BUILTIN_SKILLS.map((s) => ({ ...s, builtin: true }))
+  return data ?? effectiveSkills([])
 }

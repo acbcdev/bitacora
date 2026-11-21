@@ -24,16 +24,15 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
   const [chatId, setChatId] = useState<string>(() => crypto.randomUUID())
   const raw = useStored(CHATS_KEY)
   const chats = useMemo(() => parseChats(raw), [raw])
-  const persist = useCallback(
-    (id: string, msgs: ModelMessage[]) =>
-      setStored(
-        CHATS_KEY,
-        JSON.stringify(
-          upsertChat(parseChats(localStorage.getItem(CHATS_KEY)), id, msgs, Date.now()),
-        ),
-      ),
-    [],
-  )
+  // Chats borrados: un turno en vuelo no debe resucitarlos al terminar.
+  const deleted = useRef(new Set<string>())
+  const persist = useCallback((id: string, msgs: ModelMessage[]) => {
+    if (deleted.current.has(id)) return
+    setStored(
+      CHATS_KEY,
+      JSON.stringify(upsertChat(parseChats(localStorage.getItem(CHATS_KEY)), id, msgs, Date.now())),
+    )
+  }, [])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Detalle crudo del tool-call inválido que agotó los reintentos (línea de error colapsable).
@@ -89,6 +88,8 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
           },
           abortSignal: ctl.signal,
         })
+        // Borrado a mitad del turno: ni se persiste ni se pinta en el chat nuevo.
+        if (deleted.current.has(chatId)) return
         setMessages([...next, ...turn.messages])
         persist(chatId, [...next, ...turn.messages])
         setLast(turn)
@@ -99,6 +100,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
         if (turn.finish === "malformed") setMalformed(turn.malformed ?? "")
         if (turn.proposal) setProposal({ value: turn.proposal, status: "pending" })
       } catch (e) {
+        if (deleted.current.has(chatId)) return // el abort del borrado no es un error
         // Error crudo del Proveedor (401, CORS, red): el usuario necesita verlo tal cual.
         setError(e instanceof Error ? e.message : String(e))
       } finally {
@@ -176,8 +178,12 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
   // Borrar: si era el activo pasa a uno nuevo.
   const remove = useCallback(
     (id: string) => {
+      deleted.current.add(id)
       setStored(CHATS_KEY, JSON.stringify(chats.filter((c) => c.id !== id)))
-      if (id === chatId) reset()
+      if (id === chatId) {
+        abort.current?.abort()
+        reset()
+      }
     },
     [chats, chatId, reset],
   )

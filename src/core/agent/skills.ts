@@ -59,14 +59,15 @@ export function effectiveSkills(rows: SkillRow[]): EffectiveSkill[] {
   return [...fromBuiltin, ...created]
 }
 
+export const SKILL_NAME = /^[a-z0-9-]+$/
+const SKILL_CALL = new RegExp(`^\\/(${SKILL_NAME.source.slice(1, -1)})(?:\\s+([\\s\\S]*))?$`)
+
 // `/nombre args`. null = no empieza con `/skill` conocido → se envía como texto normal.
 export function matchSkill(text: string, skills: Skill[]) {
-  const m = /^\/([a-z0-9-]+)(?:\s+([\s\S]*))?$/.exec(text.trim())
+  const m = SKILL_CALL.exec(text.trim())
   const skill = m && skills.find((s) => s.name === m[1])
   return skill ? { skill, args: (m[2] ?? "").trim() } : null
 }
-
-export const SKILL_NAME = /^[a-z0-9-]+$/
 
 // Mensaje de error para el formulario, o null si el nombre sirve. `taken` = los demás nombres.
 export function skillNameError(name: string, taken: string[]) {

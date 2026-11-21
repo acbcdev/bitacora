@@ -328,6 +328,28 @@ test("adjuntos: archivo de texto va como dato, imagen como archivo de imagen, PD
   await expect(readFile(new File(["%PDF"], "a.pdf", { type: "application/pdf" }))).rejects.toThrow()
 })
 
+test("skill: llega al modelo como instrucción del turno (parte propia, no texto suelto)", async () => {
+  const model = new MockLanguageModelV4({ doGenerate: [say("ok")] })
+  await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: [
+      userMessage("/resumir la nota", [], {
+        name: "resumir",
+        prompt: "Resumí en pocos puntos.",
+        args: "la nota",
+      }),
+    ],
+  })
+  const content = model.doGenerateCalls[0].prompt.find((m) => m.role === "user")!.content
+  const texts = content.map((p) => (p.type === "text" ? p.text : ""))
+  expect(texts[0]).toBe("/resumir la nota") // lo que escribió el usuario
+  expect(texts[1]).toContain('<skill nombre="resumir">')
+  expect(texts[1]).toContain("Resumí en pocos puntos.")
+  expect(texts[1]).toContain("Argumentos: la nota")
+})
+
 // ── Costo y robustez (ticket 08) ──────────────────────────────────────────────────────────────
 
 test("tope de pasos: un modelo que no para corta en MAX_STEPS con finish 'limit'", async () => {

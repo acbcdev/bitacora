@@ -1,8 +1,7 @@
 import type { ModelMessage } from "ai"
 
 // Un Chat guardado (solo en este dispositivo, ADR 0028). `messages` es lo único que persiste:
-// la pila de undo y la Propuesta pendiente son efímeras. Para extender (reasoning, ticket 04)
-// basta con que los mensajes lo lleven: se guardan tal cual, solo se truncan los tool-result.
+// la pila de undo y la Propuesta pendiente son efímeras.
 export type Chat = { id: string; createdAt: number; updatedAt: number; messages: ModelMessage[] }
 
 export const MAX_CHATS = 20
@@ -38,7 +37,14 @@ export function truncateResults(messages: ModelMessage[]): ModelMessage[] {
             : p
         const json = JSON.stringify(o.value ?? null)
         return json.length > MAX_RESULT
-          ? { ...p, output: { type: "text", value: cut(json) } as typeof p.output }
+          ? {
+              ...p,
+              // Texto plano, pero conservando si era un error: la UI lo lee al reabrir el chat.
+              output: {
+                type: o.type === "error-json" ? "error-text" : "text",
+                value: cut(json),
+              } as typeof p.output,
+            }
           : p
       }),
     }

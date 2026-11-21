@@ -500,7 +500,7 @@ function Chat({
               </div>
             </div>
           )}
-          {busy && <ReasoningBlock streaming />}
+          {busy && <span className="mono-dim">pensando…</span>}
           {error && (
             <p role="alert" className="text-sm break-words text-destructive">
               {error}

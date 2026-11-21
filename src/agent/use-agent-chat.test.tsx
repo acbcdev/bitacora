@@ -19,12 +19,15 @@ vi.mock("@/core/agent/provider", async (orig) => ({
   createModel: async () => ({}),
 }))
 const turns: { messages: ModelMessage[] }[] = []
+// Si se setea, el próximo turno espera a que el test lo suelte (turno "en vuelo").
+let gate: Promise<void> | null = null
 vi.mock("@/core/agent/turn", () => ({
   runTurn: async (o: {
     messages: ModelMessage[]
     onApplied: (ops: Op[], inverse: Op[]) => void
   }) => {
     turns.push(o)
+    await gate
     o.onApplied([edit], [{ ...edit, before: edit.after, after: edit.before! }])
     return {
       messages: [{ role: "assistant", content: "listo" }],
@@ -107,6 +110,29 @@ describe("historial", () => {
     expect(result.current.chats).toHaveLength(1)
     expect(result.current.messages).toEqual([])
     expect(result.current.chatId).not.toBe(first)
+  })
+
+  test("borrar el chat activo con un turno en vuelo no lo resucita al terminar", async () => {
+    const { result } = renderHook(() => useAgentChat(provider, "m"), { wrapper })
+    let release!: () => void
+    gate = new Promise((r) => (release = r))
+    let sending!: Promise<void>
+    act(() => {
+      sending = result.current.send("en vuelo", null as never)
+    })
+    const id = result.current.chatId
+    expect(result.current.busy).toBe(true)
+    act(() => result.current.remove(id))
+    expect(result.current.chats).toEqual([])
+
+    gate = null
+    release()
+    await act(() => sending)
+
+    expect(result.current.chats).toEqual([])
+    expect(JSON.parse(localStorage.getItem("agent.chats")!)).toEqual([])
+    expect(result.current.messages).toEqual([])
+    expect(result.current.proposal).toBeNull()
   })
 
   test("con una Propuesta pendiente no se puede cambiar de chat", async () => {

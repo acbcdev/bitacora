@@ -44,6 +44,13 @@ test("trunca tool-results grandes (texto y json) y deja los chicos", () => {
   expect(out(c).value).toBe("ok")
 })
 
+test("un error-json grande sigue siendo error al truncarse", () => {
+  const big = "x".repeat(MAX_RESULT * 2)
+  const [a] = truncateResults([tool({ rows: big }, "error-json")])
+  expect(out(a).type).toBe("error-text")
+  expect(out(a).value.length).toBeLessThan(MAX_RESULT + 20)
+})
+
 test("parseChats tolera basura", () => {
   expect(parseChats(null)).toEqual([])
   expect(parseChats("{no")).toEqual([])

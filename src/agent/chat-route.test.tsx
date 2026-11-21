@@ -6,6 +6,13 @@ import { AgentHost, AgentSidebar, ChatRoute } from "@/agent/agent-sidebar"
 import { saveAgentSettings } from "@/core/agent/provider"
 import { TooltipProvider } from "@/core/ui/tooltip"
 
+// Un turno que nunca termina: el Agente queda ocupado mientras se cambia de superficie.
+vi.mock("@/core/agent/provider", async (orig) => ({
+  ...(await orig<object>()),
+  createModel: async () => ({}),
+}))
+vi.mock("@/core/agent/turn", () => ({ runTurn: () => new Promise(() => {}) }))
+
 function chat(id: string, text: string, updatedAt: number) {
   return { id, createdAt: updatedAt, updatedAt, messages: [{ role: "user", content: text }] }
 }
@@ -86,4 +93,21 @@ test("Cerrar en el sidebar cierra el Agente", async () => {
   const setOpen = setup("/", [])
   fireEvent.click(await screen.findByRole("button", { name: "Cerrar" }))
   expect(setOpen).toHaveBeenCalledWith(false)
+})
+
+test("un turno en curso sobrevive al pasar del sidebar a la ruta (mismo hilo, no uno nuevo)", async () => {
+  setup("/", [])
+  fireEvent.change(await screen.findByRole("textbox", { name: "Mensaje al Agente" }), {
+    target: { value: "hola" },
+  })
+  fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
+  expect(await screen.findByRole("button", { name: "Detener" })).toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole("button", { name: "Abrir en grande" }))
+  expect(path()).toMatch(/^\/chat\//)
+  // Mismo panel: sigue ocupado y el mensaje enviado sigue en el hilo.
+  expect(await screen.findByRole("button", { name: "Contraer" })).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Detener" })).toBeInTheDocument()
+  expect(screen.getByText("pensando…")).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Chats" })).toHaveTextContent("hola")
 })
