@@ -14,5 +14,8 @@ Five canonical triage roles, each label string equal to its name. See `docs/agen
 
 Single-context — one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
-use pnpm always 
-no use npx - use pnpm instead
+pnpm only (never npx); format with oxfmt (`pnpm format`).
+
+UI work: read `docs/design-system.md` and `docs/ui-principles.md` first.
+
+Reviewing a diff: apply `CODING_STANDARDS.md`.
