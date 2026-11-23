@@ -143,7 +143,7 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
               <div
                 role="listbox"
                 aria-label="Hábitos"
-                className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-2"
+                className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2 pt-1"
               >
                 {habits.map((h, i) => {
                   const streak = deriveHabit(h, log).streak

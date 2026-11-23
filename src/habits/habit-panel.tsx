@@ -3,7 +3,6 @@ import type { ReactNode } from "react"
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Minus, Plus } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Dropover, DropoverContent, DropoverTrigger } from "@/core/ui/dropover"
-import { cn } from "@/core/lib/utils"
 import { dayKey } from "@/core/lib/day"
 import {
   SERIES,
@@ -63,12 +62,23 @@ const presets = (metric: HabitMetric, target: number) => {
   ]
 }
 
-const FMT = new Intl.DateTimeFormat("es", { weekday: "short", day: "numeric", month: "short" })
+const FMT = new Intl.DateTimeFormat("es", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+})
 const FMT_DAY = new Intl.DateTimeFormat("es", { day: "numeric" })
 const FMT_MONTH_SHORT = new Intl.DateTimeFormat("es", { month: "short" })
-const FMT_MONTH = new Intl.DateTimeFormat("es", { month: "long", year: "numeric" })
+const FMT_MONTH = new Intl.DateTimeFormat("es", {
+  month: "long",
+  year: "numeric",
+})
 
-const PERIOD_NOUN: Record<HabitPeriod, string> = { day: "días", week: "semanas", month: "meses" }
+const PERIOD_NOUN: Record<HabitPeriod, string> = {
+  day: "días",
+  week: "semanas",
+  month: "meses",
+}
 
 // La serie de períodos, a lo GitHub. Sin clicks: es un resumen, no un control. Color por pct de
 // la celda — la misma mezcla monocroma del dot (ADR 0023), cero = --track.
@@ -85,7 +95,9 @@ export function HabitHistory({ habit, state }: { habit: Habit; state: HabitState
       {state.days.map((cell, n) => (
         <span
           key={n}
-          style={{ backgroundColor: cellColor(habit.kind, cell, n === state.days.length - 1) }}
+          style={{
+            backgroundColor: cellColor(habit.kind, cell, n === state.days.length - 1),
+          }}
           className="h-7 flex-1 rounded-xs"
         />
       ))}
@@ -144,7 +156,12 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
   const repDay = i === TODAY ? dayKey(new Date()) : dayKey(periodStart)
 
   const write = (value: number) => {
-    if (isDay) return setDay.mutate({ habit, day: dayKey(day), value: toStorage(value) })
+    if (isDay)
+      return setDay.mutate({
+        habit,
+        day: dayKey(day),
+        value: toStorage(value),
+      })
     // Período: el SET es sobre el TOTAL, no sobre una fila. Consolida en UNA fila — la
     // representativa — y cero las demás filas del período. Nunca reparte en días: eso es
     // lo que ADR 0009 mató.
@@ -299,7 +316,9 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
                   onFocus={(e) => e.target.select()}
                   onChange={(e) => write(Math.max(0, Number(e.target.value) || 0))}
                   aria-label={`Cantidad de ${label}`}
-                  style={{ width: `${Math.max(1, String(shown).length) + 0.2}ch` }}
+                  style={{
+                    width: `${Math.max(1, String(shown).length) + 0.2}ch`,
+                  }}
                   className="bg-transparent text-center text-4xl font-normal tracking-tighter tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                 />
                 <small className="ml-1 text-base text-muted-foreground">
@@ -314,28 +333,25 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
 
             <div className="h-1 overflow-hidden rounded-dot bg-track">
               <div
-                style={{ transform: `scaleX(${Math.min(1, shown / Math.max(target, 1))})` }}
+                style={{
+                  transform: `scaleX(${Math.min(1, shown / Math.max(target, 1))})`,
+                }}
                 className="h-full origin-left rounded-dot bg-foreground transition-transform duration-200 ease-out motion-reduce:transition-none"
               />
             </div>
 
             <div className="flex gap-1.5">
               {presets(habit.metric, target).map((c) => (
-                <button
+                <Button
                   key={c}
-                  type="button"
+                  variant={shown === c ? "default" : "secondary"}
                   aria-pressed={shown === c}
                   onClick={() => write(c)}
-                  className={cn(
-                    "flex h-8 flex-1 items-center justify-center gap-0.5 rounded-md font-mono text-xs tabular-nums transition-[transform,background-color,color] duration-150 ease-out active:scale-95 max-md:h-10",
-                    shown === c
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-muted-foreground hover:text-foreground",
-                  )}
+                  className="flex-1 gap-0.5 font-mono text-xs tabular-nums max-md:h-10"
                 >
                   {c}
                   {c === target && <Check className="size-3" strokeWidth={2.5} />}
-                </button>
+                </Button>
               ))}
             </div>
           </>
@@ -355,24 +371,17 @@ type BtnProps = {
 
 function NavBtn({ label, keys, ...p }: BtnProps) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="icon"
       aria-label={label}
       aria-keyshortcuts={keys}
       title={keys && `${label} (${keys === "ArrowLeft" ? "←" : "→"})`}
-      className="flex size-8 items-center justify-center rounded-pill text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
       {...p}
     />
   )
 }
 
 function RoundBtn({ label, ...p }: BtnProps) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      className="flex size-11 items-center justify-center rounded-pill bg-secondary transition-[transform,background-color] duration-150 ease-out hover:bg-muted active:scale-95 disabled:pointer-events-none disabled:opacity-30"
-      {...p}
-    />
-  )
+  return <Button variant="secondary" aria-label={label} className="size-11 p-0" {...p} />
 }

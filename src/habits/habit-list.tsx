@@ -75,8 +75,8 @@ export function HabitListRow({
       </span>
 
       <span className="pointer-events-none relative flex min-w-0 flex-1 flex-col gap-1.5">
-        <span className="truncate text-[14px] font-medium">{h.name}</span>
-        <span className="flex items-center gap-3 font-mono text-[11px] leading-none text-muted-foreground">
+        <span className="truncate text-sm font-medium">{h.name}</span>
+        <span className="flex items-center gap-3 font-mono text-2xs leading-none text-muted-foreground">
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="truncate">{goalText(h)}</span>
             {state.streak >= 2 && (
@@ -92,7 +92,7 @@ export function HabitListRow({
 
       <span
         className={cn(
-          "pointer-events-none relative flex items-baseline text-[28px] leading-none font-normal tracking-tighter tabular-nums dark:font-light",
+          "pointer-events-none relative flex items-baseline text-xl leading-none font-normal tracking-tighter tabular-nums dark:font-light",
           TONE[tone as keyof typeof TONE],
         )}
       >
