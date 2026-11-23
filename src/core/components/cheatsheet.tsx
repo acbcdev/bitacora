@@ -2,7 +2,7 @@ import { alt, mod } from "@/core/lib/utils"
 import { Dialog, DialogContent, DialogTitle } from "@/core/ui/dialog"
 import { Kbd } from "@/core/ui/kbd"
 
-const GROUPS: [string, [string, string][]][] = [
+export const GROUPS: [string, [string, string][]][] = [
   [
     "Global",
     [
