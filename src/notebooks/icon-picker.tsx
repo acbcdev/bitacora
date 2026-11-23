@@ -123,10 +123,7 @@ function Grid({ groups, selected, onPick, render, nav }: GridProps) {
       {/* Nav de categorías: un ícono lucide por grupo, salta al grupo dentro del scroll de
           arriba. Se oculta mientras se busca (los grupos filtrados no son navegables). */}
       {nav && groups.length > 1 && (
-        <nav
-          className="mt-1 flex gap-0.5 overflow-x-auto border-t px-1 pt-1"
-          aria-label="Categorías"
-        >
+        <nav className="mt-1 flex gap-0.5 overflow-x-auto border-t p-1" aria-label="Categorías">
           {groups.map((g) => (
             <Button
               key={g.label}
@@ -380,7 +377,7 @@ export function IconPicker({
             <div className="flex items-center gap-1 px-2 py-1.5">
               {/* Mismo buscador pill que el del toolbar de notebooks: el label entero es el
                   target y el anillo se aclara con focus-within, sin el ring grueso del Input. */}
-              <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-pill bg-card px-3 ring-1 ring-border transition-shadow focus-within:ring-border-strong">
+              <label className="chip flex min-w-0 flex-1 items-center gap-2 px-3 shadow-none transition-shadow focus-within:ring-border-strong">
                 <Search className="size-3.5 shrink-0 text-muted-foreground" />
                 <input
                   ref={search}

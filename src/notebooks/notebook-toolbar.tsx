@@ -71,7 +71,7 @@ export function NotebookToolbar({
 }) {
   return (
     <div className="mb-5 flex items-center gap-2 max-md:flex-wrap">
-      <label className="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-pill max-md:basis-full bg-card px-3 shadow-card ring-1 ring-border focus-within:ring-border-strong sm:w-60 sm:flex-none">
+      <label className="chip group flex min-w-0 flex-1 items-center gap-2 max-md:basis-full px-3 focus-within:ring-border-strong sm:w-60 sm:flex-none">
         <Search className="size-3.5 shrink-0 text-muted-foreground" />
         <input
           ref={searchRef}
@@ -160,7 +160,7 @@ function FilterChip<T extends string>({
   return (
     <div
       className={cn(
-        "relative flex h-8 items-center rounded-pill bg-card pr-1 shadow-card ring-1 ring-border hover:ring-border-strong has-aria-expanded:ring-border-strong",
+        "chip relative flex items-center pr-1 hover:ring-border-strong has-aria-expanded:ring-border-strong",
         lead ? "pl-2.5" : "pl-1",
         dirty && "ring-border-strong",
       )}

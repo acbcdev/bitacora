@@ -54,7 +54,7 @@ const BUBBLE_OPTIONS = { placement: "top-start", offset: 8 } as const
 // Clases compartidas de los botones de la grilla: hover con el accent del UI; activo =
 // mismo fondo + hairline inset (mockup 07), sin color de marca.
 const btnCls =
-  "group relative grid h-[32px] w-[32px] place-items-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-muted hover:text-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground data-[state=on]:shadow-[inset_0_0_0_1px_var(--border)]"
+  "group relative grid h-8 w-[32px] place-items-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-muted hover:text-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground data-[state=on]:shadow-[inset_0_0_0_1px_var(--border)]"
 
 // Dot de color bajo el glifo: pinta el color activo de la ficha (calibrado por tema).
 function ColorDot({ color }: { color: string }) {
@@ -359,7 +359,7 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
         onMouseDown={preventFocus}
         onClick={() => editor.chain().focus().toggleBold().run()}
       >
-        <span className="text-[15px] leading-none font-bold">B</span>
+        <span className="text-base leading-none font-bold">B</span>
       </button>
       <button
         type="button"
@@ -370,7 +370,7 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
         onMouseDown={preventFocus}
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
-        <span className="font-serif text-[15px] leading-none italic">I</span>
+        <span className="font-serif text-base leading-none italic">I</span>
       </button>
       <button
         type="button"
@@ -381,7 +381,7 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
         onMouseDown={preventFocus}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       >
-        <span className="text-[15px] leading-none font-bold line-through decoration-2">S</span>
+        <span className="text-base leading-none font-bold line-through decoration-2">S</span>
       </button>
       <button
         type="button"
@@ -412,7 +412,7 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
           onMouseDown={preventFocus}
         >
           <span className="relative grid size-4 place-items-center">
-            <span className="text-[15px] leading-none font-extrabold">A</span>
+            <span className="text-base leading-none font-extrabold">A</span>
             {active.color && <ColorDot color={active.color} />}
           </span>
           <ChevronDownIcon size={11} className="text-muted-foreground" />
@@ -485,7 +485,7 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
               type="button"
               data-testid="turn-into"
               aria-label="Convertir bloque"
-              className="flex h-[32px] items-center gap-[7px] rounded-pill pr-2.5 pl-3 text-[13px] font-semibold whitespace-nowrap outline-none transition-colors hover:bg-muted"
+              className="flex h-8 items-center gap-2 rounded-pill pr-2.5 pl-3 text-sm font-semibold whitespace-nowrap outline-none transition-colors hover:bg-muted"
             >
               <span className="text-muted-foreground">
                 <TypeIcon size={16} />
@@ -510,7 +510,7 @@ export function FormatBubbleMenu({ editor }: { editor: Editor }) {
                     type="button"
                     data-testid={`turn-item-${i}`}
                     onClick={() => applyBlock(i)}
-                    className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-muted data-[active]:text-foreground"
+                    className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted data-[active]:text-foreground"
                     data-active={current || undefined}
                   >
                     <span className="text-muted-foreground">

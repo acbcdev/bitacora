@@ -8,6 +8,7 @@ import {
   Bot,
   MoreHorizontal,
   PanelRight,
+  PanelRightClose,
   Pencil,
   Pin,
   Plus,
@@ -41,7 +42,7 @@ import { Kbd } from "@/core/ui/kbd"
 import { Sidebar, SidebarProvider } from "@/core/ui/sidebar"
 import { Tabs, TabsList, TabsTrigger } from "@/core/ui/tabs"
 import { useAgentUi } from "@/agent/agent-ui"
-import { AgentSlot } from "@/agent/agent-sidebar"
+import { AgentSlot, useSidebarWidth } from "@/agent/agent-sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
 import { useQueryClient } from "@tanstack/react-query"
 import {
@@ -67,7 +68,7 @@ import { store } from "@/core/store"
 // `shrink-0`: la lista es un flex-col que scrollea — sin esto, con muchas notas el browser achica
 // las filas para que entren en vez de scrollear. Hover a media intensidad: el activo es el único sólido.
 const NOTE_ROW =
-  "group/note flex h-8 shrink-0 items-center rounded-lg px-2.5 max-md:h-12 max-md:text-base text-[13px] text-fg-secondary hover:bg-muted/50 data-[active=true]:bg-muted data-[active=true]:text-foreground"
+  "group/note flex h-8 shrink-0 items-center rounded-lg px-2.5 max-md:h-12 max-md:text-base text-sm text-fg-secondary hover:bg-muted/50 data-[active=true]:bg-muted data-[active=true]:text-foreground"
 
 // Frescura por nota: el rótulo y su color. ≤7d verde (recién repasada), ≥30d amarillo (se está
 // enfriando), null = nunca repasada → celda vacía (sin ruido). El repaso vive en Home/Repaso:
@@ -87,6 +88,59 @@ function freshness(last: string | null | undefined, now = new Date()) {
 // La URL manda: /notebook/:id/:noteId siempre apunta a una nota real (se auto-corrige si no).
 // J / K se mueven entre notas sin tocar el mouse. Focus mode esconde este aside (y el
 // Sidebar global, en App) igual que en la nota standalone.
+// Grupo fijo en la esquina superior derecha (mismo lugar que el Sidebar `fixed` que controla):
+// toggle Notas ⇄ Agente (el ícono dice A DÓNDE vas) + trigger del sidebar. Colapsado: solo el
+// trigger, en el mismo lugar. Pegados y a 24px del tope = centro del header del chat (h-12).
+function PanelControls({
+  open,
+  onToggleOpen,
+  agent,
+  onToggleAgent,
+}: {
+  open: boolean
+  onToggleOpen: () => void
+  agent: boolean
+  onToggleAgent: () => void
+}) {
+  const Dest = agent ? ListTree : Bot
+  const btn =
+    "grid size-7 shrink-0 cursor-pointer place-items-center rounded-pill text-muted-foreground transition-[color,background-color,scale] duration-150 ease-out hover:bg-muted hover:text-foreground active:scale-95"
+  return (
+    <div className="fixed top-0 right-3 z-20 flex h-12 items-center">
+      {open && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onToggleAgent}
+              aria-label={agent ? "Ir a Notas" : "Ir a Agente"}
+              className={btn}
+            >
+              <Dest className="size-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {agent ? "Notas" : "Agente"} {!agent && <Kbd>⌘.</Kbd>}
+          </TooltipContent>
+        </Tooltip>
+      )}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={onToggleOpen}
+            aria-label={open ? "Ocultar panel" : "Mostrar panel"}
+            className={btn}
+          >
+            {open ? <PanelRightClose className="size-5" /> : <PanelRight className="size-5" />}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {open ? "Ocultar panel" : "Mostrar panel"} · {mod(alt("B"))}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  )
+}
+
 export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFocus: () => void }) {
   const { id, noteId } = useParams()
   const navigate = useNavigate()
@@ -232,6 +286,12 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
 
   // Loading ANTES que "no encontrado": notebooks y notas salen del mismo snapshot, así que mientras
   // carga `notebook` es undefined y sin este orden flasheaba el "no existe".
+  // Default por pantalla (si el usuario nunca lo arrastró): más ancho en monitores grandes, donde
+  // 272px se veía chico para el índice y sobre todo para el chat.
+  const { width, dragging, handle } = useSidebarWidth(
+    "notebook-sidebar-width",
+    innerWidth >= 1536 ? 400 : innerWidth >= 1280 ? 336 : 272,
+  )
   if (isLoading) return <NotebookSkeleton />
   if (!notebook)
     return (
@@ -277,7 +337,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="shrink-0 text-muted-foreground max-md:-mr-1.5"
+                    className="shrink-0 text-muted-foreground max-md:-mr-1.5 md:-mt-1.5"
                     aria-label="Acciones del notebook"
                   >
                     <MoreHorizontal className="size-3.5" />
@@ -302,21 +362,8 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {/* Espejo del SidebarTrigger del header de App: cerrar desde adentro. Mobile no colapsa. */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-lg"
-                className="-mt-1.5 -mr-2 shrink-0 text-muted-foreground max-md:hidden"
-                onClick={() => setIndexOpen(false)}
-                aria-label="Ocultar notas"
-              >
-                <PanelRight className="size-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Ocultar notas · {mod(alt("B"))}</TooltipContent>
-          </Tooltip>
+          {/* Sitio para PanelControls (fijo en la esquina): ⋯ queda pegado al grupo. */}
+          <div aria-hidden className="-ml-3 w-14 shrink-0 max-md:hidden" />
         </div>
         <div className="mt-3 flex items-center gap-2.5">
           {/* El chip de estado ES el toggle cerrar/reabrir: el fin es cuando apretás, no un date
@@ -371,7 +418,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
       <div className="shrink-0 px-4 pb-1">
         {/* Mismo campo que "Buscar notebook…" (notebook-toolbar): ring sutil en vez del borde de
                 InputGroup, y el `/` se va al enfocar o con texto. */}
-        <label className="group flex h-8 items-center max-md:h-11 gap-2 rounded-pill bg-card px-3 shadow-card ring-1 ring-border focus-within:ring-border-strong">
+        <label className="chip group flex items-center gap-2 px-3 max-md:h-11 focus-within:ring-border-strong">
           <Search className="size-3.5 shrink-0 text-muted-foreground" />
           <input
             ref={searchRef}
@@ -485,25 +532,16 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
       alt
       open={indexOpen}
       onOpenChange={setIndexOpen}
-      className="fade-in flex-col md:h-full md:min-h-0 md:flex-row"
-      style={{ "--sidebar-width": "clamp(14rem, 19vw, 17rem)" } as React.CSSProperties}
+      className={`fade-in flex-col md:h-full md:min-h-0 md:flex-row${dragging ? " **:transition-none!" : ""}`}
+      style={{ "--sidebar-width": `${width}px` } as React.CSSProperties}
     >
-      {/* Espejo del SidebarTrigger de App: misma esquina libre, del lado derecho. */}
-      {!indexOpen && !focus && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-lg"
-              className="absolute top-4 right-4 z-10 max-md:hidden"
-              onClick={() => setIndexOpen(true)}
-              aria-label="Mostrar notas"
-            >
-              <PanelRight className="size-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Mostrar notas · {mod(alt("B"))}</TooltipContent>
-        </Tooltip>
+      {!focus && !isMobile && (
+        <PanelControls
+          open={indexOpen}
+          onToggleOpen={() => setIndexOpen((o) => !o)}
+          agent={agent.open}
+          onToggleAgent={() => agent.setOpen(!agent.open)}
+        />
       )}
       <div id="note-pane" className="min-w-0 flex-1 md:overflow-y-auto">
         {selected ? (
@@ -538,17 +576,7 @@ export function Notebook({ focus, onToggleFocus }: { focus: boolean; onToggleFoc
 
       {!focus && !isMobile && (
         <Sidebar side="right" collapsible="offcanvas">
-          {/* Pestañas "Notas | Agente": el Agente comparte este sidebar (sin tercera columna). */}
-          <Tabs
-            value={agent.open ? "agent" : "notes"}
-            onValueChange={(v) => agent.setOpen(v === "agent")}
-            className="shrink-0 px-4 pt-3"
-          >
-            <TabsList className="w-full">
-              <TabsTrigger value="notes">Notas</TabsTrigger>
-              <TabsTrigger value="agent">Agente</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {handle}
           {agent.open ? <AgentSlot /> : index}
         </Sidebar>
       )}

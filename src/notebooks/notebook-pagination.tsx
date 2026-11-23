@@ -1,9 +1,10 @@
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { Button } from "@/core/ui/button"
+import { cn } from "@/core/lib/utils"
 
 // Ghost con el lenguaje de ViewPill: activo relleno muted, números en mono (DS), flechas sin label.
 // ponytail: sin elipsis — a 59 notebooks son 5 páginas y entran todas. Si `pages` crece, agregarla.
-const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-const ARROW = `flex size-8 max-md:size-10 max-md:text-foreground cursor-pointer items-center justify-center rounded-pill text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-30 [&_svg]:size-4 ${FOCUS}`
+const ARROW = "max-md:size-10 max-md:text-foreground"
 
 export function NotebookPagination({
   page,
@@ -19,15 +20,16 @@ export function NotebookPagination({
       aria-label="paginación"
       className="mt-8 flex items-center justify-center gap-1 max-md:mx-auto max-md:mt-6 max-md:w-fit max-md:rounded-pill max-md:bg-muted/60 max-md:p-1"
     >
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         className={ARROW}
         disabled={page === 1}
         onClick={() => goToPage(page - 1)}
         aria-label="Página anterior"
       >
         <ChevronLeft />
-      </button>
+      </Button>
       {/* Mobile: "2 / 5" en vez de una fila de números (5 targets de 32px no entran con aire). */}
       <span
         aria-live="polite"
@@ -36,27 +38,30 @@ export function NotebookPagination({
         <span className="text-foreground">{page}</span> / {pages}
       </span>
       {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
-        <button
+        <Button
           key={n}
-          type="button"
+          variant="ghost"
+          size="icon"
           aria-current={n === page ? "page" : undefined}
           onClick={() => goToPage(n)}
-          className={`flex size-8 cursor-pointer items-center justify-center rounded-pill max-md:hidden font-mono text-sm tabular-nums transition-colors ${FOCUS} ${
-            n === page ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-          }`}
+          className={cn(
+            "font-mono tabular-nums max-md:hidden",
+            n === page ? "bg-muted text-foreground" : "text-muted-foreground",
+          )}
         >
           {n}
-        </button>
+        </Button>
       ))}
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         className={ARROW}
         disabled={page === pages}
         onClick={() => goToPage(page + 1)}
         aria-label="Página siguiente"
       >
         <ChevronRight />
-      </button>
+      </Button>
     </nav>
   )
 }

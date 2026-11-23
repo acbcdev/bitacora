@@ -65,7 +65,7 @@ function LatexPopover(props: {
           placeholder="\frac{a}{b}"
           spellCheck={false}
           rows={1}
-          className="min-h-0 resize-none border-0 py-1 bg-transparent font-mono shadow-none focus-visible:ring-0 dark:bg-transparent"
+          className="min-h-0 resize-none rounded-none border-0 py-1 bg-transparent font-mono shadow-none focus-visible:ring-0 dark:bg-transparent"
         />
         <Button size="sm" onClick={() => props.onClose(latex)}>
           Listo <CornerDownLeftIcon />

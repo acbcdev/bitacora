@@ -27,7 +27,7 @@ export function NoteBody({
   // Meta bajo el título (NoteEditor). Con caption no hay divider: la línea mono ya separa título/cuerpo.
   caption?: ReactNode
 }) {
-  const { note, title, onTitleChange, onDocChange, flush } = draft
+  const { note, rev, title, onTitleChange, onDocChange, flush } = draft
   const editorRef = useRef<EditorHandle>(null)
 
   // Regla v2 (ADR 0017): las letras escriben. Con el editor desenfocado, un keydown de letra a-z
@@ -118,7 +118,7 @@ export function NoteBody({
       {/* flex-1 llena el resto del viewport: el footer de shortcuts queda pegado abajo en vez
           de pegado al final del contenido. onClick: clickear la zona vacía debajo del texto
           pone el cursor al final (como Notion/Docs), no se queda "muerta". key: el Editor solo
-          lee `content` al montar, así que remonta por nota. */}
+          lee `content` al montar, así que remonta por nota y por escritura externa (rev). */}
       <div
         data-size={large ? "lg" : undefined}
         className="flex-1 cursor-text"
@@ -127,7 +127,7 @@ export function NoteBody({
         }}
       >
         <Editor
-          key={note.id}
+          key={`${note.id}:${rev}`}
           ref={editorRef}
           content={note.content}
           onChange={onDocChange}

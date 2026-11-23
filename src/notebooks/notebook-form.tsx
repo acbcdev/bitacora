@@ -92,7 +92,7 @@ export function NotebookForm({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Nombre del notebook"
-                className="h-auto flex-1 border-0 bg-transparent px-0 py-1 text-[21px] font-semibold tracking-tight shadow-none placeholder:text-muted-foreground/60 focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
+                className="h-auto flex-1 rounded-none border-0 bg-transparent px-0 py-1 text-lg font-semibold tracking-tight shadow-none placeholder:text-muted-foreground/60 focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
               />
             </div>
 
