@@ -1,11 +1,12 @@
 import { useState } from "react"
-import { Plus } from "lucide-react"
+import { Check, Copy, Loader2 } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Input } from "@/core/ui/input"
+import { cn } from "@/core/lib/utils"
+import { ConfirmDelete } from "@/core/components/confirm-delete"
 import { fetchCapabilities } from "@/core/agent/capabilities"
 import {
   DEFAULT_ANTHROPIC_MODEL,
-  MAX_VISIBLE,
   PRESETS,
   fetchModels,
   mergeModels,
@@ -17,6 +18,7 @@ import {
 } from "@/core/agent/provider"
 import { useAgentSettings } from "@/agent/use-provider"
 import { ProviderIcon } from "@/agent/provider-icon"
+import { ProviderModels } from "@/agent/provider-models"
 
 const KINDS: { kind: ProviderKind; name: string }[] = [
   { kind: "anthropic", name: "Anthropic" },
@@ -37,94 +39,105 @@ function blank(kind: ProviderKind): ProviderConfig {
 
 const isLocal = (url?: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(url ?? "")
 
-function CorsHint() {
-  const cmd = `OLLAMA_ORIGINS=${window.location.origin}`
+function CopyButton({ text }: { text: string }) {
+  const [done, setDone] = useState(false)
   return (
-    <div className="rounded-md bg-muted p-2 text-xs text-muted-foreground">
-      <p>
-        Un servidor local tiene que permitir el origin de esta app (CORS). En Ollama arrancalo con:
-      </p>
-      <div className="mt-1 flex items-center gap-2">
-        <code className="min-w-0 flex-1 break-all">{cmd}</code>
-        <Button
-          type="button"
-          size="xs"
-          variant="outline"
-          onClick={() => void navigator.clipboard?.writeText(cmd)}
-        >
-          Copiar
-        </Button>
+    <Button
+      type="button"
+      size="xs"
+      variant="ghost"
+      onClick={() => {
+        void navigator.clipboard?.writeText(text)
+        setDone(true)
+        setTimeout(() => setDone(false), 1400)
+      }}
+    >
+      {done ? <Check /> : <Copy />}
+      {done ? "Copiado" : "Copiar"}
+    </Button>
+  )
+}
+
+// Cómo permitir el origin de la app en cada servidor local conocido.
+const CORS_HOWTO: Record<string, { name: string; text: string; cmd?: (origin: string) => string }> =
+  {
+    ollama: {
+      name: "Ollama",
+      text: "Cerrá Ollama y arrancalo con tu origin permitido:",
+      cmd: (o) => `OLLAMA_ORIGINS=${o} ollama serve`,
+    },
+    lmstudio: {
+      name: "LM Studio",
+      text: "Developer → Server Settings → activá “Enable CORS” y reiniciá el servidor.",
+    },
+  }
+
+// Local = el navegador bloquea la llamada hasta que el servidor acepte el origin de la app. Con
+// preset conocido muestra solo SU instrucción; con una URL local propia, todas.
+function CorsHint({ preset }: { preset?: string }) {
+  const origin = window.location.origin
+  const keys = preset && CORS_HOWTO[preset] ? [preset] : Object.keys(CORS_HOWTO)
+  return (
+    <div className="flex flex-col gap-3 rounded-lg bg-muted p-3 text-sm">
+      <div>
+        <p className="font-medium">Permití el acceso desde esta app</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          El navegador bloquea las llamadas a tu servidor local hasta que acepte{" "}
+          <span className="mono">{origin}</span>.
+        </p>
       </div>
-      <p className="mt-1">En LM Studio activá “Enable CORS” en el servidor local.</p>
+      {keys.map((k) => {
+        const { name, text, cmd } = CORS_HOWTO[k]
+        return (
+          <div key={k} className="flex flex-col gap-1.5">
+            {keys.length > 1 && (
+              <p className="flex items-center gap-1.5 text-xs font-medium">
+                <ProviderIcon
+                  provider={{ kind: "openai-compatible", preset: k }}
+                  className="size-3.5"
+                />
+                {name}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">{text}</p>
+            {cmd && (
+              <div className="flex items-center gap-2 rounded-md bg-background/60 py-1 pr-1 pl-2.5">
+                <code className="mono min-w-0 flex-1 break-all">{cmd(origin)}</code>
+                <CopyButton text={cmd(origin)} />
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
 
-function Models({
-  draft,
-  onChange,
-}: {
-  draft: ProviderConfig
-  onChange: (p: ProviderConfig) => void
-}) {
-  const [query, setQuery] = useState("")
-  const [manual, setManual] = useState("")
-  const q = query.trim().toLowerCase()
-  const shown = draft.models.filter((m) => m.id.toLowerCase().includes(q))
-  const toggle = (id: string) =>
-    onChange({
-      ...draft,
-      models: draft.models.map((m) => (m.id === id ? { ...m, visible: !m.visible } : m)),
-    })
-  const addManual = () => {
-    const id = manual.trim()
-    if (!id) return
-    const rest = draft.models.filter((m) => m.id !== id)
-    onChange({ ...draft, models: [{ id, visible: true }, ...rest] })
-    setManual("")
-  }
-
+// Altura animada sin medirla (grid 0fr → 1fr). `inert` cerrado: no toma foco ni lo lee un lector.
+function Reveal({ open, children }: { open: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2">
-      <p className="text-sm font-medium">
-        Modelos visibles ({draft.models.filter((m) => m.visible).length}/{draft.models.length})
-      </p>
-      {draft.models.length > MAX_VISIBLE && (
-        <Input
-          aria-label="Buscar modelo"
-          placeholder="Buscar…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+    <div
+      inert={!open}
+      className={cn(
+        "grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
       )}
-      <ul className="flex max-h-48 flex-col overflow-y-auto">
-        {shown.map((m) => (
-          <li key={m.id}>
-            <label className="flex cursor-pointer items-center gap-2 py-1 text-sm">
-              <input type="checkbox" checked={m.visible} onChange={() => toggle(m.id)} />
-              <span className="min-w-0 break-all">{m.id}</span>
-            </label>
-          </li>
-        ))}
-      </ul>
-      <div className="flex gap-2">
-        <Input
-          aria-label="Id de modelo"
-          placeholder="Agregar id de modelo a mano"
-          value={manual}
-          onChange={(e) => setManual(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault()
-              addManual()
-            }
-          }}
-        />
-        <Button type="button" variant="outline" onClick={addManual} disabled={!manual.trim()}>
-          Agregar
-        </Button>
-      </div>
+    >
+      <div className="min-h-0 overflow-hidden">{children}</div>
     </div>
+  )
+}
+
+// Input sin caja: la caja es el grupo de filas, no cada campo.
+const BARE =
+  "h-10 rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:border-0 focus-visible:ring-0"
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex items-center gap-4">
+      <span className="w-20 shrink-0 text-sm text-muted-foreground">{label}</span>
+      {children}
+    </label>
   )
 }
 
@@ -160,7 +173,7 @@ function ProviderForm({ initial, onDone }: { initial: ProviderConfig; onDone: ()
 
   return (
     <form
-      className="mt-3 flex flex-col gap-3 rounded-md border p-3"
+      className="mt-3 flex flex-col gap-6"
       onSubmit={(e) => {
         e.preventDefault()
         if (!canSave) return
@@ -183,52 +196,101 @@ function ProviderForm({ initial, onDone }: { initial: ProviderConfig; onDone: ()
               type="button"
               size="xs"
               variant={draft.preset === p.key ? "secondary" : "outline"}
-              onClick={() => patch({ preset: p.key, name: p.name, baseUrl: p.baseUrl })}
+              onClick={() => {
+                patch({ preset: p.key, name: p.name, baseUrl: p.baseUrl })
+                setStatus(null)
+              }}
             >
+              <ProviderIcon
+                provider={{ kind: "openai-compatible", preset: p.key }}
+                className="size-3.5"
+              />
               {p.name}
             </Button>
           ))}
         </div>
       )}
-      <Input
-        aria-label="Nombre"
-        placeholder="Nombre"
-        value={draft.name}
-        onChange={(e) => patch({ name: e.target.value })}
-      />
-      {compat && (
-        <Input
-          aria-label="Base URL"
-          placeholder="https://…/v1"
-          value={draft.baseUrl ?? ""}
-          onChange={(e) => patch({ baseUrl: e.target.value, preset: undefined })}
-        />
-      )}
-      <Input
-        type="password"
-        aria-label="API key"
-        placeholder={
-          compat ? "API key (opcional)" : draft.kind === "anthropic" ? "sk-ant-…" : "sk-or-…"
-        }
-        autoComplete="off"
-        value={draft.apiKey}
-        onChange={(e) => patch({ apiKey: e.target.value })}
-      />
-      {compat && isLocal(draft.baseUrl) && <CorsHint />}
-      <div className="flex items-center gap-2">
-        <Button type="button" variant="outline" disabled={!canTest || testing} onClick={test}>
-          {testing ? "Probando…" : "Probar conexión"}
-        </Button>
+
+      <div>
+        <div className="flex flex-col divide-y divide-border/60 border-y border-border/60">
+          <Row label="Nombre">
+            <Input
+              aria-label="Nombre"
+              className={BARE}
+              value={draft.name}
+              onChange={(e) => patch({ name: e.target.value })}
+            />
+          </Row>
+          {compat && (
+            <Row label="Base URL">
+              <Input
+                aria-label="Base URL"
+                className={BARE}
+                placeholder="https://…/v1"
+                value={draft.baseUrl ?? ""}
+                onChange={(e) => patch({ baseUrl: e.target.value, preset: undefined })}
+              />
+            </Row>
+          )}
+          <Row label="API key">
+            <Input
+              type="password"
+              aria-label="API key"
+              className={BARE}
+              placeholder={
+                compat ? "opcional" : draft.kind === "anthropic" ? "sk-ant-…" : "sk-or-…"
+              }
+              autoComplete="off"
+              value={draft.apiKey}
+              onChange={(e) => patch({ apiKey: e.target.value })}
+            />
+          </Row>
+          <div className="flex items-center justify-between gap-3 py-2">
+            <div className="min-w-0 text-sm">
+              {testing ? (
+                <span className="text-muted-foreground">Probando…</span>
+              ) : status ? (
+                <p
+                  role={status.ok ? "status" : "alert"}
+                  className={cn("break-words", status.ok ? "text-signal" : "text-destructive")}
+                >
+                  {status.text}
+                </p>
+              ) : (
+                <span className="text-muted-foreground">Sin probar</span>
+              )}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={!canTest || testing}
+              onClick={test}
+            >
+              {testing && <Loader2 className="animate-spin" />}
+              Probar conexión
+            </Button>
+          </div>
+        </div>
+        {compat && (
+          <Reveal open={isLocal(draft.baseUrl)}>
+            <div className="pt-3">
+              <CorsHint preset={draft.preset} />
+            </div>
+          </Reveal>
+        )}
       </div>
-      {status && (
-        <p
-          role={status.ok ? "status" : "alert"}
-          className={`text-sm break-words ${status.ok ? "text-muted-foreground" : "text-destructive"}`}
-        >
-          {status.text}
+
+      <div className="flex flex-col gap-2">
+        <p className="eyebrow">
+          Modelos visibles ({draft.models.filter((m) => m.visible).length}/{draft.models.length})
         </p>
-      )}
-      <Models draft={draft} onChange={setDraft} />
+        <ProviderModels
+          models={draft.models}
+          onChange={(models) => setDraft((d) => ({ ...d, models }))}
+        />
+      </div>
+
       <div className="flex gap-2">
         <Button type="submit" disabled={!canSave}>
           Guardar
@@ -246,6 +308,7 @@ function ProviderForm({ initial, onDone }: { initial: ProviderConfig; onDone: ()
 export function ProviderSettings() {
   const { settings } = useAgentSettings()
   const [editing, setEditing] = useState<ProviderConfig | null>(null)
+  const [removing, setRemoving] = useState<ProviderConfig | null>(null)
 
   return (
     <section id="agent-provider">
@@ -260,14 +323,7 @@ export function ProviderSettings() {
             <Button size="xs" variant="ghost" onClick={() => setEditing(p)}>
               Editar
             </Button>
-            <Button
-              size="xs"
-              variant="ghost"
-              onClick={() => {
-                saveAgentSettings(withoutProvider(settings, p.id))
-                if (editing?.id === p.id) setEditing(null)
-              }}
-            >
+            <Button size="xs" variant="ghost" onClick={() => setRemoving(p)}>
               Quitar
             </Button>
           </li>
@@ -284,12 +340,23 @@ export function ProviderSettings() {
               size="sm"
               onClick={() => setEditing(blank(k.kind))}
             >
-              <Plus />
+              <ProviderIcon provider={{ kind: k.kind }} />
               {k.name}
             </Button>
           ))}
         </div>
       )}
+      <ConfirmDelete
+        open={!!removing}
+        onOpenChange={(open) => !open && setRemoving(null)}
+        what={removing?.name ?? ""}
+        verb="Quitar"
+        onConfirm={() => {
+          if (!removing) return
+          saveAgentSettings(withoutProvider(settings, removing.id))
+          if (editing?.id === removing.id) setEditing(null)
+        }}
+      />
     </section>
   )
 }
