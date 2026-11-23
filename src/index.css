@@ -304,6 +304,11 @@
   .eyebrow {
     @apply text-2xs font-medium tracking-widest text-muted-foreground uppercase;
   }
+  /* Superficie chip de los toolbars: buscar, filtros, segmented (Tabs/ToggleGroup). Una sola
+     definición; el activo dentro de un chip es siempre `bg-muted`. */
+  .chip {
+    @apply h-8 rounded-pill bg-card shadow-card ring-1 ring-border;
+  }
   /* Asa de bloque (+ ⋮⋮): clase del wrapper del plugin. El plugin esconde el handle en el
      mouseleave del editor salvo que relatedTarget caiga DENTRO del wrapper — sin este
      gap sólido el trayecto cursor→botón cruzaba 8px de aire y el asa desaparecía antes
@@ -388,11 +393,29 @@
   .fade-in {
     animation: b-fade 160ms cubic-bezier(0.4, 0, 0.2, 1);
   }
+  .shimmer {
+    background: linear-gradient(
+        90deg,
+        var(--muted-foreground) 40%,
+        var(--foreground) 50%,
+        var(--muted-foreground) 60%
+      )
+      100% 0 / 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 1.6s linear infinite;
+  }
   .note-in {
     animation: b-note 130ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
 @keyframes b-fade {
   from {
     opacity: 0;
@@ -454,6 +477,9 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .habit-sweep {
+    animation: none;
+  }
+  .shimmer {
     animation: none;
   }
   .habit-draw path {

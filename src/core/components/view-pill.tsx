@@ -1,11 +1,12 @@
-// Toggle de vista (grid / lista) con el look de chip de los toolbars: bg-card + ring, el activo
-// relleno muted. Radiogroup a mano y no radix ToggleGroup: el look es otro y la semántica
-// (elección exclusiva, nunca vacía) ya la da un radio.
+import { ToggleGroup, ToggleGroupItem } from "@/core/ui/toggle-group"
+
+// Toggle de vista (grid / lista) con solo íconos. Wrapper del ToggleGroup: el `v &&` evita que
+// Radix lo deje vacío al re-clickear el activo (elección exclusiva, nunca vacía).
 export function ViewPill<T extends string>({
   value,
   onChange,
   options,
-  className = "",
+  className,
 }: {
   value: T
   onChange: (v: T) => void
@@ -14,26 +15,18 @@ export function ViewPill<T extends string>({
   className?: string
 }) {
   return (
-    <div
-      role="radiogroup"
+    <ToggleGroup
+      type="single"
       aria-label="vista"
-      className={`flex h-8 items-center gap-0.5 rounded-pill bg-card px-1 shadow-card ring-1 ring-border ${className}`}
+      value={value}
+      onValueChange={(v) => v && onChange(v as T)}
+      className={className}
     >
       {(Object.entries(options) as [T, React.ReactNode][]).map(([v, icon]) => (
-        <button
-          key={v}
-          type="button"
-          role="radio"
-          aria-label={v}
-          aria-checked={value === v}
-          onClick={() => onChange(v)}
-          className={`flex h-6 w-8 cursor-pointer items-center justify-center rounded-pill [&_svg]:size-3.5 ${
-            value === v ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
+        <ToggleGroupItem key={v} value={v} aria-label={v} className="w-8 px-0">
           {icon}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   )
 }
