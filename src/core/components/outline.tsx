@@ -6,9 +6,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/core/ui/popover"
 
 type Heading = { el: HTMLElement; level: number; text: string }
 
-// Ancho del tick y sangría del panel por nivel: solo h1 y h2 (h3+ no entra al rail, ver abajo).
-const TICK = ["w-6", "w-4"]
-const INDENT = ["pl-2", "pl-5"]
+// Ancho del tick y sangría del panel por nivel relativo (0 = el heading más alto presente).
+const TICK = ["w-6", "w-5", "w-4", "w-3"]
+const INDENT = ["pl-2", "pl-5", "pl-8", "pl-11"]
 
 // Rail de headings al margen derecho de la nota (ver docs/adr/0007-outline-desde-el-dom.md).
 // Los headings salen del DOM del host, no del doc de Tiptap: el click necesita el elemento al que
@@ -26,15 +26,16 @@ export function Outline({
 
   // Rescaneo con debounce: el editor avisa por `version` cada vez que cambia el contenido, no hace
   // falta un MutationObserver.
-  // Solo h1/h2: h3 es el 42% de los headings del import y hace ruido en las notas largas. El costo
-  // está medido y aceptado: 222 de las 673 notas con outline se quedan sin rail (160 usan solo h3).
+  // h1-h4, todos siempre. El nivel se normaliza contra el más alto presente, así una nota con solo
+  // h3 no sangra de más.
   useEffect(() => {
     const t = setTimeout(() => {
-      const els = host.current?.querySelectorAll<HTMLElement>("h1, h2") ?? []
+      const els = [...(host.current?.querySelectorAll<HTMLElement>("h1, h2, h3, h4") ?? [])]
+      const min = Math.min(...els.map((el) => Number(el.tagName[1])))
       setHeadings(
-        [...els].map((el) => ({
+        els.map((el) => ({
           el,
-          level: Number(el.tagName[1]),
+          level: Number(el.tagName[1]) - min + 1,
           text: el.textContent ?? "",
         })),
       )
@@ -93,7 +94,7 @@ export function Outline({
                 key={i}
                 onClick={() => jump(h)}
                 className={cn(
-                  "block w-full truncate rounded py-2 pr-2 text-left text-sm active:bg-accent",
+                  "block w-full truncate rounded-sm py-2 pr-2 text-left text-sm active:bg-accent",
                   INDENT[h.level - 1],
                   i === active ? "font-medium text-foreground" : "text-fg-secondary",
                 )}
@@ -145,7 +146,7 @@ export function Outline({
               del texto (a 1280px el margen contra un texto de 80ch no alcanza) y encima de los ticks:
               `right-0` lo alinea con el rail y, al ser el único hermano posicionado, pinta arriba.
               top-0: abre desde el primer tick hacia abajo, igual que el rail. */}
-          <div className="pointer-events-none absolute top-0 right-0 max-h-[70vh] w-60 overflow-y-auto rounded-lg border bg-popover p-1.5 opacity-0 shadow-lg transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
+          <div className="pointer-events-none absolute top-0 right-0 max-h-[70vh] w-60 overflow-y-auto rounded-md border bg-popover p-1.5 opacity-0 shadow-lg transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100">
             {headings.map((h, i) => (
               <button
                 key={i}
@@ -154,7 +155,7 @@ export function Outline({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => jump(h)}
                 className={cn(
-                  "block w-full truncate rounded py-1 pr-2 text-left text-sm hover:bg-accent",
+                  "block w-full truncate rounded-sm py-1 pr-2 text-left text-sm hover:bg-accent",
                   INDENT[h.level - 1],
                   i === active ? "font-medium text-foreground" : "text-fg-secondary",
                 )}
