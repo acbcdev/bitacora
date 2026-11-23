@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { toast } from "sonner"
 import { store } from "@/core/store"
 import { notebookNotes, noteRefs } from "@/core/store/derive"
-import { useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
+import { onExternalWrite, useSnapshot, useSnapshotMutation } from "@/core/lib/snapshot"
 import type { Note, TiptapDoc } from "@/core/types/database"
 
 const EMPTY_DOC: TiptapDoc = { type: "doc", content: [] }
@@ -42,7 +42,11 @@ export function useCreateNote() {
     // orden ambiguo entre dos notas, no error (no hay unique constraint).
     const cached = snap ? notebookNotes(snap, notebookId) : []
     const position = Math.max(-1, ...cached.map((n) => n.position)) + 1
-    return store.save("notes", { notebook_id: notebookId, position, content: EMPTY_DOC })
+    return store.save("notes", {
+      notebook_id: notebookId,
+      position,
+      content: EMPTY_DOC,
+    })
   })
 }
 
@@ -50,7 +54,9 @@ export function useUpdateNote() {
   const qc = useQueryClient()
   return useSnapshotMutation(
     (input: { id: string; title: string; content: TiptapDoc }) => store.save("notes", input),
-    { onSuccess: (_r, { id }) => qc.invalidateQueries({ queryKey: ["note", id] }) },
+    {
+      onSuccess: (_r, { id }) => qc.invalidateQueries({ queryKey: ["note", id] }),
+    },
   )
 }
 
@@ -63,6 +69,9 @@ export function useUpdateNote() {
 export function useNoteDraft(id: string | undefined, open = true) {
   const { data: note, isLoading } = useNote(id)
   const update = useUpdateNote()
+  const qc = useQueryClient()
+  // Sube con cada escritura externa: NoteBody lo usa en la key para remontar el Editor.
+  const [rev, setRev] = useState(0)
   const [title, setTitle] = useState("")
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const doc = useRef<TiptapDoc>(EMPTY_DOC)
@@ -88,6 +97,26 @@ export function useNoteDraft(id: string | undefined, open = true) {
     setSavedAt(null)
   }, [note?.id])
   // oxlint-enable react-hooks/exhaustive-deps
+
+  // Escritura del Agente (aprobar/deshacer): descarta el draft y relee. fetchQuery espera el
+  // dato fresco antes de remontar el Editor, que solo lee `content` al montar.
+  useEffect(() => {
+    if (!id) return
+    return onExternalWrite(async () => {
+      clearTimeout(timer.current)
+      timer.current = undefined
+      const fresh = await qc.fetchQuery({
+        queryKey: ["note", id],
+        queryFn: () => store.note(id),
+        staleTime: 0,
+      })
+      if (!fresh) return
+      setTitle(fresh.title)
+      latest.current.title = fresh.title
+      doc.current = fresh.content
+      setRev((r) => r + 1)
+    })
+  }, [id, qc])
 
   // Guarda lo pendiente (y solo eso). Lee refs: sirve igual como cleanup.
   function flush() {
@@ -121,6 +150,7 @@ export function useNoteDraft(id: string | undefined, open = true) {
     isLoading,
     title,
     savedAt,
+    rev,
     flush,
     onTitleChange: (t: string) => {
       setTitle(t)

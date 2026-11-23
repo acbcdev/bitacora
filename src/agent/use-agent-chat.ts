@@ -4,6 +4,7 @@ import { parseChats, upsertChat } from "@/core/agent/chats"
 import type { ModelMessage } from "ai"
 import { useQueryClient } from "@tanstack/react-query"
 import { store } from "@/core/store"
+import { notifyExternalWrite } from "@/core/lib/snapshot"
 import { createModel, type ProviderConfig } from "@/core/agent/provider"
 import { userMessage, type Attachment } from "@/core/agent/attachments"
 import { matchSkill } from "@/core/agent/skills"
@@ -12,6 +13,7 @@ import type { Proposal } from "@/core/agent/proposal"
 import { createSession, type UndoResult } from "@/core/agent/session"
 import { runTurn, type TurnResult } from "@/core/agent/turn"
 import { useApprovalLevel } from "@/agent/approval-picker"
+import type { AgentTool } from "@/core/agent/tool"
 import { agentTools } from "@/agent/tools"
 import { useSkills } from "@/agent/use-skills"
 
@@ -34,6 +36,8 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     )
   }, [])
   const [busy, setBusy] = useState(false)
+  // Qué hace el Agente ahora: null = el modelo piensa; si no, el riesgo de la tool en curso.
+  const [tool, setTool] = useState<AgentTool["risk"] | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Detalle crudo del tool-call inválido que agotó los reintentos (línea de error colapsable).
   const [malformed, setMalformed] = useState<string | null>(null)
@@ -57,6 +61,11 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
   )
   const approval = useApprovalLevel()
   const skills = useSkills()
+
+  const refresh = useCallback(() => {
+    void qc.invalidateQueries()
+    notifyExternalWrite()
+  }, [qc])
 
   const send = useCallback(
     async (text: string, open: OpenContext, attachments: Attachment[] = []) => {
@@ -82,6 +91,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
           messages: next,
           open,
           approval,
+          onTool: setTool,
           onApplied: (ops, inverse) => {
             session.pushApplied(ops, inverse)
             syncUndo()
@@ -105,11 +115,12 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
         setError(e instanceof Error ? e.message : String(e))
       } finally {
         // Puede haber auto-aplicado escrituras: la UI relee.
-        void qc.invalidateQueries()
+        refresh()
+        setTool(null)
         setBusy(false)
       }
     },
-    [messages, chatId, persist, provider, modelId, approval, qc, session, syncUndo, skills],
+    [messages, chatId, persist, provider, modelId, approval, refresh, session, syncUndo, skills],
   )
 
   const stop = useCallback(() => abort.current?.abort(), [])
@@ -127,9 +138,9 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
       }
       syncUndo()
       // Aplicó total o parcialmente: la UI relee de todos modos.
-      void qc.invalidateQueries()
+      refresh()
     },
-    [proposal, qc, session, syncUndo],
+    [proposal, refresh, session, syncUndo],
   )
 
   const undo = useCallback(
@@ -141,9 +152,9 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
         setError(e instanceof Error ? e.message : String(e))
       }
       syncUndo()
-      void qc.invalidateQueries()
+      refresh()
     },
-    [qc, session, syncUndo],
+    [refresh, session, syncUndo],
   )
 
   // Vacía lo efímero del hilo actual (undo, Propuesta, tokens) y deja los mensajes dados.
@@ -200,6 +211,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     openChat,
     remove,
     busy,
+    tool,
     error,
     malformed,
     tokens,

@@ -90,6 +90,8 @@ export type TurnInput = {
   // Una vez por turno (si algo se auto-aplicó): las Ops aplicadas y sus inversas, en orden de
   // reaplicación (la pila de undo del caller). `inverse` vacío = solo creaciones.
   onApplied?: (ops: Op[], inverse: Op[]) => void
+  // Qué tool corre ahora (null = el modelo está pensando): para que la UI diga qué pasa de verdad.
+  onTool?: (risk: AgentTool["risk"] | null) => void
   now?: Date
 }
 
@@ -124,22 +126,31 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
         description: t.description,
         inputSchema: jsonSchema(t.schema),
         execute: async (args) => {
-          const a = args as Record<string, unknown>
-          if (t.risk === "read") return t.run(a, ctx)
-          // Escribir = proponer: la Op entra a los Borradores y las lecturas siguientes la ven.
-          const op = await t.plan(a, ctx)
-          if (autoApplies(input.approval ?? "ask", t.risk)) {
-            const inv = await applyProposal(input.store, { ops: [op] })
-            applied.push(op)
-            inverse = [...inv, ...inverse] // orden inverso al de aplicación, como applyProposal
-            return `Aplicado: ${op.label}`
+          input.onTool?.(t.risk)
+          try {
+            return await exec(t, args)
+          } finally {
+            input.onTool?.(null)
           }
-          drafts.add(op)
-          return `Propuesto (pendiente de aprobación del usuario, aún no aplicado): ${op.label}`
         },
       }),
     ]),
   )
+
+  async function exec(t: AgentTool, args: unknown) {
+    const a = args as Record<string, unknown>
+    if (t.risk === "read") return t.run(a, ctx)
+    // Escribir = proponer: la Op entra a los Borradores y las lecturas siguientes la ven.
+    const op = await t.plan(a, ctx)
+    if (autoApplies(input.approval ?? "ask", t.risk)) {
+      const inv = await applyProposal(input.store, { ops: [op] })
+      applied.push(op)
+      inverse = [...inv, ...inverse] // orden inverso al de aplicación, como applyProposal
+      return `Aplicado: ${op.label}`
+    }
+    drafts.add(op)
+    return `Propuesto (pendiente de aprobación del usuario, aún no aplicado): ${op.label}`
+  }
 
   // Lo completado hasta ahora, para devolverlo parcial si el usuario detiene el turno.
   let done: ModelMessage[] = []

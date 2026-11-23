@@ -22,6 +22,16 @@ import type { NoteRef, Snapshot } from "@/core/store/types"
 // snapshot por tabla, no volver a seis keys.
 export const SNAPSHOT_KEY = ["snapshot"]
 
+// Escritura que no salió del editor (el Agente aprobó/aplicó/deshizo): los borradores abiertos
+// descartan su estado local y releen. Sin esto el draft (autoridad, ADR 0015) muestra el texto
+// viejo y el próximo autosave pisa el cambio.
+const EXTERNAL_WRITE = "bitacora:external-write"
+export const notifyExternalWrite = () => window.dispatchEvent(new Event(EXTERNAL_WRITE))
+export const onExternalWrite = (fn: () => void) => {
+  window.addEventListener(EXTERNAL_WRITE, fn)
+  return () => window.removeEventListener(EXTERNAL_WRITE, fn)
+}
+
 export function useSnapshot<T>(select: (snap: Snapshot) => T) {
   // derive.* lee new Date(): cambiar de día re-renderiza al consumidor y su select inline re-corre.
   useToday()
