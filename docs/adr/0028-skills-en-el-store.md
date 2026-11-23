@@ -21,3 +21,10 @@ built-in nuevo en un release llega sin pisar nada.
 - Los **Chats** NO entran acá: viven solo en `localStorage` del dispositivo (tope 20, resultados de
   tool truncados), porque son efímeros y pueden contener resultados grandes.
 - Tabla nueva = cambios en `types.ts`, `local-store.ts`, `supabase-store.ts` y una migración.
+- La UI de edición reusa la **estructura del notebook** (índice + cuerpo estilo nota con autosave de
+  800 ms y el `Editor` Tiptap), pero el modelo no cambia: sigue siendo la tabla `skills`, no una
+  Nota (la opción "Nota con formato especial" sigue descartada). El prompt se guarda como markdown
+  (`docToMarkdown` / `markdownToDoc`), no como documento Tiptap.
+- El autosave solo persiste un estado válido (nombre sin error y prompt no vacío): "Nuevo" abre un
+  borrador local y la fila nace recién entonces. Los saves van en cola porque `save` no devuelve el
+  `id` y un built-in sin override no tiene fila hasta el primero.
