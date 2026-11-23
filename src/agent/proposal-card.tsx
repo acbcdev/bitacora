@@ -21,7 +21,9 @@ const show = (v: unknown) => (v === null || v === undefined ? "—" : String(v))
 function OpDiff({ op }: { op: Op }) {
   const before = op.before as Record<string, unknown> | null
   const after = op.after as Record<string, unknown>
-  const fields = Object.keys(after).filter((k) => k !== "id" && k !== "content")
+  const fields = Object.keys(after).filter(
+    (k) => k !== "id" && k !== "content" && (!before || before[k] !== after[k]),
+  )
   const hasContent = op.entity === "notes" && "content" in after
   const md = (d: unknown) => docToMarkdown(d as TiptapDoc)
 
@@ -35,23 +37,27 @@ function OpDiff({ op }: { op: Op }) {
         </span>
       ))}
       {hasContent && (
-        <pre className="max-h-60 overflow-auto rounded-md bg-muted p-2 font-mono whitespace-pre-wrap">
+        <pre className="max-h-60 overflow-auto rounded-md border font-mono whitespace-pre-wrap">
           {(before
             ? diffLines(md(before.content), md(after.content))
             : diffLines("", md(after.content))
-          ).map((l, i) => (
-            <span
-              key={i}
-              className={cn(
-                "block",
-                l.type === "add" && "font-medium text-foreground",
-                l.type === "del" && "text-muted-foreground line-through",
-              )}
-            >
-              {l.type === "add" ? "+ " : l.type === "del" ? "- " : "  "}
-              {l.text}
-            </span>
-          ))}
+          )
+            .filter((l) => l.type !== "same" || l.text)
+            .map((l, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "flex gap-2 px-2",
+                  l.type === "add" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+                  l.type === "del" && "bg-destructive/15 text-destructive",
+                )}
+              >
+                <span className="w-2 shrink-0 select-none">
+                  {l.type === "add" ? "+" : l.type === "del" ? "-" : ""}
+                </span>
+                <span className="min-h-[1lh] min-w-0 break-words">{l.text}</span>
+              </span>
+            ))}
         </pre>
       )}
     </div>
@@ -134,7 +140,7 @@ export function ProposalCard({
   onApprove(edited: Proposal): void
   onDiscard(): void
 }) {
-  const [tab, setTab] = useState("resumen")
+  const [tab, setTab] = useState("diff")
   const isMobile = useIsMobile()
   const [detail, setDetail] = useState(false)
   // Ediciones del usuario al Markdown del "después" de las notas, por índice de Op.
@@ -207,18 +213,12 @@ export function ProposalCard({
   return (
     <section aria-label="Propuesta" className="flex flex-col gap-2 rounded-xl border p-3">
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="resumen">Propuesta</TabsTrigger>
-          <TabsTrigger value="diff">Diff</TabsTrigger>
-          {editable.length > 0 && <TabsTrigger value="cambios">Cambios</TabsTrigger>}
-        </TabsList>
-        <TabsContent value="resumen">
-          <ul className="flex flex-col gap-1 text-sm">
-            {proposal.ops.map((op, i) => (
-              <li key={i}>{clean(op.label)}</li>
-            ))}
-          </ul>
-        </TabsContent>
+        {editable.length > 0 && (
+          <TabsList variant="line">
+            <TabsTrigger value="diff">Diff</TabsTrigger>
+            <TabsTrigger value="cambios">Cambios</TabsTrigger>
+          </TabsList>
+        )}
         <TabsContent value="diff" className="flex flex-col gap-3">
           {proposal.ops.map((op, i) => (
             <OpDiff key={i} op={op} />

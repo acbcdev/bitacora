@@ -249,15 +249,6 @@ export function ProviderSettings() {
 
   return (
     <section id="agent-provider">
-      <p className="text-sm font-medium">Proveedor del Agente</p>
-      <p className="text-sm text-muted-foreground">
-        Las keys viven solo en este navegador y salen directo hacia cada Proveedor.
-      </p>
-      <p className="text-sm text-muted-foreground">
-        Los niveles de aprobación menos estrictos (Revisar para mí, Omitir aprobaciones) aceptan
-        riesgo de prompt injection: una nota maliciosa podría hacer que el Agente cambie cosas sin
-        preguntarte.
-      </p>
       <ul className="mt-3 flex flex-col gap-1">
         {settings.providers.map((p) => (
           <li key={p.id} className="flex items-center gap-2">

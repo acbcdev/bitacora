@@ -86,7 +86,7 @@ export function MentionMenu({ mention }: { mention: ReturnType<typeof useMention
     <div
       role="listbox"
       aria-label="Contexto"
-      className="absolute right-3 bottom-full left-3 z-10 mb-1 flex max-h-80 flex-col overflow-hidden rounded-xl border bg-popover shadow-lg"
+      className="absolute right-3 bottom-full left-3 z-10 mb-1 flex h-64 flex-col overflow-hidden rounded-xl border bg-popover shadow-lg"
     >
       <div className="flex shrink-0 gap-1 border-b p-1.5">
         {TABS.map((t) => (
@@ -126,7 +126,7 @@ export function MentionMenu({ mention }: { mention: ReturnType<typeof useMention
               onMouseEnter={() => setActive(i)}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => choose(o)}
-              className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm aria-selected:bg-muted"
+              className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm aria-selected:bg-muted"
             >
               <Icon className="size-4 shrink-0 text-muted-foreground" />
               <span className="truncate">{o.label || "(sin título)"}</span>

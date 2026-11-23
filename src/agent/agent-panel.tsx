@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useLocation, useMatch, useNavigate } from "react-router-dom"
 import {
   Bot,
+  Brain,
   Check,
   ChevronDown,
   Maximize2,
@@ -10,10 +11,13 @@ import {
   Square,
   SquarePen,
   Trash2,
+  Wrench,
+  ChevronsRight,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
+import { cn } from "@/core/lib/utils"
 import type { ModelMessage } from "ai"
 import { Button } from "@/core/ui/button"
 import {
@@ -119,7 +123,7 @@ function ChatsMenu({
           size="sm"
           aria-label="Chats"
           disabled={disabled}
-          className="min-w-0 shrink px-2 text-sm font-medium"
+          className="min-w-0 shrink px-4 text-sm font-medium"
         >
           <span className="truncate">{title}</span>
           <ChevronDown />
@@ -274,6 +278,7 @@ function Chat({
     undo,
     reset,
     hasApplied,
+    tool,
   } = useAgentChat(provider, modelId)
   // En la ruta `/chat/:id` la URL manda: cambiar de chat navega junto con el estado.
   const route = useMatch("/chat/:id")
@@ -302,6 +307,7 @@ function Chat({
   const guard = (fn: () => void) => (hasApplied() ? setConfirm(() => fn) : fn())
   const caps = provider.models.find((m) => m.id === modelId)?.caps
   const isMobile = useIsMobile()
+  const docked = !!useMatch("/notebook/:id/*") && !isMobile && !route
   // Mobile: el toast con Deshacer sobrevive al Drawer (el chat vive en AgentHost, no en el Drawer).
   const applied = proposal?.status === "applied"
   useEffect(() => {
@@ -334,7 +340,16 @@ function Chat({
     setCaret(text.length)
     input.current?.focus()
   }
-  const slash = useSlash(draft, caret, skills, fill)
+  function newChat() {
+    setDraft("")
+    if (busy || messages.length === 0) return
+    guard(() => {
+      const id = crypto.randomUUID()
+      reset(id)
+      if (route) navigate(`/chat/${id}`)
+    })
+  }
+  const slash = useSlash(draft, caret, skills, fill, newChat)
   const end = useRef<HTMLDivElement>(null)
   const column = route ? "mx-auto w-full max-w-3xl" : ""
   // El chip quitado vuelve cuando cambia lo abierto: es contexto por turno, no preferencia.
@@ -360,10 +375,9 @@ function Chat({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-1 px-3">
-        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted">
-          <Bot className="size-3.5" />
-        </span>
+      {/* Acoplado al notebook (desktop): PanelControls ocupa la esquina — el header le deja sitio
+          (56px + 12) y la ✕ sobra (el trigger oculta el panel). Sin ícono de Bot al inicio. */}
+      <header className={cn("flex h-12 shrink-0 items-center gap-1 px-3", docked && "pr-17")}>
         <ChatsMenu
           title={chatTitle(messages)}
           chats={chats}
@@ -385,13 +399,7 @@ function Chat({
               aria-label="Nuevo chat"
               className="ml-auto shrink-0"
               disabled={busy || messages.length === 0}
-              onClick={() =>
-                guard(() => {
-                  const id = crypto.randomUUID()
-                  reset(id)
-                  if (route) navigate(`/chat/${id}`)
-                })
-              }
+              onClick={newChat}
             >
               <SquarePen />
             </Button>
@@ -412,22 +420,24 @@ function Chat({
           </TooltipTrigger>
           <TooltipContent>{route ? "Contraer" : "Abrir en grande"}</TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Cerrar"
-              className="shrink-0"
-              onClick={() => (route ? back(false) : setOpen(false))}
-            >
-              <X />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            Cerrar <Kbd>⌘.</Kbd>
-          </TooltipContent>
-        </Tooltip>
+        {!docked && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Cerrar"
+                className="shrink-0"
+                onClick={() => (route ? back(false) : setOpen(false))}
+              >
+                {route ? <X /> : <ChevronsRight className="size-5" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Cerrar <Kbd>⌘.</Kbd>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </header>
       <AlertDialog open={!!confirm} onOpenChange={(o) => o || setConfirm(null)}>
         <AlertDialogContent>
@@ -500,7 +510,14 @@ function Chat({
               </div>
             </div>
           )}
-          {busy && <span className="mono-dim">pensando…</span>}
+          {busy && (
+            <div role="status" className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              {tool ? <Wrench className="size-3.5" /> : <Brain className="size-3.5" />}
+              <span className="shimmer">
+                {tool === "read" ? "Leyendo…" : tool ? "Preparando cambios…" : "Pensando…"}
+              </span>
+            </div>
+          )}
           {error && (
             <p role="alert" className="text-sm break-words text-destructive">
               {error}
@@ -529,41 +546,41 @@ function Chat({
           <div ref={end} />
         </div>
       </div>
-      <div className="relative flex shrink-0 flex-col gap-2 border-t p-3">
-        <div className={`flex flex-col gap-2 ${column}`}>
+      <div className="relative shrink-0 p-3">
+        <div className={column}>
           {mention.open && <MentionMenu mention={mention} />}
           {slash.open && <SlashMenu slash={slash} />}
-          {open && !chipOff && (
-            <span className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs">
-              <span className="truncate">{open.title || "(sin título)"}</span>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Quitar contexto"
-                onClick={() => setChipOff(true)}
+          {/* Una sola tarjeta: chips, texto y barra de acciones (modelo, aprobación, enviar). */}
+          <div className="flex flex-col gap-1 rounded-xl bg-card p-3 ring-1 ring-border transition-shadow duration-150 focus-within:ring-2 focus-within:ring-ring/50">
+            {open && !chipOff && (
+              <span className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs">
+                <span className="truncate">{open.title || "(sin título)"}</span>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Quitar contexto"
+                  onClick={() => setChipOff(true)}
+                >
+                  <X />
+                </Button>
+              </span>
+            )}
+            {picked.map((p, i) => (
+              <span
+                key={i}
+                className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs"
               >
-                <X />
-              </Button>
-            </span>
-          )}
-          {picked.map((p, i) => (
-            <span
-              key={i}
-              className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs"
-            >
-              <span className="truncate">{p.label}</span>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Quitar adjunto"
-                onClick={() => setPicked((l) => l.filter((_, j) => j !== i))}
-              >
-                <X />
-              </Button>
-            </span>
-          ))}
-          {/* Desktop: una fila + selectores abajo. Mobile: dos filas (texto / acciones). */}
-          <div className="flex flex-wrap items-end gap-2 md:flex-nowrap">
+                <span className="truncate">{p.label}</span>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Quitar adjunto"
+                  onClick={() => setPicked((l) => l.filter((_, j) => j !== i))}
+                >
+                  <X />
+                </Button>
+              </span>
+            ))}
             <Textarea
               aria-label="Mensaje al Agente"
               ref={input}
@@ -582,44 +599,39 @@ function Chat({
                   submit()
                 }
               }}
-              className="order-1 max-h-40 min-h-11 w-full flex-1 resize-none md:order-2 md:min-h-9 md:w-auto"
+              className="max-h-40 min-h-10 resize-none rounded-none border-0 bg-transparent px-2 py-2 shadow-none focus-visible:ring-0 dark:bg-transparent"
             />
-            <div className="order-2 md:order-1 [&_button]:max-md:size-11">
-              <AttachMenu caps={caps} onPick={(p) => setPicked((l) => addPicked(l, p))} />
-            </div>
-            {isMobile && (
-              <div className="order-3 flex min-w-0 flex-1 items-center gap-1 [&_button]:h-11">
+            <div className="flex items-center gap-0.5 [&_button]:max-md:h-11">
+              <div className="shrink-0 [&_button]:max-md:size-11">
+                <AttachMenu caps={caps} onPick={(p) => setPicked((l) => addPicked(l, p))} />
+              </div>
+              {/* min-w-0 + truncate: en el sidebar angosto los pickers se recortan, nunca empujan Enviar. */}
+              <div className="flex min-w-0 flex-1 items-center [&_button]:min-w-0 [&_button]:shrink [&>*]:min-w-0">
                 <ModelPicker settings={settings} active={{ provider, modelId }} />
                 <ApprovalPicker />
               </div>
-            )}
-            {busy ? (
-              <Button
-                size="icon"
-                aria-label="Detener"
-                onClick={stop}
-                className="order-4 max-md:size-11"
-              >
-                <Square />
-              </Button>
-            ) : (
-              <Button
-                size="icon"
-                aria-label="Enviar"
-                disabled={!draft.trim()}
-                onClick={submit}
-                className="order-4 max-md:size-11"
-              >
-                <Send />
-              </Button>
-            )}
-          </div>
-          {!isMobile && (
-            <div className="flex flex-wrap items-center gap-1">
-              <ModelPicker settings={settings} active={{ provider, modelId }} />
-              <ApprovalPicker />
+              {busy ? (
+                <Button
+                  size="icon-sm"
+                  aria-label="Detener"
+                  onClick={stop}
+                  className="shrink-0 rounded-pill max-md:size-11"
+                >
+                  <Square />
+                </Button>
+              ) : (
+                <Button
+                  size="icon-sm"
+                  aria-label="Enviar"
+                  disabled={!draft.trim()}
+                  onClick={submit}
+                  className="shrink-0 rounded-pill max-md:size-11"
+                >
+                  <Send />
+                </Button>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

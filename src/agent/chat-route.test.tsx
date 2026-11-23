@@ -108,6 +108,6 @@ test("un turno en curso sobrevive al pasar del sidebar a la ruta (mismo hilo, no
   // Mismo panel: sigue ocupado y el mensaje enviado sigue en el hilo.
   expect(await screen.findByRole("button", { name: "Contraer" })).toBeInTheDocument()
   expect(screen.getByRole("button", { name: "Detener" })).toBeInTheDocument()
-  expect(screen.getByText("pensando…")).toBeInTheDocument()
+  expect(screen.getByText("Pensando…")).toBeInTheDocument()
   expect(screen.getByRole("button", { name: "Chats" })).toHaveTextContent("hola")
 })
