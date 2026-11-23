@@ -2,4 +2,6 @@ set -e
 
 pnpm format:check
 pnpm lint
+scripts/check-standards.sh
 pnpm typecheck
+pnpm test

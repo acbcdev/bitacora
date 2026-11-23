@@ -1,0 +1,4 @@
+if grep -qiE '^(Co-Authored-By|Claude-Session):' "$1"; then
+  echo "✗ commits sin Co-Authored-By ni Claude-Session (commit del usuario)" >&2
+  exit 1
+fi

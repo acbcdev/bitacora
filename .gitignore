@@ -38,3 +38,6 @@ playwright-report/
 
 # issues/specs locales
 .scratch/
+
+# backups de sed -i sin "" en macOS
+*-E
