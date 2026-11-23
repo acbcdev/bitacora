@@ -17,6 +17,7 @@ function fakeCtx(state: AudioContextState = "running") {
       },
       start: vi.fn(),
       stop: vi.fn(),
+      addEventListener: vi.fn(),
     }),
     createGain: () => ({
       gain: {
@@ -51,14 +52,14 @@ test("sin Web Audio no explota: el beep es mejor-effort", () => {
   expect(() => playDoneSound()).not.toThrow()
 })
 
-test("ctx corriendo: schedula 3 osciladores (tres beeps)", async () => {
+test("ctx corriendo: schedula 9 osciladores (3 notas x 3 pasadas)", async () => {
   const ctx = fakeCtx()
   const count = { n: 0 }
   vi.stubGlobal("AudioContext", ctxCtor(ctx, count))
   const { playDoneSound: beep } = await import("@/habits/sound")
   beep()
   expect(count.n).toBe(1)
-  expect(ctx.oscillators).toHaveLength(3)
+  expect(ctx.oscillators).toHaveLength(9)
   expect(ctx.resume).not.toHaveBeenCalled()
 })
 
@@ -69,7 +70,7 @@ test("ctx suspended: espera el resume antes de schedular", async () => {
   beep()
   expect(ctx.oscillators).toHaveLength(0)
   await vi.waitFor(() => {
-    expect(ctx.oscillators).toHaveLength(3)
+    expect(ctx.oscillators).toHaveLength(9)
   })
   // getAudioCtx ya intentó resume (y falló dentro del gesto); playDoneSound lo reintenta.
   expect(ctx.resume).toHaveBeenCalledTimes(2)
@@ -83,5 +84,5 @@ test("segunda llamada reusa el mismo ctx (un solo AudioContext)", async () => {
   beep()
   beep()
   expect(count.n).toBe(1)
-  expect(ctx.oscillators).toHaveLength(6)
+  expect(ctx.oscillators).toHaveLength(18)
 })
