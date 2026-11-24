@@ -67,7 +67,7 @@ export function NoteBody({
   useEffect(() => {
     function onGlobalPaste(e: ClipboardEvent) {
       const target = e.target as HTMLElement | null
-      if (target?.closest("textarea, .tiptap-host")) return
+      if (target?.closest("input, textarea, [contenteditable], .tiptap-host")) return
       const text = e.clipboardData?.getData("text/plain")
       if (!text) return
 
