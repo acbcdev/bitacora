@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Check, Copy, Loader2 } from "lucide-react"
+import { Check, Copy, Eye, Loader2, Plus, Wrench } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Input } from "@/core/ui/input"
 import { cn } from "@/core/lib/utils"
@@ -20,11 +20,34 @@ import { useAgentSettings } from "@/agent/use-provider"
 import { ProviderIcon } from "@/agent/provider-icon"
 import { ProviderModels } from "@/agent/provider-models"
 
-const KINDS: { kind: ProviderKind; name: string }[] = [
-  { kind: "anthropic", name: "Anthropic" },
-  { kind: "openrouter", name: "OpenRouter" },
-  { kind: "openai-compatible", name: "Compatible con OpenAI" },
+const KINDS: { kind: ProviderKind; name: string; desc: string }[] = [
+  { kind: "anthropic", name: "Anthropic", desc: "Claude directo, con tu API key." },
+  {
+    kind: "openrouter",
+    name: "OpenRouter",
+    desc: "Una sola key para modelos de varios proveedores.",
+  },
+  {
+    kind: "openai-compatible",
+    name: "Compatible con OpenAI",
+    desc: "Ollama, LM Studio, OpenAI, Gemini o cualquier URL /v1.",
+  },
 ]
+
+// Cuántos modelos visibles se listan por proveedor antes del "+N más".
+const SHOWN_MODELS = 6
+
+function hostOf(p: ProviderConfig) {
+  if (p.kind === "anthropic") return "api.anthropic.com"
+  if (p.kind === "openrouter") return "openrouter.ai"
+  return p.baseUrl?.replace(/^https?:\/\//, "").split("/")[0] ?? ""
+}
+
+// Compatible puede ir sin key (Ollama): ahí no hay nada que avisar.
+function keyNote(p: ProviderConfig) {
+  if (p.apiKey) return "Key guardada"
+  return p.kind === "openai-compatible" ? null : "Sin key"
+}
 
 function blank(kind: ProviderKind): ProviderConfig {
   return {
@@ -306,45 +329,83 @@ function ProviderForm({ initial, onDone }: { initial: ProviderConfig; onDone: ()
 // Sección "Proveedor" de Ajustes: varios a la vez, por dispositivo (la key nunca sale del navegador
 // salvo hacia el propio Proveedor).
 export function ProviderSettings() {
-  const { settings } = useAgentSettings()
+  const { settings, active } = useAgentSettings()
   const [editing, setEditing] = useState<ProviderConfig | null>(null)
   const [removing, setRemoving] = useState<ProviderConfig | null>(null)
 
   return (
-    <section id="agent-provider">
-      <ul className="mt-3 flex flex-col gap-1">
-        {settings.providers.map((p) => (
-          <li key={p.id} className="flex items-center gap-2">
-            <ProviderIcon provider={p} />
-            <span className="min-w-0 flex-1 truncate text-sm">
-              {p.name}{" "}
-              <span className="mono-dim">{p.models.filter((m) => m.visible).length} modelos</span>
-            </span>
-            <Button size="xs" variant="ghost" onClick={() => setEditing(p)}>
-              Editar
-            </Button>
-            <Button size="xs" variant="ghost" onClick={() => setRemoving(p)}>
-              Quitar
-            </Button>
-          </li>
-        ))}
-      </ul>
+    <section id="agent-provider" className="flex flex-col gap-8">
       {editing ? (
         <ProviderForm key={editing.id} initial={editing} onDone={() => setEditing(null)} />
       ) : (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {KINDS.map((k) => (
-            <Button
-              key={k.kind}
-              variant="outline"
-              size="sm"
-              onClick={() => setEditing(blank(k.kind))}
-            >
-              <ProviderIcon provider={{ kind: k.kind }} />
-              {k.name}
-            </Button>
-          ))}
-        </div>
+        <>
+          <div className="flex flex-col gap-3">
+            {settings.providers.map((p) => {
+              const visible = p.models.filter((m) => m.visible)
+              const note = keyNote(p)
+              return (
+                <article key={p.id} className="rounded-xl bg-card shadow-card">
+                  <header className="flex items-center gap-3 p-4">
+                    <ProviderIcon provider={p} className="size-5" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{p.name}</p>
+                      <p className="mono-dim truncate">
+                        {hostOf(p)}
+                        {note && ` · ${note}`}
+                      </p>
+                    </div>
+                    <Button size="xs" variant="ghost" onClick={() => setEditing(p)}>
+                      Editar
+                    </Button>
+                    <Button size="xs" variant="ghost" onClick={() => setRemoving(p)}>
+                      Quitar
+                    </Button>
+                  </header>
+                  {visible.length > 0 && (
+                    <ul className="flex flex-col border-t px-4 py-2">
+                      {visible.slice(0, SHOWN_MODELS).map((m) => (
+                        <li key={m.id} className="flex h-8 items-center gap-2">
+                          <span className="mono min-w-0 flex-1 truncate">{m.id}</span>
+                          {active?.provider.id === p.id && active.modelId === m.id && (
+                            <span className="text-xs text-signal">en uso</span>
+                          )}
+                          {m.caps?.tools && <Wrench className="size-3.5 text-muted-foreground" />}
+                          {m.caps?.vision && <Eye className="size-3.5 text-muted-foreground" />}
+                        </li>
+                      ))}
+                      {visible.length > SHOWN_MODELS && (
+                        <li className="flex h-8 items-center text-xs text-muted-foreground">
+                          +{visible.length - SHOWN_MODELS} más
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </article>
+              )
+            })}
+          </div>
+          <div className="flex flex-col gap-2">
+            <p className="eyebrow">Agregar proveedor</p>
+            <ul className="flex flex-col divide-y border-y">
+              {KINDS.map((k) => (
+                <li key={k.kind}>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(blank(k.kind))}
+                    className="flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left outline-none hover:bg-foreground/4 focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    <ProviderIcon provider={{ kind: k.kind }} className="size-5" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium">{k.name}</span>
+                      <span className="block text-xs text-muted-foreground">{k.desc}</span>
+                    </span>
+                    <Plus className="text-muted-foreground" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
       )}
       <ConfirmDelete
         open={!!removing}
