@@ -114,7 +114,7 @@ export function HabitsDialog({ startNew, onClose }: { startNew: boolean; onClose
       <DrialogContent showCloseButton={false} className="gap-0 p-0 md:w-240 md:max-w-240">
         {/* Alto FIJO, no max-h: con alto al contenido el dialog salta de tamaño al cambiar de
             hábito, y el `+ Nuevo` se mueve abajo del cursor. */}
-        <div className="grid h-[70vh] min-h-0 md:grid-cols-[300px_1fr]">
+        <div className="grid h-[70vh] min-h-0 max-md:h-[85dvh] md:grid-cols-[300px_1fr]">
           <aside
             className={cn(
               "flex min-h-0 flex-col border-r max-md:border-r-0",

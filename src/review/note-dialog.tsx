@@ -97,7 +97,7 @@ export function NoteDialog({
         // (`[data-vaul-drawer-direction=bottom]`, especificidad 0,2,0) y le gana a una media query
         // pelada (0,1,0) — y twMerge no las ve en conflicto. Acá el alto es superficie de lectura:
         // hay que llegar al final para que el gate deje marcar leído, así que el 20% muerto molesta.
-        className="flex flex-col gap-0 overflow-hidden p-0 max-md:max-h-[90vh]! md:h-[85vh] md:max-w-5xl"
+        className="flex flex-col gap-0 overflow-hidden p-0 max-md:max-h-[95dvh]! md:h-[85vh] md:max-w-5xl"
       >
         {/* Sin X: cerrar es Esc o click afuera (swipe hacia abajo en mobile). Expand a la
             izquierda, acciones a la derecha.

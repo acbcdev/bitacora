@@ -12,6 +12,7 @@ import {
   Timer,
 } from "lucide-react"
 import { Drialog, DrialogContent, DrialogHeader, DrialogTitle } from "@/core/ui/drialog"
+import { DRAWER_TALL } from "@/core/ui/drawer"
 import { AppearancePage } from "@/settings/appearance"
 import { HabitsPage } from "@/settings/habits"
 import { ModelPage, ProvidersPage, SkillsPage } from "@/settings/agent"
@@ -61,7 +62,9 @@ export function Settings({
     <Drialog open onOpenChange={(next) => !next && onClose()}>
       {/* Mismo tamaño que el NoteDialog en desktop. El padding extra y la X más adentro son por
           Curved: su esquina (36px) se comía el título con el padding de 16px. */}
-      <DrialogContent className="flex flex-col md:h-[85vh] md:w-5xl md:max-w-5xl md:p-8 md:**:data-[slot=dialog-close]:top-5 md:**:data-[slot=dialog-close]:right-5">
+      <DrialogContent
+        className={`${DRAWER_TALL} flex flex-col max-md:px-4 md:h-[85vh] md:w-5xl md:max-w-5xl md:p-8 md:**:data-[slot=dialog-close]:top-5 md:**:data-[slot=dialog-close]:right-5`}
+      >
         <DrialogHeader>
           <DrialogTitle className="text-lg font-semibold">Ajustes</DrialogTitle>
         </DrialogHeader>
@@ -71,7 +74,7 @@ export function Settings({
           orientation="vertical"
           className="flex min-h-0 flex-1 gap-2 max-md:flex-col md:gap-0"
         >
-          <T.List className="flex shrink-0 gap-1 overflow-x-auto p-1 max-md:pb-2 md:w-52 md:flex-col md:overflow-y-auto md:border-r md:pr-3">
+          <T.List className="flex shrink-0 gap-1 overflow-x-auto p-1 max-md:mb-2 max-md:pb-2 md:w-52 md:flex-col md:overflow-y-auto md:border-r md:pr-3">
             <Item value="appearance" icon={<Palette />}>
               Apariencia
             </Item>
@@ -107,7 +110,7 @@ export function Settings({
             <T.Content
               key={id}
               value={id}
-              className="min-h-0 flex-1 overflow-y-auto pt-1 pr-2 pb-4 data-[state=inactive]:hidden max-md:max-h-[70vh] md:pr-4 md:pl-10"
+              className="min-h-0 flex-1 overflow-y-auto pt-1 pr-2 pb-4 max-md:pl-1 data-[state=inactive]:hidden md:pr-4 md:pl-10"
             >
               <div className="max-w-2xl">{node}</div>
             </T.Content>
