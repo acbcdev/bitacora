@@ -6,7 +6,10 @@ import { setStored } from "@/core/lib/hooks/use-stored"
 // guarda su lista de modelos con visibilidad. `ModelEntry` es el punto de extensión de metadata
 // por modelo (ej. capacidades).
 export type ProviderKind = "anthropic" | "openrouter" | "openai-compatible"
-export type ModelEntry = { id: string; visible: boolean; caps?: Caps }
+// Metadata que /models ya trae, best-effort: `created` = unix s, `price` = USD por 1M tokens [in, out].
+export type Info = { created?: number; context?: number; price?: [number, number] }
+export type ModelEntry = { id: string; visible: boolean; caps?: Caps; info?: Info }
+export type RemoteModel = { id: string; info?: Info }
 export type ProviderConfig = {
   id: string
   kind: ProviderKind
@@ -122,19 +125,20 @@ export function withProvider(s: AgentSettings, p: ProviderConfig): AgentSettings
 // Mantiene la visibilidad ya elegida; los nuevos quedan visibles hasta llenar MAX_VISIBLE.
 export function mergeModels(
   prev: ModelEntry[],
-  ids: string[],
+  remote: RemoteModel[],
   caps: Record<string, Caps> = {},
 ): ModelEntry[] {
   const seen = new Map(prev.map((m) => [m.id, m]))
-  let visible = ids.filter((id) => seen.get(id)?.visible).length
-  return ids.map((id) => {
+  let visible = remote.filter((r) => seen.get(r.id)?.visible).length
+  return remote.map(({ id, info: fresh }) => {
     const known = seen.get(id)
     const c = caps[id] ?? known?.caps
-    const withCaps = c ? { caps: c } : {}
-    if (known) return { id, visible: known.visible, ...withCaps }
+    const info = fresh ?? known?.info
+    const extra = { ...(c && { caps: c }), ...(info && { info }) }
+    if (known) return { id, visible: known.visible, ...extra }
     const show = visible < MAX_VISIBLE
     if (show) visible++
-    return { id, visible: show, ...withCaps }
+    return { id, visible: show, ...extra }
   })
 }
 
@@ -152,15 +156,40 @@ function modelsRequest(c: ProviderConfig): [string, Record<string, string>] {
   return [`${base}/models`, c.apiKey ? { Authorization: `Bearer ${c.apiKey}` } : {}]
 }
 
+const num = (x: unknown) => {
+  const v = Number(x)
+  return x != null && x !== "" && Number.isFinite(v) && v >= 0 ? v : undefined
+}
+
+// Cada API usa sus nombres: OpenAI/OpenRouter `created`, Anthropic `created_at`; contexto en
+// `context_length` (OpenRouter) o `max_input_tokens` (Anthropic); precios por token (OpenRouter).
+// Ollama: `created` es la fecha del archivo local, no del lanzamiento → se ignora.
+function parseInfo(m: Record<string, any>, dated: boolean): Info | undefined {
+  const info: Info = {}
+  const created = dated ? (num(m.created) ?? num(Date.parse(m.created_at) / 1000)) : undefined
+  const context = num(m.context_length) ?? num(m.max_input_tokens)
+  const [pIn, pOut] = [num(m.pricing?.prompt), num(m.pricing?.completion)]
+  if (created != null) info.created = created
+  if (context != null) info.context = context
+  if (pIn != null && pOut != null) info.price = [pIn * 1e6, pOut * 1e6]
+  return Object.keys(info).length ? info : undefined
+}
+
 // "Probar conexión": GET /models. Falla con el error crudo (status + body, o el de red/CORS).
-export async function fetchModels(c: ProviderConfig, f: typeof fetch = fetch): Promise<string[]> {
+export async function fetchModels(
+  c: ProviderConfig,
+  f: typeof fetch = fetch,
+): Promise<RemoteModel[]> {
   const [url, headers] = modelsRequest(c)
   const res = await f(url, { headers })
   const text = await res.text()
   if (!res.ok) throw new Error(`${res.status} ${text.slice(0, 300)}`)
   const data = JSON.parse(text)?.data
   if (!Array.isArray(data)) throw new Error("Respuesta inesperada de /models")
-  return data.map((m: { id: string }) => m.id)
+  return data.map((m: Record<string, any>) => {
+    const info = parseInfo(m, c.preset !== "ollama")
+    return { id: m.id, ...(info && { info }) }
+  })
 }
 
 // El SDK del Proveedor baja recién acá (import()), no con el bundle principal.

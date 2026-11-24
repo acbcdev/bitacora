@@ -49,7 +49,7 @@ test("parseAgentSettings: acepta settings válidos", () => {
 
 test("fetchModels: Anthropic pega a /v1/models con sus headers", async () => {
   const f = vi.fn(() => json({ data: [{ id: "x" }, { id: "y" }] }))
-  expect(await fetchModels(prov(), f as never)).toEqual(["x", "y"])
+  expect(await fetchModels(prov(), f as never)).toEqual([{ id: "x" }, { id: "y" }])
   const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit]
   expect(url).toBe("https://api.anthropic.com/v1/models?limit=1000")
   expect(init.headers).toMatchObject({ "x-api-key": "k" })
@@ -62,7 +62,7 @@ test("fetchModels: compatible usa baseUrl/models y key opcional", async () => {
     baseUrl: "http://localhost:11434/v1/",
     apiKey: "",
   })
-  expect(await fetchModels(p, f as never)).toEqual(["llama3"])
+  expect(await fetchModels(p, f as never)).toEqual([{ id: "llama3" }])
   const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit]
   expect(url).toBe("http://localhost:11434/v1/models")
   expect(init.headers).not.toHaveProperty("Authorization")
@@ -84,11 +84,45 @@ test("fetchModels: el fallo sale con el error crudo", async () => {
   ).rejects.toThrow("Failed to fetch")
 })
 
+test("fetchModels: extrae fecha, contexto y precio por 1M de lo que cada API manda", async () => {
+  const anth = vi.fn(() =>
+    json({ data: [{ id: "a", created_at: "2025-05-22T00:00:00Z", max_input_tokens: 200000 }] }),
+  )
+  expect(await fetchModels(prov(), anth as never)).toEqual([
+    { id: "a", info: { created: 1747872000, context: 200000 } },
+  ])
+  const or = vi.fn(() =>
+    json({
+      data: [
+        {
+          id: "o",
+          created: 1700000000,
+          context_length: 128000,
+          pricing: { prompt: "0.000003", completion: "0.000015" },
+        },
+        { id: "auto", pricing: { prompt: "-1", completion: "-1" } },
+      ],
+    }),
+  )
+  const [o, auto] = await fetchModels(prov({ kind: "openrouter" }), or as never)
+  expect(o.info?.price?.map((p) => +p.toFixed(4))).toEqual([3, 15])
+  expect(auto).toEqual({ id: "auto" })
+  const ol = vi.fn(() => json({ data: [{ id: "l", created: 1700000000 }] }))
+  const p = prov({ kind: "openai-compatible", preset: "ollama", baseUrl: "http://x/v1" })
+  expect(await fetchModels(p, ol as never)).toEqual([{ id: "l" }])
+})
+
 test("mergeModels: hasta MAX_VISIBLE visibles, el resto oculto; conserva lo ya elegido", () => {
   const ids = Array.from({ length: MAX_VISIBLE + 5 }, (_, i) => `m${i}`)
-  const merged = mergeModels([], ids)
+  const merged = mergeModels(
+    [],
+    ids.map((id) => ({ id })),
+  )
   expect(merged.filter((m) => m.visible)).toHaveLength(MAX_VISIBLE)
-  const again = mergeModels([{ id: "m0", visible: false }], ids)
+  const again = mergeModels(
+    [{ id: "m0", visible: false }],
+    ids.map((id) => ({ id })),
+  )
   expect(again.find((m) => m.id === "m0")?.visible).toBe(false)
 })
 

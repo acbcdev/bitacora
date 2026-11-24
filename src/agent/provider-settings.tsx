@@ -179,10 +179,13 @@ function ProviderForm({ initial, onDone }: { initial: ProviderConfig; onDone: ()
     setStatus(null)
     try {
       const probe = { ...draft, apiKey: draft.apiKey.trim() }
-      const ids = await fetchModels(probe)
-      const caps = await fetchCapabilities(probe, ids)
-      setDraft((d) => ({ ...d, models: mergeModels(d.models, ids, caps) }))
-      setStatus({ ok: true, text: `Conexión OK: ${ids.length} modelos.` })
+      const remote = await fetchModels(probe)
+      const caps = await fetchCapabilities(
+        probe,
+        remote.map((r) => r.id),
+      )
+      setDraft((d) => ({ ...d, models: mergeModels(d.models, remote, caps) }))
+      setStatus({ ok: true, text: `Conexión OK: ${remote.length} modelos.` })
     } catch (e) {
       // Error crudo; el usuario puede tipear el id del modelo a mano.
       setStatus({
