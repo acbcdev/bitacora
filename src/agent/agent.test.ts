@@ -184,6 +184,33 @@ test("crear notebook y notas adentro: aprobar escribe todo con los ids definitiv
   expect(snap.notes.map((n) => [n.title, n.notebook_id])).toEqual([["Cinemática", nbId]])
 })
 
+test("search_notes busca en el cuerpo con fragmento y pagina", async () => {
+  await store.save("notebooks", { name: "Mate" })
+  const [nb] = (await store.snapshot()).notebooks
+  for (const [i, body] of ["nada", "el autovalor importa mucho acá", "otro autovalor"].entries())
+    await store.save("notes", {
+      notebook_id: nb.id,
+      position: i,
+      title: `N${i}`,
+      content: markdownToDoc(body),
+    })
+
+  const model = new MockLanguageModelV4({
+    doGenerate: [
+      call("search_notes", { query: "AUTOVALOR", limit: 1 }, "a"),
+      call("search_notes", { query: "autovalor", offset: 1 }, "b"),
+      say("Listo."),
+    ],
+  })
+  await runTurn({ model, store, tools: agentTools, messages: user("buscá") })
+
+  const first = seen(model, 1)
+  expect(first).toContain("Coincidencias: 2")
+  expect(first).toContain("el autovalor importa")
+  expect(first).toContain("offset=1")
+  expect(seen(model, 2)).toContain("otro autovalor")
+})
+
 test("descartar no deja rastro: sin aprobar el Store queda intacto", async () => {
   await store.save("notebooks", { name: "Viejo" })
   const model = new MockLanguageModelV4({
