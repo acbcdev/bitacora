@@ -13,6 +13,10 @@ vi.mock("@/core/agent/provider", async (orig) => ({
 }))
 vi.mock("@/core/agent/turn", () => ({ runTurn: () => new Promise(() => {}) }))
 
+// AgentPanel es lazy: su import en frío, con la suite entera compitiendo por CPU, se pasa del
+// timeout de 1s de findBy*. Precargarlo deja el primer render sincrónico.
+beforeAll(() => import("@/agent/agent-panel"))
+
 function chat(id: string, text: string, updatedAt: number) {
   return { id, createdAt: updatedAt, updatedAt, messages: [{ role: "user", content: text }] }
 }
