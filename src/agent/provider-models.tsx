@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { Check, Eye, Minus, Plus, Wrench } from "lucide-react"
+import { CalendarClock, Check, Eye, Minus, Plus, Wrench } from "lucide-react"
 import { Button } from "@/core/ui/button"
 import { Input } from "@/core/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/core/ui/tooltip"
@@ -8,6 +8,24 @@ import type { ModelEntry } from "@/core/agent/provider"
 
 // Desde acá el filtro "N activos" aparece; con menos modelos sobra.
 const FILTER_FROM = 8
+const RECENT_MS = 365 * 24 * 3600 * 1000
+
+const usd = (p: number) => `$${+p.toFixed(2)}`
+const tokens = (n: number) => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}k`)
+
+// Solo lo que el proveedor reportó: contexto · precio por 1M tokens (in/out) · mes de lanzamiento.
+function meta(info: ModelEntry["info"]) {
+  if (!info) return ""
+  const { created, context, price } = info
+  return [
+    context != null && tokens(context),
+    price && (price[0] + price[1] === 0 ? "gratis" : `${usd(price[0])}/${usd(price[1])}`),
+    created != null &&
+      new Date(created * 1000).toLocaleDateString("es", { month: "short", year: "2-digit" }),
+  ]
+    .filter(Boolean)
+    .join(" · ")
+}
 
 type BoxState = "on" | "off" | "mixed"
 
@@ -90,6 +108,7 @@ export function ProviderModels({
   const [onlyActive, setOnlyActive] = useState(false)
   const [tools, setTools] = useState(false)
   const [vision, setVision] = useState(false)
+  const [recent, setRecent] = useState(false)
   const list = useRef<HTMLDivElement>(null)
   const search = useRef<HTMLInputElement>(null)
 
@@ -99,14 +118,16 @@ export function ProviderModels({
       m.id.toLowerCase().includes(needle) &&
       (!onlyActive || m.visible) &&
       (!tools || m.caps?.tools) &&
-      (!vision || m.caps?.vision),
+      (!vision || m.caps?.vision) &&
+      (!recent || (m.info?.created ?? 0) * 1000 >= Date.now() - RECENT_MS),
   )
   const shownOn = shown.filter((m) => m.visible).length
   const head: BoxState = shownOn === 0 ? "off" : shownOn === shown.length ? "on" : "mixed"
   const createRow = needle !== "" && !models.some((m) => m.id === q.trim())
   const hasCaps = models.some((m) => m.caps?.tools || m.caps?.vision)
+  const hasDates = models.some((m) => m.info?.created)
   const canFilter = models.length > FILTER_FROM
-  const filtering = onlyActive || tools || vision
+  const filtering = onlyActive || tools || vision || recent
 
   const setMany = (ids: Set<string>, visible: boolean) =>
     onChange(models.map((m) => (ids.has(m.id) ? { ...m, visible } : m)))
@@ -156,6 +177,11 @@ export function ProviderModels({
             }
           }}
         />
+        {hasDates && (
+          <CapToggle on={recent} label="Solo del último año" onClick={() => setRecent((v) => !v)}>
+            <CalendarClock />
+          </CapToggle>
+        )}
         {hasCaps && (
           <>
             <CapToggle on={tools} label="Solo con herramientas" onClick={() => setTools((v) => !v)}>
@@ -209,7 +235,12 @@ export function ProviderModels({
               type="button"
               size="xs"
               variant="ghost"
-              onClick={() => (setOnlyActive(false), setTools(false), setVision(false))}
+              onClick={() => (
+                setOnlyActive(false),
+                setTools(false),
+                setVision(false),
+                setRecent(false)
+              )}
             >
               Limpiar
             </Button>
@@ -248,13 +279,20 @@ export function ProviderModels({
                 onChange={() => toggle(m.id)}
               />
               <Box state={m.visible ? "on" : "off"} />
-              <span
-                className={cn(
-                  "min-w-0 flex-1 font-mono text-sm break-all",
-                  !m.visible && "text-muted-foreground",
+              <span className="min-w-0 flex-1">
+                <span
+                  className={cn(
+                    "block font-mono text-sm break-all",
+                    !m.visible && "text-muted-foreground",
+                  )}
+                >
+                  {m.id}
+                </span>
+                {meta(m.info) && (
+                  <span className="block text-xs text-muted-foreground tabular-nums">
+                    {meta(m.info)}
+                  </span>
                 )}
-              >
-                {m.id}
               </span>
               <Caps caps={m.caps} />
             </label>
