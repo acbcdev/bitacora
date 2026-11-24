@@ -189,6 +189,9 @@ function useHoldDrag(editor: Editor, touch: boolean, onHold?: () => void) {
       const plain =
         e.pointerType === "mouse" && !e.button && !e.shiftKey && !e.metaKey && !e.ctrlKey
       if (!touch && (!plain || (e.target as Element).closest("[data-resize-handle]"))) return
+      // Controles dentro del bloque (select de lenguaje, botones): el popover Radix vive en un
+      // portal, el pointerup nunca llega a `dom` y el timer dispararía un drag fantasma.
+      if ((e.target as Element).closest("button,[role=combobox]")) return
       timer = setTimeout(() => {
         if (!selectBlockAt(editor, x0, y0)) return
         const c = currentBlock(editor)
