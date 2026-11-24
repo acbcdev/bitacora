@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { ProposalCard } from "@/agent/proposal-card"
-import { docToMarkdown, markdownToDoc } from "@/core/lib/tiptap-markdown"
+import { markdownToDoc } from "@/core/lib/tiptap-markdown"
 import type { Op } from "@/core/agent/tool"
 
 const op: Op = {
@@ -10,27 +10,22 @@ const op: Op = {
   after: { id: "n1", content: markdownToDoc("dos") },
 }
 
-test("aprobar con cuerpo editado manda la Propuesta con el Markdown del usuario", () => {
-  const onApprove = vi.fn()
+test("Cambios muestra el cuerpo renderizado, no Markdown crudo", async () => {
+  const heading: Op = {
+    ...op,
+    after: { id: "n1", content: markdownToDoc("## Valores\n\n- **r** lectura") },
+  }
   render(
     <ProposalCard
-      proposal={{ ops: [op] }}
+      proposal={{ ops: [heading] }}
       status="pending"
-      onApprove={onApprove}
+      onApprove={() => {}}
       onDiscard={() => {}}
     />,
   )
-  fireEvent.mouseDown(screen.getByRole("tab", { name: "Cambios" }), {
-    button: 0,
-  })
-  const box = screen.getByRole("textbox")
-  expect(box).toHaveValue("dos")
-  fireEvent.change(box, { target: { value: "dos, mejorado" } })
-  fireEvent.click(screen.getByRole("button", { name: /Aprobar/ }))
-
-  const sent = onApprove.mock.calls[0][0].ops[0]
-  expect(docToMarkdown(sent.after.content)).toBe("dos, mejorado")
-  expect(sent.before).toBe(op.before)
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Cambios" }), { button: 0 })
+  expect(await screen.findByRole("heading", { name: "Valores" })).toBeInTheDocument()
+  expect(screen.queryByText(/\*\*r\*\*/)).toBeNull()
 })
 
 test("sin tocar la pestaña Cambios, aprueba la Propuesta intacta", () => {

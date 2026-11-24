@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
-import { Textarea } from "@/core/ui/textarea"
+import { Editor } from "@/core/components/editor"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/ui/tabs"
 import { cn } from "@/core/lib/utils"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
@@ -10,7 +10,7 @@ import { ChevronRight } from "lucide-react"
 import { diffLines } from "@/core/agent/diff"
 import type { Proposal } from "@/core/agent/proposal"
 import type { Op } from "@/core/agent/tool"
-import { docToMarkdown, markdownToDoc } from "@/core/lib/tiptap-markdown"
+import { docToMarkdown } from "@/core/lib/tiptap-markdown"
 import type { TiptapDoc } from "@/core/types/database"
 
 type Status = "pending" | "applied" | "discarded"
@@ -75,21 +75,25 @@ function Editors({
   pending,
 }: {
   editable: Editable[]
-  edits: Record<number, string>
-  setEdits: React.Dispatch<React.SetStateAction<Record<number, string>>>
+  edits: Record<number, TiptapDoc>
+  setEdits: React.Dispatch<React.SetStateAction<Record<number, TiptapDoc>>>
   pending: boolean
 }) {
   return editable.map(({ op, i }) => (
-    <label key={i} className="flex flex-col gap-1 text-xs">
+    <div key={i} className="flex flex-col gap-1 text-xs">
       <span className="font-medium">{clean(op.label)}</span>
-      <Textarea
+      {/* Editor renderizado (no Markdown crudo). Sin prop `editable`: `inert` lo congela al resolverse. */}
+      <div
+        inert={!pending}
+        className="max-h-60 overflow-y-auto rounded-xl border p-3 text-sm"
         aria-label={`Cuerpo: ${op.label}`}
-        disabled={!pending}
-        className="max-h-60 font-mono"
-        value={edits[i] ?? docToMarkdown((op.after as { content: TiptapDoc }).content)}
-        onChange={(e) => setEdits((m) => ({ ...m, [i]: e.target.value }))}
-      />
-    </label>
+      >
+        <Editor
+          content={edits[i] ?? (op.after as { content: TiptapDoc }).content}
+          onChange={(doc) => setEdits((m) => ({ ...m, [i]: doc }))}
+        />
+      </div>
+    </div>
   ))
 }
 
@@ -143,16 +147,15 @@ export function ProposalCard({
   const [tab, setTab] = useState("diff")
   const isMobile = useIsMobile()
   const [detail, setDetail] = useState(false)
-  // Ediciones del usuario al Markdown del "después" de las notas, por índice de Op.
-  const [edits, setEdits] = useState<Record<number, string>>({})
+  // Ediciones del usuario al doc del "después" de las notas, por índice de Op.
+  const [edits, setEdits] = useState<Record<number, TiptapDoc>>({})
   const pending = status === "pending"
   const editable = proposal.ops.flatMap((op, i) =>
     op.entity === "notes" && "content" in op.after ? [{ op, i }] : [],
   )
   const approve = useCallback(() => {
-    // Solo se reemplaza el cuerpo si el texto cambió: evita un round-trip Markdown innecesario.
     const ops = proposal.ops.map((op, i) =>
-      i in edits ? { ...op, after: { ...op.after, content: markdownToDoc(edits[i]) } } : op,
+      i in edits ? { ...op, after: { ...op.after, content: edits[i] } } : op,
     )
     onApprove({ ops })
   }, [proposal, edits, onApprove])
