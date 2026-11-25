@@ -83,6 +83,18 @@ const NESTED_CONFIG: NestedOptions = {
       id: "blockParts",
       evaluate: ({ node, parent, isFirst }) => (isBlockPart(node, parent, isFirst) ? 1000 : 0),
     },
+    {
+      // Adentro de una tabla manda TableHoverControls (⋯ y grips): la tabla es UN bloque; sus
+      // filas/celdas/párrafos no tienen asa propia (tapaban el texto de la celda).
+      id: "insideTable",
+      evaluate: ({ node, $pos }) => {
+        for (let d = 1; d <= $pos.depth; d++) {
+          const n = $pos.node(d)
+          if (n !== node && n.type.spec.tableRole === "table") return 1000
+        }
+        return 0
+      },
+    },
   ],
 }
 
@@ -300,8 +312,9 @@ function blockAtY(view: EditorView, y: number): BlockTarget | null {
           bestDist = dist
           // null = el hijo a esa altura es una parte (título, primera línea): ancla el padre.
           best =
-            (child.firstChild?.isBlock ? pick(child, pos + 1) : null) ??
-            (isBlockPart(child, parent, i === 0) ? null : { node: child, pos })
+            (child.firstChild?.isBlock && child.type.spec.tableRole !== "table"
+              ? pick(child, pos + 1)
+              : null) ?? (isBlockPart(child, parent, i === 0) ? null : { node: child, pos })
         }
       }
       pos += child.nodeSize
