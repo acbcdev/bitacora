@@ -23,15 +23,15 @@ export const BUILTIN_SKILLS: Skill[] = [
   },
   {
     name: "habitos",
-    description: "Qué no cumpliste esta semana",
+    description: "Feedback de cómo te va",
     prompt:
-      "Revisá mis hábitos y decime cuáles no estoy cumpliendo esta semana y cuánto me falta. Sé breve y concreto.",
+      "Hacé un review de mis hábitos: cómo me viene yendo con cada uno (rachas, constancia, qué mejoró o empeoró). Destacá lo que va bien, señalá dónde estoy flojo y dame un consejo concreto para la próxima semana. Sé honesto y breve.",
   },
   {
-    name: "revisar",
-    description: "Corregir y mejorar una nota",
+    name: "mejorar",
+    description: "Mejorar el texto de una nota",
     prompt:
-      "Revisá la nota que te indico: corregí errores, marcá partes confusas y proponé mejoras. Si hay cambios, proponelos como edición de la nota.",
+      "Mejorá el texto que te indico: corregí errores, hacelo más claro y fluido, y reescribí las partes confusas sin cambiar el sentido ni mi voz. Si hay cambios, proponelos como edición de la nota.",
   },
 ]
 
