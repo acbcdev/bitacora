@@ -15,6 +15,7 @@ import type { AgentTool, Op, ToolContext } from "@/core/agent/tool"
 import { createDrafts } from "@/core/agent/drafts"
 import { applyProposal, type Proposal } from "@/core/agent/proposal"
 import { autoApplies, type ApprovalLevel } from "@/core/agent/approval"
+import { contextParts, type ContextParts } from "@/core/agent/context"
 
 // Tope fijo de pasos (LLM ↔ tools) por turno.
 export const MAX_STEPS = 25
@@ -102,6 +103,11 @@ export type TurnResult = {
   steps: number
   // `output` ya incluye los tokens de reasoning; `reasoning` es su parte (0 si no hubo).
   usage: { input: number; output: number; reasoning: number }
+  // Ocupación de la ventana tras el turno: input + output del ÚLTIMO step (sin reasoning, que no
+  // vuelve al historial). `usage` suma todos los steps y re-cuenta el prompt en cada uno.
+  context: number
+  // `context` repartido por categoría (estimado; suma = context).
+  parts: ContextParts
   // "limit": cortó el tope de pasos con tools pendientes. "aborted": el usuario apretó Detener.
   // "malformed": el modelo agotó los reintentos de tool-call inválido (detalle en `malformed`).
   finish: "stop" | "limit" | "aborted" | "malformed"
@@ -156,18 +162,20 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
   let done: ModelMessage[] = []
   let steps = 0
   const usage = { input: 0, output: 0, reasoning: 0 }
+  let context = 0
   const stepMs: number[] = []
   let stepStart = Date.now()
+  const system = buildSystemPrompt({ today: dayKey(now), open: input.open ?? null })
+  const history = stripReasoning(input.messages)
+  const defs = input.tools.map(({ name, description, schema }) => ({ name, description, schema }))
+  const parts = (out: ModelMessage[]) => contextParts(system, defs, [...history, ...out], context)
   const propose = () => (drafts.ops().length ? { ops: drafts.ops() } : null)
 
   try {
     const result = await generateText({
       model: input.model,
-      instructions: buildSystemPrompt({
-        today: dayKey(now),
-        open: input.open ?? null,
-      }),
-      messages: stripReasoning(input.messages),
+      instructions: system,
+      messages: history,
       providerOptions: thinkingOptions(input.model),
       tools,
       stopWhen: [stepCountIs(MAX_STEPS), malformedCalls],
@@ -183,6 +191,10 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
         usage.reasoning += step.usage.outputTokenDetails.reasoningTokens ?? 0
         usage.input += step.usage.inputTokens ?? 0
         usage.output += step.usage.outputTokens ?? 0
+        context =
+          (step.usage.inputTokens ?? 0) +
+          (step.usage.outputTokens ?? 0) -
+          (step.usage.outputTokenDetails.reasoningTokens ?? 0)
       },
     })
 
@@ -201,6 +213,8 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
         output: result.totalUsage.outputTokens ?? 0,
         reasoning: result.totalUsage.outputTokenDetails.reasoningTokens ?? 0,
       },
+      context,
+      parts: parts(result.responseMessages),
       finish: stoppedMalformed
         ? "malformed"
         : result.finishReason === "tool-calls"
@@ -216,6 +230,8 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
       text: "",
       steps,
       usage,
+      context,
+      parts: parts(done),
       finish: "aborted",
       proposal: propose(),
     }

@@ -1,8 +1,20 @@
 import type { ModelMessage } from "ai"
+import type { ContextParts } from "@/core/agent/context"
 
-// Un Chat guardado (solo en este dispositivo, ADR 0028). `messages` es lo único que persiste:
+type Tokens = { input: number; output: number }
+// Lo que pinta el anillo de contexto tras el último turno; persiste para que reabrir un chat lo
+// muestre. Al reabrir puede quedar algo alto: los resultados de tools se guardan truncados.
+export type Meter = { context: number; parts: ContextParts; last: Tokens; session: Tokens }
+
+// Un Chat guardado (solo en este dispositivo, ADR 0028). Persisten `messages` y `meter`;
 // la pila de undo y la Propuesta pendiente son efímeras.
-export type Chat = { id: string; createdAt: number; updatedAt: number; messages: ModelMessage[] }
+export type Chat = {
+  id: string
+  createdAt: number
+  updatedAt: number
+  messages: ModelMessage[]
+  meter?: Meter
+}
 
 export const MAX_CHATS = 20
 export const MAX_RESULT = 2000
@@ -61,13 +73,22 @@ export function parseChats(raw: string | null): Chat[] {
 }
 
 // Más reciente primero; al pasar el tope cae el más viejo.
-export function upsertChat(chats: Chat[], id: string, messages: ModelMessage[], now: number) {
+// Sin `meter` (el mensaje del usuario, antes del turno) se conserva el anterior.
+export function upsertChat(
+  chats: Chat[],
+  id: string,
+  messages: ModelMessage[],
+  now: number,
+  meter?: Meter,
+) {
   const prev = chats.find((c) => c.id === id)
+  const m = meter ?? prev?.meter
   const chat: Chat = {
     id,
     createdAt: prev?.createdAt ?? now,
     updatedAt: now,
     messages: truncateResults(messages),
+    ...(m && { meter: m }),
   }
   return [chat, ...chats.filter((c) => c.id !== id)].slice(0, MAX_CHATS)
 }

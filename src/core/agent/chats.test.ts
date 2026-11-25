@@ -64,3 +64,16 @@ test("relativeDay", () => {
   expect(relativeDay(new Date(2026, 10, 17).getTime(), now)).toBe("mar")
   expect(relativeDay(new Date(2026, 9, 5).getTime(), now)).toBe("05/10")
 })
+
+test("upsertChat persiste el meter y lo conserva si el guardado no trae uno (mensaje del usuario)", () => {
+  const meter = {
+    context: 2300,
+    parts: { system: 132, tools: 580, skills: 0, attachments: 0, messages: 4, toolResults: 1584 },
+    last: { input: 2200, output: 56 },
+    session: { input: 2200, output: 56 },
+  }
+  let l = upsertChat([], "a", [user("1")], 10, meter)
+  l = upsertChat(l, "a", [user("1"), user("2")], 20)
+  expect(l[0].meter).toEqual(meter)
+  expect(upsertChat([], "b", [user("x")], 0)[0]).not.toHaveProperty("meter")
+})

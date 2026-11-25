@@ -1,4 +1,4 @@
-import { fetchCapabilities } from "@/core/agent/capabilities"
+import { fetchCapabilities, ollamaWindow } from "@/core/agent/capabilities"
 import type { ProviderConfig } from "@/core/agent/provider"
 
 const json = (body: unknown, status = 200) =>
@@ -97,4 +97,21 @@ test("Anthropic y compatibles genéricos: desconocido = capaz, nunca tira", asyn
   expect(f).not.toHaveBeenCalled()
   const boom = vi.fn(() => Promise.reject(new Error("CORS")))
   expect(await fetchCapabilities(prov({ kind: "openrouter" }), [], boom as never)).toEqual({})
+})
+
+test("ollamaWindow: num_ctx de /api/ps (no el máximo de /api/show); sin dato o falla = undefined", async () => {
+  const ollama = prov({ preset: "ollama", baseUrl: "http://localhost:11434/v1" })
+  const ps = vi.fn(() => json({ models: [{ model: "nemo:4b", context_length: 4096 }] }))
+  expect(await ollamaWindow(ollama, "nemo:4b", ps as unknown as typeof fetch)).toBe(4096)
+  expect(ps).toHaveBeenCalledWith("http://localhost:11434/api/ps", undefined)
+  expect(await ollamaWindow(ollama, "otro", ps as unknown as typeof fetch)).toBeUndefined()
+  const down = vi.fn(() => Promise.reject(new TypeError("Failed to fetch")))
+  expect(await ollamaWindow(ollama, "nemo:4b", down as unknown as typeof fetch)).toBeUndefined()
+  expect(
+    await ollamaWindow(
+      prov({ preset: "lmstudio", baseUrl: "http://x" }),
+      "m",
+      ps as unknown as typeof fetch,
+    ),
+  ).toBeUndefined()
 })

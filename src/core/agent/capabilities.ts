@@ -87,3 +87,23 @@ export async function fetchCapabilities(
   }
   return {}
 }
+
+// Ventana REAL de Ollama: `/api/ps` da el `context_length` con que se cargó el modelo (num_ctx,
+// p. ej. 4096). `/api/show` da el máximo entrenado (262k) y mentiría: lo que pasa num_ctx se
+// trunca en silencio. Solo existe con el modelo cargado → consultar tras un turno. Nunca tira.
+export async function ollamaWindow(
+  c: ProviderConfig,
+  modelId: string,
+  f: typeof fetch = fetch,
+): Promise<number | undefined> {
+  if (c.preset !== "ollama" || !c.baseUrl) return undefined
+  try {
+    const { models } = await getJson(f, `${new URL(c.baseUrl).origin}/api/ps`)
+    const n = (models as { model: string; context_length?: number }[]).find(
+      (m) => m.model === modelId,
+    )?.context_length
+    return typeof n === "number" && n > 0 ? n : undefined
+  } catch {
+    return undefined
+  }
+}

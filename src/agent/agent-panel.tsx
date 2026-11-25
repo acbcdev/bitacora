@@ -59,6 +59,7 @@ import { thinkingMs } from "@/core/agent/turn"
 import { ProposalCard } from "@/agent/proposal-card"
 import { useAgentChat } from "@/agent/use-agent-chat"
 import { ApprovalPicker } from "@/agent/approval-picker"
+import { ContextRing } from "@/agent/context-ring"
 import { ModelPicker } from "@/agent/model-picker"
 import { useAgentSettings } from "@/agent/use-provider"
 
@@ -189,9 +190,20 @@ function invokedSkill(content: ModelMessage["content"]) {
   }
 }
 
-function Thread({ messages, busy }: { messages: ModelMessage[]; busy: boolean }) {
+function Thread({
+  messages,
+  busy,
+  from = 0,
+  to = messages.length,
+}: {
+  messages: ModelMessage[]
+  busy: boolean
+  from?: number
+  to?: number
+}) {
   const results = toolResults(messages)
-  return messages.map((m, i) => {
+  return messages.slice(from, to).map((m, k) => {
+    const i = from + k
     if (m.role === "user") {
       const parts = Array.isArray(m.content) ? m.content : []
       // El Skill invocado va como segunda parte (`userMessage`): en la UI es un ToolBlock, no texto.
@@ -267,7 +279,7 @@ function Chat({
     error,
     malformed,
     last,
-    tokens,
+    meter,
     proposal,
     send,
     stop,
@@ -350,16 +362,20 @@ function Chat({
     })
   }
   const slash = useSlash(draft, caret, skills, fill, newChat)
-  const end = useRef<HTMLDivElement>(null)
+  const turn = useRef<HTMLDivElement>(null)
+  // Último turno = último mensaje del usuario + lo que vino después (estilo ChatGPT).
+  const lastUser = messages.findLastIndex((m) => m.role === "user")
   const column = route ? "mx-auto w-full max-w-3xl" : ""
   // El chip quitado vuelve cuando cambia lo abierto: es contexto por turno, no preferencia.
   const openId = open?.id
   useEffect(() => {
     setChipOff(false)
   }, [openId])
+  // Al enviar (o abrir un chat) el turno sube arriba; la respuesta crece hacia abajo sin arrastrar
+  // el scroll, como ChatGPT.
   useEffect(() => {
-    end.current?.scrollIntoView({ block: "end" })
-  }, [messages, busy, error, proposal])
+    turn.current?.scrollIntoView({ block: "start" })
+  }, [lastUser, chatId])
 
   function submit() {
     const text = draft.trim()
@@ -480,70 +496,75 @@ function Chat({
               </div>
             </div>
           )}
-          <Thread messages={messages} busy={busy} />
-          {proposal && (
-            <ProposalCard
-              proposal={proposal.value}
-              status={proposal.status}
-              onApprove={(edited) => void approve(edited)}
-              onDiscard={discard}
-            />
-          )}
-          {undoable.length > 0 && !busy && (
-            <div className="flex flex-col gap-2 rounded-xl border p-3 text-sm">
-              <span className="mono-dim">Último cambio aplicado: {undoable.join(" · ")}</span>
-              {blocked && (
-                <p role="alert" className="text-destructive">
-                  Esto cambió desde que se aplicó: {blocked.join(", ")}
-                </p>
-              )}
-              <div className="flex gap-2">
-                {blocked ? (
-                  <Button size="sm" variant="destructive" onClick={() => void undo(true)}>
-                    Deshacer igual
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => void undo()}>
-                    Deshacer
-                  </Button>
+          <Thread messages={messages} busy={busy} to={Math.max(lastUser, 0)} />
+          {/* min-h-full: el turno ocupa al menos el alto visible, así el mensaje enviado puede
+              subir arriba con espacio libre debajo para la respuesta. */}
+          <div
+            ref={turn}
+            className={cn(
+              "flex shrink-0 scroll-mt-3 flex-col gap-3",
+              messages.length > 0 && "min-h-full pb-16",
+            )}
+          >
+            <Thread messages={messages} busy={busy} from={Math.max(lastUser, 0)} />
+            {proposal && (
+              <ProposalCard
+                proposal={proposal.value}
+                status={proposal.status}
+                onApprove={(edited) => void approve(edited)}
+                onDiscard={discard}
+              />
+            )}
+            {undoable.length > 0 && !busy && (
+              <div className="flex flex-col gap-2 rounded-xl border p-3 text-sm">
+                <span className="mono-dim">Último cambio aplicado: {undoable.join(" · ")}</span>
+                {blocked && (
+                  <p role="alert" className="text-destructive">
+                    Esto cambió desde que se aplicó: {blocked.join(", ")}
+                  </p>
                 )}
+                <div className="flex gap-2">
+                  {blocked ? (
+                    <Button size="sm" variant="destructive" onClick={() => void undo(true)}>
+                      Deshacer igual
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => void undo()}>
+                      Deshacer
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-          {busy && (
-            <div role="status" className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              {tool ? <Wrench className="size-3.5" /> : <Brain className="size-3.5" />}
-              <span className="shimmer">
-                {tool === "read" ? "Leyendo…" : tool ? "Preparando cambios…" : "Pensando…"}
-              </span>
-            </div>
-          )}
-          {error && (
-            <p role="alert" className="text-sm break-words text-destructive">
-              {error}
-            </p>
-          )}
-          {malformed !== null && (
-            <details className="text-xs text-muted-foreground">
-              <summary>El modelo no logró llamar bien a las tools</summary>
-              <pre className="mt-1 break-words whitespace-pre-wrap">{malformed}</pre>
-            </details>
-          )}
-          {last && !busy && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="mono-dim w-fit" tabIndex={0}>
-                  {last.usage.input + last.usage.output} tokens
-                  {last.finish === "limit" && " · Llegué al límite de pasos"}
-                  {last.finish === "aborted" && " · detenido"}
+            )}
+            {busy && (
+              <div
+                role="status"
+                className="flex items-center gap-1.5 text-sm text-muted-foreground"
+              >
+                {tool ? <Wrench className="size-3.5" /> : <Brain className="size-3.5" />}
+                <span className="shimmer">
+                  {tool === "read" ? "Leyendo…" : tool ? "Preparando cambios…" : "Pensando…"}
                 </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                {`${last.usage.input} entrada · ${last.usage.output} salida${last.usage.reasoning ? ` (${last.usage.reasoning} razonando)` : ""} · ${last.steps} pasos · ${modelId} · sesión: ${tokens.input + tokens.output} tokens`}
-              </TooltipContent>
-            </Tooltip>
-          )}
-          <div ref={end} />
+              </div>
+            )}
+            {error && (
+              <p role="alert" className="text-sm break-words text-destructive">
+                {error}
+              </p>
+            )}
+            {malformed !== null && (
+              <details className="text-xs text-muted-foreground">
+                <summary>El modelo no logró llamar bien a las tools</summary>
+                <pre className="mt-1 break-words whitespace-pre-wrap">{malformed}</pre>
+              </details>
+            )}
+            {/* Los tokens viven en el anillo del composer; acá solo cómo terminó el turno. */}
+            {last && !busy && (last.finish === "limit" || last.finish === "aborted") && (
+              <span className="mono-dim">
+                {last.finish === "limit" ? "Llegué al límite de pasos" : "Detenido"}
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div className="relative shrink-0 p-3">
@@ -552,35 +573,41 @@ function Chat({
           {slash.open && <SlashMenu slash={slash} />}
           {/* Una sola tarjeta: chips, texto y barra de acciones (modelo, aprobación, enviar). */}
           <div className="flex flex-col gap-1 rounded-xl bg-card p-3 ring-1 ring-border transition-shadow duration-150 focus-within:ring-2 focus-within:ring-ring/50">
-            {open && !chipOff && (
-              <span className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs">
-                <span className="truncate">{open.title || "(sin título)"}</span>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Quitar contexto"
-                  onClick={() => setChipOff(true)}
-                >
-                  <X />
-                </Button>
-              </span>
-            )}
-            {picked.map((p, i) => (
-              <span
-                key={i}
-                className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs"
-              >
-                <span className="truncate">{p.label}</span>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Quitar adjunto"
-                  onClick={() => setPicked((l) => l.filter((_, j) => j !== i))}
-                >
-                  <X />
-                </Button>
-              </span>
-            ))}
+            {/* Fila de chips + anillo de contexto a la derecha, siempre visible. */}
+            <div className="flex items-start gap-2">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                {open && !chipOff && (
+                  <span className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs">
+                    <span className="truncate">{open.title || "(sin título)"}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Quitar contexto"
+                      onClick={() => setChipOff(true)}
+                    >
+                      <X />
+                    </Button>
+                  </span>
+                )}
+                {picked.map((p, i) => (
+                  <span
+                    key={i}
+                    className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs"
+                  >
+                    <span className="truncate">{p.label}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Quitar adjunto"
+                      onClick={() => setPicked((l) => l.filter((_, j) => j !== i))}
+                    >
+                      <X />
+                    </Button>
+                  </span>
+                ))}
+              </div>
+              <ContextRing provider={provider} modelId={modelId} meter={meter} />
+            </div>
             <Textarea
               aria-label="Mensaje al Agente"
               ref={input}

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 import { setStored, useStored } from "@/core/lib/hooks/use-stored"
-import { parseChats, upsertChat } from "@/core/agent/chats"
+import { parseChats, upsertChat, type Meter } from "@/core/agent/chats"
 import type { ModelMessage } from "ai"
 import { useQueryClient } from "@tanstack/react-query"
 import { store } from "@/core/store"
@@ -28,12 +28,10 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
   const chats = useMemo(() => parseChats(raw), [raw])
   // Chats borrados: un turno en vuelo no debe resucitarlos al terminar.
   const deleted = useRef(new Set<string>())
-  const persist = useCallback((id: string, msgs: ModelMessage[]) => {
+  const persist = useCallback((id: string, msgs: ModelMessage[], meter?: Meter) => {
     if (deleted.current.has(id)) return
-    setStored(
-      CHATS_KEY,
-      JSON.stringify(upsertChat(parseChats(localStorage.getItem(CHATS_KEY)), id, msgs, Date.now())),
-    )
+    const prev = parseChats(localStorage.getItem(CHATS_KEY))
+    setStored(CHATS_KEY, JSON.stringify(upsertChat(prev, id, msgs, Date.now(), meter)))
   }, [])
   const [busy, setBusy] = useState(false)
   // Qué hace el Agente ahora: null = el modelo piensa; si no, el riesgo de la tool en curso.
@@ -51,8 +49,8 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
   const session = useMemo(() => createSession(store), [])
   const [undoable, setUndoable] = useState<string[]>([])
   const [blocked, setBlocked] = useState<string[] | null>(null)
-  // Tokens acumulados de la sesión (sin dólares). "Nuevo chat" los limpia (en `reset`).
-  const [tokens, setTokens] = useState({ input: 0, output: 0 })
+  // Anillo de contexto: último turno + tokens acumulados del chat. Persiste con el Chat.
+  const [meter, setMeter] = useState<Meter | null>(null)
   const abort = useRef<AbortController | null>(null)
   const qc = useQueryClient()
   const syncUndo = useCallback(
@@ -100,13 +98,20 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
         })
         // Borrado a mitad del turno: ni se persiste ni se pinta en el chat nuevo.
         if (deleted.current.has(chatId)) return
-        setMessages([...next, ...turn.messages])
-        persist(chatId, [...next, ...turn.messages])
+        const done = [...next, ...turn.messages]
+        const m: Meter = {
+          context: turn.context,
+          parts: turn.parts,
+          last: { input: turn.usage.input, output: turn.usage.output },
+          session: {
+            input: (meter?.session.input ?? 0) + turn.usage.input,
+            output: (meter?.session.output ?? 0) + turn.usage.output,
+          },
+        }
+        setMessages(done)
+        persist(chatId, done, m)
+        setMeter(m)
         setLast(turn)
-        setTokens((t) => ({
-          input: t.input + turn.usage.input,
-          output: t.output + turn.usage.output,
-        }))
         if (turn.finish === "malformed") setMalformed(turn.malformed ?? "")
         if (turn.proposal) setProposal({ value: turn.proposal, status: "pending" })
       } catch (e) {
@@ -120,7 +125,19 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
         setBusy(false)
       }
     },
-    [messages, chatId, persist, provider, modelId, approval, refresh, session, syncUndo, skills],
+    [
+      messages,
+      chatId,
+      persist,
+      provider,
+      modelId,
+      approval,
+      refresh,
+      session,
+      syncUndo,
+      skills,
+      meter,
+    ],
   )
 
   const stop = useCallback(() => abort.current?.abort(), [])
@@ -157,12 +174,12 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     [refresh, session, syncUndo],
   )
 
-  // Vacía lo efímero del hilo actual (undo, Propuesta, tokens) y deja los mensajes dados.
+  // Vacía lo efímero del hilo actual (undo, Propuesta) y carga mensajes + anillo dados.
   const load = useCallback(
-    (id: string, msgs: ModelMessage[]) => {
+    (id: string, msgs: ModelMessage[], m: Meter | null = null) => {
       session.clear()
       setChatId(id)
-      setTokens({ input: 0, output: 0 })
+      setMeter(m)
       setMalformed(null)
       setMessages(msgs)
       setProposal(null)
@@ -181,7 +198,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
   const openChat = useCallback(
     (id: string) => {
       const c = chats.find((x) => x.id === id)
-      if (c && canSwitch) load(c.id, c.messages)
+      if (c && canSwitch) load(c.id, c.messages, c.meter)
     },
     [chats, canSwitch, load],
   )
@@ -214,7 +231,8 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     tool,
     error,
     malformed,
-    tokens,
+    meter,
+    tokens: meter?.session ?? { input: 0, output: 0 },
     stop,
     last,
     proposal,
