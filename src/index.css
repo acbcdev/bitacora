@@ -716,8 +716,10 @@
 /* Tablas (spec .scratch/editor-tables + historia 5): con resizable el NodeView de
    prosemirror-tables envuelve la tabla en div.tableWrapper y suelta los HTMLAttributes —
    scroll horizontal, margen y font van por CSS acá; celdas abajo. */
+/* pb-10 = aire (8px) + "+ Nueva fila" (32px) de TableHoverControls: el fantasma vive en ese
+   espacio reservado, nunca encima del bloque siguiente. */
 .tiptap-host .ProseMirror .tableWrapper {
-  @apply block max-w-full overflow-x-auto py-1;
+  @apply block max-w-full overflow-x-auto pt-1 pb-10;
 }
 .tiptap-host .ProseMirror .tableWrapper table {
   @apply w-full border-collapse text-sm;
@@ -727,6 +729,17 @@
 }
 .tiptap-host .ProseMirror td {
   @apply min-w-16 border border-border px-3 py-1.5 align-top;
+}
+/* Resize nativo de prosemirror-tables: el plugin mete div.column-resize-handle dentro de la
+   celda al acercarse al borde derecho — sin relative en la celda no tiene ancla. */
+.tiptap-host .ProseMirror :is(td, th) {
+  @apply relative;
+}
+.tiptap-host .ProseMirror .column-resize-handle {
+  @apply pointer-events-none absolute top-0 -right-px -bottom-px z-10 w-0.5 bg-foreground/50;
+}
+.tiptap-host .ProseMirror.resize-cursor {
+  cursor: col-resize;
 }
 .tiptap-host .ProseMirror [data-image-wrapper] img {
   @apply my-0;
