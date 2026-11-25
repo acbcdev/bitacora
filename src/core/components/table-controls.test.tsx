@@ -2,13 +2,16 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { TextSelection } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { Editor } from "@/core/components/editor"
+import { moveAt, swapCells } from "@/core/components/table-controls"
 import type { TiptapDoc } from "@/core/types/database"
 
-// Contrato de tablas finas (.scratch/editor-notion-ux/spec.md, historia 5 / issue 04):
-// - Overlay de hover: ⋮⋮ y + para fila, ▾ y + para columna.
+// Contrato de tablas finas (.scratch/editor-notion-ux/spec.md, historia 5 / issue 04; UI
+// "Fantasma" del prototipo .scratch/editor-tables):
+// - Overlay de hover: ⋯ por celda (menú de fila + columna), grips de fila y columna.
 // - Comandos vía menú: insertar/duplicar/eliminar fila y columna, toggle header.
 // - Duplicar fila/columna es build propio (clone JSON); la columna duplicada pierde header.
-// - El + de fila/columna agrega al final de la tabla (estilo Notion); los menús, pegado.
+// - "+ Nueva fila" / + de columna solo en la última fila/columna, agregan al final.
+// - Swap de celdas: intercambia contenido, cada celda conserva su tipo.
 // - Tab dentro de celda salta a la siguiente (y crea fila en la última), no inserta indentación.
 
 beforeAll(() => {
@@ -104,32 +107,48 @@ async function pick(label: RegExp | string) {
   await new Promise((r) => setTimeout(r, 30))
 }
 
-test("hover muestra ⋮⋮ y ▾ en cualquier celda; los + solo en la última fila/columna", async () => {
+test("hover muestra ⋯ y grips en cualquier celda; los + solo en la última fila/columna", async () => {
   const { container, view } = await setup()
   expect(screen.queryByTestId("table-controls")).toBeNull()
-  // Celda "C" (última fila, col 1): solo el + de fila nueva debajo.
+  // Celda "C" (última fila, col 0): solo "+ Nueva fila".
   await hoverCell(container, "C")
-  expect(screen.getByTestId("table-row-menu")).toBeTruthy()
-  expect(screen.getByTestId("table-col-menu")).toBeTruthy()
-  expect(screen.queryByTestId("table-row-add")).toBeNull()
-  expect(screen.getByTestId("table-col-add")).toBeTruthy()
-  // Celda "B" (primera fila, última columna): solo el + de columna a la derecha.
+  expect(screen.getByTestId("table-cell-menu")).toBeTruthy()
+  expect(screen.getByTestId("table-row-grip")).toBeTruthy()
+  expect(screen.getByTestId("table-col-grip")).toBeTruthy()
+  expect(screen.getByTestId("table-add-row")).toBeTruthy()
+  expect(screen.queryByTestId("table-add-col")).toBeNull()
+  // Celda "B" (primera fila, última columna): solo el + de columna.
   await hoverCell(container, "B")
-  expect(screen.getByTestId("table-row-add")).toBeTruthy()
-  expect(screen.queryByTestId("table-col-add")).toBeNull()
-  // Celda "D" (última fila, última columna): los dos +.
+  expect(screen.queryByTestId("table-add-row")).toBeNull()
+  expect(screen.getByTestId("table-add-col")).toBeTruthy()
+  // Celda "D" (última fila, última columna): los dos.
   await hoverCell(container, "D")
-  expect(screen.getByTestId("table-row-add")).toBeTruthy()
-  expect(screen.getByTestId("table-col-add")).toBeTruthy()
+  expect(screen.getByTestId("table-add-row")).toBeTruthy()
+  expect(screen.getByTestId("table-add-col")).toBeTruthy()
   // Al salir de la tabla (clientX lejos del borde) el overlay desaparece.
   fireEvent.mouseMove(view.dom, { target: view.dom, clientX: -1000, clientY: -1000 })
   await waitFor(() => expect(screen.queryByTestId("table-controls")).toBeNull())
 })
 
-test("+ de fila agrega una columna al final de la tabla", async () => {
+test("fila/columna de encabezado no tienen grip (quedan fijas)", async () => {
+  const { container } = await setup(
+    doc(
+      [
+        ["A", "B"],
+        ["C", "D"],
+      ],
+      true,
+    ),
+  )
+  await hoverCell(container, "A")
+  expect(screen.queryByTestId("table-row-grip")).toBeNull()
+  expect(screen.getByTestId("table-col-grip")).toBeTruthy()
+})
+
+test("+ de columna agrega una columna al final de la tabla", async () => {
   const { container, onChange } = await setup()
   await hoverCell(container, "D")
-  fireEvent.click(screen.getByTestId("table-row-add"))
+  fireEvent.click(screen.getByTestId("table-add-col"))
   await waitFor(() => {
     const t = lastTable(onChange)
     expect(rowTexts(t)).toEqual(["AB", "CD"])
@@ -137,29 +156,63 @@ test("+ de fila agrega una columna al final de la tabla", async () => {
   })
 })
 
-test("+ de columna agrega una fila al pie de la tabla", async () => {
+test("+ Nueva fila agrega una fila al pie de la tabla", async () => {
   const { container, onChange } = await setup()
   await hoverCell(container, "C")
-  fireEvent.click(screen.getByTestId("table-col-add"))
+  fireEvent.click(screen.getByTestId("table-add-row"))
   await waitFor(() => expect(rowTexts(lastTable(onChange))).toEqual(["AB", "CD", ""]))
+})
+
+test("swapCells intercambia el contenido y cada celda conserva su tipo", async () => {
+  const { container, view, onChange } = await setup(
+    doc(
+      [
+        ["A", "B"],
+        ["C", "D"],
+      ],
+      true,
+    ),
+  )
+  const find = (text: string) =>
+    [...container.querySelectorAll<HTMLElement>("td, th")].find((el) => el.textContent === text)!
+  swapCells(view, find("D"), find("A"))
+  await waitFor(() => {
+    const t = lastTable(onChange)
+    expect(rowTexts(t)).toEqual(["DB", "CA"])
+    expect(cellTypes(t, 0)).toEqual(["tableHeader", "tableHeader"])
+  })
+})
+
+test("moveAt mueve columna y fila aunque el caret esté fuera de la tabla", async () => {
+  const { container, view, onChange } = await setup()
+  const editor = (view.dom as HTMLElement & { editor: Parameters<typeof moveAt>[0] }).editor
+  const find = (text: string) =>
+    [...container.querySelectorAll<HTMLElement>("td, th")].find((el) => el.textContent === text)!
+  // Caret en el párrafo antes de la tabla (el bug: el comando nativo lee la selección).
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1)))
+  moveAt(editor, find("A"), "col", 0, 2)
+  await waitFor(() => expect(rowTexts(lastTable(onChange))).toEqual(["BA", "DC"]))
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1)))
+  moveAt(editor, find("D"), "row", 1, 0)
+  await waitFor(() => expect(rowTexts(lastTable(onChange))).toEqual(["DC", "BA"]))
 })
 
 test("menú de fila: insertar arriba, duplicar y eliminar", async () => {
   const { container, onChange } = await setup()
 
   await hoverCell(container, "C")
-  await openMenu("table-row-menu")
+  await openMenu("table-cell-menu")
   await pick(/Insertar arriba/)
   await waitFor(() => expect(rowTexts(lastTable(onChange))).toEqual(["AB", "", "CD"]))
 
   await hoverCell(container, "C")
-  await openMenu("table-row-menu")
-  await pick(/Duplicar/)
+  await openMenu("table-cell-menu")
+  await pick(/Duplicar fila/)
   await waitFor(() => expect(rowTexts(lastTable(onChange))).toEqual(["AB", "", "CD", "CD"]))
 
   await hoverCell(container, "D")
-  await openMenu("table-row-menu")
-  await pick(/Eliminar/)
+  await openMenu("table-cell-menu")
+  await pick(/Eliminar fila/)
   await waitFor(() => expect(rowTexts(lastTable(onChange))).toEqual(["AB", "", "CD"]))
 })
 
@@ -167,19 +220,19 @@ test("menú de columna: insertar a la izquierda, duplicar y eliminar", async () 
   const { container, onChange } = await setup()
 
   await hoverCell(container, "C")
-  await openMenu("table-col-menu")
+  await openMenu("table-cell-menu")
   await pick(/Insertar a la izquierda/)
   await waitFor(() => expect(colTexts(lastTable(onChange))(1)).toBe("AC"))
 
   await hoverCell(container, "C")
-  await openMenu("table-col-menu")
-  await pick(/Duplicar/)
+  await openMenu("table-cell-menu")
+  await pick(/Duplicar columna/)
   // La columna duplicada es copia de la de C: sale pegada a la derecha.
   await waitFor(() => expect(colTexts(lastTable(onChange))(2)).toBe("AC"))
 
   await hoverCell(container, "C")
-  await openMenu("table-col-menu")
-  await pick(/Eliminar/)
+  await openMenu("table-cell-menu")
+  await pick(/Eliminar columna/)
   // Al borrar la columna de C quedan: la vacía insertada, la duplicada y la original.
   await waitFor(() => {
     const t = lastTable(onChange)
@@ -199,8 +252,8 @@ test("duplicar columna pierde el header (la copia sale como celda común)", asyn
     ),
   )
   await hoverCell(container, "A")
-  await openMenu("table-col-menu")
-  await pick(/Duplicar/)
+  await openMenu("table-cell-menu")
+  await pick(/Duplicar columna/)
   await waitFor(() =>
     expect(cellTypes(lastTable(onChange), 0)).toEqual(["tableHeader", "tableCell", "tableHeader"]),
   )
@@ -212,7 +265,7 @@ test("toggle de encabezado desde los menús", async () => {
   // Fila de encabezado: el comando oficial de tiptap togglea la PRIMERA fila (semántica
   // de toggleHeaderRow — "only applies to first row/column").
   await hoverCell(container, "C")
-  await openMenu("table-row-menu")
+  await openMenu("table-cell-menu")
   await pick(/Fila de encabezado/)
   await waitFor(() =>
     expect(cellTypes(lastTable(onChange), 0)).toEqual(["tableHeader", "tableHeader"]),
@@ -220,7 +273,7 @@ test("toggle de encabezado desde los menús", async () => {
 
   // Columna de encabezado: togglea la PRIMERA columna (salta la fila ya-header).
   await hoverCell(container, "C")
-  await openMenu("table-col-menu")
+  await openMenu("table-cell-menu")
   await pick(/Columna de encabezado/)
   await waitFor(() => {
     const t = lastTable(onChange)
