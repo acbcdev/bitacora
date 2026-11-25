@@ -221,6 +221,8 @@ function HabitTile({
   const r: Run = { running, clock: clock ?? (paused ? formatClock(total) : null), paused }
   // Check cumplido ya no es "activo": el hero lleva la marca y el botón pasa a deshacer.
   const isActive = running
+  // Glifo: 'lucide:Name' sin el tinte; null = fallback; undefined = imagen/emoji → sin glifo.
+  const glyph = !h.icon ? null : h.icon.startsWith("lucide:") ? h.icon.split("|")[0] : undefined
   const [zoom, setZoom] = useState(false)
   // Estable: HabitZoom lo tiene de dep y el tile repinta cada segundo con el timer.
   const closeZoom = useCallback(() => setZoom(false), [])
@@ -260,6 +262,18 @@ function HabitTile({
         </>
       )}
 
+      {/* Glifo (prototype habit-tint, "Puck grande"): el ícono a escala de cartel, tenue y mono — la
+          identidad sale de la forma, no del color (ADR 0023). Sin tinte, y solo lucide: una foto o un
+          emoji a 128px no se lee como marca de agua. */}
+      {glyph !== undefined && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-6 -bottom-8 text-foreground/8"
+        >
+          <NotebookIcon icon={glyph} fallback={Target} className="size-32" />
+        </span>
+      )}
+
       <div className="relative flex items-center gap-3">
         {/* Toda la fila es UNA zona de click (stretched button): ícono y nombre quedan debajo y el
             hit target es el ancho entero. Mouse-only — teclado y lector usan el botón de la derecha,
@@ -274,14 +288,14 @@ function HabitTile({
         />
         <span
           className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-pill bg-muted text-fg-secondary transition-colors",
+            "flex size-11 shrink-0 items-center justify-center rounded-pill bg-muted text-foreground transition-colors",
             running && "text-signal",
           )}
         >
           {running ? (
-            <Pause size={16} fill="currentColor" strokeWidth={0} />
+            <Pause size={20} fill="currentColor" strokeWidth={0} />
           ) : (
-            <NotebookIcon icon={h.icon} fallback={Target} className="size-5" />
+            <NotebookIcon icon={h.icon} fallback={Target} className="size-6" />
           )}
         </span>
 
