@@ -117,6 +117,10 @@ function Shell({ user }: { user: AuthUser }) {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
     localStorage.setItem("bita-theme", dark ? "dark" : "light")
+    // Barra de estado del navegador = fondo de la app (valores de --background en index.css).
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')!.content = dark
+      ? "#131315"
+      : "#f3f3f0"
   }, [dark])
 
   // Persistir fuera de los updaters (React puede invocarlos más de una vez). El effect es el

@@ -2,14 +2,21 @@
 <html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#131315" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Bitácora" />
     <link rel="apple-touch-icon" href="/icon-rounded.png" />
     <title>Bitácora</title>
     <script>
       // Tema antes del primer paint (sin flash). Dark es el default del diseño.
-      if (localStorage.getItem("bita-theme") === "light")
+      if (localStorage.getItem("bita-theme") === "light") {
         document.documentElement.classList.remove("dark")
+        document.querySelector('meta[name="theme-color"]').content = "#f3f3f0"
+      }
       const radius = localStorage.getItem("bita-radius")
       if (radius) document.documentElement.dataset.radius = radius
     </script>
