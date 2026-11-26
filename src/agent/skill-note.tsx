@@ -156,7 +156,7 @@ export function SkillNote({
           placeholder="Descripción corta"
           value={d.description}
           onChange={(e) => setD({ ...d, description: e.target.value })}
-          className="mt-2 w-full bg-transparent font-mono text-xs text-muted-foreground outline-none placeholder:text-muted-foreground/60"
+          className="mt-2 w-full bg-transparent font-mono text-xs max-md:text-md text-muted-foreground outline-none placeholder:text-muted-foreground/60"
         />
         <div className="relative mt-8 min-h-48 flex-1">
           {noPrompt && (
