@@ -292,8 +292,21 @@
   body {
     @apply bg-background text-foreground;
   }
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+  button,
+  [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
   html {
     @apply bg-background font-sans;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
     scrollbar-color: var(--border) transparent;
     scrollbar-width: thin;
   }
@@ -577,8 +590,10 @@
 .tiptap-host .ProseMirror a {
   @apply text-foreground underline decoration-muted-foreground/60 underline-offset-2;
 }
-.tiptap-host .ProseMirror a:hover {
-  @apply decoration-foreground;
+@media (hover: hover) and (pointer: fine) {
+  .tiptap-host .ProseMirror a:hover {
+    @apply decoration-foreground;
+  }
 }
 /* Desplegable (estilo Notion): el node view arma div[data-type=details] > button + div(summary,
    content). Cuerpo pegado al título y alineado con su texto — así se lee qué es de adentro. El
