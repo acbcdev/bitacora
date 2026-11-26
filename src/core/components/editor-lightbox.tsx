@@ -243,7 +243,7 @@ export function EditorLightbox({
           </DialogPrimitive.Close>
 
           {/* Imagen */}
-          <div className="flex max-h-[90vh] w-full flex-col items-center justify-center gap-3 sm:w-auto">
+          <div className="flex max-h-[90dvh] w-full flex-col items-center justify-center gap-3 sm:w-auto">
             {broken ? (
               <div className="flex flex-col items-center gap-2 rounded-lg border bg-muted p-8 text-muted-foreground">
                 <ImageOff className="size-10" />
@@ -254,7 +254,7 @@ export function EditorLightbox({
               <div
                 ref={setViewport}
                 data-slot="lightbox-viewport"
-                className="max-h-[80vh] max-w-full overflow-auto rounded-lg shadow-xl sm:max-w-[90vw]"
+                className="max-h-[80dvh] max-w-full overflow-auto rounded-lg shadow-xl sm:max-w-[90vw]"
                 onPointerDown={(e) => {
                   dragged.current = false
                   const el = e.currentTarget
@@ -299,7 +299,7 @@ export function EditorLightbox({
                   className={
                     nat
                       ? `h-auto max-w-none ${zoom == null ? "cursor-zoom-in" : "cursor-zoom-out"}`
-                      : "h-auto max-h-[90vh] w-full max-w-full object-contain sm:w-auto sm:max-w-[90vw]"
+                      : "h-auto max-h-[90dvh] w-full max-w-full object-contain sm:w-auto sm:max-w-[90vw]"
                   }
                 />
               </div>

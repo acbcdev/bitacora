@@ -49,7 +49,7 @@ export function ErrorFallback({ error, reset }: FallbackProps) {
   return (
     <div
       role="alert"
-      className="flex min-h-[50vh] flex-col items-center justify-center p-8 text-center"
+      className="flex min-h-[50dvh] flex-col items-center justify-center p-8 text-center"
     >
       <div className="flex max-w-md flex-col items-center gap-4">
         <span className="flex size-10 items-center justify-center rounded-pill bg-muted text-destructive">

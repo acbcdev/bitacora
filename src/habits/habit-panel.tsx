@@ -210,7 +210,7 @@ export function HabitPanel({ habit, state }: { habit: Habit; state: HabitState }
 
       <DropoverContent
         title={habit.name}
-        className="flex flex-col gap-4 rounded-xl p-5 shadow-xl md:w-80 max-md:min-h-[50vh] max-md:rounded-t-xl max-md:px-5 max-md:pb-10 max-md:pt-3"
+        className="flex flex-col gap-4 rounded-xl p-5 shadow-xl md:w-80 max-md:min-h-[50dvh] max-md:rounded-t-xl max-md:px-5 max-md:pb-10 max-md:pt-3"
         // Foco al contenedor, no al primer botón: el `‹` auto-enfocado pintaba un ring de
         // focus-visible al abrir. Además deja ←/→ libres desde el primer frame.
         onOpenAutoFocus={(e) => {
