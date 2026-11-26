@@ -12,10 +12,12 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "Bitacoras",
-        short_name: "Bitacoras",
-        background_color: "#0a0a0a",
-        theme_color: "#0a0a0a",
+        name: "Bitácora",
+        short_name: "Bitácora",
+        lang: "es",
+        // = --background dark (index.css). Splash y barra de estado sin salto de color.
+        background_color: "#131315",
+        theme_color: "#131315",
         display: "standalone",
         start_url: "/",
         icons: [
