@@ -74,7 +74,7 @@ export function MobileBar({
     <header
       ref={bar}
       className={cn(
-        "sticky top-0 z-20 flex h-14 items-center gap-1 border-b bg-background/85 px-2 backdrop-blur transition-[border-color] duration-150 md:hidden",
+        "sticky top-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-1 border-b bg-background/85 px-2 pt-[env(safe-area-inset-top)] backdrop-blur transition-[border-color] duration-150 md:hidden",
         stuck ? "border-border" : "border-transparent",
       )}
     >
