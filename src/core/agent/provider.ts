@@ -207,5 +207,7 @@ export async function createModel(c: ProviderConfig, modelId: string): Promise<L
     name: c.kind === "openrouter" ? "openrouter" : (c.preset ?? "openai-compatible"),
     baseURL: c.kind === "openrouter" ? OPENROUTER_URL : (c.baseUrl ?? ""),
     apiKey: c.apiKey || undefined,
+    // Sin esto el stream no trae `usage` y el anillo de contexto queda en 0.
+    includeUsage: true,
   })(modelId)
 }

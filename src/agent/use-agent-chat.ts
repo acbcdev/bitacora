@@ -18,6 +18,7 @@ import { agentTools } from "@/agent/tools"
 import { useSkills } from "@/agent/use-skills"
 
 export const CHATS_KEY = "agent.chats"
+const NO_LIVE = { text: "", reasoning: "" }
 
 // Cliente fino del núcleo: guarda el hilo (los mensajes persisten en localStorage como Chat;
 // undo y Propuesta no) y delega cada turno a `runTurn`. No sabe de loops, tools ni aprobación.
@@ -36,7 +37,11 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
   const [busy, setBusy] = useState(false)
   // Qué hace el Agente ahora: null = el modelo piensa; si no, el riesgo de la tool en curso.
   const [tool, setTool] = useState<AgentTool["risk"] | null>(null)
+  // Texto y razonamiento del paso en curso, mientras llegan (streaming).
+  const [live, setLive] = useState({ text: "", reasoning: "" })
   const [error, setError] = useState<string | null>(null)
+  // El error vino de un turno (no de aprobar/deshacer): tiene sentido ofrecer Reintentar.
+  const [retryable, setRetryable] = useState(false)
   // Detalle crudo del tool-call inválido que agotó los reintentos (línea de error colapsable).
   const [malformed, setMalformed] = useState<string | null>(null)
   const [last, setLast] = useState<TurnResult | null>(null)
@@ -65,18 +70,14 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     notifyExternalWrite()
   }, [qc])
 
-  const send = useCallback(
-    async (text: string, open: OpenContext, attachments: Attachment[] = []) => {
-      // `/nombre args` expande el Skill como instrucción del turno; un `/foo` inexistente va como texto.
-      const hit = matchSkill(text, skills)
-      const next: ModelMessage[] = [
-        ...messages,
-        userMessage(text, attachments, hit ? { ...hit.skill, args: hit.args } : undefined),
-      ]
+  // Corre un turno sobre `next` (que ya termina en un mensaje del usuario).
+  const run = useCallback(
+    async (next: ModelMessage[], open: OpenContext) => {
       setMessages(next)
       persist(chatId, next)
       setBusy(true)
       setError(null)
+      setRetryable(false)
       setMalformed(null)
       setProposal(null)
       const ctl = new AbortController()
@@ -90,6 +91,12 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
           open,
           approval,
           onTool: setTool,
+          onStream: setLive,
+          // Un paso cerrado: su texto ya está en los mensajes, el vivo arranca de cero.
+          onProgress: (progress) => {
+            setLive(NO_LIVE)
+            setMessages([...next, ...progress])
+          },
           onApplied: (ops, inverse) => {
             session.pushApplied(ops, inverse)
             syncUndo()
@@ -118,26 +125,40 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
         if (deleted.current.has(chatId)) return // el abort del borrado no es un error
         // Error crudo del Proveedor (401, CORS, red): el usuario necesita verlo tal cual.
         setError(e instanceof Error ? e.message : String(e))
+        setRetryable(true)
       } finally {
         // Puede haber auto-aplicado escrituras: la UI relee.
         refresh()
         setTool(null)
+        setLive(NO_LIVE)
         setBusy(false)
       }
     },
-    [
-      messages,
-      chatId,
-      persist,
-      provider,
-      modelId,
-      approval,
-      refresh,
-      session,
-      syncUndo,
-      skills,
-      meter,
-    ],
+    [chatId, persist, provider, modelId, approval, refresh, session, syncUndo, meter],
+  )
+
+  const send = useCallback(
+    async (text: string, open: OpenContext, attachments: Attachment[] = []) => {
+      // `/nombre args` expande el Skill como instrucción del turno; un `/foo` inexistente va como texto.
+      const hit = matchSkill(text, skills)
+      await run(
+        [
+          ...messages,
+          userMessage(text, attachments, hit ? { ...hit.skill, args: hit.args } : undefined),
+        ],
+        open,
+      )
+    },
+    [messages, skills, run],
+  )
+
+  // Continuar un turno cortado (límite de pasos, detenido): un mensaje más del usuario.
+  const resume = useCallback((open: OpenContext) => send("Continuá", open), [send])
+  // Reintentar tras un error: si el hilo termina en el mensaje del usuario se reenvía tal cual
+  // (el modelo nunca llegó a contestar); si no, se le pide continuar.
+  const retry = useCallback(
+    (open: OpenContext) => (messages.at(-1)?.role === "user" ? run(messages, open) : resume(open)),
+    [messages, run, resume],
   )
 
   const stop = useCallback(() => abort.current?.abort(), [])
@@ -185,6 +206,7 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
       setProposal(null)
       setLast(null)
       setError(null)
+      setRetryable(false)
       setBlocked(null)
       setUndoable([])
     },
@@ -229,7 +251,9 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     remove,
     busy,
     tool,
+    live,
     error,
+    retryable,
     malformed,
     meter,
     tokens: meter?.session ?? { input: 0, output: 0 },
@@ -237,6 +261,8 @@ export function useAgentChat(provider: ProviderConfig, modelId: string) {
     last,
     proposal,
     send,
+    retry,
+    resume,
     approve,
     discard,
     undoable,

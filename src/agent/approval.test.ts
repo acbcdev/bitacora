@@ -1,4 +1,5 @@
-import { MockLanguageModelV4 } from "ai/test"
+import type { MockLanguageModelV4 } from "ai/test"
+import { StreamedMock } from "@/agent/streamed-mock"
 import { runTurn } from "@/core/agent/turn"
 import { localStore } from "@/core/store/local-store"
 import { docToMarkdown, markdownToDoc } from "@/core/lib/tiptap-markdown"
@@ -51,7 +52,7 @@ async function mixedTurn(approval: ApprovalLevel) {
     position: 0,
     content: markdownToDoc("uno"),
   })
-  const model = new MockLanguageModelV4({
+  const model = new StreamedMock({
     doGenerate: [
       call("create_notebook", { name: "Nuevo" }, "a"),
       call("update_note", { id: nota.id, content: "dos" }, "b"),
@@ -104,7 +105,7 @@ test("skip: todo directo, sin Propuesta; la inversa llega a onApplied y deshace"
 })
 
 test("sin approval explícito el default es ask", async () => {
-  const model = new MockLanguageModelV4({
+  const model = new StreamedMock({
     doGenerate: [call("create_notebook", { name: "X" }, "a"), say("ok")],
   })
   const turn = await runTurn({
@@ -117,7 +118,7 @@ test("sin approval explícito el default es ask", async () => {
 })
 
 test("lo auto-aplicado se ve en las lecturas siguientes del mismo turno", async () => {
-  const model = new MockLanguageModelV4({
+  const model = new StreamedMock({
     doGenerate: [
       call("create_notebook", { name: "Física" }, "a"),
       call("get_overview", {}, "b"),
@@ -140,7 +141,7 @@ test("seam undo: el turno auto-aplicado entra a la pila como una entrada y undo 
     position: 0,
     content: markdownToDoc("uno"),
   })
-  const model = new MockLanguageModelV4({
+  const model = new StreamedMock({
     doGenerate: [
       call("update_note", { id: nota.id, content: "dos" }, "a"),
       call("update_note", { id: nota.id, content: "tres" }, "b"),
@@ -170,7 +171,7 @@ test("seam undo: el turno auto-aplicado entra a la pila como una entrada y undo 
 })
 
 test("seam undo: turno de solo creaciones cuenta como aplicado pero no se deshace", async () => {
-  const model = new MockLanguageModelV4({
+  const model = new StreamedMock({
     doGenerate: [call("create_notebook", { name: "X" }, "a"), say("ok")],
   })
   const session = createSession(store)
@@ -194,7 +195,7 @@ test("seam undo: abortar tras una escritura auto-aplicada igual llama onApplied 
   })
   const ctl = new AbortController()
   let n = 0
-  const model = new MockLanguageModelV4({
+  const model = new StreamedMock({
     doGenerate: async () => {
       if (n++ === 0) return call("update_note", { id: nota.id, content: "dos" }, "a")
       ctl.abort()

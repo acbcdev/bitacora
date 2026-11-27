@@ -1,5 +1,5 @@
 import {
-  generateText,
+  streamText,
   jsonSchema,
   stepCountIs,
   tool,
@@ -93,6 +93,10 @@ export type TurnInput = {
   onApplied?: (ops: Op[], inverse: Op[]) => void
   // Qué tool corre ahora (null = el modelo está pensando): para que la UI diga qué pasa de verdad.
   onTool?: (risk: AgentTool["risk"] | null) => void
+  // Texto y razonamiento del paso en curso, acumulados (se reinician en cada paso).
+  onStream?: (live: { text: string; reasoning: string }) => void
+  // Mensajes de los pasos ya completos (assistant + tool), para pintarlos antes de que cierre el turno.
+  onProgress?: (done: ModelMessage[]) => void
   now?: Date
 }
 
@@ -160,7 +164,7 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
 
   // Lo completado hasta ahora, para devolverlo parcial si el usuario detiene el turno.
   let done: ModelMessage[] = []
-  let steps = 0
+  let count = 0
   const usage = { input: 0, output: 0, reasoning: 0 }
   let context = 0
   const stepMs: number[] = []
@@ -172,7 +176,7 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
   const propose = () => (drafts.ops().length ? { ops: drafts.ops() } : null)
 
   try {
-    const result = await generateText({
+    const result = streamText({
       model: input.model,
       instructions: system,
       messages: history,
@@ -182,44 +186,61 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
       abortSignal: input.abortSignal,
       prepareStep: ({ responseMessages }) => {
         done = withDurations(responseMessages, stepMs)
+        if (done.length) input.onProgress?.(done)
         stepStart = Date.now()
         return undefined
       },
-      onStepFinish: (step) => {
-        steps++
-        stepMs.push(Date.now() - stepStart)
-        usage.reasoning += step.usage.outputTokenDetails.reasoningTokens ?? 0
-        usage.input += step.usage.inputTokens ?? 0
-        usage.output += step.usage.outputTokens ?? 0
-        context =
-          (step.usage.inputTokens ?? 0) +
-          (step.usage.outputTokens ?? 0) -
-          (step.usage.outputTokenDetails.reasoningTokens ?? 0)
-      },
     })
 
-    const bad = result.steps.at(-1)?.toolCalls.find((c) => c.invalid)
+    // streamText no lanza: los errores y el abort llegan como partes del stream.
+    const live = { text: "", reasoning: "" }
+    for await (const part of result.fullStream) {
+      if (part.type === "error") throw part.error
+      if (part.type === "abort") throw new DOMException("aborted", "AbortError")
+      if (part.type === "start-step") {
+        live.text = ""
+        live.reasoning = ""
+      } else if (part.type === "finish-step") {
+        // Contabilidad acá y no en onStepFinish: ése llega después del cierre del stream, y al
+        // detener o fallar el turno se perdería.
+        const u = part.usage
+        const r = u.outputTokenDetails.reasoningTokens ?? 0
+        count++
+        stepMs.push(Date.now() - stepStart)
+        usage.reasoning += r
+        usage.input += u.inputTokens ?? 0
+        usage.output += u.outputTokens ?? 0
+        context = (u.inputTokens ?? 0) + (u.outputTokens ?? 0) - r
+      } else if (part.type === "text-delta" || part.type === "reasoning-delta") {
+        live[part.type === "text-delta" ? "text" : "reasoning"] += part.text
+        input.onStream?.({ ...live })
+      }
+    }
+    const [steps, responseMessages, totalUsage, finishReason, text] = await Promise.all([
+      result.steps,
+      result.responseMessages,
+      result.totalUsage,
+      result.finishReason,
+      result.text,
+    ])
+
+    const bad = steps.at(-1)?.toolCalls.find((c) => c.invalid)
     const malformed = bad
       ? `${bad.toolName} ${JSON.stringify(bad.input)}: ${bad.error instanceof Error ? bad.error.message : String(bad.error)}`
       : undefined
-    const stoppedMalformed =
-      result.steps.length >= MAX_MALFORMED && malformedCalls({ steps: result.steps })
+    const stoppedMalformed = steps.length >= MAX_MALFORMED && malformedCalls({ steps })
     return {
-      messages: withDurations(result.responseMessages, stepMs),
-      text: result.text,
-      steps: result.steps.length,
+      messages: withDurations(responseMessages, stepMs),
+      text,
+      steps: steps.length,
       usage: {
-        input: result.totalUsage.inputTokens ?? 0,
-        output: result.totalUsage.outputTokens ?? 0,
-        reasoning: result.totalUsage.outputTokenDetails.reasoningTokens ?? 0,
+        input: totalUsage.inputTokens ?? 0,
+        output: totalUsage.outputTokens ?? 0,
+        reasoning: totalUsage.outputTokenDetails.reasoningTokens ?? 0,
       },
       context,
-      parts: parts(result.responseMessages),
-      finish: stoppedMalformed
-        ? "malformed"
-        : result.finishReason === "tool-calls"
-          ? "limit"
-          : "stop",
+      parts: parts(responseMessages),
+      finish: stoppedMalformed ? "malformed" : finishReason === "tool-calls" ? "limit" : "stop",
       malformed: stoppedMalformed ? malformed : undefined,
       proposal: propose(),
     }
@@ -228,7 +249,7 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
     return {
       messages: done,
       text: "",
-      steps,
+      steps: count,
       usage,
       context,
       parts: parts(done),

@@ -1,4 +1,4 @@
-import { MockLanguageModelV4 } from "ai/test"
+import { StreamedMock } from "@/agent/streamed-mock"
 import { THINKING_BUDGET, runTurn, thinkingMs } from "@/core/agent/turn"
 import { localStore } from "@/core/store/local-store"
 import { agentTools } from "@/agent/tools"
@@ -21,7 +21,7 @@ const say = (text: string) => ({
 const user = (text: string) => [{ role: "user" as const, content: text }]
 
 test("el turno guarda la parte reasoning con su duración y cuenta sus tokens", async () => {
-  const model = new MockLanguageModelV4({
+  const model = new StreamedMock({
     doGenerate: [
       {
         content: [think("Primero miro la nota."), { type: "text", text: "Listo." }],
@@ -42,7 +42,7 @@ test("el turno guarda la parte reasoning con su duración y cuenta sus tokens", 
 })
 
 test("el historial reenviado no lleva reasoning de turnos anteriores", async () => {
-  const model = new MockLanguageModelV4({ doGenerate: [say("ok")] })
+  const model = new StreamedMock({ doGenerate: [say("ok")] })
   await runTurn({
     model,
     store,
@@ -60,7 +60,7 @@ test("el historial reenviado no lleva reasoning de turnos anteriores", async () 
 })
 
 test("dentro del loop de tools el SDK devuelve el reasoning del paso al modelo", async () => {
-  const model = new MockLanguageModelV4({
+  const model = new StreamedMock({
     doGenerate: [
       {
         content: [
@@ -80,7 +80,7 @@ test("dentro del loop de tools el SDK devuelve el reasoning del paso al modelo",
 
 test("pide extended thinking solo a Anthropic con modelo que lo soporta", async () => {
   const run = async (provider: string, modelId: string) => {
-    const model = new MockLanguageModelV4({ provider, modelId, doGenerate: [say("ok")] })
+    const model = new StreamedMock({ provider, modelId, doGenerate: [say("ok")] })
     await runTurn({ model, store, tools: agentTools, messages: user("hola") })
     return model.doGenerateCalls[0].providerOptions
   }
@@ -89,4 +89,18 @@ test("pide extended thinking solo a Anthropic con modelo que lo soporta", async 
   })
   expect(await run("anthropic.messages", "claude-3-5-haiku-latest")).toBeUndefined()
   expect(await run("openrouter.chat", "x/y")).toBeUndefined()
+})
+
+test("el texto del paso se transmite por onStream antes de que cierre el turno", async () => {
+  const model = new StreamedMock({ doGenerate: [say("Hola mundo")] })
+  const seen: string[] = []
+  const turn = await runTurn({
+    model,
+    store,
+    tools: agentTools,
+    messages: user("hola"),
+    onStream: (l) => seen.push(l.text),
+  })
+  expect(seen).toEqual(["Hola mundo"])
+  expect(turn.text).toBe("Hola mundo")
 })
