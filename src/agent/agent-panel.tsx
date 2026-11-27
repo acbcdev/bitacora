@@ -2,16 +2,14 @@ import { useEffect, useRef, useState } from "react"
 import { useLocation, useMatch, useNavigate } from "react-router-dom"
 import {
   Bot,
-  Brain,
   Check,
   ChevronDown,
   Maximize2,
   Minimize2,
-  Send,
+  ArrowUp,
   Square,
-  SquarePen,
+  Plus,
   Trash2,
-  Wrench,
   ChevronsRight,
   X,
 } from "lucide-react"
@@ -52,6 +50,8 @@ import { SlashMenu, useSlash } from "@/agent/slash-menu"
 import { useSkills } from "@/agent/use-skills"
 import { AttachMenu, addPicked, usePickRef, type Picked } from "@/agent/attach-menu"
 import { ChatMarkdown } from "@/agent/chat-markdown"
+import { ErrorLine, describeError } from "@/agent/error-line"
+import { UserMessage } from "@/agent/user-message"
 import { MentionMenu, useMention } from "@/agent/mention-menu"
 import { ToolBlock } from "@/agent/tool-block"
 import { ReasoningBlock } from "@/agent/reasoning-block"
@@ -210,13 +210,13 @@ function Thread({
       const skill = invokedSkill(m.content)
       const attached = parts.length - 1 - (skill ? 1 : 0)
       return (
-        <div key={i} className="flex flex-col items-end gap-2 self-end">
-          <p className="rounded-2xl bg-muted px-3 py-2 text-sm whitespace-pre-wrap">
+        <div key={i} className="flex flex-col gap-2">
+          <UserMessage>
             {typeof m.content === "string"
               ? m.content
               : parts.map((p) => (p.type === "text" ? p.text : "")).slice(0, 1)}
-            {attached > 0 && <span className="mono-dim block">adjuntos: {attached}</span>}
-          </p>
+          </UserMessage>
+          {attached > 0 && <span className="mono-dim">adjuntos: {attached}</span>}
           {skill && (
             <ToolBlock
               name={`skill_${skill.name}`}
@@ -282,6 +282,9 @@ function Chat({
     meter,
     proposal,
     send,
+    retry,
+    resume,
+    retryable,
     stop,
     approve,
     discard,
@@ -291,6 +294,7 @@ function Chat({
     reset,
     hasApplied,
     tool,
+    live,
   } = useAgentChat(provider, modelId)
   // En la ruta `/chat/:id` la URL manda: cambiar de chat navega junto con el estado.
   const route = useMatch("/chat/:id")
@@ -377,9 +381,34 @@ function Chat({
     turn.current?.scrollIntoView({ block: "start" })
   }, [lastUser, chatId])
 
+  // ↑/↓ como en el shell: recorre lo que el usuario envió en este chat. `hist` es el cursor
+  // (null = no navegando) y `stash` guarda el borrador para volver con ↓.
+  const sent = messages.flatMap((m) =>
+    m.role !== "user"
+      ? []
+      : [typeof m.content === "string" ? m.content : (m.content[0] as { text: string }).text],
+  )
+  const hist = useRef<number | null>(null)
+  const stash = useRef("")
+  function recall(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const { value, selectionStart: a, selectionEnd: b } = e.currentTarget
+    const up = e.key === "ArrowUp"
+    if (e.shiftKey || a !== b || (hist.current === null && !up)) return false
+    // Solo en la primera (↑) / última (↓) línea: en el medio de un texto multilínea mueve el cursor.
+    if (up ? value.slice(0, a).includes("\n") : value.slice(a).includes("\n")) return false
+    const i = up ? (hist.current ?? sent.length) - 1 : hist.current! + 1
+    if (i < 0) return false
+    if (hist.current === null) stash.current = value
+    hist.current = i < sent.length ? i : null
+    fill(i < sent.length ? sent[i] : stash.current)
+    e.preventDefault()
+    return true
+  }
+
   function submit() {
     const text = draft.trim()
     if (!text || busy) return
+    hist.current = null
     setDraft("")
     setPicked([])
     void send(
@@ -417,7 +446,7 @@ function Chat({
               disabled={busy || messages.length === 0}
               onClick={newChat}
             >
-              <SquarePen />
+              <Plus />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Nuevo chat</TooltipContent>
@@ -536,33 +565,37 @@ function Chat({
                 </div>
               </div>
             )}
-            {busy && (
-              <div
-                role="status"
-                className="flex items-center gap-1.5 text-sm text-muted-foreground"
-              >
-                {tool ? <Wrench className="size-3.5" /> : <Brain className="size-3.5" />}
-                <span className="shimmer">
-                  {tool === "read" ? "Leyendo…" : tool ? "Preparando cambios…" : "Pensando…"}
-                </span>
-              </div>
+            {live.reasoning && <ReasoningBlock live>{live.reasoning}</ReasoningBlock>}
+            {live.text && <ChatMarkdown>{live.text}</ChatMarkdown>}
+            {busy && !live.reasoning && !live.text && (
+              <span role="status" className="shimmer w-fit text-sm">
+                {tool === "read" ? "Leyendo…" : tool ? "Preparando cambios…" : "Pensando…"}
+              </span>
             )}
             {error && (
-              <p role="alert" className="text-sm break-words text-destructive">
-                {error}
-              </p>
+              <ErrorLine
+                title={describeError(error)}
+                detail={error}
+                action={retryable && !busy ? "Reintentar" : undefined}
+                onAction={() => void retry(chipOff ? null : open)}
+              />
             )}
             {malformed !== null && (
-              <details className="text-xs text-muted-foreground">
-                <summary>El modelo no logró llamar bien a las tools</summary>
-                <pre className="mt-1 break-words whitespace-pre-wrap">{malformed}</pre>
-              </details>
+              <ErrorLine
+                title="El modelo no logró llamar bien a las tools."
+                detail={malformed}
+                action="Reintentar"
+                onAction={() => void retry(chipOff ? null : open)}
+              />
             )}
             {/* Los tokens viven en el anillo del composer; acá solo cómo terminó el turno. */}
             {last && !busy && (last.finish === "limit" || last.finish === "aborted") && (
-              <span className="mono-dim">
-                {last.finish === "limit" ? "Llegué al límite de pasos" : "Detenido"}
-              </span>
+              <ErrorLine
+                info
+                title={last.finish === "limit" ? "Llegué al límite de pasos." : "Detenido."}
+                action="Continuar"
+                onAction={() => void resume(chipOff ? null : open)}
+              />
             )}
           </div>
         </div>
@@ -573,9 +606,9 @@ function Chat({
           {slash.open && <SlashMenu slash={slash} />}
           {/* Una sola tarjeta: chips, texto y barra de acciones (modelo, aprobación, enviar). */}
           <div className="flex flex-col gap-1 rounded-xl bg-card p-3 ring-1 ring-border transition-shadow duration-150 focus-within:ring-2 focus-within:ring-ring/50">
-            {/* Fila de chips + anillo de contexto a la derecha, siempre visible. */}
-            <div className="flex items-start gap-2">
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
+            {/* Chips solo si hay (contexto abierto o adjuntos): sin chips no hay fila vacía arriba. */}
+            {((open && !chipOff) || picked.length > 0) && (
+              <div className="flex min-w-0 flex-col gap-1">
                 {open && !chipOff && (
                   <span className="flex w-fit max-w-full items-center gap-1 rounded-pill bg-muted py-0.5 pr-1 pl-3 text-xs">
                     <span className="truncate">{open.title || "(sin título)"}</span>
@@ -606,8 +639,7 @@ function Chat({
                   </span>
                 ))}
               </div>
-              <ContextRing provider={provider} modelId={modelId} meter={meter} />
-            </div>
+            )}
             <Textarea
               aria-label="Mensaje al Agente"
               ref={input}
@@ -615,12 +647,14 @@ function Chat({
               value={draft}
               placeholder="Preguntale al Agente, @ contexto, / skills"
               onChange={(e) => {
+                hist.current = null
                 setDraft(e.target.value)
                 setCaret(e.target.selectionStart)
               }}
               onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
               onKeyDown={(e) => {
                 if (mention.onKeyDown(e) || slash.onKeyDown(e)) return
+                if ((e.key === "ArrowUp" || e.key === "ArrowDown") && recall(e)) return
                 if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault()
                   submit()
@@ -637,6 +671,7 @@ function Chat({
                 <ModelPicker settings={settings} active={{ provider, modelId }} />
                 <ApprovalPicker />
               </div>
+              <ContextRing provider={provider} modelId={modelId} meter={meter} />
               {busy ? (
                 <Button
                   size="icon-sm"
@@ -654,7 +689,7 @@ function Chat({
                   onClick={submit}
                   className="shrink-0 rounded-pill max-md:size-11"
                 >
-                  <Send />
+                  <ArrowUp />
                 </Button>
               )}
             </div>

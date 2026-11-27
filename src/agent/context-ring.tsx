@@ -109,7 +109,7 @@ export function ContextRing({
           tabIndex={0}
           aria-label={p != null ? `Contexto ${Math.round(p * 100)}% usado` : "Uso de contexto"}
           className={cn(
-            "grid size-6 shrink-0 place-items-center rounded-pill text-muted-foreground outline-none transition-colors duration-150 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50",
+            "mx-1.5 grid size-6 shrink-0 place-items-center rounded-pill text-muted-foreground outline-none transition-colors duration-150 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50",
             tone,
           )}
         >
