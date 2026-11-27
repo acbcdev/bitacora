@@ -3,43 +3,47 @@ import { ProposalCard } from "@/agent/proposal-card"
 import { markdownToDoc } from "@/core/lib/tiptap-markdown"
 import type { Op } from "@/core/agent/tool"
 
-const op: Op = {
+const edit: Op = {
   entity: "notes",
   label: "Editar nota «A» (id 1a2b)",
-  before: { id: "n1", content: markdownToDoc("uno") },
-  after: { id: "n1", content: markdownToDoc("dos") },
+  before: { id: "n1", title: "A", content: markdownToDoc("uno") },
+  after: { id: "n1", title: "A", content: markdownToDoc("dos") },
+}
+const create: Op = {
+  entity: "notes",
+  label: "Crear nota «B»",
+  before: null,
+  after: { id: "n2", title: "B", content: markdownToDoc("## Plan\n\n- **r** lectura") },
 }
 
-test("Cambios muestra el cuerpo renderizado, no Markdown crudo", async () => {
-  const heading: Op = {
-    ...op,
-    after: { id: "n1", content: markdownToDoc("## Valores\n\n- **r** lectura") },
-  }
-  render(
-    <ProposalCard
-      proposal={{ ops: [heading] }}
-      status="pending"
-      onApprove={() => {}}
-      onDiscard={() => {}}
-    />,
-  )
-  fireEvent.mouseDown(screen.getByRole("tab", { name: "Cambios" }), { button: 0 })
-  expect(await screen.findByRole("heading", { name: "Valores" })).toBeInTheDocument()
+const card = (op: Op, onApprove = () => {}) => (
+  <ProposalCard
+    proposal={{ ops: [op] }}
+    status="pending"
+    onApprove={onApprove}
+    onDiscard={() => {}}
+  />
+)
+
+test("crear: Markdown renderizado y sin diff ni pestañas", () => {
+  render(card(create))
+  expect(screen.getByRole("heading", { name: "Plan" })).toBeInTheDocument()
   expect(screen.queryByText(/\*\*r\*\*/)).toBeNull()
+  expect(screen.queryByRole("tab")).toBeNull()
 })
 
-test("sin tocar la pestaña Cambios, aprueba la Propuesta intacta", () => {
+test("editar: abre en Diff y la pestaña Nota muestra el cuerpo renderizado", async () => {
+  render(card({ ...edit, after: { id: "n1", title: "A", content: markdownToDoc("## Valores") } }))
+  expect(screen.getByText("-")).toBeInTheDocument()
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Nota" }), { button: 0 })
+  expect(await screen.findByRole("heading", { name: "Valores" })).toBeInTheDocument()
+})
+
+test("aprueba la Propuesta intacta (solo lectura, sin edición)", () => {
   const onApprove = vi.fn()
-  render(
-    <ProposalCard
-      proposal={{ ops: [op] }}
-      status="pending"
-      onApprove={onApprove}
-      onDiscard={() => {}}
-    />,
-  )
+  render(card(edit, onApprove))
   fireEvent.click(screen.getByRole("button", { name: /Aprobar/ }))
-  expect(onApprove.mock.calls[0][0].ops[0]).toBe(op)
+  expect(onApprove.mock.calls[0][0].ops[0]).toBe(edit)
 })
 
 describe("mobile", () => {
@@ -51,22 +55,12 @@ describe("mobile", () => {
     window.innerWidth = width
   })
 
-  test("card resumen: Aprobar/Descartar sin atajo; la operación abre Diff | Cambios", async () => {
+  test("Aprobar/Descartar sin atajo de teclado", () => {
     const onApprove = vi.fn()
-    render(
-      <ProposalCard
-        proposal={{ ops: [op] }}
-        status="pending"
-        onApprove={onApprove}
-        onDiscard={() => {}}
-      />,
-    )
+    render(card(edit, onApprove))
     expect(screen.getByRole("button", { name: "Descartar" })).toBeVisible()
     expect(screen.queryByText("⌘↵")).toBeNull()
     fireEvent.keyDown(window, { key: "Enter", metaKey: true })
     expect(onApprove).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole("button", { name: /Editar nota/ }))
-    expect(await screen.findByRole("tab", { name: "Diff" })).toBeInTheDocument()
-    expect(screen.getByRole("tab", { name: "Cambios" })).toBeInTheDocument()
   })
 })

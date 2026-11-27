@@ -126,6 +126,7 @@ export function Editor({
   onChange,
   onPaste,
   touchBlocks = false,
+  outline = true,
   ref,
 }: {
   content: TiptapDoc
@@ -136,6 +137,8 @@ export function Editor({
   // Acciones de bloque en touch (barra sobre el teclado + asa + long-press) en vez del gutter por
   // hover. Opt-in: el vaul del sheet no convive con el focus-trap de un Radix Dialog (NoteDialog).
   touchBlocks?: boolean
+  // Rail de headings: no tiene sentido dentro de una card chica (ProposalCard).
+  outline?: boolean
   ref?: Ref<EditorHandle>
 }) {
   const isMobile = useIsMobile()
@@ -424,7 +427,7 @@ export function Editor({
   // documento) y primero en el flujo, que es lo que necesita su sticky. Ver ADR 0007.
   return (
     <div ref={host} className="relative">
-      <Outline host={host} version={version} />
+      {outline && <Outline host={host} version={version} />}
       <EditorContent editor={editor} className="tiptap-host" />
       {/* Tablas (historia 5): + y handles por hover. */}
       {editor && <TableHoverControls editor={editor} host={host} />}

@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/core/ui/button"
 import { Kbd } from "@/core/ui/kbd"
-import { Editor } from "@/core/components/editor"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/core/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/core/ui/tabs"
 import { cn } from "@/core/lib/utils"
 import { useIsMobile } from "@/core/lib/hooks/use-mobile"
-import { DrawerContent, DrawerDescription, DrawerNested, DrawerTitle } from "@/core/ui/drawer"
-import { ChevronRight } from "lucide-react"
+import { ChatMarkdown } from "@/agent/chat-markdown"
 import { diffLines } from "@/core/agent/diff"
 import type { Proposal } from "@/core/agent/proposal"
 import type { Op } from "@/core/agent/tool"
@@ -16,123 +14,87 @@ import type { TiptapDoc } from "@/core/types/database"
 type Status = "pending" | "applied" | "discarded"
 
 const show = (v: unknown) => (v === null || v === undefined ? "—" : String(v))
+const clean = (label: string) => label.replace(/ \(id [0-9a-f-]+\)$/, "")
 
-// Solo lectura. Notas: diff por línea del Markdown; el resto `antes → después`; altas solo "después".
-function OpDiff({ op }: { op: Op }) {
-  const before = op.before as Record<string, unknown> | null
-  const after = op.after as Record<string, unknown>
-  const fields = Object.keys(after).filter(
-    (k) => k !== "id" && k !== "content" && (!before || before[k] !== after[k]),
-  )
-  const hasContent = op.entity === "notes" && "content" in after
-  const md = (d: unknown) => docToMarkdown(d as TiptapDoc)
+const hasContent = (op: Op) => op.entity === "notes" && "content" in op.after
+// Solo editar tiene diff: crear no tiene un "antes" contra qué comparar.
+const isEdit = (op: Op) => hasContent(op) && op.before !== null
 
+function DiffView({ before, after }: { before: string; after: string }) {
   return (
-    <div className="flex flex-col gap-1 text-xs">
-      <span className="font-medium">{op.label}</span>
-      {fields.map((k) => (
-        <span key={k} className="mono-dim break-words">
-          {k}: {before ? `${show(before[k])} → ` : ""}
-          {show(after[k])}
-        </span>
-      ))}
-      {hasContent && (
-        <pre className="max-h-60 overflow-auto rounded-md border font-mono whitespace-pre-wrap">
-          {(before
-            ? diffLines(md(before.content), md(after.content))
-            : diffLines("", md(after.content))
-          )
-            .filter((l) => l.type !== "same" || l.text)
-            .map((l, i) => (
-              <span
-                key={i}
-                className={cn(
-                  "flex gap-2 px-2",
-                  l.type === "add" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-                  l.type === "del" && "bg-destructive/15 text-destructive",
-                )}
-              >
-                <span className="w-2 shrink-0 select-none">
-                  {l.type === "add" ? "+" : l.type === "del" ? "-" : ""}
-                </span>
-                <span className="min-h-[1lh] min-w-0 break-words">{l.text}</span>
-              </span>
-            ))}
-        </pre>
+    <pre className="rounded-md border font-mono text-xs whitespace-pre-wrap">
+      {diffLines(before, after)
+        .filter((l) => l.type !== "same" || l.text)
+        .map((l, i) => (
+          <span
+            key={i}
+            className={cn(
+              "flex gap-2 px-2",
+              l.type === "add" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+              l.type === "del" && "bg-destructive/15 text-destructive",
+            )}
+          >
+            <span className="w-2 shrink-0 select-none">
+              {l.type === "add" ? "+" : l.type === "del" ? "-" : ""}
+            </span>
+            <span className="min-h-[1lh] min-w-0 break-words">{l.text}</span>
+          </span>
+        ))}
+    </pre>
+  )
+}
+
+// Una Op, solo lectura. Notas: Markdown renderizado (o diff al editar, según la pestaña); el resto
+// de las entidades: `campo: antes → después`.
+function OpView({ op, view, tabs }: { op: Op; view: "diff" | "nota"; tabs?: React.ReactNode }) {
+  const after = op.after as Record<string, unknown>
+  const before = op.before as Record<string, unknown> | null
+  const md = (d: unknown) => docToMarkdown(d as TiptapDoc)
+  const edit = isEdit(op)
+  const fields = Object.keys(after).filter(
+    (k) => k !== "id" && k !== "content" && k !== "title" && (!before || before[k] !== after[k]),
+  )
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="mono-dim">
+            {op.entity === "notes" ? (edit ? "Nota editada" : "Nota nueva") : "Cambio"}
+          </span>
+          <h3 className="text-base leading-snug font-medium break-words">
+            {typeof after.title === "string" && after.title ? after.title : clean(op.label)}
+          </h3>
+        </div>
+        {tabs}
+      </div>
+      {fields.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          {fields.map((k) => (
+            <span key={k} className="mono-dim break-words">
+              {k}: {before ? `${show(before[k])} → ` : ""}
+              {show(after[k])}
+            </span>
+          ))}
+        </div>
+      )}
+      {hasContent(op) && (
+        <div className="max-h-[60dvh] overflow-y-auto">
+          {edit && view === "diff" ? (
+            <DiffView
+              before={md((before as { content: unknown }).content)}
+              after={md(after.content)}
+            />
+          ) : (
+            <ChatMarkdown>{md(after.content)}</ChatMarkdown>
+          )}
+        </div>
       )}
     </div>
   )
 }
 
-const clean = (label: string) => label.replace(/ \(id [0-9a-f-]+\)$/, "")
-
-type Editable = { op: Op; i: number }
-
-function Editors({
-  editable,
-  edits,
-  setEdits,
-  pending,
-}: {
-  editable: Editable[]
-  edits: Record<number, TiptapDoc>
-  setEdits: React.Dispatch<React.SetStateAction<Record<number, TiptapDoc>>>
-  pending: boolean
-}) {
-  return editable.map(({ op, i }) => (
-    <div key={i} className="flex flex-col gap-1 text-xs">
-      <span className="font-medium">{clean(op.label)}</span>
-      {/* Editor renderizado (no Markdown crudo). Sin prop `editable`: `inert` lo congela al resolverse. */}
-      <div
-        inert={!pending}
-        className="max-h-60 overflow-y-auto rounded-xl border p-3 text-sm"
-        aria-label={`Cuerpo: ${op.label}`}
-      >
-        <Editor
-          content={edits[i] ?? (op.after as { content: TiptapDoc }).content}
-          onChange={(doc) => setEdits((m) => ({ ...m, [i]: doc }))}
-        />
-      </div>
-    </div>
-  ))
-}
-
-// Mobile: la Propuesta es una card resumen con Aprobar/Descartar siempre a la vista; el detalle
-// (Diff | Cambios) vive en un Drawer anidado a pantalla completa que abre tocar una operación.
-function MobileDetail({
-  proposal,
-  open,
-  onOpenChange,
-  ...editors
-}: {
-  proposal: Proposal
-  open: boolean
-  onOpenChange(open: boolean): void
-} & React.ComponentProps<typeof Editors>) {
-  return (
-    <DrawerNested open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="h-dvh data-[vaul-drawer-direction=bottom]:mt-0 data-[vaul-drawer-direction=bottom]:max-h-dvh data-[vaul-drawer-direction=bottom]:rounded-t-none">
-        <DrawerTitle className="sr-only">Detalle de la Propuesta</DrawerTitle>
-        <DrawerDescription className="sr-only">Diff y cambios de la Propuesta</DrawerDescription>
-        <Tabs defaultValue="diff" className="min-h-0 flex-1 gap-0 px-4 pt-4">
-          <TabsList className="w-full">
-            <TabsTrigger value="diff">Diff</TabsTrigger>
-            {editors.editable.length > 0 && <TabsTrigger value="cambios">Cambios</TabsTrigger>}
-          </TabsList>
-          <TabsContent value="diff" className="flex flex-col gap-3 overflow-y-auto py-3">
-            {proposal.ops.map((op, i) => (
-              <OpDiff key={i} op={op} />
-            ))}
-          </TabsContent>
-          <TabsContent value="cambios" className="flex flex-col gap-3 overflow-y-auto py-3">
-            <Editors {...editors} />
-          </TabsContent>
-        </Tabs>
-      </DrawerContent>
-    </DrawerNested>
-  )
-}
-
+// Propuesta de solo lectura: se lee y se aprueba o descarta acá, sin dialog ni drawer.
+// Crear = Markdown; editar = pestañas Diff (por defecto) / Nota en la esquina del encabezado.
 export function ProposalCard({
   proposal,
   status,
@@ -141,24 +103,13 @@ export function ProposalCard({
 }: {
   proposal: Proposal
   status: Status
-  onApprove(edited: Proposal): void
+  onApprove(proposal: Proposal): void
   onDiscard(): void
 }) {
-  const [tab, setTab] = useState("diff")
+  const [view, setView] = useState<"diff" | "nota">("diff")
   const isMobile = useIsMobile()
-  const [detail, setDetail] = useState(false)
-  // Ediciones del usuario al doc del "después" de las notas, por índice de Op.
-  const [edits, setEdits] = useState<Record<number, TiptapDoc>>({})
   const pending = status === "pending"
-  const editable = proposal.ops.flatMap((op, i) =>
-    op.entity === "notes" && "content" in op.after ? [{ op, i }] : [],
-  )
-  const approve = useCallback(() => {
-    const ops = proposal.ops.map((op, i) =>
-      i in edits ? { ...op, after: { ...op.after, content: edits[i] } } : op,
-    )
-    onApprove({ ops })
-  }, [proposal, edits, onApprove])
+  const approve = useCallback(() => onApprove(proposal), [proposal, onApprove])
   useEffect(() => {
     // Mobile no tiene teclado físico: sin atajo, solo el botón.
     if (!pending || isMobile) return
@@ -171,78 +122,46 @@ export function ProposalCard({
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [pending, isMobile, approve])
-
-  if (isMobile)
-    return (
-      <section aria-label="Propuesta" className="flex flex-col gap-2 rounded-xl border p-3">
-        <ul className="flex flex-col text-sm">
-          {proposal.ops.map((op, i) => (
-            <li key={i}>
-              <button
-                type="button"
-                onClick={() => setDetail(true)}
-                className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 text-left"
-              >
-                <span className="min-w-0 break-words">{clean(op.label)}</span>
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-              </button>
-            </li>
-          ))}
-        </ul>
-        {pending ? (
-          <div className="flex gap-2">
-            <Button className="h-11 flex-1" onClick={approve}>
-              Aprobar
-            </Button>
-            <Button className="h-11 flex-1" variant="outline" onClick={onDiscard}>
-              Descartar
-            </Button>
-          </div>
-        ) : (
-          <span className="mono-dim">{status === "applied" ? "Aprobada" : "Descartada"}</span>
-        )}
-        <MobileDetail
-          proposal={proposal}
-          open={detail}
-          onOpenChange={setDetail}
-          editable={editable}
-          edits={edits}
-          setEdits={setEdits}
-          pending={pending}
-        />
-      </section>
-    )
-
+  const firstEdit = proposal.ops.findIndex(isEdit)
   return (
-    <section aria-label="Propuesta" className="flex flex-col gap-2 rounded-xl border p-3">
-      <Tabs value={tab} onValueChange={setTab}>
-        {editable.length > 0 && (
-          <TabsList variant="line">
-            <TabsTrigger value="diff">Diff</TabsTrigger>
-            <TabsTrigger value="cambios">Cambios</TabsTrigger>
-          </TabsList>
-        )}
-        <TabsContent value="diff" className="flex flex-col gap-3">
-          {proposal.ops.map((op, i) => (
-            <OpDiff key={i} op={op} />
-          ))}
-        </TabsContent>
-        <TabsContent value="cambios" className="flex flex-col gap-3">
-          <Editors editable={editable} edits={edits} setEdits={setEdits} pending={pending} />
-        </TabsContent>
-      </Tabs>
+    <Tabs
+      value={view}
+      onValueChange={(v) => setView(v as "diff" | "nota")}
+      aria-label="Propuesta"
+      className="flex flex-col gap-4 rounded-xl bg-card p-4"
+    >
+      {proposal.ops.map((op, i) => (
+        <OpView
+          key={i}
+          op={op}
+          view={view}
+          tabs={
+            i === firstEdit && (
+              <TabsList variant="line" className="-mt-1 -mr-2 shrink-0">
+                <TabsTrigger value="diff">Diff</TabsTrigger>
+                <TabsTrigger value="nota">Nota</TabsTrigger>
+              </TabsList>
+            )
+          }
+        />
+      ))}
       {pending ? (
         <div className="flex gap-2">
-          <Button size="sm" onClick={approve}>
-            Aprobar <Kbd>⌘↵</Kbd>
+          <Button size="sm" className="max-md:h-11 max-md:flex-1" onClick={approve}>
+            Aprobar {!isMobile && <Kbd>⌘↵</Kbd>}
           </Button>
-          <Button size="sm" variant="ghost" onClick={onDiscard}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="max-md:h-11 max-md:flex-1"
+            onClick={onDiscard}
+          >
             Descartar
           </Button>
         </div>
       ) : (
         <span className="mono-dim">{status === "applied" ? "Aprobada" : "Descartada"}</span>
       )}
-    </section>
+    </Tabs>
   )
 }
