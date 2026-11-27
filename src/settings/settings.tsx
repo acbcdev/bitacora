@@ -63,7 +63,7 @@ export function Settings({
       {/* Mismo tamaño que el NoteDialog en desktop. El padding extra y la X más adentro son por
           Curved: su esquina (36px) se comía el título con el padding de 16px. */}
       <DrialogContent
-        className={`${DRAWER_TALL} flex flex-col max-md:px-4 md:h-[85vh] md:w-5xl md:max-w-5xl md:p-8 md:**:data-[slot=dialog-close]:top-5 md:**:data-[slot=dialog-close]:right-5`}
+        className={`${DRAWER_TALL} flex flex-col max-md:px-4 md:h-[85vh] md:w-[calc(100vw-2rem)] md:max-w-5xl md:p-8 md:**:data-[slot=dialog-close]:top-5 md:**:data-[slot=dialog-close]:right-5`}
       >
         <DrialogHeader>
           <DrialogTitle className="text-lg font-semibold">Ajustes</DrialogTitle>
