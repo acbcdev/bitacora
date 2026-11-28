@@ -7,11 +7,17 @@ const para = (text: string) => ({
   type: "paragraph",
   content: [{ type: "text", text }],
 })
-const make = (content: object[]) =>
-  new Editor({
+const editors: Editor[] = []
+// Se destruyen en afterEach: si no, el timer del DOMObserver de ProseMirror dispara tras el teardown de jsdom ("document is not defined").
+afterEach(() => editors.splice(0).forEach((e) => e.destroy()))
+const make = (content: object[]) => {
+  const e = new Editor({
     extensions: [StarterKit, Details, DetailsSummary, DetailsContent],
     content: { type: "doc", content },
   })
+  editors.push(e)
+  return e
+}
 const order = (e: Editor) => e.getText({ blockSeparator: "" })
 const block = (e: Editor, text: string) =>
   allBlocks(e.state.doc).find((b) => b.node.textContent === text)!
