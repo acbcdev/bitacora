@@ -41,3 +41,8 @@ window.matchMedia ??= ((query: string) =>
     addEventListener: () => {},
     removeEventListener: () => {},
   }) as unknown as MediaQueryList) as typeof window.matchMedia
+
+// @tiptap/react destruye el editor con un setTimeout(1) al desmontar. Si el archivo de test termina
+// antes, el timer dispara tras el teardown de jsdom ("window is not defined") y Vitest falla el run
+// con un Unhandled Error aunque todos los tests pasen. Esperar acá deja que el timer corra a tiempo.
+afterEach(() => new Promise((resolve) => setTimeout(resolve, 5)))
